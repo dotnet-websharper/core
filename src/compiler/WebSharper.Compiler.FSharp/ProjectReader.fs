@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -37,7 +37,7 @@ module QR = WebSharper.Compiler.QuotationReader
 type FSIFD = FSharpImplementationFileDeclaration
 type FSMFV = FSharpMemberOrFunctionOrValue
 
-type private StartupCode = ResizeArray<Statement> * ResizeArray<Statement> * HashSet<string> 
+type private StartupCode = ResizeArray<Statement> * ResizeArray<Statement> * Dictionary<string, Type> 
 
 type private N = NotResolvedMemberKind
 
@@ -76,7 +76,7 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
-let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+let rec private collectTypeAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) (members: seq<SourceMemberOrEntity>) =
     let thisDef = sr.ReadTypeDefinition cls
     let annot =
         sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
@@ -85,34 +85,76 @@ let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinit
     for m in members do
         match m with
         | SourceEntity (ent, nmembers) ->
-            collectClassAnnotations d t sr annot ent nmembers
+            collectTypeAnnotations d t sr annot ent nmembers
+        | SourceInterface ent ->
+            collectTypeAnnotations d t sr annot ent Seq.empty
         | _ -> ()
+
+let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeReader.SymbolReader) tparams =
+    genParams |> Seq.map (fun p ->
+        let annot = sr.AttributeReader.GetTypeParamAnnot(p.Attributes)
+        {
+            Type = annot.Type
+            Constraints =
+                p.Constraints |> Seq.choose (fun c ->
+                    if c.IsCoercesToConstraint then
+                        Some <| sr.ReadType tparams c.CoercesToTarget
+                    else None
+                ) |> List.ofSeq
+        }
+    ) |> List.ofSeq
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
     if annot.IsForcedNotJavaScript then None else
-    let methodNames = ResizeArray()
+    let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d
         | _ -> sr.ReadTypeDefinition intf
 
+    let tparams =
+        intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
+    let intfMethods = 
+        intf.MembersFunctionsAndValues
+        |> Seq.map (fun m ->
+            let mAnnot =
+                sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
+                |> fixMemberAnnot (fun a -> sr.AttributeReader.GetMemberAnnot(annot, a.Attributes)) intf m
+            m, mAnnot
+        )
+        |> List.ofSeq
+
+    let isRemote =
+        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+
+    if isRemote then None else
+
+    let hasExplicitJS =
+        annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
+    
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
             let mAnnot =
                 sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
                 |> fixMemberAnnot (fun a -> sr.AttributeReader.GetMemberAnnot(annot, a.Attributes)) intf m
-            let md = 
-                match sr.ReadMember m with
-                | Member.Method (_, md) -> md
-                | _ -> failwith "invalid interface member"
-            methodNames.Add(md, mAnnot.Name)
+            if not hasExplicitJS || mAnnot.Kind.IsSome then
+                let md = 
+                    match sr.ReadMember m with
+                    | Member.Method (_, md) -> md
+                    | _ -> failwith "invalid interface member"
+                let gc = getConstraints m.GenericParameters sr tparams
+                methods.Add(md, mAnnot.Name, gc)
+    
     Some (def, 
         {
             StrongName = annot.Name 
-            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadTypeDefinition i.TypeDefinition) |> List.ofSeq
-            NotResolvedMethods = List.ofSeq methodNames 
+            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadType tparams i |> getConcreteType) |> List.ofSeq
+            NotResolvedMethods = List.ofSeq methods
+            Generics = getConstraints intf.GenericParameters sr tparams
+            Type = annot.Type
         }
     )
 
@@ -123,6 +165,18 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
     e.AllInterfaces |> Seq.exists (fun i ->
         sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
+
+let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    cls.AllInterfaces |> Seq.exists (fun i ->
+        i.BasicQualifiedName = "WebSharper.IRequiresResources"
+    )
+
+let rec private isWebControlType (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    match cls.BaseType with
+    | Some bCls ->
+        let typ = sr.ReadTypeDefinition bCls.TypeDefinition
+        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls.TypeDefinition
+    | _ -> false
 
 let isAugmentedFSharpType (e: FSharpEntity) =
     e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
@@ -135,6 +189,27 @@ let isAugmentedFSharpType (e: FSharpEntity) =
         )
     )
 
+let isOptionalParam (p: FSharpParameter) =
+    p.Attributes |> Seq.exists (fun a ->
+        a.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute"
+    )
+
+let defaultValueOfParam (p: FSharpParameter) =
+    p.Attributes |> Seq.tryPick (fun pa -> 
+        if pa.AttributeType.FullName = "System.Runtime.InteropServices.DefaultParameterValueAttribute" then
+            Some (ReadLiteral (snd pa.ConstructorArguments.[0]) |> Value) 
+        else None
+    )
+
+let refKindOfParam (p: FSharpParameter) =
+    p.Attributes |> Seq.tryPick (fun a ->
+        match a.AttributeType.FullName with
+        | "System.Runtime.InteropServices.OutAttribute" -> Some OutRefArg
+        | "System.Runtime.InteropServices.InAttribute" -> Some InRefArg
+        | _ -> None
+    )
+    |> Option.defaultValue NotOptimizedFuncArg
+
 let isAbstractClass (e: FSharpEntity) =
     e.Attributes |> Seq.exists (fun a ->
         a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
@@ -143,10 +218,12 @@ let isAbstractClass (e: FSharpEntity) =
 let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) recMembers a =
     if annot.IsJavaScript then
         let _, (_, statements, _) = sc.Value
-        let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+        let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let private nrInline = N.Inline false
+
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -180,6 +257,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> thisDef, None
 
     let isProxy = Option.isSome annot.ProxyOf 
+    let isThisInterface = cls.IsInterface
     let isInterfaceProxy = isProxy && isInterface def
 
     if annot.IsJavaScriptExport then
@@ -187,11 +265,32 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let clsMembers = ResizeArray()
     
-    let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
+    let clsTparams =
+        cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
+    let thisType = Generic def (List.init cls.GenericParameters.Count TypeParameter)
+    let thisTypeForFixer = Some (ConcreteType thisType)
+
+    let getUnresolved (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
         let nr =
             {
                 Kind = kind
                 StrongName = mAnnot.Name
+                Generics =
+                    match mem with
+                    | None -> []
+                    | Some (m, mem) ->
+                        let skip =
+                            match kind, mem with
+                            | N.Abstract, _ -> 0
+                            | _, (Member.Method _ | Member.Override _ | Member.Implementation _) ->
+                                min cls.GenericParameters.Count m.GenericParameters.Count
+                            | _ -> 0
+                        try
+                            getConstraints (Seq.skip skip m.GenericParameters) sr clsTparams
+                        with _ ->
+                            failwithf "failed getting generic params on %s member %A" def.Value.FullName mem
+                        //getConstraints m.GenericParameters sr clsTparams
                 Macros = mAnnot.Macros
                 Generator = 
                     match mAnnot.Kind with
@@ -256,7 +355,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> ()
         if mAnnot.IsJavaScriptExport then
             comp.AddJavaScriptExport (ExportNode (MethodNode (def, mdef)))
-        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mem mAnnot kind compiled curriedArgs expr)))
         
     let addConstructor (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) (cdef: Constructor) kind compiled curriedArgs expr =
         match proxied, mem with
@@ -271,7 +370,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> ()
         if mAnnot.IsJavaScriptExport then
             comp.AddJavaScriptExport (ExportNode (ConstructorNode (def, cdef)))
-        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mem mAnnot kind compiled curriedArgs expr)))
 
     let annotations = Dictionary ()
         
@@ -298,7 +397,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
         match mAnnot.Kind with
-        | Some A.MemberKind.Stub ->
+        | Some A.MemberKind.Stub when not isThisInterface ->
             hasStubMember <- true
             let memdef = sr.ReadMember(meth, cls)
             match memdef with
@@ -306,14 +405,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let expr, err = Stubs.GetMethodInline annot mAnnot (cls.IsFSharpModule && not meth.IsValCompiledAsMethod) isInstance def mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
-                addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true None expr
+                addMethod (Some (meth, memdef)) mAnnot mdef nrInline true None expr
             | Member.Constructor cdef ->
                 let expr = Stubs.GetConstructorInline annot mAnnot def cdef
-                addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
+                addConstructor (Some (meth, memdef)) mAnnot cdef nrInline true None expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
-        | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
+        | Some A.MemberKind.JavaScript when meth.IsDispatchSlot && not isThisInterface -> 
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
@@ -336,9 +435,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         mdef.Value.Parameters,
                         mdef.Value.ReturnType
                     )
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true None Undefined
+                let pars = Seq.concat meth.CurriedParameterGroups |> List.ofSeq
+                let vars =
+                    match pars with 
+                    | [ u ] when CodeReader.isUnit u.Type -> []
+                    | _ ->
+                        pars
+                        |> List.map (fun p ->
+                            Id.New(?name = p.Name, mut = false)
+                        ) 
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp, None, None)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
+
+    if isThisInterface && clsMembers.Count = 0 then None else
 
     let fsharpSpecificNonException =
         cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsValueType
@@ -349,7 +459,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let fsharpModule = cls.IsFSharpModule
 
     let clsTparams =
-        lazy 
         cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
     let inlinesOfClass =
@@ -373,9 +482,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" || isInterfaceProxy then
             None
         elif annot.Prototype = Some false then
-            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+            cls.BaseType |> Option.bind (fun t -> t |> sr.ReadType clsTparams |> getConcreteType |> ignoreSystemObject)
         else 
-            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+            cls.BaseType |> Option.map (fun t -> t |> sr.ReadType clsTparams |> getConcreteType)
+
+    let implements =
+        cls.AllInterfaces |> Seq.map (fun t -> t |> sr.ReadType clsTparams |> getConcreteType) |> List.ofSeq
+
+    let mutable selfCtorFields = []
 
     for i = 0 to members.Count - 1 do
         let m = members.[i]
@@ -394,22 +508,39 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     getAnnot meth, false
             
             let getArgsAndThis() =
+                let isExt = meth.IsExtensionMember 
                 let a, t =
                     args |> List.concat
                     |> function
-                    | t :: r when (t.IsMemberThisValue || t.IsConstructorThisValue) && not meth.IsExtensionMember -> r, Some t
+                    | t :: r when (t.IsMemberThisValue || t.IsConstructorThisValue) && not isExt -> r, Some t
                     | a -> a, None
 
-                a
-                |> function 
-                | [ u ] when CodeReader.isUnit u.FullType -> []
-                | a -> a
-                , t
+                try
+                    a
+                    |> function 
+                    | [ u ] when CodeReader.isUnit u.FullType -> []
+                    | a -> 
+                        let ps = Seq.concat meth.CurriedParameterGroups |> Seq.map Some |> List.ofSeq
+                        // extension members have an extra parameter for the this value, not visible in CurriedParameterGroups
+                        let ps = if isExt && meth.IsInstanceMember then None :: ps else ps
+                        List.zip a ps
+                    , t
+                with _ ->
+                    failwithf "different arguments as params: %s.%s" def.Value.FullName meth.FullName
 
+            let getParamIsOpt (a: list<FSMFV * _>) =
+                // if there is only a single parameter and it's generic, make it optional
+                match a with
+                | [ p, _ ] -> p.FullType.IsGenericParameter
+                | _ -> false
+            
             let getVarsAndThis() =
                 let a, t = getArgsAndThis()
-                a |> List.map (fun p -> CodeReader.namedId p),
-                t |> Option.map (fun p -> CodeReader.namedId p)
+                let isOpt = getParamIsOpt a
+                a |> List.map (fun (x, p) -> 
+                    CodeReader.namedId None (isOpt || Option.exists isOptionalParam p) x
+                ),
+                t |> Option.map (fun p -> CodeReader.namedId None false p)
                
             let error m = comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
             let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
@@ -457,24 +588,25 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         match fromRD with
                         | Some rd ->
                             // TODO: curried argument optimization for ReflectedDefinition
-                            None, FixThisScope().Fix(rd)
+                            None, rd
                         | _ ->
                         let a, t = getArgsAndThis()
+                        let isOpt = getParamIsOpt a
                         let argsAndVars = 
                             [
                                 match t with
                                 | Some t ->
-                                    yield t, (CodeReader.namedId t, CodeReader.ThisArg)
+                                    yield t, (CodeReader.namedId None false t, CodeReader.ThisArg)
                                 | _ -> ()
-                                for p in a ->    
-                                    p, 
-                                    (CodeReader.namedId p, 
-                                        if CodeReader.isByRef p.FullType 
+                                for x, p in a ->   
+                                    x, 
+                                    (CodeReader.namedId None (isOpt || Option.exists isOptionalParam p) x, 
+                                        if CodeReader.isByRef x.FullType 
                                         then CodeReader.ByRefArg 
                                         else
                                             if noCurriedOpt then CodeReader.LocalVar
                                             else
-                                                match CodeReader.getFuncArg p.FullType with
+                                                match CodeReader.getFuncArg x.FullType with
                                                 | NotOptimizedFuncArg -> CodeReader.LocalVar
                                                 | _ -> CodeReader.FuncArg
                                     )
@@ -491,8 +623,15 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | None -> None
                             | Some mem ->
                             let ca = 
-                                a |> List.map (fun p -> 
-                                    CodeReader.getFuncArg p.FullType
+                                a |> List.map (fun (x, p) -> 
+                                    let fa = CodeReader.getFuncArg x.FullType
+                                    match fa, p with 
+                                    | NotOptimizedFuncArg, Some p ->
+                                        if CodeReader.isByRef x.FullType then
+                                            refKindOfParam p
+                                        else
+                                            NotOptimizedFuncArg     
+                                    | _ -> fa
                                 )
                             if ca |> List.forall ((=) NotOptimizedFuncArg) then None 
                             else 
@@ -500,28 +639,38 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     argsAndVars |> List.map (snd >> fst)
                                     |> if Option.isSome t then List.skip 1 else id    
                                 Some (mem, ca, args, Option.isSome t)
-                        
+
                         let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-                        let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr, recMembers)  
+                        
+                        let isCtor =
+                            match memdef with
+                            | Member.Constructor _ -> true
+                            | _ -> false
+
+                        let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr, recMembers)  
                         let res =
                             let b = CodeReader.transformExpression env expr 
                             match env.RecMemberUsed with
                             | Some (i, expr) ->
-                                let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
                                 let b = CodeReader.transformExpression env expr 
                                 let bWithFunc =
                                     match env.RecMemberUsed with
                                     | Some (i, expr) ->
-                                        let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                        let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
                                         let fb = CodeReader.transformExpression env expr 
-                                        SubstituteVar(i, Lambda ([], fb)).TransformExpression(b)
+                                        SubstituteVar(i, Lambda ([], None, fb)).TransformExpression(b)
                                     | _ -> b
                                 let _, (recContent, _, _) = sc.Value
                                 recContent.Add (VarDeclaration (i, bWithFunc)) 
                             | _ -> ()
                             let b = 
-                                if meth.IsConstructor then
-                                    try CodeReader.fixCtor def baseCls b
+                                match memdef with
+                                | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
+                                    try 
+                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This b
+                                        selfCtorFields <- cgenFieldNames
+                                        b
                                     with e ->
                                         let tryGetExprSourcePos expr =
                                             match expr with
@@ -529,8 +678,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             | _ -> None
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
                                         errorPlaceholder
-                                else b
-                            let b = FixThisScope().Fix(b)      
+                                | _ -> b
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
                                     let scDef, (_, scContent, scFields) = sc.Value   
@@ -541,9 +689,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     b
                                 else
                                     let scDef, (_, scContent, scFields) = sc.Value   
-                                    let name = Resolve.getRenamed meth.CompiledName scFields
-                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
-                                    Lambda([], FieldGet(None, NonGeneric scDef, name))
+                                    let mtyp =
+                                        match memdef with
+                                        | Member.Method (_, mdef) -> mdef.Value.ReturnType
+                                        | _ -> failwith "F# Module value or member should be represented as a static method"
+                                    let name = Resolve.getRenamedInDict meth.CompiledName mtyp scFields
+                                    scContent.Add (ExprStatement (ItemSet(JSThis, Value (String name), TailCalls.optimize None inlinesOfClass b)))
+                                    Lambda([], Some mtyp, FieldGet(None, NonGeneric scDef, name))
                             else
                                 let thisVar, vars =
                                     match argsAndVars with 
@@ -566,30 +718,32 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         else None
                                     )
                                     |> List.ofSeq
+                                let vars = 
+                                    if List.isEmpty defValues then
+                                        vars
+                                    else
+                                        // mark vars with default value setters mutable
+                                        vars |> List.map (fun v -> if defValues |> List.exists (fun (i, _) -> i = v) then v.ToMutable() else v)
                                 let b =
                                     if List.isEmpty defValues then b else
                                         Sequential [
-                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i))
+                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
                                             yield b
                                         ]
                                 if isInline then
-                                    let b = 
-                                        match thisVar with
-                                        | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
-                                        | _ -> b
                                     makeExprInline (Option.toList thisVar @ vars) b
                                 else 
-                                    let returnsUnit =
+                                    let returnType =
                                         match memdef with
                                         | Member.Method (_, mdef)  
                                         | Member.Override (_, mdef) 
                                         | Member.Implementation (_, mdef) ->
-                                            mdef.Value.ReturnType = VoidType
-                                        | _ -> true
-                                    if returnsUnit then
-                                        Function(vars, ExprStatement b)
+                                            mdef.Value.ReturnType
+                                        | _ -> VoidType
+                                    if returnType = VoidType then
+                                        Function(vars, env.This, None, ExprStatement b)
                                     else
-                                        Lambda(vars, b)
+                                        Function(vars, env.This, Some returnType, Return b)
                         let currentMethod =
                             match memdef with
                             | Member.Method (_, m) -> 
@@ -599,6 +753,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     with e ->
                         error (sprintf "Error reading definition: %s at %s" e.Message e.StackTrace)
                         None, errorPlaceholder
+
+                let getImport() =
+                    mAnnot.Import |> Option.map comp.JSImport
 
                 match memdef with
                 | Member.Method (_, mdef) 
@@ -612,11 +769,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Member.Implementation (t, _) -> N.Implementation t
                         | _ -> failwith "impossible"
                     
+                    let getInlineKind() =
+                        match memdef with
+                        | Member.Implementation (t, _) -> 
+                            N.InlineImplementation t
+                        | _ -> nrInline
+
                     let addModuleValueProp kind body =
                         if List.isEmpty args && fsharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
                             // TODO : check proxy targets for module values
-                            addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false None iBody    
+                            addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) nrInline false None iBody    
                             if meth.IsMutable then 
                                 let setm = 
                                     let me = mdef.Value
@@ -628,9 +791,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     }
                                 let setb =
                                     match body with
-                                    | Function([], Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
+                                    | Function([], arr, ret, Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
                                         let value = CodeReader.newId()                          
-                                        Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
+                                        Function ([value], arr, ret, (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
                                     | _ -> 
                                         error "unexpected form in module let body"
                                         Undefined
@@ -642,8 +805,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addM = addMethod (Some (meth, memdef)) mAnnot mdef
 
                     let jsMethod isInline =
-                        let kind = if isInline || isModulePattern then N.Inline else getKind()
-                        let ca, body = getBody isInline        
+                        let kind = if isInline || isModulePattern then getInlineKind() else getKind()
+                        let ca, body = getBody isInline                        
                         if isModulePattern || addModuleValueProp kind body then
                             addMethod None mAnnot mdef kind false ca body  
                         else addM kind false ca body
@@ -659,32 +822,34 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | Member.Implementation _ ->
                                 error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                             | _ -> ()
+
                     match kind with
                     | A.MemberKind.NoFallback ->
                         checkNotAbstract()
                         addM N.NoFallback true None Undefined
-                    | A.MemberKind.Inline (js, dollarVars) ->
+                    | A.MemberKind.Inline (js, ta, dollarVars) ->
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure dollarVars js
+                            let nr = N.Inline ta
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
-                            if addModuleValueProp N.Inline parsed.Expr then
-                                addMethod None mAnnot mdef N.Inline true None parsed.Expr
-                            else addM N.Inline true None parsed.Expr
+                            if addModuleValueProp nr parsed.Expr then
+                                addMethod None mAnnot mdef nr true None parsed.Expr   
+                            else addM nr true None parsed.Expr
                         with e ->
-                            error ("Error parsing inline JavaScript: " + e.Message)
+                            error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
-                        addM N.Inline true None (Value c)                        
+                        addM nrInline true None (Value c)                        
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addM (getKind()) true None parsed.Expr
                         with e ->
-                            error ("Error parsing direct JavaScript: " + e.Message)
+                            error ("Error parsing direct JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.JavaScript ->
                         jsMethod false
                     | A.MemberKind.InlineJavaScript ->
@@ -693,10 +858,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
                             let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..]), Pure))
-                            addM N.Inline true None i
+                            addM nrInline true None i
                         elif meth.IsPropertySetterMethod then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
-                            addM N.Inline true None i
+                            addM nrInline true None i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
                         addM (getKind()) false None Undefined
@@ -716,28 +881,28 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addC = addConstructor (Some (meth, memdef)) mAnnot cdef
                     let jsCtor isInline =   
                         if isInline then 
-                            addC N.Inline false <|| getBody true
+                            addC nrInline false <|| getBody true
                         else
                             addC N.Constructor false <|| getBody false
                     match kind with
                     | A.MemberKind.NoFallback ->
                         addC N.NoFallback true None Undefined
-                    | A.MemberKind.Inline (js, dollarVars) ->
+                    | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
-                            addC N.Inline true None parsed.Expr
+                            addC (N.Inline ta) true None parsed.Expr 
                         with e ->
-                            error ("Error parsing inline JavaScript: " + e.Message)
+                            error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
-                            addC N.Static true None parsed.Expr
+                            addC N.Static true None parsed.Expr 
                         with e ->
-                            error ("Error parsing direct JavaScript: " + e.Message)
+                            error ("Error parsing direct JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.JavaScript -> jsCtor false
                     | A.MemberKind.InlineJavaScript -> jsCtor true
                     | A.MemberKind.Generated _ ->
@@ -748,7 +913,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.OptionalField
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
-                    clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
+                    let body =
+                        match getBody false with
+                        | _, Function([], _, _, body) -> body
+                        | _ -> failwithf "static constructor should be a function"
+                    clsMembers.Add (NotResolvedMember.StaticConstructor body)
             | None ->
                 if isProxy then
                     let memdef = sr.ReadMember(meth, cls)
@@ -768,7 +937,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-            let env = CodeReader.Environment.New ([], tparams, comp, sr, recMembers)
+            let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
             CodeReader.scanExpression env meth.LogicalName expr
             |> Seq.iter (fun (pos, mdef, argNames, e) ->
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
@@ -777,33 +946,104 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
+            transformClass sc comp ac sr classAnnots isInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
     if isInterfaceProxy then
-        let methodNames = 
+        let methods = 
             clsMembers |> Array.ofSeq |> Array.choose (fun m ->
                 match m with
-                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn; Generics = gc }) ->
                     clsMembers.Remove(m) |> ignore
-                    Some (mem, sn)
+                    Some (mem, sn, gc)
                 | _ -> None 
             )     
+        let extends =
+            annot.ProxyExtends
+            |> List.map (fun et ->
+                Generic et (List.init et.Value.GenericLength TypeParameter) 
+            )
+
         let intf =
             {
                 StrongName = annot.Name 
-                Extends = annot.ProxyExtends
-                NotResolvedMethods = List.ofArray methodNames 
+                Extends = extends
+                NotResolvedMethods = List.ofArray methods 
+                Generics = getConstraints cls.GenericParameters sr clsTparams
+                Type = annot.Type
             }
         comp.AddInterface(def, intf)
-    
+
+    if cls.IsFSharpRecord then
+        cls.FSharpFields |> Seq.iter (fun f ->
+            let fTyp = sr.ReadType clsTparams f.FieldType
+            let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
+            match fAnnot.Kind with
+            | Some (A.MemberKind.Remote rp) ->
+
+                let args, returnType =
+                    match fTyp with
+                    | Type.FSharpFuncType (arg, returnType) ->
+                        let rec recursiveProcessing (t: Type) (args: Type list) =
+                            match t with
+                            | Type.FSharpFuncType (arg, returnType) ->
+                                recursiveProcessing returnType (List.append args [arg])
+                            | t -> args, t
+                        recursiveProcessing returnType [arg]
+                    | _ ->
+                        comp.AddError(None, CompilationError.SourceError "The Remote attribute should only be used with lambda on a record type")
+                        [], VoidType
+                
+                let mdef =
+                    Hashed {
+                        MethodName = "get_" + f.Name
+                        Parameters = []
+                        ReturnType = fTyp
+                        Generics = 0
+                    }
+
+                let remotingKind =
+                    match returnType with
+                    | VoidType -> RemoteSend
+                    | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
+                    | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
+                    | _ -> RemoteSync
+                let handle = 
+                    comp.GetRemoteHandle(
+                        def.Value.FullName + "." + f.Name,
+                        [],
+                        VoidType
+                    )
+                let pars =
+                    match args with
+                    | [ VoidType ] -> []
+                    | args -> args
+                let vars =
+                    pars
+                    |> List.map (fun p ->
+                        Id.New(?name = None, mut = false)
+                    ) 
+                addMethod None fAnnot mdef (N.Remote(remotingKind, handle, vars, rp, Some returnType, Some pars)) false None Undefined
+            | _ -> ()
+        )
+
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
+
+    let isThisAbstract = isAbstractClass cls
+
+    if not isThisAbstract && not isThisInterface && isWebControlType sr cls then
+        match def.Value.FullName with
+        | "WebSharper.Web.FSharpInlineControl"
+        | "WebSharper.Web.InlineControl" -> ()
+        | _ ->
+            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
 
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif fsharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && ((isAbstractClass cls && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && ((isThisAbstract && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
@@ -812,8 +1052,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
+    let mutable isForcedNotJavaScript = annot.IsForcedNotJavaScript
 
-    let notForcedNotJavaScript = not annot.IsForcedNotJavaScript
+    if isForcedNotJavaScript && clsMembers.Count > 0 && (cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
+        comp.AddWarning(Some (CodeReader.getRange cls.DeclarationLocation),
+            SourceWarning ("Ingnoring use of JavaScript(false), as a member is marked JavaScript. Did you mean Prototype(false) for making type a plain JS object?"))
+        isForcedNotJavaScript <- false
 
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
@@ -848,11 +1092,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            if argumentless && notForcedNotJavaScript then
-                                let caseField = Definitions.SingletonUnionCase case.CompiledName
-                                let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
+                            if argumentless && not isForcedNotJavaScript then
+                                let caseField =
+                                    let gen = List.replicate cls.GenericParameters.Count (NonGenericType Definitions.Obj)
+                                    GenericType def gen
+                                    |> Definitions.SingletonUnionCase case.CompiledName
+                                let expr = CopyCtor(def, Object [ "$", MemberKind.Simple, Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
-                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved a N.Static false None expr)))
+                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved None a N.Static false None expr)))
                                 hasSingletonCase <- true
                                 SingletonFSharpUnionCase
                             else
@@ -861,7 +1108,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     |> Seq.map (fun f ->
                                         {
                                             Name = f.Name
-                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            UnionFieldType = sr.ReadType clsTparams f.FieldType
                                             DateTimeFormat = 
                                                 cAnnot.DateTimeFormat 
                                                 |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
@@ -882,7 +1129,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     }
                 )
                 |> List.ofSeq
-            
+
             let i =
                 FSharpUnionInfo {
                     Cases = cases
@@ -890,103 +1137,140 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HasNull = constants.Contains(Null)
                 }
 
-            comp.AddCustomType(def, i, not annot.IsJavaScript)
+            comp.AddCustomType(def, i)
+
+            if annot.IsJavaScript || hasWSPrototype then
+                for index, c in cases |> Seq.indexed do
+                    match c.Kind with
+                    | NormalFSharpUnionCase fields ->
+                        let newCase =
+                            Method {
+                                MethodName = "New" + c.Name
+                                Parameters = fields |> List.map (fun f -> f.UnionFieldType) 
+                                ReturnType = ConcreteType thisType
+                                Generics = cls.GenericParameters.Count       
+                            }
+                        let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false, typ = f.UnionFieldType)) 
+                        let obj =
+                            Object (
+                                ("$", MemberKind.Simple, Value (Int index)) ::
+                                (args |> List.mapi (fun j a -> "$" + string j, MemberKind.Simple, Var a)) 
+                            )
+                        let newCaseM =
+                            {
+                                Kind = NotResolvedMemberKind.Static
+                                StrongName = Some c.Name
+                                Generics = []
+                                Macros = []
+                                Generator = None
+                                Compiled = false
+                                Pure = true
+                                FuncArgs = None
+                                Args = args
+                                Body = Function(args, None, Some (ConcreteType thisType), Return (CopyCtor(def, obj)))
+                                Requires = []
+                                Warn = None
+                                JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                            }
+                        clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
+                    | _ -> ()
 
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
-            let cdef =
-                Hashed {
-                    CtorParameters =
-                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams.Value f.FieldType) |> List.ofSeq
-                }
-            let body =
-                let vars =
-                    cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
-                let fields =
-                    cls.FSharpFields |> Seq.map (fun f -> 
-                        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    
-                        match fAnnot.Name with Some n -> n | _ -> f.Name
-                        , 
-                        fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    )
-                    |> List.ofSeq
-                let obj = 
-                    let normalFields =
-                        Seq.zip (fields) vars
-                        |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, Var v))
-                        |> List.ofSeq |> Object
-                    if fields |> List.exists snd then
-                        let o = CodeReader.newId()
-                        Let(o, normalFields, 
-                            Sequential [
-                                for (name, opt), v in Seq.zip fields vars do
-                                    if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
-                                yield Var o
-                            ]
-                        )
-                    else 
-                        normalFields
-                Lambda (vars, CopyCtor(def, obj))
-
-            let cAnnot =
-                if notForcedNotJavaScript then 
-                    A.MemberAnnotation.BasicPureJavaScript
-                else A.MemberAnnotation.BasicPureInlineJavaScript
-            addConstructor None cAnnot cdef N.Static false None body
-
-            // properties
-
-            for f in cls.FSharpFields do
-                let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
-                let fTyp = sr.ReadType clsTparams.Value f.FieldType
-            
-                let getDef =
+            if annot.IsJavaScript || hasWSPrototype then
+                let cdef =
                     Hashed {
-                        MethodName = "get_" + f.Name
-                        Parameters = []
-                        ReturnType = fTyp
-                        Generics = 0
+                        CtorParameters =
+                            cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
                     }
+                let body =
+                    let vars =
+                        cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
+                    let fields =
+                        cls.FSharpFields |> Seq.map (fun f -> 
+                            let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    
+                            match fAnnot.Name with Some n -> n | _ -> f.Name
+                            , 
+                            fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                        )
+                        |> List.ofSeq
+                    let obj = 
+                        let normalFields =
+                            Seq.zip (fields) vars
+                            |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, MemberKind.Simple, Var v))
+                            |> List.ofSeq |> Object
+                        if fields |> List.exists snd then
+                            let o = CodeReader.newId()
+                            Let(o, normalFields, 
+                                Sequential [
+                                    for (name, opt), v in Seq.zip fields vars do
+                                        if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
+                                    yield Var o
+                                ]
+                            )
+                        else 
+                            normalFields
+                    Lambda (vars, None, CopyCtor(def, obj))
 
-                let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
-                
-                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef N.Inline false None getBody
+                let cKind = if isForcedNotJavaScript then nrInline else N.Static
+                addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
 
-                if f.IsMutable then
-                    let setDef =
+                // properties
+
+                for f in cls.FSharpFields do
+                    let fTyp = sr.ReadType clsTparams f.FieldType
+            
+                    let getDef =
                         Hashed {
-                            MethodName = "set_" + f.Name
-                            Parameters = [ fTyp ]
-                            ReturnType = VoidType
+                            MethodName = "get_" + f.Name
+                            Parameters = []
+                            ReturnType = fTyp
                             Generics = 0
                         }
 
-                    let setBody = FieldSet(Some (Hole 0), recTyp, f.Name, Hole 1)
+                    let getBody = FieldGet(Some (Hole 0), thisType, f.Name)
+                
+                    addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef nrInline false None getBody
+
+                    if f.IsMutable then
+                        let setDef =
+                            Hashed {
+                                MethodName = "set_" + f.Name
+                                Parameters = [ fTyp ]
+                                ReturnType = VoidType
+                                Generics = 0
+                            }
+
+                        let setBody = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
             
-                    addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false None setBody
+                        addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef nrInline false None setBody
 
         if cls.IsFSharpRecord then
             let i = 
-                cls.FSharpFields |> Seq.map (fun f ->
-                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                cls.FSharpFields |> Seq.choose (fun f ->
+                    let fTyp = sr.ReadType clsTparams f.FieldType
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
+                    
+                    match fAnnot.Kind with
+                    | Some (A.MemberKind.Remote _) -> None
+                    | _ ->
+                        let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
 
-                    {
-                        Name = f.Name
-                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
-                        RecordFieldType = fTyp
-                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                        Optional = isOpt
-                        IsMutable = f.IsMutable
-                    }
+                        {
+                            Name = f.Name
+                            JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
+                            RecordFieldType = fTyp
+                            DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                            Optional = isOpt
+                            IsMutable = f.IsMutable
+                        }
+                        |> Some
                 )
-                |> List.ofSeq |> FSharpRecordInfo    
-
+                |> List.ofSeq |> function [] -> None | l -> l |> FSharpRecordInfo |> Some
             if comp.HasCustomTypeInfo def then
                 printfn "Already has custom type info: %s" def.Value.FullName
             else
-                comp.AddCustomType(def, i, not annot.IsJavaScript)
+                i |> Option.iter (fun i -> comp.AddCustomType(def, i))
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
@@ -999,24 +1283,51 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     
                     match fAnnot.Name with Some n -> n | _ -> f.Name
                     , 
-                    DefaultValueOf (sr.ReadType clsTparams.Value f.FieldType)
+                    DefaultValueOf (sr.ReadType clsTparams f.FieldType)
                 )
                 |> List.ofSeq
-            let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
+            let thisVar = Id.NewThis()
+            let body = Function([], Some thisVar, None, ExprStatement (Sequential (fields |> List.map (fun (n, v) -> ItemSet(Var thisVar, Value (String n), v)))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
-            comp.AddCustomType(def, StructInfo, not annot.IsJavaScript)
+            comp.AddCustomType(def, StructInfo)
 
-    for f in cls.FSharpFields do
-        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-        let nr =
-            {
-                StrongName = fAnnot.Name
-                IsStatic = f.IsStatic
-                IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                IsReadonly = not f.IsMutable
-                FieldType = sr.ReadType clsTparams.Value f.FieldType
-            }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
+    let fieldLoc (f: FSharpField) =
+        let l = f.DeclarationLocation
+        l.StartLine, l.StartColumn       
+    let fBaseAnnot = 
+        if isForcedNotJavaScript then 
+            annot 
+        else
+            { annot with IsJavaScript = true } // for F#, include all fields in JS by default, unless marked JavaScript(false)
+    for i, f in cls.FSharpFields |> Seq.sortBy fieldLoc |> Seq.indexed do
+        if selfCtorFields |> List.contains f.Name then () else
+        let propertyAttributes =
+            if f.IsCompilerGenerated && f.Name.EndsWith "@" then
+                // `member val` backing field
+                let n = f.Name.TrimEnd('@')
+                match cls.MembersFunctionsAndValues |> Seq.tryFind (fun p -> p.IsProperty && p.LogicalName = n) with
+                | None ->
+                    comp.AddWarning(Some (CodeReader.getRange f.DeclarationLocation),
+                        SourceWarning ("Cannot find original property for compiler-generated field " + f.Name))
+                    f.PropertyAttributes
+                | Some p -> p.Attributes
+            else
+                f.PropertyAttributes
+        let fAnnot = sr.AttributeReader.GetMemberAnnot(fBaseAnnot, Seq.append f.FieldAttributes propertyAttributes)
+        match fAnnot.Kind with
+        | None
+        | Some (A.MemberKind.Remote _) -> ()
+        | _ ->
+            let nr =
+                {
+                    StrongName = fAnnot.Name
+                    IsStatic = f.IsStatic
+                    IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    IsReadonly = not f.IsMutable
+                    FieldType = sr.ReadType clsTparams f.FieldType
+                    Order = i
+                }
+            clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
     let strongName =
         annot.Name |> Option.map (fun n ->
@@ -1030,14 +1341,18 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         def,
         {
             StrongName = strongName
+            Generics = getConstraints cls.GenericParameters sr clsTparams
             BaseClass = baseCls
+            Implements = implements
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase || isInterfaceProxy
-            ForceAddress = hasSingletonCase || def.Value.FullName = "System.Exception" // needed for Error inheritance
+            ForceAddress = hasSingletonCase
+            Type = annot.Type
+            SourcePos = CodeReader.getRange cls.DeclarationLocation
         }
     )
 
@@ -1074,7 +1389,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         comp.AddJavaScriptExport ExportCurrentAssembly
     for s in asmAnnot.JavaScriptExportTypesFilesAndAssemblies do
         comp.AddJavaScriptExport (ExportByName s)
-
+    
     let lookupAssembly =
         lazy
         Map [
@@ -1136,13 +1451,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
 
     let lookupTypeAttributes (typ: TypeDefinition) =
         lookupTypeDefinition typ |> Option.map (fun e ->
-            e.Attributes |> readAttributes
+            e.Attributes |> Seq.map readAttribute |> List.ofSeq
         )
 
     let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.FSharpFields |> Seq.tryFind (fun f -> f.Name = field) |> Option.map (fun f ->
-                Seq.append f.FieldAttributes f.PropertyAttributes |> readAttributes
+                Seq.append f.FieldAttributes f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
             ) 
         )
 
@@ -1212,27 +1527,33 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 let inv = entity.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
                 DelegateInfo {
                     DelegateArgs =
-                        inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> sr.ReadType tparams p.Type) |> List.ofSeq
+                        inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> sr.ReadType tparams p.Type, None) |> List.ofSeq
                     ReturnType = sr.ReadType tparams inv.ReturnParameter.Type
                 }
             else if entity.IsEnum then
-                CustomTypeInfo.EnumInfo typeDef
+                let sampleField = entity.FSharpFields |> Seq.find (fun f -> f.IsLiteral)
+                let sampleValue = sampleField.LiteralValue.Value
+                let underlyingType = Reflection.ReadTypeDefinition (sampleValue.GetType())
+                CustomTypeInfo.EnumInfo underlyingType
             else if entity.IsFSharpRecord then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
-                entity.FSharpFields |> Seq.map (fun f ->
+                entity.FSharpFields |> Seq.choose (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
-                    {
-                        Name = f.Name
-                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
-                        RecordFieldType = fTyp
-                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                        Optional = isOpt
-                        IsMutable = f.IsMutable
-                    }
+                    match fAnnot.Kind with
+                    | Some (A.MemberKind.Remote _) -> None
+                    | _ ->
+                        let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                        let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                        {
+                            Name = f.Name
+                            JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
+                            RecordFieldType = fTyp
+                            DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                            Optional = isOpt
+                            IsMutable = f.IsMutable
+                        } |> Some 
                 )
-                |> List.ofSeq |> FSharpRecordInfo    
+                |> List.ofSeq |> function [] -> CustomTypeInfo.NotCustomType | l -> FSharpRecordInfo l
             else if entity.IsFSharpUnion then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes)
                 let usesNull =
@@ -1314,14 +1635,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | FSIFD.InitAction a -> a.Range.FileName
         let sc =
             lazy
-            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
+            let name = "$StartupCode_" + System.IO.Path.GetFileNameWithoutExtension filePath
             let def =
                 TypeDefinition {
                     Assembly = comp.FindProxiedAssembly(assemblyName)
                     FullName = name
                 }
             def, 
-            (ResizeArray(), ResizeArray(), HashSet() : StartupCode)
+            (ResizeArray(), ResizeArray(), Dictionary() : StartupCode)
 
         let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
@@ -1361,7 +1682,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         for t in topLevelTypes do
             match t with
             | SourceEntity (c, m) ->
-                collectClassAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
+                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
+            | SourceInterface i ->
+                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot i Seq.empty
             | _ -> ()
 
         // register all proxies for signature redirection
@@ -1378,21 +1701,23 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 transformClass sc comp argCurrying sr classAnnotations isInterface recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
+                transformClass sc comp argCurrying sr classAnnotations isInterface recMembers i [||] |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
-            
-            let recDecls, statements, fields = sc            
-            let cctor = Function ([], Block (List.ofSeq (Seq.append recDecls statements)))
+
+            let recDecls, statements, fields = sc       
+            let cctor = Block (List.ofSeq (Seq.append recDecls statements))
             let members =
                 [
-                    for f in fields -> 
+                    for KeyValue(f, t) in fields -> 
                         NotResolvedMember.Field(f, 
                             {
                                 StrongName = None
                                 IsStatic = true
                                 IsOptional = false
                                 IsReadonly = true
-                                FieldType = VoidType // field types are only needed for adding code dependencies for activator
+                                FieldType = t
+                                Order = 0
                             } 
                         )
                     yield NotResolvedMember.StaticConstructor cctor
@@ -1401,7 +1726,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             def,
             {
                 StrongName = None
+                Generics = []
                 BaseClass = None
+                Implements = []
                 Requires = [] //annot.Requires
                 Members = members
                 Kind = NotResolvedClassKind.Static
@@ -1409,6 +1736,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 Macros = []
                 ForceNoPrototype = false
                 ForceAddress = false
+                Type = None
+                SourcePos =
+                    {
+                        FileName = filePath
+                        Start = 0, 0
+                        End = 0, 0
+                    }
             }
             
         if sc.IsValueCreated then

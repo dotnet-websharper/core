@@ -20,10 +20,7 @@
 
 /// Implements generic comparison, equality and hashing.
 [<WebSharper.Name "Unchecked">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.Operators+Unchecked, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.Operators+Unchecked, FSharp.Core">]
 module private WebSharper.UncheckedProxy
 
 open WebSharper.JavaScript

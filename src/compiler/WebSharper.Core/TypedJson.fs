@@ -39,7 +39,6 @@ type Json private () =
     /// For plain JSON stringification, see Json.Stringify.
     static member Serialize<'T> (x: 'T) =
         serverSideProvider.GetEncoder<'T>().Encode x
-        |> serverSideProvider.Pack
         |> Core.Json.Stringify
 
     /// Decodes an object parsed from the same readable JSON format as Sitelets.

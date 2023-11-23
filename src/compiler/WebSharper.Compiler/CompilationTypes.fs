@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -39,11 +39,13 @@ module NotResolved =
         | Instance
         | Abstract
         | Static
+        | AsStatic
         | Constructor
         | Override of TypeDefinition
         | Implementation of TypeDefinition
-        | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
-        | Inline
+        | Remote of RemotingKind * MethodHandle * list<Id> * option<TypeDefinition * option<obj>> * option<Type> * option<Type list>
+        | Inline of assertReturnType: bool
+        | InlineImplementation of TypeDefinition
         | NoFallback
         | Quotation of SourcePos * string list
         | MissingImplementation of TypeDefinition
@@ -52,6 +54,7 @@ module NotResolved =
         {
             mutable Kind : NotResolvedMemberKind
             StrongName : option<string>
+            Generics : list<GenericParam>
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
             Compiled : bool
@@ -71,13 +74,14 @@ module NotResolved =
             IsOptional : bool 
             IsReadonly : bool
             FieldType : Type
+            Order : int
         }
 
     [<RequireQualifiedAccess>]
     type NotResolvedMember =
         | Constructor of Constructor * NotResolvedMethod
         | Field of string * NotResolvedField
-        | StaticConstructor of Expression
+        | StaticConstructor of Statement
         | Method of Method * NotResolvedMethod
 
     [<RequireQualifiedAccess>]
@@ -90,7 +94,9 @@ module NotResolved =
     type NotResolvedClass =
         {
             StrongName : option<string>
-            BaseClass : option<TypeDefinition>
+            BaseClass : option<Concrete<TypeDefinition>>
+            Implements : list<Concrete<TypeDefinition>>
+            Generics : list<GenericParam>
             Requires : list<TypeDefinition * option<obj>> 
             Members : list<NotResolvedMember>
             Kind : NotResolvedClassKind
@@ -98,33 +104,45 @@ module NotResolved =
             Macros : list<TypeDefinition * option<obj>> 
             ForceNoPrototype : bool
             ForceAddress : bool
+            Type : option<TSType>
+            SourcePos : SourcePos
         }
 
     type NotResolvedInterface =
         {
             StrongName : option<string>
-            Extends : list<TypeDefinition>
-            NotResolvedMethods : list<Method * option<string>>
+            Extends : list<Concrete<TypeDefinition>>
+            NotResolvedMethods : list<Method * option<string> * list<GenericParam>>
+            Generics : list<GenericParam>
+            Type : option<TSType>
         }
 
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
 
-    let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
+    let hasWSPrototype ckind (baseCls: Concrete<TypeDefinition> option) cmembers =
         let nonObjBaseClass() = 
             match baseCls with
             | None -> false
-            | Some td when td = Definitions.Obj -> false
+            | Some td when td.Entity = Definitions.Obj -> false
             | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false
-        | NotResolvedClassKind.Static -> nonObjBaseClass()
+        | NotResolvedClassKind.Static -> 
+            nonObjBaseClass() ||
+            cmembers
+            |> Seq.exists (
+                function
+                | M.StaticConstructor _ -> true
+                | _ -> false
+            )
         | NotResolvedClassKind.WithPrototype -> true
         | _ ->
             nonObjBaseClass() ||
             cmembers
             |> Seq.exists (
                 function
+                | M.StaticConstructor _ -> true
                 | M.Constructor (_, nr)
                 | M.Method (_, nr) ->
                     match nr.Kind with
@@ -154,10 +172,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
         with get (key: 'TKey): 'TValue = 
             match current.TryGetValue key with
             | true, value -> value
-            | _ -> 
-            match orig.TryGetValue key with
-            | true, value -> value
-            | _ -> raise (KeyNotFoundException())
+            | _ -> orig[key]
         and set (key: 'TKey) (v: 'TValue): unit = 
             if orig.ContainsKey key then
                 invalidArg "key" "Key is found in immutable part of MergedDictionary"
@@ -415,7 +430,7 @@ type internal MappedDictionary<'TKey, 'TOrigValue, 'TValue when 'TKey: equality>
 
 type CompilationError =
     | SourceError of string
-    | NameConflict of string * string
+    | NameConflict of string * string * string
     | TypeNotFound of TypeDefinition
     | MethodNotFound of TypeDefinition * Method * list<Method>
     | MethodNameNotFound of TypeDefinition * Method * list<string>
@@ -426,25 +441,28 @@ type CompilationError =
     override this.ToString() =
         match this with
         | SourceError msg -> msg
-        | NameConflict (msg, a) -> sprintf "%s at JavaScript address: '%s'" msg a
+        | NameConflict (msg, t, n) -> sprintf "%s on type %s JavaScript name: '%s'" msg t n
         | TypeNotFound typ -> sprintf "Type not found in JavaScript compilation: %s" typ.Value.FullName
         | MethodNotFound (typ, meth, candidates) ->
-            sprintf "Method not found in JavaScript compilation: %s, Candidates: %s" 
+            sprintf "Method not found in JavaScript compilation: %s.%s, Candidates: %s" 
+                typ.Value.FullName 
                 (string meth.Value) 
                 (candidates |> Seq.map (fun m -> string m.Value) |> String.concat ", ")
         | MethodNameNotFound (typ, meth, candidates) ->
-            sprintf "Method name not found in JavaScript compilation: %s, Members: %s" 
+            sprintf "Method name not found in JavaScript compilation: %s.%s, Members: %s" 
+                typ.Value.FullName 
                 (string meth.Value) 
                 (candidates |> String.concat ", ")
         | ConstructorNotFound (typ, ctor, candidates) ->
-            sprintf "Constructor not found in JavaScript compilation: %s, Candidates: %s" 
+            sprintf "Constructor not found in JavaScript compilation: new %s(%s), Candidates: %s" 
+                typ.Value.FullName 
                 (string ctor.Value) 
                 (candidates |> Seq.map (fun c -> string c.Value) |> String.concat ", ")
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =
-    | Compiled of CompiledMember * Optimizations * Expression
-    | Compiling of CompilingMember * Expression
+    | Compiled of CompiledMember * Optimizations * list<GenericParam> * Expression
+    | Compiling of CompilingMember * list<GenericParam> * Expression
     | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 
 

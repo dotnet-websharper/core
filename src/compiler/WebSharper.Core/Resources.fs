@@ -123,26 +123,28 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             "wbr"
         ]
 
-    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
         if includeScriptTag then
-            this.WriteLine("""<script type="{0}">""", CT.Text.JavaScript.Text)
-        this.WriteLine """if (typeof WebSharper !=='undefined') {"""
+            this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
         match scriptBaseUrl with
-        | Some url -> this.WriteLine("""  WebSharper.Runtime.ScriptBasePath = '{0}';""", url)
+        | Some url -> 
+            this.WriteLine("""import Runtime from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
+            this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
+            if skipAssemblyDir then
+                this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
+            match activation with
+            | None -> ()
+            | Some a -> a url
         | None -> ()
-        if skipAssemblyDir then
-            this.WriteLine("""  WebSharper.Runtime.ScriptSkipAssemblyDir = true;""")
-        this.WriteLine """  WebSharper.Runtime.Start();"""
-        this.WriteLine """}"""
         if includeScriptTag then
             this.WriteLine("""</script>""")
 
-    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
         writer.WriteLine()
         use w = new HtmlTextWriter(writer)
-        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir)
+        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?activation = activation)
 
 type Rendering =
     | RenderInline of string
@@ -183,6 +185,7 @@ and IResource =
 
 type IDownloadableResource =
     abstract Unpack : string -> unit    
+    abstract member GetImports : unit -> string[]
 
 type IExternalScriptResource =
     inherit IResource
@@ -455,13 +458,34 @@ type BaseResource(kind: Kind) as this =
             | Complex (b, xs) ->
                 download (xs |> List.map (fun x -> b.TrimEnd('/') + "/" + x.TrimStart('/')))
 
+        member this.GetImports() = 
+            let getPath spec =
+                match tryFindWebResource self spec with 
+                | Some f -> "./" + this.GetLocalName() + "/" + f
+                | _ -> spec
+            
+            match kind with
+            | Basic spec ->
+                if spec.EndsWith ".js" then
+                    [| getPath spec |]
+                else [||]
+            | Complex (b, xs) ->
+                xs |> Seq.choose (fun x ->
+                    if x.EndsWith ".js" then 
+                        let spec = b.TrimEnd('/') + "/" + x.TrimStart('/')
+                        Some (getPath spec) 
+                    else None    
+                ) |> Array.ofSeq 
+
 [<Sealed>]
 type Runtime() =
     interface IResource with
         member this.Render ctx =
-            let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
+            //let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
+            let name = "Runtime.js"
             let t = typeof<WebSharper.Core.JavaScript.Syntax.Expression>
             let ren = Rendering.GetWebResourceRendering(ctx, t, name)
-            fun writer -> ren.Emit(writer, Js, ctx.DefaultToHttp)
+            //fun writer -> ren.Emit(writer, JsModule, ctx.DefaultToHttp)
+            ignore
 
     static member Instance = Runtime() :> IResource

@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "Lazy">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Control.LazyExtensions, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Control.LazyExtensions, FSharp.Core">]
 module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript

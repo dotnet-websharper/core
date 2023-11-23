@@ -100,6 +100,16 @@ type InlinedConstructor(a, x) =
     new () = InlinedConstructor(defX)        
 
 [<JavaScript>]
+type ChainedConstructor(a1: int[], a2: int[]) =
+    member this.Arr1 = a1
+    member this.Arr2 = a2
+    
+    new (s: list<int>) = 
+        //printfn "testing chained constructor, you should see this"
+        let arr = Array.ofSeq s
+        ChainedConstructor(arr, arr)        
+
+[<JavaScript>]
 let Tests =
     TestCategory "Inheritance" {
         Test "Overriding" {
@@ -112,7 +122,7 @@ let Tests =
         }
 
         Test "Naming" {
-            equal (ClassB()?x()) 2    
+            equal (ClassB()?x) 2    
             equal (ClassB()?a()) 3    
         }
 
@@ -146,5 +156,11 @@ let Tests =
             let x = InlinedConstructor()
             equal x.B 3
             equal x.Y "hi!"
+        }
+
+        Test "Chained constructor" {
+            let x = ChainedConstructor([ 1; 2 ])
+            equal x.Arr1 [| 1; 2 |]
+            equal x.Arr2 [| 1; 2 |]
         }
     }

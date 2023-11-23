@@ -40,14 +40,13 @@ type MethodHandle =
         SignatureHash : int
     }
     member this.Pack() =
-        this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
-
-    static member Unpack(s: string) =
-        try
-            let p = s.Split(':')
-            { Assembly = p.[0]; Path = p.[1]; SignatureHash = int p.[2] }
-        with _ ->
-            failwith "Failed to deserialize method handle"
+        //this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
+        let p = this.Path.Split('.', '+')
+        match p[p.Length - 2 ..] with
+        | [| tn; mn |] ->
+            tn + "/" + mn
+        | _ ->
+            failwith "TypeName and MethodName not found for remote"
 
 [<RequireQualifiedAccess>]
 type ParameterObject =
@@ -109,19 +108,21 @@ type ParameterObject =
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
 type CompiledMember =
-    | Instance of string
-    | Static of Address
-    | Constructor of Address
-    | Inline
-    | NotCompiledInline
-    | Macro of TypeDefinition * option<ParameterObject> * option<CompiledMember> 
-    | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<ParameterObject>>
+    | Instance of name:string * kind: MemberKind
+    | Static of name:string * fromInstance:bool * kind: MemberKind
+    | Func of name:string * fromInstance:bool
+    | GlobalFunc of address: Address * fromInstance:bool
+    | New of name: option<string>
+    | Inline of isCompiled:bool * assertReturnType:bool
+    | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
+    | Remote of name:string * handle:MethodHandle * isRecordField: bool
 
 type CompiledField =
-    | InstanceField of string
-    | OptionalField of string
-    | StaticField of Address
-    | IndexedField of int
+    | InstanceField of name:string
+    | OptionalField of name:string
+    | StaticField of name:string
+    | IndexedField of index:int
+    | VarField of Id
 
 type Optimizations =
     {
@@ -142,24 +143,69 @@ type Optimizations =
 
     member this.Purity = if this.IsPure then Pure else NonPure
 
-type ClassInfo =
+type GenericParam = 
     {
-        Address : option<Address>
-        BaseClass : option<TypeDefinition>
-        Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
-        Fields : IDictionary<string, CompiledField * bool * Type>
-        StaticConstructor : option<Address * Expression>
-        Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
-        QuotedArgMethods : IDictionary<Method, int[]>
-        Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
-        HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
-        Macros : list<TypeDefinition * option<ParameterObject>>
+        Type : option<TSType>
+        Constraints : list<Type>
     }
 
     static member None =
         {
-            Address = None
+            Type = None
+            Constraints = []
+        }
+
+type CompiledConstructorInfo =
+    {
+        CompiledForm : CompiledMember
+        Optimizations : Optimizations
+        Expression : Expression
+    }
+
+type CompiledMethodInfo = 
+    {
+        CompiledForm : CompiledMember
+        Optimizations : Optimizations
+        Generics : list<GenericParam>
+        Expression : Expression
+    }
+
+type CompiledImplementationInfo =
+    {
+        CompiledForm : CompiledMember
+        Expression : Expression
+    }
+
+type CompiledFieldInfo =
+    {
+         CompiledForm : CompiledField 
+         ReadOnly : bool
+         Type : Type
+         Order : int
+    }
+
+type ClassInfo =
+    {
+        BaseClass : option<Concrete<TypeDefinition>>
+        Implements : list<Concrete<TypeDefinition>>
+        Generics : list<GenericParam>
+        Constructors : IDictionary<Constructor, CompiledConstructorInfo>
+        Fields : IDictionary<string, CompiledFieldInfo>
+        StaticConstructor : option<Statement>
+        Methods : IDictionary<Method, CompiledMethodInfo>
+        QuotedArgMethods : IDictionary<Method, int[]>
+        Implementations : IDictionary<TypeDefinition * Method, CompiledImplementationInfo>
+        HasWSPrototype : bool // do we need to output a class
+        IsStub : bool // is the class just a declaration
+        Macros : list<TypeDefinition * option<ParameterObject>>
+        Type : option<TSType>
+    }
+
+    static member None =
+        {
             BaseClass = None
+            Implements = []
+            Generics = []
             Constructors = dict []
             Fields = dict []
             StaticConstructor = None
@@ -167,30 +213,36 @@ type ClassInfo =
             QuotedArgMethods = dict []
             Implementations = dict []
             HasWSPrototype = false
+            IsStub = true
             Macros = []
+            Type = None
         }
         
 type IClassInfo =
-    abstract member Address : option<Address>
-    abstract member BaseClass : option<TypeDefinition>
-    abstract member Constructors : IDictionary<Constructor, CompiledMember>
+    abstract member Address : Address
+    abstract member BaseClass : option<Concrete<TypeDefinition>>
+    abstract member Implements : list<Concrete<TypeDefinition>>
+    abstract member Constructors : IDictionary<Constructor, CompiledConstructorInfo>
     /// value: field info, is readonly
-    abstract member Fields : IDictionary<string, CompiledField * bool * Type>
-    abstract member StaticConstructor : option<Address>
-    abstract member Methods : IDictionary<Method, CompiledMember>
-    abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
+    abstract member Fields : IDictionary<string, CompiledFieldInfo>
+    abstract member HasStaticConstructor : bool
+    abstract member Methods : IDictionary<Method, CompiledMethodInfo>
+    abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledImplementationInfo>
     abstract member HasWSPrototype : bool
     abstract member Macros : list<TypeDefinition * option<ParameterObject>>
 
 type InterfaceInfo =
     {
-        Extends : list<TypeDefinition>
-        Methods : IDictionary<Method, string>
+        Address : Address
+        Extends : list<Concrete<TypeDefinition>>
+        Methods : IDictionary<Method, string * MemberKind * list<GenericParam>>
+        Generics : list<GenericParam>
+        Type : option<TSType>
     }
 
 type DelegateInfo =
     {
-        DelegateArgs : list<Type>
+        DelegateArgs : list<Type * option<Literal>>
         ReturnType : Type
     }
 
@@ -204,7 +256,12 @@ type UnionCaseFieldInfo =
 type FSharpUnionCaseKind =
     | NormalFSharpUnionCase of list<UnionCaseFieldInfo> 
     | ConstantFSharpUnionCase of Literal 
-    | SingletonFSharpUnionCase 
+    | SingletonFSharpUnionCase
+    
+    member this.IsConstant =
+        match this with
+        | ConstantFSharpUnionCase _ -> true
+        | _ -> false
 
 type FSharpUnionCaseInfo =
     {
@@ -244,7 +301,7 @@ type CustomTypeInfo =
 type Node =
     | MethodNode of TypeDefinition * Method
     | ConstructorNode of TypeDefinition * Constructor
-    | ImplementationNode of TypeDefinition * TypeDefinition * Method
+    | ImplementationNode of typ: TypeDefinition * baseTyp: TypeDefinition * Method
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition * option<ParameterObject>
@@ -286,6 +343,15 @@ type MetadataEntry =
     | ConstructorEntry of Constructor
     | CompositeEntry of list<MetadataEntry>
 
+    override this.ToString() =
+        match this with
+        | StringEntry s -> s
+        | TypeEntry t -> t.ToString() 
+        | TypeDefinitionEntry td -> td.ToString()
+        | MethodEntry m -> m.ToString()
+        | ConstructorEntry c -> c.ToString()
+        | CompositeEntry l -> l |> List.map (fun x -> x.ToString()) |> String.concat "; "
+
 type ExtraBundle =
     {
         AssemblyName : string
@@ -303,8 +369,7 @@ type Info =
         SiteletDefinition: option<TypeDefinition>
         Dependencies : GraphData
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
-        Classes : IDictionary<TypeDefinition, ClassInfo>
-        CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
+        Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
         Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
         ResourceHashes : IDictionary<string, int>
@@ -317,7 +382,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Map.empty
             Classes = Map.empty
-            CustomTypes = Map.empty
             MacroEntries = Map.empty
             Quotations = Map.empty
             ResourceHashes = Map.empty
@@ -325,49 +389,86 @@ type Info =
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
-        let isStaticPart (c: ClassInfo) =
-            Option.isNone c.Address
-            && Option.isNone c.BaseClass
+        let rec notTiedToAddress cf =
+            match cf with 
+            | GlobalFunc _
+            | Inline _ -> true
+            | Macro (_, _, fallback) -> fallback |> Option.forall notTiedToAddress
+            | _ -> false
+        
+        let isDeclPart (c: ClassInfo) =
+            Option.isNone c.BaseClass
             && Dict.isEmpty c.Constructors
             && Dict.isEmpty c.Fields
             && not c.HasWSPrototype
             && Dict.isEmpty c.Implementations
             && List.isEmpty c.Macros
             && Option.isNone c.StaticConstructor
-            && c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+            && c.Methods.Values |> Seq.forall (fun m -> notTiedToAddress m.CompiledForm)
 
-        let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
+        let tryMergeClassInfo (a: ClassInfo, aAddr: Address) (b: ClassInfo, bAddr: Address) =
             let combine (left: 'a option) (right: 'a option) =
                 match left with
                 | Some _ -> left
                 | None -> right
-            if isStaticPart a || isStaticPart b then
-                Some {
-                    Address = combine a.Address b.Address
-                    BaseClass = combine a.BaseClass b.BaseClass
-                    Constructors = Dict.union [a.Constructors; b.Constructors]
-                    Fields = Dict.union [a.Fields; b.Fields]
-                    HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
-                    Implementations = Dict.union [a.Implementations; b.Implementations]
-                    Macros = List.concat [a.Macros; b.Macros]
-                    Methods = Dict.union [a.Methods; b.Methods]
-                    QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
-                    StaticConstructor = combine a.StaticConstructor b.StaticConstructor
-                }
+            let isUsingAAddr = isDeclPart b
+            if isDeclPart a || isDeclPart b then
+                let transformFuncAddrs (addr: Address) methods =
+                    methods |> Dict.map (fun (m: CompiledMethodInfo) ->
+                        match m.CompiledForm with
+                        | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
+                        | _ -> m
+                    )
+                let mergedAddr =
+                    if isUsingAAddr then aAddr else bAddr
+                Some (
+                    {
+                        BaseClass = combine a.BaseClass b.BaseClass
+                        Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
+                        Generics = a.Generics
+                        Constructors = Dict.union [a.Constructors; b.Constructors]
+                        Fields = Dict.union [a.Fields; b.Fields]
+                        HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
+                        Implementations = Dict.union [a.Implementations; b.Implementations]
+                        Macros = List.concat [a.Macros; b.Macros]
+                        Methods = 
+                            if isUsingAAddr then
+                                Dict.union [a.Methods; transformFuncAddrs bAddr b.Methods]
+                            else    
+                                Dict.union [transformFuncAddrs aAddr a.Methods; b.Methods]
+                        QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
+                        IsStub = a.IsStub && b.IsStub
+                        StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                        Type = combine a.Type b.Type
+                    },
+                    mergedAddr
+                )
             else
                 None
 
-        let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
+        let unionMerge (dicts:seq<IDictionary<TypeDefinition,Address*CustomTypeInfo*option<ClassInfo>>>) =
             let result = Dictionary() :> IDictionary<TypeDefinition,_>
             for dict in dicts do
                 for cls in dict do
                     result.TryGetValue cls.Key
                     |> function
                         | false, _ -> result.Add cls
-                        | true, prevPart ->
-                            match tryMergeClassInfo prevPart cls.Value with
-                            | Some mergedInfo -> result.[cls.Key] <- mergedInfo
-                            | None -> failwithf "Error merging class info on key: %A" cls.Key
+                        | true, (rAddr, rCt, rCl) ->
+                            let (addr, ct, cl) = cls.Value
+                            let newCt =
+                                match ct, rCt with
+                                | NotCustomType, ct | ct, NotCustomType -> ct
+                                | ct, rCt -> if ct = rCt then ct else failwithf "Different values found for the same key: %A" cls.Key
+                            let newCls, newAddr =
+                                match cl, rCl with
+                                | Some cl, Some rCl ->
+                                    match tryMergeClassInfo (rCl, rAddr) (cl, addr) with
+                                    | Some (mergedInfo, newAddr) -> Some mergedInfo, newAddr
+                                    | None -> failwithf "Error merging class info on key: %A" cls.Key
+                                | Some cls, None -> Some cls, addr
+                                | None, Some cls -> Some cls, rAddr
+                                | None, None -> None, rAddr
+                            result.[cls.Key] <- (newAddr, newCt, newCls)
             result
 
         let metas = Array.ofSeq metas
@@ -376,7 +477,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
             Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
-            CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
             Quotations = 
                 try
@@ -388,57 +488,63 @@ type Info =
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
         }
-    
-    member this.DiscardExpressions() =
+
+    member this.ClassInfo(td) =
+        let _, _, c = this.Classes.[td]
+        c.Value
+
+    member this.ClassInfos =
+        this.Classes
+        |> Seq.choose (function
+            | KeyValue(_, (_, _, Some cls)) -> Some cls
+            | _ -> None
+        )
+
+    member this.MapClasses(f, ?fEp) =
         { this with
             Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
-                        StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
-                        Methods = ci.Methods |> Dict.map (fun (a, b, _) -> a, b, Undefined)
-                        Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
-                    } 
+                this.Classes |> Dict.map (fun (addr, ct, ci as t) ->
+                    match ci with
+                    | None -> t
+                    | Some ci -> addr, ct, Some (f ci)
                 )
         }
+
+    member this.DiscardExpressions() =
+        this.MapClasses((fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = Undefined })
+                StaticConstructor = ci.StaticConstructor |> Option.map (fun _ -> Empty)
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = Undefined })
+                Implementations = ci.Implementations |> Dict.map (fun i -> { i with Expression = Undefined })
+            }), (fun _ -> Empty))
 
     member this.DiscardInlineExpressions() =
         let rec discardInline i e =
             match i with
-            | Inline
-            | NotCompiledInline -> Undefined
+            | Inline _ -> Undefined
             | Macro (_, _, Some f) -> discardInline f e
             | _ -> e
-        { this with
-            Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
-                    } 
-                )
-        }
+        this.MapClasses(fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = discardInline c.CompiledForm c.Expression })
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardInline m.CompiledForm m.Expression })
+            })
 
     member this.DiscardNotInlineExpressions() =
         let rec discardNotInline i e =
             match i with
-            | Inline
-            | NotCompiledInline -> e
+            | Inline _ -> e
             | Macro (_, _, Some f) -> discardNotInline f e
             | _ -> Undefined
-        { this with
-            Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
-                    } 
-                )
-        }
+        this.MapClasses((fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = discardNotInline c.CompiledForm c.Expression })
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardNotInline m.CompiledForm m.Expression })
+            }), (fun _ -> Empty))
 
     member this.IsEmpty =
         this.Classes.Count = 0 &&
-        this.CustomTypes.Count = 0 &&
         this.Interfaces.Count = 0 &&
         this.MacroEntries.Count = 0 &&
         this.SiteletDefinition.IsNone
@@ -467,12 +573,14 @@ module internal Utilities =
 
     let getRemoteMethods meta =
         let remotes = Dictionary()
-        for KeyValue(cDef, c) in meta.Classes do
-            for KeyValue(mDef, (m, _, _)) in c.Methods do
-                match ignoreMacro m with
+        for KeyValue(cDef, (_, _, c)) in meta.Classes do
+            c |> Option.iter (fun c ->
+            for KeyValue(mDef, m) in c.Methods do
+                match ignoreMacro m.CompiledForm with
                 | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()
+            )
         remotes :> RemoteMethods            
 
 let UnionCaseConstructMethod (td: TypeDefinition) (uc: FSharpUnionCaseInfo) =
@@ -497,6 +605,10 @@ let RecordFieldGetter (f: FSharpRecordFieldInfo) =
         Generics = 0       
     }
 
+type JsonSerializerEntry =
+    | JsonId
+    | JsonSerializer of TypeDefinition * Method
+
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
@@ -507,18 +619,22 @@ type ICompilation =
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetConstructorAttributes : TypeDefinition * Constructor -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
+    abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
     abstract ParseJSInline : string * list<Expression> * [<OptionalArgument; DefaultParameterValue null>] position: SourcePos * [<OptionalArgument; DefaultParameterValue null>] dollarVars: string[] -> Expression
-    abstract NewGenerated : string list -> TypeDefinition * Method * Address
+    abstract NewGenerated : string * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
+    abstract NewGeneratedVar : string * ?typ: Type -> Id
     abstract AddGeneratedCode : Method * Expression -> unit
     abstract AddGeneratedInline : Method * Expression -> unit
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
+    abstract GetJsonMetadataEntry : bool * Type -> option<JsonSerializerEntry>
+    abstract AddJsonMetadataEntry : bool * Type * JsonSerializerEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
     abstract AddJSImport : export: option<string> * from: string -> Expression 
-
+              
 module IO =
     module B = Binary
 
@@ -529,7 +645,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "6.1"
+    let CurrentVersion = "7.0-beta3"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

@@ -71,6 +71,6 @@ class TestClass {
     let expectedDiagnostic =
         CSharpAnalyzerVerifier<WebSharperCSharpAnalyzer, NUnitVerifier>.Diagnostic("WebSharperError")
             .WithSpan(8, 9, 8, 23)
-            .WithArguments("Method name not found in JavaScript compilation: (Beep : unit -> unit), Members: WriteLine")
+            .WithArguments("Method name not found in JavaScript compilation: System.Console.(Beep : unit -> unit), Members: get_Error, get_Out, WriteLine")
     test.ExpectedDiagnostics.Add(expectedDiagnostic);
     test.RunAsync()

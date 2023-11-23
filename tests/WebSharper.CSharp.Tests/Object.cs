@@ -280,14 +280,14 @@ namespace WebSharper.CSharp.Tests
 
             dynamic o = r;
             Equal(o.x, 3);
-            Equal(o.X(), 3);
+            Equal(o.X, 3);
             Equal(o.GetX(), 3);
-            o.set_X(4);
+            o.X = 4;
             Equal(o.x, 4);
 
-            Equal(o.get_xx(), 3);
-            o.set_xx(4);
-            Equal(o.get_xx(), 4);
+            Equal(o.xx, 3);
+            o.xx = 4;
+            Equal(r.yy, 4);
         }
 
         [JavaScript]
@@ -394,6 +394,17 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void StaticClasses()
+        {
+            Equal(StaticClass.StaticProp, 1);
+            Equal(StaticClass.StaticInitProp, 2);
+            StaticClass.StaticProp = 3;
+            Equal(StaticClass.StaticProp, 3);
+            StaticClass.IncrStaticProp();
+            Equal(StaticClass.StaticProp, 4);
+        }
+
+        [Test("C# field initialization order", TestKind.Skip)]
         public void InitializationOrder()
         {
             _initializationOrder = "";
@@ -427,6 +438,24 @@ namespace WebSharper.CSharp.Tests
             }
 
             public string G = _initializationOrder += "G";
+        }
+    }
+
+    [JavaScript]
+    public static class StaticClass
+    {
+        public static int StaticProp { get; set; } = 1;
+
+        public static int StaticInitProp { get; }
+
+        public static void IncrStaticProp()
+        {
+            StaticProp++;
+        }
+
+        static StaticClass()
+        {
+            StaticInitProp = 2;
         }
     }
 

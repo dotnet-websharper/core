@@ -25,6 +25,8 @@ open System.Collections.Generic
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Collections
+open System.Runtime.InteropServices
+
 module T = BalancedTree
 
 [<JavaScript>]
@@ -63,7 +65,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
         member this.ContainsKey k = 
             tree |> T.Contains {Key=k; Value = JS.Undefined}
 
-        member this.TryGetValue (k: 'K, r: byref<'V>) = 
+        member this.TryGetValue (k: 'K, [<Out>] r: byref<'V>) = 
             match this.TryFind k with
             | Some v ->
                 r <- v

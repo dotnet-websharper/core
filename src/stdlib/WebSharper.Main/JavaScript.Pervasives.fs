@@ -98,6 +98,10 @@ let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 [<Inline "[$x,$y]">]
 let ( => ) (x: string) (y: obj) = (x, y)
 
+/// Operator for the object spread syntax
+[<Inline>]
+let ( !... ) (x: obj) = JS.Verbatim $"...{x}"
+
 [<JavaScript>]
 let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
     let r = JS.Inline "{}"

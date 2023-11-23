@@ -248,6 +248,17 @@ module Pervasives =
     let ObsoleteWithMessage message (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete (Some message))
 
+    /// Marks an entity as a named import from a JS module.
+    let Import export from (x: #Code.Entity) =
+        x |> Code.Entity.Update (fun x -> x.Import <- Some (Some export, from))
+
+    /// Marks an entity as the default import from a JS module.
+    let ImportDefault defaultFrom (x: #Code.Entity) =
+        x |> Code.Entity.Update (fun x -> x.Import <- Some (None, defaultFrom))
+
+    /// Constructs a new `Type` from System.Type object.
+    let SystemType t = Type.SystemType (R.Type.FromType t)
+
     /// Constructs a class protocol (instance members).
     [<Obsolete "Use |+> Instance [...]">]
     let Protocol (members: list<Code.Member>) =
@@ -260,6 +271,10 @@ module Pervasives =
     /// Adds a source name.
     let WithSourceName (name: string) (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.SourceName <- Some name)
+
+    /// Define the TypeScript type corresponding to this declaration.
+    let WithTSType (name: string) (x: #Code.TypeDeclaration) =
+        x |> Code.Entity.Update (fun x -> x.TSType <- Some name)
 
     /// Marks an method as a pure function call.
     let Pure (x: #Code.MethodBase) =
@@ -315,6 +330,12 @@ module Pervasives =
         | t -> 
             Type.NoInteropType t
 
+    /// Marks an entity with an import statement
+    let ImportFile defaultFrom (x: #Code.Method) =
+        x
+        |> Code.Entity.Update (fun x -> x.Import <- Some (None, defaultFrom))
+        |> WithInline "$importFile"
+
     /// Adds indexer argument.
     let Indexed (indexer: Type.Type) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
@@ -324,9 +345,6 @@ module Pervasives =
 
     /// Will be evaluated to the type the member is added to.
     let TSelf = Type.DefiningType
-
-    /// Constructs a new `Type` from System.Type object.
-    let SystemType t = Type.SystemType (R.Type.FromType t)
 
     /// Adds a macro to method or constructor. Macro type must be defined in another assembly.
     let WithMacro (macroType: System.Type) (x: #Code.MethodBase) =

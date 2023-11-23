@@ -33,7 +33,7 @@ module M = WebSharper.Core.Metadata
 type private Attribute =
     | Macro of TypeDefinition * option<obj>
     | Proxy of TypeDefinition * TypeDefinition[] * bool
-    | Inline of option<string> * dollarVars: string[]
+    | Inline of option<string * bool> * dollarVars: string[]
     | Direct of string * dollarVars: string[]
     | Pure
     | Warn of string
@@ -53,6 +53,8 @@ type private Attribute =
     | SPAEntryPoint
     | JavaScriptExport of option<string>
     | Prototype of bool
+    | Type of string
+    | Import of option<string> * string
     | OtherAttribute
     
 type private A = Attribute
@@ -76,6 +78,8 @@ type TypeAnnotation =
         RemotingProvider : option<TypeDefinition * option<obj>>
         JavaScriptTypesAndFiles : list<string>
         JavaScriptExportTypesAndFiles : list<string>
+        Type : option<TSType>
+        Import : option<option<string> * string>
     }
 
     static member Empty =
@@ -96,10 +100,12 @@ type TypeAnnotation =
             RemotingProvider = None
             JavaScriptTypesAndFiles = []
             JavaScriptExportTypesAndFiles = []
+            Type = None
+            Import = None
         }
 
 type MemberKind = 
-    | Inline of string * dollarVars: string[]
+    | Inline of string * bool * dollarVars: string[]
     | Direct of string * dollarVars: string[]
     | InlineJavaScript
     | JavaScript
@@ -123,7 +129,8 @@ type MemberAnnotation =
         DateTimeFormat : list<option<string> * string>
         Pure : bool
         Warn : option<string>
-        JavaScriptOptions: JavaScriptOptions
+        JavaScriptOptions : JavaScriptOptions
+        Import : option<option<string> * string>
     }
 
 type ParameterAnnotation =
@@ -145,6 +152,7 @@ module MemberAnnotation =
             Pure = false
             Warn = None
             JavaScriptOptions = JavaScriptOptions.None
+            Import = None
         }
 
     let BasicPureJavaScript =
@@ -182,6 +190,12 @@ type AssemblyAnnotation =
             JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
             JavaScriptExportTypesAndFiles = this.JavaScriptExportTypesFilesAndAssemblies
         }
+
+/// Contains information from all WebSharper-specific attributes for a type parameter
+type TypeParamAnnotation =
+    {
+        Type : option<TSType>
+    }
 
 /// Base class for reading WebSharper-specific attributes.
 [<AbstractClass>]
@@ -257,7 +271,10 @@ type AttributeReader<'A>() =
         | "InternalProxyAttribute" ->
             proxyAttr true
         | "InlineAttribute" ->
-            A.Inline (this.CtorArgOption(attr), this.DollarVars(attr))
+            match this.GetCtorArgs(attr) |> List.ofSeq with
+            | t :: a :: _ -> A.Inline (Some (unbox t, unbox a), this.DollarVars(attr))
+            | t :: _ -> A.Inline (Some (unbox t, false), this.DollarVars(attr))
+            | [] -> A.Inline (None, this.DollarVars(attr))
         | "DirectAttribute" ->
             A.Direct (this.CtorArg(attr), this.DollarVars(attr))
         | "PureAttribute" ->
@@ -315,6 +332,13 @@ type AttributeReader<'A>() =
                 A.JavaScriptExport (Some t.Value.FullName)
         | "PrototypeAttribute" ->
             A.Prototype (this.CtorArgOption(attr) |> Option.defaultValue true)
+        | "TypeAttribute" ->
+            A.Type (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+        | "ImportAttribute" ->
+            match this.GetCtorArgs(attr) with
+            | [| f |] -> A.Import (None, unbox f)
+            | [| e; f |] -> A.Import (Some (unbox e), unbox f)
+            | _ -> failwith "invalid constructor arguments for ImportAttribute" 
         | n -> 
             A.OtherAttribute
 
@@ -331,6 +355,8 @@ type AttributeReader<'A>() =
         let mutable proxyExt = []
         let mutable proxyInt = false
         let mutable prot = None
+        let mutable tstyp = None
+        let mutable import = None
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -353,6 +379,8 @@ type AttributeReader<'A>() =
                     proxyExt <- List.ofArray i
                     proxyInt <- ip
                 | A.Prototype p -> prot <- Some p
+                | A.Type n -> tstyp <- Some (TSType.Parse n)
+                | A.Import (e, f) -> import <- Some (e, f)
                 | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
             | _ -> ()
@@ -381,10 +409,10 @@ type AttributeReader<'A>() =
             jse <- true
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp, import
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp, import = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             ProxyExtends = proxyExt
@@ -408,10 +436,12 @@ type AttributeReader<'A>() =
             JavaScriptExportTypesAndFiles =
                 (attrArr |> Seq.choose (function A.JavaScriptExport e -> e | _ -> None) |> List.ofSeq) 
                 @ parent.JavaScriptExportTypesAndFiles
+            Type = tstyp
+            Import = import
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs, _, import = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -432,7 +462,7 @@ type AttributeReader<'A>() =
             | [| a |] ->
                 match a with   
                 | A.Inline (None, _) -> Some InlineJavaScript
-                | A.Inline (Some i, d) -> Some (Inline (i, d))
+                | A.Inline (Some (i, a), d) -> Some (Inline (i, a, d))
                 | A.Direct (s, d) -> Some (Direct (s, d))
                 | A.Constant x -> Some (Constant x)
                 | A.Generated (g, p) -> Some (Generated (g, p))
@@ -450,8 +480,9 @@ type AttributeReader<'A>() =
             Pure = isPure
             Warn = warning
             JavaScriptOptions = jsOptions
+            Import = import |> Option.orElse parent.Import
         }
-
+   
     member this.GetParamAnnot (attrs: seq<'A>) =
         let clientAccess =
             attrs |> Seq.exists (fun a ->
@@ -501,6 +532,19 @@ type AttributeReader<'A>() =
             JavaScriptTypesAndFiles = jsTypesAndFiles |> List.ofSeq
             JavaScriptExportTypesFilesAndAssemblies = jsExportTypesAndFiles |> List.ofSeq
         }        
+
+    member this.GetTypeParamAnnot (attrs: seq<'A>) =
+        let mutable tsType = None
+        for a in attrs do
+            match this.GetAssemblyName a with
+            | "WebSharper.Core" ->
+                match this.Read a with
+                | A.Type t -> tsType <- Some (TSType.Parse t) 
+                | _ -> ()
+            | _ -> ()
+        {
+            Type = tsType
+        }
            
 type ReflectionAttributeReader() =
     inherit AttributeReader<System.Reflection.CustomAttributeData>()
@@ -518,12 +562,11 @@ let private mdelTy = typeof<System.MulticastDelegate>
 let reflectCustomType (typ : TypeDefinition) =
     try
         let t = Reflection.LoadTypeDefinition typ
-        let typName() = typ.Value.FullName.Split(',').[0]
         if t.BaseType = mdelTy then
-            let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
+            let args, ret = t.GetMethod("Invoke") |> Reflection.ReadSignature
             M.DelegateInfo {
-                DelegateArgs = inv.Parameters 
-                ReturnType = inv.ReturnType
+                DelegateArgs = args
+                ReturnType = ret
             } 
         elif t.IsEnum then
             M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))

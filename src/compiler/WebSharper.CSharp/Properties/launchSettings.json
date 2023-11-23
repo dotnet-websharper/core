@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "WebSharper.CSharp": {
+      "commandName": "Project",
+      "commandLineArgs": "@\"C:\\Users\\andra\\AppData\\Local\\Temp\\tmp4135.tmp\"",
+      "workingDirectory": "H:\\websharper-ts\\tests\\WebSharper.CSharp.Tests"
+    }
+  }
+}

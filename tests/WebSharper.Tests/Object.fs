@@ -184,9 +184,20 @@ type Farm() as this =
 [<JavaScript; Prototype false>]
 type ClassWithNoPrototype(x) =
     let y = x + 1
+    static let mutable p = 1
 
     member this.Y() = y
     member this.X(a) = this.Y() - 1 + a
+
+    static member val PA = 2 with get, set
+
+    static member P
+        with get() = p
+        and set v = p <- v
+
+[<JavaScript>]
+type ExtendTest =
+    | ExtendTest
 
 [<JavaScript>]
 type MyObj () =
@@ -207,12 +218,28 @@ type MyType() =
 
     interface WebSharper.CSharp.Tests.IFoo
 
+[<JavaScript>]
+let mutable et = 1
+
+type ExtendTest with
+
+    static member StaticProp 
+        with get() = et
+        and set v = et <- v 
+
 //[<JavaScript>]
 //type MultipleIntf() =
 //    interface IA<int> with
 //        member x.Get() = 1
 //    interface IA<string> with
 //        member x.Get() = "hello"
+
+[<JavaScript>]
+type StaticTypeTest() =
+    static member TestType(x: obj) =
+        match x with
+        | :? StaticTypeTest -> true
+        | _ -> false
 
 [<JavaScript>]
 let Tests =
@@ -354,9 +381,9 @@ let Tests =
 
         Test "Property rename" {
             let o = RN()
-            equal (o?X()) 0
+            equal (o?X) 0
             o.Value <- 1
-            equal (o?X()) 1
+            equal (o?X) 1
             equal o.RNValue 1
             o.RNValue <- 2
             equal o.RNValue 2
@@ -364,6 +391,7 @@ let Tests =
             equal o.X 1
             o.X <- 4
             equal o.X 4
+            equal o.RNValue 2
         }
 
         Test "Extensions" {
@@ -399,9 +427,9 @@ let Tests =
             equal ((r :> I3).Get()) 4
             equal ((r :> I3)?Get()) 4
             equal ((r :> I4).Value) 4
-            equal ((r :> I4)?I4Value()) 4
+            equal ((r :> I4)?I4Value) 4
             (r :> I4).Value <- 5
-            equal ((r :> I4)?I4Value()) 5
+            equal ((r :> I4)?I4Value) 5
         }
 
         Test "Struct" {
@@ -469,6 +497,18 @@ let Tests =
             let o = ClassWithNoPrototype(40)
             equal (o.X(2)) 42
             jsEqual (o.JS.Constructor) (JS.Global?Object)
+            equal ClassWithNoPrototype.P 1
+            ClassWithNoPrototype.P <- 3
+            equal ClassWithNoPrototype.P 3
+            equal ClassWithNoPrototype.PA 2
+            ClassWithNoPrototype.PA <- 4
+            equal ClassWithNoPrototype.PA 4
+        }
+
+        Test "Type extension" {
+            equal ExtendTest.StaticProp 1
+            ExtendTest.StaticProp <- 2
+            equal ExtendTest.StaticProp 2
         }
 
         Test "Type test against interface" {
@@ -501,6 +541,11 @@ let Tests =
             let y = { SR2 = 1; SR2b = "a" }
             equal y.SR2 1
             equal y.SR2b "a"
+        }
+
+        Test "Static method type test against current type" {
+            let o = StaticTypeTest()
+            isTrue (StaticTypeTest.TestType(o))
         }
 
         Skip "Default interface member consumption" {

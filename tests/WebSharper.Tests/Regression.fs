@@ -298,7 +298,7 @@ type TypeCheckTestWithSingletonCase =
 let tryDoSomethingButFail() = X<unit>
 
 [<Inline "OutSideCode.NotInitialized.getValue()">]
-let tryGetOutsideValueAndFail() = X<int>
+let tryGetOutsideValueWithoutGlobal() = X<int>
 
 [<Inline "$global.OutSideCode.NotInitialized.getValue()">]
 let tryGetOutsideValue() = X<int>
@@ -540,6 +540,18 @@ module Bug1284 =
     let addOne { Field = x } = { Field = x + 1. }
 
     let records = [ {Field = 1.}; {Field = 2.} ]
+
+[<JavaScript>]
+module Bug1334 =
+    [<JavaScript(false)>]
+    type QRCodeAttrs =
+        {
+            size: int
+            message: string
+        }
+
+        [<JavaScript>]
+        member this.Foo() = 1
 
 [<JavaScript>]
 let Tests =
@@ -896,7 +908,7 @@ let Tests =
                 "NotInitialized" => New [ "getValue" => (fun() -> 1) ]
             ]
             equal (tryGetOutsideValue())  1     
-            raises (tryGetOutsideValueAndFail())
+            equal (tryGetOutsideValueWithoutGlobal()) 1
         }
 
         Test "#731 Tail recursion should not overwrite outside variable" {
@@ -973,7 +985,7 @@ let Tests =
             let x = TestConfigObj()
             x.Value <- 4
             equal x?value 4
-            equal x.X JS.Undefined
+            equal x.X (As null)
             x.X <- true
             isTrue x.X
         }
@@ -1029,7 +1041,7 @@ let Tests =
         Test "#951 abstract method key collisions and renaming fixes" {
             equal (Bug951.B().Value) 1
             equal (Bug951.B().ValueB) 2
-            equal (Bug951.B()?get_Value()) 2
+            equal (Bug951.B()?get_Value) 2
         }
 
         Test "#991 Overriding interface implementations" {
@@ -1078,5 +1090,12 @@ let Tests =
             equal (Seq.sumBy Bug1284.addOne Bug1284.records).Field 5.
             equal (Seq.average Bug1284.records).Field 1.5
             equal (Seq.averageBy Bug1284.addOne Bug1284.records).Field 2.5
+        }
+
+        Test "#1334 Improper use of JavaScript(false)" {
+            let qr = {size=100; message="hello"} : Bug1334.QRCodeAttrs
+            equal qr.size 100
+            equal qr.message "hello"
+            equal (qr.Foo()) 1
         }
     }

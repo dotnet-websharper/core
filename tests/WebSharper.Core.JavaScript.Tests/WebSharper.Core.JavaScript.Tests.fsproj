@@ -4,6 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateProgramFile>false</GenerateProgramFile>
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>

@@ -28,6 +28,7 @@ module M = WebSharper.Core.Metadata
 module Res = WebSharper.Core.Resources
 module W = WebSharper.Core.JavaScript.Writer
 module FE = WebSharper.Compiler.FrontEnd
+type O = WebSharper.Core.JavaScript.Output
 type Graph = WebSharper.Core.DependencyGraph.Graph
 
 [<AutoOpen>]
@@ -42,7 +43,7 @@ module BundleUtility =
 
     let DocWrite w =
         let str x = JS.Constant (JS.String x)
-        JS.Application (JS.Binary (JS.Var "document", JS.BinaryOperator.``.``, str "write"), [str w])
+        JS.Application (JS.Binary (JS.Var (JS.Id.New "document"), JS.BinaryOperator.``.``, str "write"), [], [str w])
         |> W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
 
 module Bundling =
@@ -59,6 +60,7 @@ module Bundling =
             JsMap: option<Content>
             MinJs: Content
             MinJsMap: option<Content>
+            Imports: Lazy<list<string * list<string>>>
         }
 
     type private BundleOptions =
@@ -71,7 +73,7 @@ module Bundling =
             CurrentJs: Lazy<option<string * string>>
             Sources: seq<string * string>
             EntryPoint: option<Statement>
-            EntryPointStyle: Packager.EntryPointStyle
+            EntryPointStyle: JavaScriptPackager.EntryPointStyle
             IsExtraBundle: bool
             AddError : option<SourcePos> -> string -> unit
         }
@@ -80,7 +82,7 @@ module Bundling =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
-        let sourceMap = o.Config.SourceMap
+        let sourceMap = false //o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
         
         let graph =
@@ -92,7 +94,7 @@ module Bundling =
             if sourceMap then
                 o.RefAssemblies |> Seq.collect (fun a ->
                     match a.MapFileForReadable with
-                    | Some mapFile -> WebSharper.Compiler.Packager.readMapFileSources mapFile
+                    | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
                     | _-> []
                 )  
                 |> Seq.append o.Sources
@@ -103,7 +105,7 @@ module Bundling =
         let mutable minmap = None
 
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
-        let concatScripts = not dce && not sourceMap
+        let concatScripts = false //not dce && not sourceMap
         if concatScripts then
             sprintf "Using pre-compiled JavaScript for bundling"
             |> logger.Out
@@ -125,19 +127,20 @@ module Bundling =
 
         let pkg =   
             if concatScripts then
-                WebSharper.Core.AST.Undefined
+                []
             else
                 let meta = 
                     o.RefMetas |> Seq.map refreshAllIds
                     |> Seq.append (Seq.singleton o.CurrentMeta)
-                    |> M.Info.UnionWithoutDependencies 
+                    |> M.Info.UnionWithoutDependencies
                 try
                     let current = 
                         if dce then trimMetadata meta nodes 
                         else meta
-                    Packager.packageAssembly current current o.EntryPoint o.EntryPointStyle
+                    let asmName = Path.GetFileNameWithoutExtension o.Config.AssemblyFile
+                    JavaScriptPackager.bundleAssembly O.JavaScript current current asmName o.EntryPoint o.EntryPointStyle false
                 with e -> 
-                    CommandTools.argError ("Error during bundling: " + e.Message)
+                    CommandTools.argError ("Error during bundling: " + e.Message + " at " + e.StackTrace)
         let resources = graph.GetResourcesOf nodes
 
         let noHtmlWriter = new HtmlTextWriter(TextWriter.Null)
@@ -145,6 +148,9 @@ module Bundling =
         let assemblyLookup =
             lazy 
             o.RefAssemblies |> Seq.map (fun a -> a.Name, a) |> Map
+
+        let jsImports = ResizeArray()
+        let toLoad = ResizeArray()
 
         let render (mode: BundleMode) (writer: StringWriter) =
             match mode with
@@ -163,10 +169,10 @@ module Bundling =
                     | _ -> true
                 let renderWebResource cType (c: string) =
                     match cType, mode with
-                    | CT.JavaScript, BundleMode.JavaScript
-                    | CT.JavaScript, BundleMode.MinifiedJavaScript ->
-                        writer.Write(c)
-                        writer.WriteLine(";")
+                    //| CT.JavaScript, BundleMode.JavaScript
+                    //| CT.JavaScript, BundleMode.MinifiedJavaScript ->
+                    //    writer.Write(c)
+                    //    writer.WriteLine(";")
                     | CT.Css, BundleMode.CSS ->
                         writer.WriteLine(c)
                     | _ -> ()
@@ -176,25 +182,40 @@ module Bundling =
                         DefaultToHttp = false // TODO make configurable
                         ScriptBaseUrl = o.Config.ScriptBaseUrl
                         GetAssemblyRendering = 
-                            match concatScripts, mode with
-                            | true, BundleMode.JavaScript -> 
-                                fun name ->
-                                    assemblyLookup.Value |> Map.tryFind name
-                                    |> Option.bind (fun a -> a.ReadableJavaScript)
-                                    |> Option.iter (fun t -> writer.WriteLine(t))
-                                    Res.Skip
-                            | true, BundleMode.MinifiedJavaScript -> 
-                                fun name ->
-                                    assemblyLookup.Value |> Map.tryFind name
-                                    |> Option.bind (fun a -> a.CompressedJavaScript)
-                                    |> Option.iter (fun t -> writer.WriteLine(t))
-                                    Res.Skip
-                            | _ ->
+                            //match concatScripts, mode with
+                            //| true, BundleMode.JavaScript -> 
+                            //    fun name ->
+                            //        assemblyLookup.Value |> Map.tryFind name
+                            //        |> Option.bind (fun a -> a.ReadableJavaScript)
+                            //        |> Option.iter (fun t -> writer.WriteLine(t))
+                            //        Res.Skip
+                            //| true, BundleMode.MinifiedJavaScript -> 
+                            //    fun name ->
+                            //        assemblyLookup.Value |> Map.tryFind name
+                            //        |> Option.bind (fun a -> a.CompressedJavaScript)
+                            //        |> Option.iter (fun t -> writer.WriteLine(t))
+                            //        Res.Skip
+                            //| _ ->
                                 fun _ -> Res.Skip
                         GetSetting = fun _ -> None
                         GetWebResourceRendering = fun ty name ->
-                            let (c, cT) = Utility.ReadWebResource ty name
-                            renderWebResource cT c
+                            if name.ToLower().EndsWith ".js" && (mode = BundleMode.JavaScript || mode = BundleMode.MinifiedJavaScript) then
+                                let a = ty.Assembly.GetName().Name
+                                let i = a, name 
+                                if not (jsImports.Contains(i)) && i <> ("WebSharper.Core.JavaScript", "Runtime.js") then
+                                    let url = a + "/" + name
+                                        //if o.IsExtraBundle then 
+                                        //    "../" + a + "/" + name
+                                        //else
+                                        //    "./" + a + "/" + name
+                                    if not (toLoad.Contains(url)) then
+                                        toLoad.Add(url)
+                                    //let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                    //writer.WriteLine("import {0};", s.Trim())  
+                                    jsImports.Add(i)
+                            else
+                                let (c, cT) = Utility.ReadWebResource ty name
+                                renderWebResource cT c
                             Res.Skip
                         WebRoot = "/"
                         RenderingCache = null
@@ -208,13 +229,12 @@ module Bundling =
                             match e.Urls ctx with
                             | [||] -> ()
                             | urls ->
-                                writer.WriteLine("importScripts([{0}]);",
-                                    urls |> Seq.map (fun url ->
-                                        let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)
-                                        s.Trim()
-                                    )
-                                    |> String.concat ","
-                                )
+                                for url in urls do
+                                    if not (toLoad.Contains(url)) then
+                                        //let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                        //writer.WriteLine("import {0};", s.Trim())  
+                                        toLoad.Add(url)
+
                         | _ -> ()
 
             if concatScripts then 
@@ -244,7 +264,14 @@ module Bundling =
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                    let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref getCodeWriter
+                    let scriptBase = o.Config.ScriptBaseUrl |> Option.defaultValue ""
+
+                    let js, m, isJSX = 
+                        pkg 
+                        |> WebSharper.Compiler.JavaScriptPackager.addLoadedModules (List.ofSeq toLoad) scriptBase o.IsExtraBundle
+                        |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript pref 
+                        |> fun (program, jsx) ->
+                            WebSharper.Compiler.JavaScriptPackager.programToString pref getCodeWriter program jsx
                     if sourceMap then
                         if mode = BundleMode.JavaScript then
                             map <- m
@@ -253,7 +280,7 @@ module Bundling =
 
                     writer.WriteLine js
 
-                    Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
+                    //Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
                 | _ -> ()
 
         let content mode =
@@ -288,6 +315,21 @@ module Bundling =
                 Some (Content.Create(t))
             else None
 
+        let imports =
+            lazy
+            pkg 
+            |> JavaScriptPackager.getImportedModules 
+            |> List.choose (fun i ->
+                match i.Split('/') with
+                | [| "."; a; js |] ->
+                    Some (a, js)
+                | _ -> 
+                    None
+            )
+            |> List.append (List.ofSeq jsImports)
+            |> List.groupBy fst
+            |> List.map (fun (a, jss) -> a, jss |> List.map snd)
+
         {
             Css = Some css
             HeadHtml = Some htmlHeaders
@@ -296,6 +338,7 @@ module Bundling =
             JsMap = mapping
             MinJs = minifiedJavaScript
             MinJsMap = minifiedMapping
+            Imports = imports
         }
 
     let private getDeps (jsExport: JsExport list) entryPointNode (graph: Graph) =
@@ -379,7 +422,7 @@ module Bundling =
                     CurrentMeta = currentMeta
                     GetAllDeps = getDeps jsExports bundle.Node
                     EntryPoint = Some bundle.EntryPoint
-                    EntryPointStyle = Packager.EntryPointStyle.ForceImmediate
+                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
                     Sources = []
                     RefAssemblies = refAssemblies
@@ -462,23 +505,24 @@ module Bundling =
     let Bundle (config: WsConfig) (logger: LoggerBase) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
         let entryPointStyle =
             if List.isEmpty comp.JavaScriptExports
-            then Packager.EntryPointStyle.ForceOnLoad
-            else Packager.EntryPointStyle.OnLoadIfExists
-        logger
-        |> CreateBundle {
-            Config = config
-            RefMetas = refMetas
-            CurrentMeta = currentMeta
-            GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
-            EntryPoint = comp.EntryPoint
-            EntryPointStyle = entryPointStyle
-            CurrentJs = currentJS
-            Sources = sources
-            RefAssemblies = refAssemblies
-            IsExtraBundle = false
-            AddError = fun pos msg -> comp.AddError(pos, SourceError msg)
-        }
-        |> WriteBundle config
+            then JavaScriptPackager.EntryPointStyle.ForceOnLoad
+            else JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+        let b =
+            logger
+            |> CreateBundle {
+                Config = config
+                RefMetas = refMetas
+                CurrentMeta = currentMeta
+                GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
+                EntryPoint = comp.EntryPoint
+                EntryPointStyle = entryPointStyle
+                CurrentJs = currentJS
+                Sources = sources
+                RefAssemblies = refAssemblies
+                IsExtraBundle = false
+                AddError = fun pos msg -> comp.AddError(pos, SourceError msg)
+            }
+        b |> WriteBundle config
         match BundleOutputDir config (GetWebRoot config) with
         | Some outDir ->
             let extraBundleFiles =
@@ -488,10 +532,23 @@ module Bundling =
                         b.AssemblyName, currentExtraBundles |> List.map (fun (name, content) -> name, content.Text)
                     else
                         let asm = refAssemblies |> List.find (fun asm -> asm.Name = b.AssemblyName)
-                        let scripts = asm.GetScripts()
+                        let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
                         let findScript name = 
-                            name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
                         asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
+                )
+                |> Seq.append (
+                    b.Imports.Value 
+                    |> Seq.collect (fun (a, jss) ->
+                        let asm = refAssemblies |> List.find (fun asm -> asm.Name = a)
+                        let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
+                        let findScript name = 
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
+                        jss
+                        |> Seq.map (fun js ->
+                            asm.Name, [findScript js]
+                        )
+                    )
                 )
             for asmName, bundle in extraBundleFiles do
                 let baseDir = Path.Combine(outDir, asmName)

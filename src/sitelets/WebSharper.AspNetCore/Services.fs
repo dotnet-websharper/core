@@ -74,7 +74,7 @@ type WebSharperService(defaultAssembly) =
                         | Some meta ->
                             meta, Graph.FromData meta.Dependencies
 
-                let res = metadata, dependencies, J.Provider.CreateTyped metadata
+                let res = metadata, dependencies, J.Provider.Create()
                 metaCache.Add(siteletAssembly, res)
                 res
 

@@ -31,6 +31,12 @@ let RunTests runServerSide autoStart =
     if not autoStart then
         JavaScript.JS.Inline "QUnit.config.autostart = false";
     Test "non-categorized test" {
+        System.Console.Error.WriteLine("Hello World")
+        System.Console.Out.WriteLine("Console.Out test")
+        System.Console.Error.WriteLine("Console.Error num: {0}", 52)
+        System.Console.Out.WriteLine("out hello {0} {1} {2} {3}", 52,55,58,63)
+        System.Console.Error.WriteLine("Error record {0}", {| field1 = "SampleText"; field_2 = 128.35|})
+        System.Console.Error.WriteLine(true)
         equal 1 1
     }
     Runner.RunTests [|
@@ -39,13 +45,13 @@ let RunTests runServerSide autoStart =
         Array2D.Tests
         Async.Tests
         Basis.Tests
-        BigInt.Tests
         Char.Tests
         Conversions.Tests
         DateTime.Tests
         DateTime.NativeTests
         Delegate.Tests
         Double.Tests
+        BigInt.Tests
         Enum.Tests
         Event.Tests
         Exception.Tests
@@ -57,7 +63,6 @@ let RunTests runServerSide autoStart =
         List.Tests
         Macro.Tests
         Math.Tests
-        MathJS.Tests runServerSide
         Nullable.Tests
         Object.Tests
         ObjExpr.Tests

@@ -26,7 +26,6 @@ open WebSharper.JavaScript
 open System.Collections.Generic
 
 [<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
-[<Name "WebSharper.Collections.ReadOnlyCollection">]
 type ReadOnlyCollectionProxy<'T> =
 
     [<Inline>]

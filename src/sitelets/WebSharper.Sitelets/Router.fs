@@ -109,8 +109,8 @@ type ParseRequestResult<'T> =
     [<System.Obsolete "Use Value instead">]
     member this.Action = this.Value
 
+// For back-compatibility only, use ParseRequestResult instead of ActionEncoding.DecodeResult
 [<System.Obsolete "Use ParseRequestResult instead of ActionEncoding.DecodeResult">]
-/// For back-compatibility only, use ParseRequestResult instead of ActionEncoding.DecodeResult
 module ActionEncoding =
 
     type DecodeResult<'T> = ParseRequestResult<'T>
@@ -881,8 +881,8 @@ module Router =
                 tryUnbox value |> Option.bind router.Write
         }
 
-    [<Inline>]
     /// Converts to Router<obj>. When writing, a type check against type A is performed.
+    [<Inline>]
     let Box (router: Router<'A>): Router<obj> =
         BoxImpl (function :? 'A as v -> Some v | _ -> None) router
 
@@ -899,8 +899,8 @@ module Router =
                 box value |> router.Write
         }
 
-    [<Inline>]
     /// Converts from Router<obj>. When parsing, a type check against type A is performed.
+    [<Inline>]
     let Unbox<'A when 'A: equality> (router: Router<obj>) : Router<'A> =
         UnboxImpl (function :? 'A as v -> Some v | _ -> None) router
 
@@ -913,9 +913,9 @@ module Router =
                 tryWriteCast value |> Option.bind router.Write
         }
 
-    [<Inline>]
     /// Converts a Router<A> to Router<B>. When parsing and writing, type checks are performed.
     /// Upcasting do not change set of parsed routes, downcasting restricts it within the target type.
+    [<Inline>]
     let Cast (router: Router<'A>): Router<'B> =
         CastImpl (fun v -> match box v with :? 'B as v -> Some v | _ -> None) (fun v -> match box v with :? 'A as v -> Some v | _ -> None) router
 
@@ -1241,8 +1241,8 @@ module RouterOperators =
             Segment = Seq.empty
         }
     
-    [<Inline>]
     /// Parse/write a specific string.
+    [<Inline>]
     let r name : Router = Router.FromString name
 
     /// Parse/write a string using URL encode/decode.

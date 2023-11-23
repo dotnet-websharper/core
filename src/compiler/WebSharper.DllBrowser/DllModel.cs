@@ -1,6 +1,10 @@
-﻿using System;
+﻿using Microsoft.FSharp.Collections;
+using Microsoft.FSharp.Core;
+//using Mono.Cecil.Cil;
+using System;
 using System.CodeDom;
 using System.Collections.Generic;
+//using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -66,6 +70,7 @@ namespace WebSharper.DllBrowser
             {
                 Contents.Add(new MetadataModel(meta));
                 Contents.Add(new GraphModel(meta.Dependencies));
+                Contents.Add(new MacroEntriesModel(meta));
             }
             Contents.Add(new ResourcesModel(assembly));
         }
@@ -77,28 +82,12 @@ namespace WebSharper.DllBrowser
     {
         public Info Metadata { get; init; }
         public override string Name => "Metadata";
-        public MetadataModel(Info metadata) 
+        public MetadataModel(Info metadata)
         {
             Metadata = metadata;
-            var classes = new Dictionary<Hashed<TypeDefinitionInfo>, (ClassInfo?, CustomTypeInfo?)>();
-            foreach (var x in metadata.Classes)
+            foreach (var x in metadata.Classes.OrderBy(x => x.Key.Value.FullName))
             {
-                classes.Add(x.Key, (x.Value, null));
-            }
-            foreach (var x in metadata.CustomTypes)
-            {
-                if (classes.TryGetValue(x.Key, out var ct))
-                {
-                    classes[x.Key] = (ct.Item1, x.Value);
-                }
-                else
-                {
-                    classes.Add(x.Key, (null, x.Value));
-                }
-            }
-            foreach (var x in classes.OrderBy(x => x.Key.Value.FullName))
-            {
-                Contents.Add(new ClassModel(x.Key.Value, x.Value.Item1, x.Value.Item2));
+                Contents.Add(new ClassModel(x.Key.Value, x.Value));
             }
             foreach (var x in metadata.Interfaces.OrderBy(x => x.Key.Value.FullName))
             {
@@ -134,26 +123,25 @@ namespace WebSharper.DllBrowser
     public class ClassModel : TreeLeafNodeModel
     {
         public TypeDefinitionInfo Type { get; init; }
-        public ClassInfo? ClassInfo { get; init; }
-        public CustomTypeInfo? CustomTypeInfo { get; init; }
+        public Tuple<Address, CustomTypeInfo, FSharpOption<ClassInfo>> ClassInfo { get; init; }
         public override string Name => "Class: " + Type.FullName;
         public override string GetDetails()
         {
             var sb = new StringBuilder();
 
-            if (CustomTypeInfo != null)
+            sb.Append("Address: ").AppendLine(ClassInfo.Item1.ToString().Replace("\n", ""));
+            sb.AppendLine();
+
+            if (!ClassInfo.Item2.IsNotCustomType)
             {
-                sb.AppendLine(CustomTypeInfo.ToString());
+                sb.AppendLine(ClassInfo.Item2.ToString());
+                sb.AppendLine();
             }
 
-            var cls = ClassInfo;
+            var cls = ClassInfo.Item3?.Value;
+
             if (cls != null)
             {
-                if (cls.Address != null)
-                {
-                    sb.Append("Address: ").AppendLine(string.Join(".", cls.Address.Value.Value.Reverse()));
-                    sb.AppendLine();
-                }
                 if (cls.BaseClass != null)
                 {
                     sb.Append("BaseClass: ").AppendLine(cls.BaseClass.Value.ToString().Replace("\n", ""));
@@ -162,30 +150,35 @@ namespace WebSharper.DllBrowser
                 foreach (var m in cls.Constructors)
                 {
                     sb.AppendLine(".ctor(" + m.Key.Value.ToString() + ")");
-                    sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
-                    sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
-                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
+                    sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                    sb.Append("  Optimizations: ").AppendLine(m.Value.Optimizations.ToString().Replace("\n", ""));
+                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                     sb.AppendLine();
                 }
                 if (cls.StaticConstructor != null)
                 {
                     sb.AppendLine(".cctor()");
-                    sb.Append("  Statement: ").AppendLine(Debug.PrintExpression(cls.StaticConstructor.Value.Item2).Replace("\n", ""));
+                    sb.Append("  Statement: ").AppendLine(Debug.PrintStatement(cls.StaticConstructor.Value).Replace("\n", ""));
                     sb.AppendLine();
                 }
                 foreach (var m in cls.Methods)
                 {
                     sb.AppendLine(m.Key.Value.ToString());
-                    sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
-                    sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
-                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
+                    sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                    sb.Append("  Optimizations: ").AppendLine(m.Value.Optimizations.ToString().Replace("\n", ""));
+                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                     sb.AppendLine();
+                }
+                foreach (var f in cls.Fields)
+                {
+                    sb.AppendLine(f.Key.ToString());
+                    sb.Append("  CompiledForm: ").AppendLine(f.Value.CompiledForm.ToString().Replace("\n", ""));
                 }
                 foreach (var m in cls.Implementations)
                 {
                     sb.AppendLine(m.Key.Item1.Value.ToString() + ": " + m.Key.Item2.Value.ToString());
-                    sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
-                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item2).Replace("\n", ""));
+                    sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                     sb.AppendLine();
                 }
 
@@ -193,11 +186,10 @@ namespace WebSharper.DllBrowser
 
             return sb.ToString();
         }
-        public ClassModel(TypeDefinitionInfo type, ClassInfo? classInfo, CustomTypeInfo? customTypeInfo)
+        public ClassModel(TypeDefinitionInfo type, Tuple<Address, CustomTypeInfo, FSharpOption<ClassInfo>> classInfo)
         {
             Type = type;
             ClassInfo = classInfo;
-            CustomTypeInfo = customTypeInfo;
         }
     }
 
@@ -209,10 +201,22 @@ namespace WebSharper.DllBrowser
         public override string GetDetails()
         {
             var sb = new StringBuilder();
+            sb.Append("Address: ").AppendLine(InterfaceInfo.Address.ToString().Replace("\n", ""));
+            if (!InterfaceInfo.Extends.IsEmpty)
+            {
+                sb.Append("Extends: ").AppendLine(string.Join(", ", InterfaceInfo.Extends.Select(i => i.ToString())));
+            }
+            if (!InterfaceInfo.Generics.IsEmpty)
+            {
+                sb.Append("Generics: ").AppendLine(string.Join(", ", InterfaceInfo.Generics.Select(i => i.ToString())));
+            }
+            sb.AppendLine();
             foreach (var m in InterfaceInfo.Methods)
             {
                 sb.AppendLine(m.Key.Value.ToString());
-                sb.Append("  CompiledName: ").AppendLine(m.Value);
+                sb.Append("  CompiledName: ").AppendLine(m.Value.Item1);
+                sb.Append("  MemberKind: ").AppendLine(m.Value.Item2.ToString());
+                //sb.Append("  Generics: ").AppendLine(m.Value.Item3.ToString());
                 sb.AppendLine();
             }
             return sb.ToString();
@@ -231,13 +235,21 @@ namespace WebSharper.DllBrowser
         public ResourcesModel(Compiler.Assembly assembly)
         {
             Assembly = assembly;
-            
+
             var f = assembly.ReadableJavaScript;
             if (f != null)
             {
                 Contents.Add(new SpecialFileModel("WebSharper.js", f.Value));
             }
-            foreach (var x in assembly.GetScripts())
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.JavaScript))
+            {
+                Contents.Add(new EmbeddedFileModel(x));
+            }
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.TypeScriptDeclaration))
+            {
+                Contents.Add(new EmbeddedFileModel(x));
+            }
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.TypeScript))
             {
                 Contents.Add(new EmbeddedFileModel(x));
             }
@@ -250,7 +262,7 @@ namespace WebSharper.DllBrowser
 
     public class SpecialFileModel : TreeLeafNodeModel
     {
-        private readonly  string _name;
+        private readonly string _name;
         private readonly string _details;
         public override string Name => _name;
         public override string GetDetails() => _details;
@@ -299,8 +311,8 @@ namespace WebSharper.DllBrowser
                         _node is Node.TypeNode typeNode
                         && _nodes[kv.Key] is Node.AbstractMethodNode abstractNode
                         && _nodes[kv.Value] is Node.ImplementationNode implNode
-                        && implNode.Item1.Equals(typeNode.Item)
-                        && implNode.Item2.Equals(abstractNode.Item1)
+                        && implNode.typ.Equals(typeNode.Item)
+                        && implNode.baseTyp.Equals(abstractNode.Item1)
                         && implNode.Item3.Equals(abstractNode.Item2)
                     )
                     {
@@ -316,7 +328,7 @@ namespace WebSharper.DllBrowser
             return sb.ToString();
         }
 
-        public NodeModel(Node node, Node[] nodes, int[] edges, IDictionary<int,int>? overrides)
+        public NodeModel(Node node, Node[] nodes, int[] edges, IDictionary<int, int>? overrides)
         {
             _node = node;
             _nodes = nodes;
@@ -325,4 +337,37 @@ namespace WebSharper.DllBrowser
         }
     }
 
+    public class MacroEntriesModel : TreeGroupNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "MacroEntries";
+        public MacroEntriesModel(Info metadata)
+        {
+            Metadata = metadata;
+            foreach (var x in metadata.MacroEntries)
+            {
+                Contents.Add(new MacroEntryModel(x.Key, x.Value));
+            }
+        }
+    }
+    public class MacroEntryModel : TreeLeafNodeModel
+    {
+        public MetadataEntry Key { get; init; }
+        public IEnumerable<MetadataEntry> Values { get; init; }
+        public override string Name => Key.ToString();
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var v in Values)
+            {
+                sb.AppendLine(v.ToString());
+            }
+            return sb.ToString();
+        }
+        public MacroEntryModel(MetadataEntry key, IEnumerable<MetadataEntry> values)
+        {
+            Key = key;
+            Values = values;
+        }
+    }
 }

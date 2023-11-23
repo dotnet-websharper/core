@@ -36,6 +36,7 @@ type Config =
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool
+        UnpackTypeScriptDeclaration : bool
         Metadata: WebSharper.Core.Metadata.Info
         Logger: LoggerBase
     }

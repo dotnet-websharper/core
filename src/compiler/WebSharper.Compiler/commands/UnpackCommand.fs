@@ -24,6 +24,7 @@ open FileSystem
 module PC = WebSharper.PathConventions
 module C = Commands
 module Re = WebSharper.Core.Resources 
+type O = WebSharper.Core.JavaScript.Output
 
 module UnpackCommand =
     type Config =
@@ -32,6 +33,7 @@ module UnpackCommand =
             RootDirectory : string
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            UnpackTypeScriptDeclaration : bool
             DownloadResources : bool
             Loader : option<Loader>
             Logger : LoggerBase
@@ -43,6 +45,7 @@ module UnpackCommand =
                 RootDirectory = "."
                 UnpackSourceMap = false
                 UnpackTypeScript = false
+                UnpackTypeScriptDeclaration = false
                 DownloadResources = false
                 Loader = None
                 Logger = ConsoleLogger()
@@ -66,8 +69,10 @@ module UnpackCommand =
                 proc { opts with RootDirectory = root } xs
             | "-sm" :: xs ->
                 proc { opts with UnpackSourceMap = true } xs
-            | "-dts" :: xs ->
+            | "-ts" :: xs ->
                 proc { opts with UnpackTypeScript = true } xs
+            | "-dts" :: xs ->
+                proc { opts with UnpackTypeScriptDeclaration = true } xs
             | x :: xs ->
                 proc { opts with Assemblies = x :: opts.Assemblies } xs
         match args with
@@ -137,20 +142,28 @@ module UnpackCommand =
             | None -> () 
             | Some a ->
             let aid = PC.AssemblyId.Create(a.Name)
-            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
-                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
-            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
-                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
-            if cmd.UnpackTypeScript then
-                emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+            //emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+            //    a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+            //emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+            //    a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+            //emit a.TypeScript (pc.TypeScriptPath aid)
+            //if cmd.UnpackTypeScript then
+            //    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
                 writeTextFile (p, c)
             let writeBinary k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
                 writeBinaryFile (p, c)
-            for r in a.GetScripts() do
-                writeText script r.FileName r.Content
+            if cmd.UnpackTypeScript then
+                for r in a.GetScripts(O.TypeScript) do
+                    writeText script r.FileName r.Content
+            else
+                for r in a.GetScripts(O.JavaScript) do
+                    writeText script r.FileName r.Content
+                if cmd.UnpackTypeScriptDeclaration then
+                    for r in a.GetScripts(O.TypeScriptDeclaration) do
+                        writeText script r.FileName r.Content
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
         

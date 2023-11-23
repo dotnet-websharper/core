@@ -6,6 +6,7 @@
 #r "nuget: Fake.DotNet.Cli"
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
+#r "nuget: Fake.JavaScript.Npm"
 #r "nuget: Paket.Core"
 #else
 #r "paket:
@@ -17,6 +18,7 @@ nuget Fake.Tools.Git
 nuget Fake.DotNet.Cli
 nuget Fake.DotNet.AssemblyInfoFile
 nuget Fake.DotNet.Paket
+nuget Fake.JavaScript.Npm
 nuget Paket.Core prerelease //"
 #endif
 
@@ -39,14 +41,17 @@ open Fake.Core.TargetOperators
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
+open Fake.JavaScript
 open WebSharper.Fake
 
-let version = "6.1"
-let pre = None
+let version = "7.0"
+let pre = Some "beta3"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
+
+let computedVersion = ComputeVersion (Some baseVersion)
 
 let publish rids (mode: BuildMode) =
     let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
@@ -107,6 +112,7 @@ Target.create "Prepare" <| fun _ ->
             yield File.ReadAllText(inFile)
             yield sprintf "    let [<Literal>] FcsVersion = \"%s\"" fcsVersion
             yield sprintf "    let [<Literal>] RoslynVersion = \"%s\"" roslynVersion
+            yield sprintf "    let [<Literal>] WSVersion = \"%s\"" computedVersion.AsString
         ]
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
@@ -127,16 +133,32 @@ Target.create "Prepare" <| fun _ ->
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
-let targets = MakeTargets {
-    WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
-        HasDefaultBuild = false
-        BuildAction =
-            BuildAction.Multiple [
-                BuildAction.Projects ["WebSharper.Compiler.sln"]
-                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
-                BuildAction.Projects ["WebSharper.sln"]
-            ]
-}
+    // install TypeScript
+    Npm.install <| fun o -> 
+        { o with 
+            WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
+        }
+
+let targets =
+    MakeTargets {
+        WSTargets.Default (fun () -> computedVersion) with
+            HasDefaultBuild = false
+            BuildAction =
+                BuildAction.Multiple [
+                    BuildAction.Projects ["WebSharper.Compiler.sln"]
+                    //BuildAction.Custom (publish [ Some "win-x64" ])
+                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
+                    BuildAction.Projects ["WebSharper.sln"]
+                ]
+            Attributes =
+                [
+                    AssemblyInfo.Company "IntelliFactory"
+                    AssemblyInfo.Copyright "(c) IntelliFactory 2023"
+                    
+                    AssemblyInfo.Description "https://github.com/dotnet-websharper/core"
+                    AssemblyInfo.Product "WebSharper"
+                ]
+    }
 
 targets.AddPrebuild "Prepare"
 
@@ -146,7 +168,8 @@ Target.create "Build" <| fun o ->
     ]
     |> build o (buildModeFromFlag o) 
 
-"Prepare"
+"WS-Restore"
+    ==> "Prepare"
     ==> "Build"
 
 Target.create "Publish" <| fun o ->
@@ -227,6 +250,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 
     use webTestsProc = new Process()
     webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net6.0\Web.exe"
+    webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
@@ -252,7 +276,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let res =
         Shell.Exec(
             "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "http://localhost:5000/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
+            "https://localhost:44336/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
         )
     webTestsProc.Kill()
     if res <> 0 then

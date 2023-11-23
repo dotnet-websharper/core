@@ -101,23 +101,26 @@ type InlineGenerator() =
                 | _ ->
                 let args = args |> String.concat ","
                 let mInl =
+                    let typeName = if Option.isSome td.Import then "$import" else td.Name
                     match f.ParamArray with
                     | Some v ->
                         let name =
                             match m.Name with
-                            | "" -> td.Name + ".prototype.constructor"
-                            | name when m.IsStatic -> td.Name + "." + name
+                            | _ when Option.isSome m.Import -> "$import"
+                            | "" -> typeName + ".prototype.constructor"
+                            | name when m.IsStatic -> typeName + "." + name
                             | name -> name
                         match m.IsStatic, f.Parameters.Length with
-                        | true,  0     -> sprintf "$wsruntime.Apply(%s, %s, $0)" name td.Name
+                        | true,  0     -> sprintf "$wsruntime.Apply(%s, %s, $0)" name typeName
                         | false, 0     -> sprintf "$wsruntime.Apply($this.%s, $this, $1)" name
-                        | true,  arity -> sprintf "$wsruntime.Apply(%s, %s,[%s].concat($%d))" name td.Name args arity
+                        | true,  arity -> sprintf "$wsruntime.Apply(%s, %s,[%s].concat($%d))" name typeName args arity
                         | false, arity -> sprintf "$wsruntime.Apply($this.%s, $this,[%s].concat($%d))" name args (arity + 1)
                     | None ->
                         let name =
                             match m.Name with
-                            | "" -> "new " + td.Name
-                            | name when m.IsStatic -> td.Name + "." + name
+                            | _ when Option.isSome m.Import -> "$import"
+                            | "" -> "new " + typeName
+                            | name when m.IsStatic -> typeName + "." + name
                             | name -> name
                         if m.IsStatic
                         then sprintf "%s(%s)" name args
@@ -144,9 +147,11 @@ type InlineGenerator() =
             )
             |> withOutTransform
         | _ ->
+            let typeName = if Option.isSome td.Import then "$import" else td.Name
             let inl = 
-                let pfx = if p.IsStatic then td.Name else "$this"
+                let pfx = if p.IsStatic then typeName else "$this"
                 let noIndex =
+                    if Option.isSome p.Import then "$import" else
                     let name = p.Name
                     if name = "" then pfx
                     elif validJsIdentRE.IsMatch name
@@ -189,7 +194,8 @@ type InlineGenerator() =
                 | Type.OptionType t -> t, true
                 | t -> t, false 
             let name = p.Name
-            let pfx = if p.IsStatic then td.Name else "$this"
+            let typeName = if Option.isSome td.Import then "$import" else td.Name
+            let pfx = if p.IsStatic then typeName else "$this"
             let value = 
                 match t with
                 | Type.InteropType (_, tr) -> 
@@ -198,6 +204,7 @@ type InlineGenerator() =
                     else tr.In "$value"
                 | _ -> "$value"
             let prop() =
+                if Option.isSome p.Import then "$import" else
                 if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name
                 else sprintf "%s['%s']" pfx name
             if opt then
@@ -399,6 +406,8 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let requireAttr = resolveType typeof<WebSharper.RequireAttribute>
     let pureAttr = resolveType typeof<WebSharper.PureAttribute>
     let warnAttr = resolveType typeof<WebSharper.WarnAttribute>
+    let typeAttr = resolveType typeof<WebSharper.TypeAttribute>
+    let importAttr = resolveType typeof<WebSharper.ImportAttribute>
     let funcWithArgs = resolveType typedefof<WebSharper.JavaScript.FuncWithArgs<_,_>>
     let funcWithThis = resolveType typedefof<WebSharper.JavaScript.FuncWithThis<_,_>> 
     let funcWithOnlyThis = resolveType typedefof<WebSharper.JavaScript.FuncWithOnlyThis<_,_>>
@@ -490,6 +499,8 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Obsolete = obsolete
     member b.Pure = pureAttr
     member b.Warn = warnAttr
+    member b.TypeAttr = typeAttr
+    member b.Import = importAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -675,6 +686,9 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
     let pureAttributeConstructor = findDefaultConstructor tB.Pure 
     let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
+    let typeAttributeConstructor = findTypedConstructor tB.TypeAttr [tB.String.Name]
+    let importAttributeConstructorDefault = findTypedConstructor tB.Import [tB.String.Name]
+    let importAttributeConstructor = findTypedConstructor tB.Import [tB.String.Name; tB.String.Name]
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -715,6 +729,10 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
     member c.PureAttributeConstructor = pureAttributeConstructor
     member c.WarnAttributeConstructor = warnAttributeConstructor
+    member c.TypeAttributeConstructor = typeAttributeConstructor
+    member c.ImportAttributeConstructorDefault = importAttributeConstructorDefault
+    member c.ImportAttributeConstructor = importAttributeConstructor
+
 
 type CompilationKind =
     | LibraryKind
@@ -828,6 +846,31 @@ type MemberConverter
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
 
+    let typeAttribute (t: string) =
+        let ca = CustomAttribute(mB.TypeAttributeConstructor)
+        ca.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box t))
+        ca
+    let setTSAttribute (x: CodeModel.TypeDeclaration) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.TSType with
+        | None -> ()
+        | Some t -> attrs.Add (typeAttribute t)
+
+    let importAttribute (n: option<string>) (f: string) =
+        match n with
+        | None ->
+            let attr = CustomAttribute(mB.ImportAttributeConstructorDefault)
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
+            attr
+        | Some n ->
+            let attr = CustomAttribute(mB.ImportAttributeConstructor)
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box n))
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
+            attr
+    let setImportAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.Import with
+        | None -> ()
+        | Some (n, f) -> attrs.Add (importAttribute n f)
+
     let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
 
     let setPureAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
@@ -918,6 +961,7 @@ type MemberConverter
                 for p in makeParameters (f, td, isCSharp) do
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
+                setImportAttribute x cD.CustomAttributes 
                 setPureAttribute x cD.CustomAttributes
                 setWarnAttribute x cD.CustomAttributes
                 addDependencies x cD.CustomAttributes
@@ -984,6 +1028,7 @@ type MemberConverter
             dT.Methods.Add mD
             pD.SetMethod <- mD
         setObsoleteAttribute p pD.CustomAttributes
+        setImportAttribute p pD.CustomAttributes 
         addDependencies p pD.CustomAttributes
         setWarnAttribute p pD.CustomAttributes
         dT.Properties.Add pD
@@ -1084,6 +1129,7 @@ type MemberConverter
             setPureAttribute x mD.CustomAttributes
             setWarnAttribute x mD.CustomAttributes
         setObsoleteAttribute x mD.CustomAttributes
+        setImportAttribute x mD.CustomAttributes 
         addDependencies x mD.CustomAttributes
         dT.Methods.Add mD
 
@@ -1125,7 +1171,9 @@ type MemberConverter
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
+        setImportAttribute x tD.CustomAttributes 
         setWarnAttribute x tD.CustomAttributes
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
 
     member c.Interface(x: Code.Interface) =
@@ -1139,6 +1187,8 @@ type MemberConverter
             else
                 failwithf "Interface %s is trying to inherit a non-interface type: %s" x.Name tr.FullName
         setObsoleteAttribute x tD.CustomAttributes
+        setImportAttribute x tD.CustomAttributes 
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
             match x.Comment with
@@ -1464,7 +1514,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             (buildNested TypeAttributes.Interface)
         types, genTypes
 
-    let buildAssembly resolver options (assembly: Code.Assembly) =
+    let buildAssembly resolver options (assembly: Code.Assembly) (originalAssembly: Assembly option) (filePath: string) =
         if box assembly = null then
             failwithf "buildAssembly: assembly cannot be null"
         let aND = AssemblyNameDefinition(options.AssemblyName, options.AssemblyVersion)
@@ -1477,7 +1527,20 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         mp.AssemblyResolver <- resolver
         mp.Runtime <- TargetRuntime.Net_4_0
         let comments : Comments = Dictionary()
-        let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
+        let def =
+            // If the original assembly is provided, we should read the Assembly from the fileSystem through Mono.Cecil,
+            // instead of creating a new one.
+            // Note: the ReaderParameters settings are important, as we want to avoid locking the dll we are handling, otherwise when we want to save the dll,
+            // we can run into access denied errors.
+            match originalAssembly with
+            | Some _ ->
+                let rp = ReaderParameters(ReadWrite = true, InMemory = true, ReadingMode = ReadingMode.Immediate)
+                AssemblyDefinition.ReadAssembly(filePath, rp)
+            | _ ->
+                AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
+        def.Modules.Clear()
+        def.CustomAttributes.Clear()
+        def.MainModule.Resources.Clear()
         let types, genTypes = buildInitialTypes assembly def
         let tB = TypeBuilder(resolver, def, options.ReferencePaths)
         let tC = TypeConverter(tB, types, genTypes)
@@ -1505,8 +1568,8 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                     addResource r.Name res.Text
                 | _ -> () // TODO: correct here?
 
-    member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
-        let (def, comments, mB, tB) = buildAssembly resolver options assembly
+    member c.Compile(resolver, options, assembly, filePath: string, ?originalAssembly: Assembly) =
+        let (def, comments, mB, tB) = buildAssembly resolver options assembly originalAssembly filePath
         logger.TimedStage "Built assembly"
         for f in options.EmbeddedResources do
             try
@@ -1521,7 +1584,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             let rec addClass parentFullName (c: CodeModel.Class) =
                 let sn = 
                     parentFullName + 
-                    (match c.SourceName with Some n -> n | _ -> c.Name.[c.Name.LastIndexOf('.') + 1 ..]) +
+                    (iG.GetSourceName c) +
                     (match c.Generics with [] -> "" | g -> "`" + string (List.length g))
                 assemblyPrototypes.Add(sn, c.Name)
                 for nc in c.NestedClasses do addClass (sn + "+") nc
@@ -1545,9 +1608,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         | Some docPath -> doc.Generate docPath
         r
 
-    member c.Compile(options, assembly, ?original) =
+    member c.Compile(options, assembly, filePath, ?original) =
         let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, ?originalAssembly = original)
+        c.Compile(resolver, options, assembly, filePath, ?originalAssembly = original)
 
     member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
@@ -1557,7 +1620,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             | Some r -> { opts with AssemblyResolver = Some r }
         let (aR, resolver) = createAssemblyResolvers opts
         aR.Wrap <| fun () ->
-            c.Compile(resolver, opts, assembly, ?originalAssembly = originalAssembly)
+            c.Compile(resolver, opts, assembly, "", ?originalAssembly = originalAssembly)
             |> ignore
         0
 

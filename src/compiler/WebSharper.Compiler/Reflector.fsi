@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -21,6 +21,8 @@
 // Uses reflection to get inline and macro information.
 // Used by WebSharper Interface Generator and WebSharper.TypeScript
 module WebSharper.Compiler.Reflector
+
+open WebSharper.Core.AST
 
 val TransformAssembly : prototypes: IDictionary<string, string> -> Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
 

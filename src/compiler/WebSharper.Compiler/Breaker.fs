@@ -1,8 +1,8 @@
 // $begin{copyright}
-//
+//                                                                                                                                           
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -22,6 +22,7 @@
 [<AutoOpen>]
 module WebSharper.Compiler.Breaker
 
+open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
 open System.Collections.Generic
@@ -41,10 +42,10 @@ type Broken<'a> =
     {
         Body : 'a
         Statements : Statement list
-        Variables : (Id * Statement option) list
+        Variables : Id list
     }
 
-let debugPrintBroken a =
+let debugPrintBroken (a: Broken<BreakResult>) =
     sprintf "{ Body = %s; Statements = [%s]; Variables = [%s] }"
         (
             match a.Body with
@@ -53,10 +54,22 @@ let debugPrintBroken a =
         )
         (a.Statements |> List.map Debug.PrintStatement |> String.concat "; ")
         (
-            a.Variables |> List.map (function
-                | (v, None) -> sprintf "%A" v
-                | (v, Some x) -> sprintf "%A = %s" v (Debug.PrintStatement x)
-            ) |> String.concat "; "
+            a.Variables |> List.map (sprintf "%A") |> String.concat "; "
+        )
+
+let debugPrintBrokenList (a: Broken<list<BreakResult>>) =
+    sprintf "{ Body = %s; Statements = [%s]; Variables = [%s] }"
+        (
+            "[ " + (
+                a.Body |> List.map (function
+                    | ResultVar a -> sprintf "ResultVar %A" a  
+                    | ResultExpr e -> Debug.PrintExpression e
+                ) |> String.concat "; "
+            ) + " ]"
+        )
+        (a.Statements |> List.map Debug.PrintStatement |> String.concat "; ")
+        (
+            a.Variables |> List.map (sprintf "%A") |> String.concat "; "
         )
 
 let broken b =
@@ -81,20 +94,19 @@ let bindBroken f b =
     }
 
 let private getExpr b = match b with ResultVar v -> Var v | ResultExpr e -> e
-let private getVarList b = match b with ResultVar v -> [ v, None ] | ResultExpr e -> []
 
 let toBrExpr b =
     {
         Body = getExpr b.Body
         Statements = b.Statements
-        Variables = getVarList b.Body @ b.Variables
+        Variables = b.Variables
     }
 
 let toBrExprList b =
     {
         Body = List.map getExpr b.Body
         Statements = b.Statements
-        Variables = List.collect getVarList b.Body @ b.Variables
+        Variables = b.Variables
     }
 
 let mapBroken2L f b =
@@ -111,6 +123,11 @@ type TransformVarSets(v, tr) =
              tr (this.TransformExpression b)    
         else base.TransformVarSet(a, b)    
 
+    override this.TransformVarDeclaration(a, b) =
+        if a = v then
+             ExprStatement(tr (this.TransformExpression b))
+        else base.TransformVarDeclaration(a, b)    
+
 type TransformMoreVarSets(vs, tr) =
     inherit Transformer()
 
@@ -119,14 +136,19 @@ type TransformMoreVarSets(vs, tr) =
              tr (this.TransformExpression b)    
         else base.TransformVarSet(a, b)    
 
+    override this.TransformVarDeclaration(a, b) =
+        if vs |> List.contains a then
+             ExprStatement(tr (this.TransformExpression b))
+        else base.TransformVarDeclaration(a, b)    
+
 type MarkApplicationsPure(v, purity) =
     inherit Transformer()
 
-    override this.TransformApplication(func, args, isPure, length) =
+    override this.TransformApplication(func, args, info) =
         match func with
         | I.Var x when x = v ->
-            Application(func, args |> List.map this.TransformExpression, purity, length)    
-        | _ -> base.TransformApplication(func, args, isPure, length)
+            Application(func, args |> List.map this.TransformExpression, info)    
+        | _ -> base.TransformApplication(func, args, info)
 
     override this.TransformLet(id, value, body) =
         match value with
@@ -134,46 +156,60 @@ type MarkApplicationsPure(v, purity) =
             ReplaceId(id, v).TransformExpression(body) |> this.TransformExpression        
         | _ -> base.TransformLet(id, value, body)
 
-let toDecls (vars: _ list) = 
-    seq {
-        for vv in vars do
-            match vv with
-            | v, None -> yield VarDeclaration(v, Undefined)
-            | _ -> ()
-        for vv in vars do
-            match vv with
-            | _, Some s -> yield s
-            | _ -> ()
-    }
+type ContainsIds (ids : Id list) =
+    inherit Visitor()
 
+    let searched = HashSet(ids)
+    let found = HashSet()
+
+    member this.Searched = searched
+    member this.All = Seq.append searched found
+
+    override this.VisitId i =        
+        if searched.Remove(i) then 
+            found.Add i |> ignore
+
+let toDecls (vars: Id list) (statements: Statement list) = 
+    if List.isEmpty vars then
+        Seq.ofList statements
+    else
+        let c = ContainsIds(vars)
+        let trStatements =
+            statements |> List.map (fun s ->
+                match s with
+                | I.ExprStatement (I.VarSet(a, b)) when c.Searched.Contains a ->
+                    c.Searched.Remove a |> ignore
+                    c.VisitExpression(b)
+                    VarDeclaration(a, b)
+                | _ ->
+                    c.VisitStatement(s)
+                    s
+            )
+        Seq.append 
+            (c.All |> Seq.map (fun v -> VarDeclaration(v, Undefined)))
+            trStatements
+    
 let toStatements f b =
     let b = toBrExpr b
     seq {
-        yield! toDecls b.Variables
-        yield! b.Statements 
+        yield! toDecls b.Variables b.Statements 
         yield f b.Body
     }
 
 let toStatementsL f (b: Broken<BreakResult>)=
     let b = toBrExpr b
     seq {
-        yield! toDecls b.Variables
-        yield! b.Statements 
+        yield! toDecls b.Variables b.Statements 
         yield! f b.Body
     }
 
 let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
-        seq {
-            yield! toDecls b.Variables
-            for st in b.Statements ->
-                TransformVarSets(v, id).TransformStatement(st)    
-        }
+        toDecls b.Variables (b.Statements |> List.map (TransformVarSets(v, id).TransformStatement))
     | ResultExpr e ->
         seq {
-            yield! toDecls b.Variables
-            yield! b.Statements 
+            yield! toDecls b.Variables b.Statements 
             if not (isPureExpr e) then
                 yield ExprStatement (removePureParts e)
         }
@@ -197,14 +233,14 @@ let (|ObjWithPropSetters|_|) expr =
         | [] -> List.rev acc, Undefined
         | [e] ->
             match IgnoreExprSourcePos e with
-            | PropSet (v, fv) when v = objVar -> 
-                List.rev (fv :: acc), Undefined
+            | PropSet (v, (n, o)) when v = objVar -> 
+                List.rev ((n, MemberKind.Simple, o) :: acc), Undefined
             | _ -> List.rev acc, e 
         | e :: r -> 
             match IgnoreExprSourcePos e with
             | e when isPureExpr e -> getSetters objVar acc r
-            | PropSet (v, fv) when v = objVar -> 
-                getSetters objVar (fv :: acc) r
+            | PropSet (v, (n, o)) when v = objVar -> 
+                getSetters objVar ((n, MemberKind.Simple, o) :: acc) r
             | _ -> 
                 List.rev acc, CombineExpressions p
     match expr with 
@@ -212,7 +248,7 @@ let (|ObjWithPropSetters|_|) expr =
         match getSetters objVar [] p with
         | [], _ -> None
         | setters, Var v when v = objVar -> Some (Object (objFields @ setters))
-        | setters, Undefined -> Some (CombineExpressions (List.map snd (objFields @ setters)))
+        | setters, Undefined -> Some (CombineExpressions (List.map (fun (_, _, v) -> v) (objFields @ setters)))
         | setters, res -> Some (Let (objVar, Object (objFields @ setters), res))
     | _ -> None
 
@@ -225,24 +261,32 @@ let (|Lets|) expr =
 
 let bind key value body = Let (key, value, body)
 
-let globalId = Address [ "id" ]
+let globalId = Address.Runtime "id"
 
 let rec removeLets expr =
-    let func vars body isReturn =
-        if isReturn then Lambda(vars, body) else Function(vars, ExprStatement body)
+    let func vars ret body isReturn =
+        if isReturn then Lambda(vars, ret, body) else Function(vars, None, ret, ExprStatement body)
     match expr with
-    | Application (I.Let (var, value, body), xs, p, l) ->
-        Let (var, value, Application (body, xs, p, l)) |> removeLets
-    | Application (I.GlobalAccess g, [x], p, l) when g = globalId ->
+    | Application (I.Let (var, value, body), xs, info) ->
+        Let (var, value, Application (body, xs, info)) |> removeLets
+    | Application (I.GlobalAccess g, [x], _) when g = globalId ->
         x
-    | Let (a, CurriedFunction (bArgs, bBody), c) ->
-        Let(a, Function(bArgs, bBody), OptimizeLocalCurriedFunc(a, List.length bArgs).TransformExpression(c))
+    | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
+        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        let xs, more = xs |> List.splitAt args.Length
+        match more with
+        | [] -> List.foldBack2 bind args xs body
+        | _ -> List.foldBack2 bind args xs (CombineExpressions (more @ [ body ]))
+    | Application (I.Function (_, None, _, (I.Empty | I.Block [])), xs, _) ->
+        Sequential xs
+    | Let (a, CurriedFunction (bArgs, ret, bBody), c) ->
+        Let(a, Function(bArgs, None, ret, bBody), OptimizeLocalCurriedFunc(a, List.length bArgs).TransformExpression(c))
         |> removeLets
-    | Let (a, TupledLambda (bArgs, bBody, isReturn), c) ->
-        Let(a, func bArgs bBody isReturn, OptimizeLocalTupledFunc(a, List.length bArgs).TransformExpression(c))
+    | Let (a, TupledLambda (bArgs, ret, bBody, isReturn), c) ->
+        Let(a, func bArgs ret bBody isReturn, OptimizeLocalTupledFunc(a, List.length bArgs).TransformExpression(c))
         |> removeLets
     // this pattern is generated by Async functions
-    | Let (var, value, I.Function ([x], (I.ExprStatement(I.Application (I.Var f, [I.Var y], _, _)) | I.Return(I.Application (I.Var f, [I.Var y], _, _)))))
+    | Let (var, value, I.Function ([x], None, _, (I.ExprStatement(I.Application (I.Var f, [I.Var y], _)) | I.Return(I.Application (I.Var f, [I.Var y], _)))))
         when f = var && x = y ->
             value
     | Let(a, b, I.Var c) when a = c ->
@@ -252,16 +296,13 @@ let rec removeLets expr =
             ReplaceId(a, b).TransformExpression(c)            
     | Let(a, I.GlobalAccess b, c) when not a.IsMutable ->
         SubstituteVar(a, GlobalAccess b).TransformExpression(c)
-    | Let(var, value, I.Application(func, [I.Var v], p, l))
+    | Let(var, value, I.Application(func, [I.Var v], info))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
-            Application(func, [value], p, l)
-    | Let(var, value, I.Application(I.Var v, args, p, l)) 
+            Application(func, [value], info)
+    | Let(var, value, I.Application(I.Var v, args, info)) 
         when v = var && CountVarOccurence(var).Get(Sequential args) = 0 ->
-            Application(value, args, p, l)
+            Application(value, args, info)
     | ObjWithPropSetters res ->
-#if DEBUG
-        printfn "optimizer: %s -> %s" (Debug.PrintExpression expr) (Debug.PrintExpression res)
-#endif
         res
     | Let(a, b, c) ->
         let optimizeTupled  =
@@ -280,10 +321,12 @@ let rec removeLets expr =
         | 0 ->
             if isPureExpr b then c else Sequential [ b; c ]
         | 1 -> 
-            if isStronglyPureExpr b then 
-                if isTrivialValue b || notMutatedOrCaptured a c then
-                    SubstituteVar(a, b).TransformExpression(c)
-                else expr
+            let notmut() =
+                match b with
+                | I.Function _ -> notMutatedOrCapturedExceptAppl a c
+                | _ -> notMutatedOrCaptured a c
+            if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
+                SubstituteVar(a, b).TransformExpression(c)
             else
                 let accVars = HashSet [a]
                 let rec collectVars acc expr =
@@ -295,24 +338,31 @@ let rec removeLets expr =
                 let varsAndVals, innerExpr = collectVars [a, b] c 
                 if varEvalOrder (varsAndVals |> List.map fst) innerExpr then
                     SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
-                else expr
-        | _ -> expr
+                else 
+                    expr
+        | _ -> 
+            expr
     | _ -> expr
 
 let optimize expr =
     match expr with
     // eta-reduction
-    | Function (vars, I.Return (I.Application (f, args, _, Some i)))
+    | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i })))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
     // created for sprintf
-    | Application(CurriedLambda(i :: vars, I.Application (Var j, [expr], _, _), true), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
-        CurriedLambda(vars, expr)
+    | Application(CurriedLambda(i :: vars, ret, I.Application (Var j, [expr], _), true), [ I.Function([x], None, _, I.Return (Var y))], _) when i = j && x = y ->
+        CurriedLambda(vars, ret, expr)
     // created for F# string interpolation
-    | Application(Lets(bindings, I.Function ([i], I.Return (I.Application (Var j, [expr], _, _)))), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
+    | Application(Lets(bindings, I.Function ([i], None, _, I.Return (I.Application (Var j, [expr], _)))), [ I.Function([x], None, _, I.Return (Var y))], _) when i = j && x = y ->
         expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
-    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars args body) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
         let moreArgsCount = args.Length - vars.Length
+        let bind key (isUnit, value) body = 
+            if isUnit then
+                Sequential [value; body]
+            else
+                Let (key, value, body)
         if moreArgsCount = 0 then
             if isReturn then
                 List.foldBack2 bind vars args body
@@ -328,31 +378,31 @@ let optimize expr =
             curriedApplication f moreArgs
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
-            List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
+            List.foldBack2 bind vars args (CurriedLambda(moreVars, ret, body)) 
+    | Application(TupledLambda(vars, _, body, isReturn), [ I.NewArray args ], { KnownLength = Some _ })
         when vars.Length = args.Length && not (needsScoping vars args body) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
-    | Application(I.ItemGet(I.Function (vars, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _, _) ->
-        List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
-    | Application (I.Function (args, (I.ExprStatement body | I.Return body)), xs, _, Some _) 
+    | Application(I.ItemGet(I.Function (vars, None, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
+        List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
+    | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
         when List.length args <= List.length xs && not (needsScoping args xs body) ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
         | _ -> List.foldBack2 bind args xs (CombineExpressions (more @ [ body ]))
-    | Application (I.Function (_, (I.Empty | I.Block [])), xs, _, _) ->
+    | Application (I.Function (_, None, _, (I.Empty | I.Block [])), xs, _) ->
         Sequential xs
     | Sequential [a] ->
         a
-    | Application (I.Sequential (_ :: _ :: _ as a), b, c, d) ->
+    | Application (I.Sequential (_ :: _ :: _ as a), b, c) ->
         let ar = List.rev a
-        Sequential (List.rev (Application (ar.Head, b, c, d) :: List.tail ar))
+        Sequential (List.rev (Application (ar.Head, b, c) :: List.tail ar))
     // generated for disposing iterators
-    | Application (ItemGet(Let (x, Var y, Var x2), i, gp), b, p, l) when x = x2 ->
-        Application(ItemGet(Var y, i, gp), b, p, l)
+    | Application (ItemGet(Let (x, Var y, Var x2), i, gp), b, o) when x = x2 ->
+        Application(ItemGet(Var y, i, gp), b, o)
     | StatementExpr (I.ExprStatement a, None) ->
         Void a   
     | _ ->
@@ -381,9 +431,10 @@ type Optimizer() =
 
 let optimizer = Optimizer() :> Transformer
 
-let funcDeclarationsDoNotUse a br =
-    br.Variables |> List.forall(function
-        | (_, Some f) ->
+let funcVariablesDoNotUse a br =
+    br.Statements |> List.forall(fun f -> 
+        match f with
+        | I.FuncDeclaration _ ->
             CountVarOccurence(a).GetForStatement(f) = 0
         | _ -> true
     )    
@@ -409,7 +460,11 @@ let negate expr =
     | _ -> Unary(UnaryOperator.Not, expr)
 
 let rec breakExpr expr : Broken<BreakResult> =
-    let inline br x = breakExpr x
+    let inline br x = 
+        breakExpr x
+        //let res = breakExpr x
+        //printfn "Breaker: %s ---> %s" (Debug.PrintExpression x) (debugPrintBroken res)
+        //res
 
     let brLR l : Broken<BreakResult list> =
         let bb = l |> List.map br
@@ -430,7 +485,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                                 bL true (b.Variables @ accVar, accSt, b.Body :: accE) bRest
                             else
                                 let v = Id.New()
-                                bL true ((v, None) :: b.Variables @ accVar, VarSetStatement (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
+                                bL true (b.Variables @ accVar, VarDeclaration (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
                         else
                             bL false (b.Variables @ accVar, accSt, b.Body :: accE) bRest
                     else
@@ -438,7 +493,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                             bL true (b.Variables @ accVar, b.Statements @ accSt, b.Body :: accE) bRest
                         else
                             let v = Id.New()
-                            bL true ((v, None) :: b.Variables @ accVar, b.Statements @ VarSetStatement (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
+                            bL true (b.Variables @ accVar, b.Statements @ VarDeclaration (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
             let vars, st, e = bL false ([], [], []) (List.rev bb)
             {
                 Body = e
@@ -473,7 +528,7 @@ let rec breakExpr expr : Broken<BreakResult> =
             {
                 Body = ResultVar res
                 Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC)]
-                Variables = brA.Variables @ brB.Variables @ brC.Variables
+                Variables = brA.Variables @ brB.Variables @ brC.Variables @ [res]
             }
 
     let boolOp a b c =
@@ -494,31 +549,45 @@ let rec breakExpr expr : Broken<BreakResult> =
 //    match optimize expr with
     match expr with
     | Undefined
-    | This
     | Base
     | Var _
     | Value _ 
-    | Self
+    | JSThis
     | GlobalAccess _
+    | SideeffectingImport _
     | Hole _
-    | Arguments
-    | Cctor _
         -> broken expr 
-    | Function (args, body) ->
-        let args =
-            args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
-        broken (Function (args, BreakStatement body)) 
+    | Function (args, isArr, typ, body) ->
+        // do not remove unused functions for now until we can fix up call points too.
+        //let args =
+        //    args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
+        broken (Function (args, isArr, typ, BreakStatement body)) 
     | CurriedApplication (f, xs) ->
-        xs |> List.fold (fun e a -> Application (e, [a], NonPure, Some 1)) f |> br  
-    | Application (ItemGet(a, b, p), c, d, e) ->
+        xs |> List.fold applyFSharpArg f |> br  
+    | Application (ItemGet(a, b, p), c, d) ->
         brL (a :: b :: c)
-        |> mapBroken3L (fun aE bE cE -> Application (ItemGet(aE, bE, p), cE, d, e))
-    | Application (a, b, c, d) -> 
+        |> mapBroken3L (fun aE bE cE -> Application (ItemGet(aE, bE, p), cE, d))
+    | Application (a, b, c) -> 
         brL (a :: b)
-        |> mapBroken2L (fun aE bE -> Application (aE, bE, c, d))
+        |> mapBroken2L (fun aE bE -> Application (aE, bE, c))
     | VarSet (a, b) ->
+        let brB = br b
+        match brB.Body with
+        | ResultVar v ->
+            {
+                Body = ResultExpr(Var a)
+                Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
+                Variables = brB.Variables
+            }
+        | ResultExpr e ->
+            {
+                Body = ResultExpr (VarSet (a, e))
+                Statements = brB.Statements
+                Variables = brB.Variables
+            }
+    | GlobalAccessSet (a, b) ->
         br b |> toBrExpr
-        |> mapBroken (fun bE -> VarSet (a, bE))
+        |> mapBroken (fun bE -> GlobalAccessSet (a, bE))
     | Sequential a ->
         let rec collect a =
             a |> List.collect (
@@ -541,9 +610,13 @@ let rec breakExpr expr : Broken<BreakResult> =
                 | [] -> ResultExpr Undefined, [], []
                 | [ s ] -> s, [], []
                 | h :: t -> 
+                    let notUsed v =
+                        match h with
+                        | ResultVar hv -> hv <> v
+                        | ResultExpr e -> CountVarOccurence(v).Get(e) = 0
                     h, 
                     t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) | _ -> None) |> List.rev,
-                    t |> List.choose (function ResultVar v -> Some v | _ -> None)
+                    t |> List.choose (function ResultVar v -> (if notUsed v then Some v else None) | _ -> None)
             {
                 Body = b
                 Statements = 
@@ -552,12 +625,12 @@ let rec breakExpr expr : Broken<BreakResult> =
                     else
                         brA.Statements |> List.map (TransformMoreVarSets(removeVars, id).TransformStatement)
                     @ (extraExprs |> List.map ExprStatement)
-                Variables = brA.Variables |> List.filter (fun (v, _) -> removeVars |> List.contains v |> not)
+                Variables = brA.Variables |> List.filter (fun v -> removeVars |> List.contains v |> not)
             }
-    | NewArray [ a ] ->
-        br a |> toBrExpr |> mapBroken (fun a -> NewArray [ a ])
-    | NewArray a ->
-        brL a |> mapBroken NewArray
+    | NewTuple ([ a ], b) ->
+        br a |> toBrExpr |> mapBroken (fun a -> NewTuple ([ a ], b))
+    | NewTuple (a, b) ->
+        brL a |> mapBroken (fun a -> NewTuple(a, b))
     | Conditional (I.Sequential a, b, c) ->
         match List.rev a with
         | [] -> br c
@@ -578,6 +651,8 @@ let rec breakExpr expr : Broken<BreakResult> =
         comb2 (fun (a, b) -> ItemGet(a, b, p)) a b
     | ItemSet (a, b, c) ->
         comb3 ItemSet a b c
+    | Binary ((I.Value _ as a), b, (I.Value _ as c)) ->
+        Binary(Cast(TSType.Any, a), b, c) |> br  
     | Binary (a, b, c) ->
         match b with
         | BinaryOperator.``&&``
@@ -585,6 +660,10 @@ let rec breakExpr expr : Broken<BreakResult> =
             boolOp a b c
         | _ ->
             comb2 (fun (aE, cE) -> Binary(aE, b, cE)) a c
+    | Cast(a, b) ->
+        br b |> mapBroken (fun bB -> Cast(a, getExpr bB))
+    | Coerce(a, b, c) ->
+        br a |> mapBroken (fun bA -> Coerce(getExpr bA, b, c))
     | MutatingBinary (a, b, c) -> 
         comb2 (fun (aE, cE) -> MutatingBinary(aE, b, cE)) a c
     | Unary (a, b) ->
@@ -612,19 +691,11 @@ let rec breakExpr expr : Broken<BreakResult> =
         |> bindBroken (function ResultVar v -> ResultVar v | ResultExpr e -> ResultExpr (ExprSourcePos(a, IgnoreExprSourcePos e)))
     | StatementExpr (I.VarDeclaration(a, b), None) ->
         let brB = br b
-        match brB.Body with
-        | ResultVar v ->
-            {
-                Body = ResultVar a
-                Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
-                Variables = brB.Variables
-            }
-        | ResultExpr e ->
-            {
-                Body = ResultExpr (Void (VarSet(a, e)))
-                Statements = brB.Statements
-                Variables = [ a, None ] @ brB.Variables
-            }
+        {
+            Body = ResultExpr Undefined
+            Statements = brB.Statements @ [ VarDeclaration(a, getExpr brB.Body) ]
+            Variables = brB.Variables
+        }
     | StatementExpr (I.ExprStatement a, Some b) ->
         let brA = br a
         match brA.Body with
@@ -632,17 +703,23 @@ let rec breakExpr expr : Broken<BreakResult> =
             {
                 Body = ResultVar b
                 Statements = brA.Statements
-                Variables = brA.Variables
+                Variables = brA.Variables @ [ b ]
             }
         | ResultExpr ae ->
             {
                 Body = ResultExpr (Sequential [ae; Var b])
-                Statements = brA.Statements
-                Variables = (b, None) :: brA.Variables
+                Statements = brA.Statements 
+                Variables = brA.Variables @ [ b ]
             }
-    | StatementExpr (st, v) ->
+    | StatementExpr (st, Some v) ->
         {
-            Body = match v with Some v -> ResultVar v | _ -> ResultExpr Undefined
+            Body = ResultVar v
+            Statements = st |> breakSt |> List.ofSeq
+            Variables = [ v ]
+        }
+    | StatementExpr (st, None) ->
+        {
+            Body = ResultExpr Undefined
             Statements = st |> breakSt |> List.ofSeq
             Variables = []
         }
@@ -676,23 +753,28 @@ let rec breakExpr expr : Broken<BreakResult> =
             comb2 (fun (aE, dE) -> FieldSet (Some aE, b, c, dE)) a d
         | None ->
             br d |> toBrExpr |> mapBroken (fun dE -> FieldSet (None, b, c, dE))            
-    | Let(var, (SimpleFunction _ as f), c) ->
-        SubstituteVar(var, f).TransformExpression c |> br
-    | Let(var, I.Function(args, body), c) ->
-        if CountVarOccurence(var).Get(c) = 0 then
+    //| Let(var, (SimpleFunction _ as f), c) ->
+    //    SubstituteVar(var, f).TransformExpression c |> br
+    | Let(var, (I.Function(args, thisVar, ret, body) as f), c) ->
+        match CountVarOccurence(var).Get(c) with
+        | 0 ->
             br c
-        else
+        | 1 when notMutatedOrCapturedExceptAppl var c ->
+            br (SubstituteVar(var, f).TransformExpression(c))
+        | _ ->
             let brC = br c
             {
                 Body = brC.Body
-                Statements = brC.Statements
-                Variables = (var, Some (FuncDeclaration(var, args, BreakStatement body))) :: brC.Variables
+                Statements = funcFromLambda(var.WithType(ret), thisVar, false, args, BreakStatement body, []) :: brC.Statements
+                Variables = brC.Variables
             }
     | Let(a, b, c) ->
         let brB = br b
+        let aUses = CountVarOccurence(a).Get(c)
         match brB.Body with
         | ResultExpr _ ->
             let brB = toBrExpr brB
+            let declA = if aUses = 0 then ExprStatement(brB.Body) else VarDeclaration(a, brB.Body)
             if hasNoStatements brB then
                 let c = 
                     match getFunctionPurity brB.Body with
@@ -701,38 +783,44 @@ let rec breakExpr expr : Broken<BreakResult> =
                         MarkApplicationsPure(a, p).TransformExpression(c)   
                 let inlined =
                     if isStronglyPureExpr brB.Body then
-                        match CountVarOccurence(a).Get(c) with
+                        match aUses with
                         | 0 -> Some c
                         | 1 -> 
                             if isTrivialValue brB.Body || notMutatedOrCaptured a c then
                                 Some (SubstituteVar(a, brB.Body).TransformExpression(c))
                             else None
                         | _ -> None
-                    elif isPureExpr brB.Body && CountVarOccurence(a).Get(c) = 0 then
+                    elif isPureExpr brB.Body && aUses = 0 then
                         Some c    
                     else None
                 match inlined with
-                | Some i -> br i
+                | Some i -> 
+                    br i
                 | _ ->
                     let brC = br c 
                     if hasNoStatements brC then
                         let brC = toBrExpr brC
-                        if funcDeclarationsDoNotUse a brC && varEvalOrder [a] brC.Body then 
+                        if funcVariablesDoNotUse a brC && varEvalOrder [a] brC.Body then 
                             {
                                 Body = ResultExpr(SubstituteVar(a, brB.Body).TransformExpression(brC.Body))
                                 Statements = []
                                 Variables = brB.Variables @ brC.Variables
                             }
                         else
+                            //{
+                            //    Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
+                            //    Statements = []
+                            //    Variables = (a, None) :: brB.Variables @ brC.Variables
+                            //}
                             {
-                                Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
-                                Statements = []
-                                Variables = (a, None) :: brB.Variables @ brC.Variables
+                                Body = ResultExpr(brC.Body)
+                                Statements = [ declA ]
+                                Variables = brB.Variables @ brC.Variables
                             }
                     else
                         {
                             Body = brC.Body
-                            Statements = VarDeclaration(a, brB.Body) :: brC.Statements 
+                            Statements = declA :: brC.Statements 
                             Variables = brB.Variables @ brC.Variables
                         }
             else
@@ -740,52 +828,68 @@ let rec breakExpr expr : Broken<BreakResult> =
                 if hasNoStatements brC then
                     let brC = toBrExpr brC
                     {
-                        Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
-                        Statements = brB.Statements
-                        Variables = (a, None) :: brB.Variables @ brC.Variables
+                        Body = ResultExpr(brC.Body)
+                        Statements = brB.Statements @ [ declA ]
+                        Variables = brB.Variables @ brC.Variables
                     }
                 else
                     {
                         Body = brC.Body
-                        Statements = brB.Statements @ VarDeclaration(a, brB.Body) :: brC.Statements 
+                        Statements = brB.Statements @ declA :: brC.Statements 
                         Variables = brB.Variables @ brC.Variables
                     }
         | ResultVar bv ->
             let brC = br c 
+            if CountVarOccurence(a).Get(c) = 0 then
+                {
+                    Body = brC.Body
+                    Statements = 
+                        (brB.Statements |> List.map (TransformVarSets(bv, id).TransformStatement)) 
+                        @ brC.Statements
+                    Variables = brB.Variables @ brC.Variables
+                }
+            else
             {
                 Body = brC.Body
                 Statements = 
-                    (brB.Statements |> List.map (TransformVarSets(bv, fun e -> VarSet(a, e)).TransformStatement)) 
-                    @ brC.Statements 
-                Variables = (a, None) :: brB.Variables @ brC.Variables
+                        (brB.Statements |> List.map (TransformVarSets(bv, fun e -> VarSet(a, e)).TransformStatement)) 
+                        @ brC.Statements
+                Variables = brB.Variables @ brC.Variables @ [ a ]
             }
     | NewVar(a, Undefined) ->
         {
             Body = ResultExpr(Undefined)
             Statements = []
-            Variables = [ a, None ]
+            Variables = [ a ]
         }
     | NewVar(a, b) ->
         let brB = br b
         match brB.Body with
         | ResultExpr e ->
-            { 
-                Body = ResultExpr(VarSet (a, e))
-                Statements = brB.Statements
-                Variables = (a, None) :: brB.Variables    
-            }
+            if hasNoStatements brB then
+                { 
+                    Body = ResultExpr(VarSet (a, e))
+                    Statements = brB.Statements
+                    Variables = brB.Variables @ [ a ]       
+                }
+            else
+                { 
+                    Body = ResultVar a
+                    Statements = brB.Statements @ [ VarDeclaration(a, e) ]
+                    Variables = brB.Variables    
+                }
         | ResultVar v ->
             { 
                 Body = ResultVar a
                 Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
-                Variables = brB.Variables    
+                Variables = brB.Variables @ [ a ]   
             }
-    | Object [n, a] ->
-        br a |> mapBroken (fun a -> Object [n, getExpr a])
+    | Object [n, k, a] ->
+        br a |> mapBroken (fun a -> Object [n, k, getExpr a])
     | Object a ->
-        let names, values = List.unzip a
+        let names, kinds, values = List.unzip3 a
         brL values
-        |> mapBroken (fun l -> Object (List.zip names l)) 
+        |> mapBroken (fun l -> Object (List.zip3 names kinds l)) 
     | Coalesce(a, b, c) ->
         let brA = br a
         let brC = br c
@@ -808,17 +912,17 @@ let rec breakExpr expr : Broken<BreakResult> =
                 i, 
                 let brA = br v |> toBrExpr
                 match brA.Body with
-                | I.Function(args, body) when not i.IsMutable ->
+                | I.Function(args, thisVar, ret, body) when not i.IsMutable ->
                     { 
                         Body = None 
-                        Statements = brA.Statements
-                        Variables = (i, Some (FuncDeclaration(i, args, body))) :: brA.Variables
+                        Statements = brA.Statements @ [ funcFromLambda(i.WithType(ret), thisVar, true, args, body, []) ]
+                        Variables = brA.Variables
                     }
                 | _ -> 
                     { 
                         Body = Some brA.Body 
                         Statements = brA.Statements
-                        Variables = (i, None) :: brA.Variables
+                        Variables = brA.Variables
                     }
             )
         let brB = br b |> toBrExpr
@@ -830,34 +934,64 @@ let rec breakExpr expr : Broken<BreakResult> =
                         yield! v.Statements
                         match v.Body with
                         | Some b ->
-                            yield VarSetStatement(i, b)
+                            yield VarDeclaration(i, b)
                         | _ -> ()
                     yield! brB.Statements
                 ]
             Variables = (brAs |> List.collect (fun (_, ba) -> ba.Variables)) @ brB.Variables 
         }
-    | New(a, b) -> 
+    | New(a, ts, b) -> 
         brL (a :: b)
-        |> mapBroken2L (fun aE bE -> New (aE, bE))
+        |> mapBroken2L (fun aE bE -> New (aE, ts, bE))
+    | ObjectExpr(typ, ctor, ovr) ->
+        Option.toList ctor @ (ovr |> List.map (fun (_, _, e) -> e))
+        |> brL |> mapBroken (fun m ->
+            match ctor, m with
+            | Some _, brCtor :: brOvr ->
+                let brMem = List.map2 (fun (t, m, _) e -> t, m, e) ovr brOvr
+                ObjectExpr (typ, Some brCtor, brMem)
+            | _, brOvr ->
+                let brMem = List.map2 (fun (t, m, _) e -> t, m, e) ovr brOvr
+                ObjectExpr (typ, None, brMem)
+
+        )
+    | ClassExpr(name, baseCls, mem) ->
+        ClassExpr(name, baseCls, mem |> List.map BreakStatement) |> broken
+    | Verbatim(stringParts, holes, isJSX) ->
+        let brHoles =
+            holes 
+            |> List.map (fun e ->
+                let brE = breakExpr e
+                if hasNoStatements brE then
+                    getExpr brE.Body
+                else
+                    Application(Function([], None, None, brE |> toStatementsSpec Return |> List.ofSeq |> CombineStatements), [], ApplicationInfo.None)
+            )
+        Verbatim(stringParts, brHoles, isJSX) |> broken
     | e ->
-        failwithf "Break expression error: %A" e
+        failwithf "Break expression error, not handled: %s" (Debug.PrintExpression e)
 
 /// break expression to statements, if result would be a temporary var,
 /// use `f` (Return or Throw) to transform it to a statement
 and toStatementsSpec f b =
     match b.Body with
-    | ResultExpr _ -> toStatements f b
+    | ResultExpr _ -> 
+        toStatements f b
     | ResultVar v -> 
-        seq {
-            yield! toDecls b.Variables
-            yield! 
-                b.Statements 
-                |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt)
-        }
+        toDecls b.Variables
+            (b.Statements |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt) |> List.ofSeq)
 
 and private breakSt statement : Statement seq =
-    let inline brE x = breakExpr x
-    let inline brS x = breakSt x
+    let inline brE x = 
+        breakExpr x
+        //let res = breakExpr x
+        //printfn "Breaker: %s ---> %s" (Debug.PrintExpression x) (debugPrintBroken res)
+        //res
+    let inline brS x = 
+        breakSt x
+        //let res = breakSt x
+        //printfn "Breaker: %s ===> %s" (Debug.PrintStatement x) (res |> Seq.map Debug.PrintStatement |> String.concat "; ")
+        //res
     let combine x = 
         x |> List.ofSeq |> CombineStatements
     match statement with
@@ -867,6 +1001,8 @@ and private breakSt statement : Statement seq =
     | DoNotReturn
     | Yield _ 
     | Goto _ 
+    | ClassProperty _
+    | ClassStatic _
         -> Seq.singleton statement
     | GotoCase a -> 
         match a with
@@ -884,19 +1020,18 @@ and private breakSt statement : Statement seq =
         let brA = brE a
         // if we would apply a function in return positions, expand it
         match brA.Body with
-        | ResultExpr (I.Application (I.Function (args, body), xs, _, _))
+        | ResultExpr (I.Application (I.Function (args, _, _, body), xs, _))
             when List.length args = List.length xs ->
                 let inlined, notInlined =
                     List.zip args xs |> List.partition (function (a, I.Var _) when not a.IsMutable -> true | _ -> false)   
                 [
                     for var, value in notInlined do
                         match value with
-                        | I.Function (args, body) ->    
-                            yield FuncDeclaration(var, args, body)
+                        | I.Function (args, thisVar, ret, body) ->    
+                            yield funcFromLambda(var.WithType(ret), thisVar, false, args, body, [])
                         | _ ->
                             yield VarDeclaration(var, value)
-                    yield! toDecls brA.Variables
-                    yield! brA.Statements 
+                    yield! toDecls brA.Variables brA.Statements 
                     if List.isEmpty inlined then
                         yield body
                     else
@@ -920,8 +1055,8 @@ and private breakSt statement : Statement seq =
         Seq.singleton (Labeled (a, combine (brS b))) 
     | VarDeclaration (a, b) ->
         brE b |> toStatements (fun bE -> VarDeclaration (a, bE))
-    | FuncDeclaration (a, b, c) ->
-        Seq.singleton (FuncDeclaration (a, b, combine (brS c)))
+    | FuncDeclaration (a, b, c, d, e) ->
+        Seq.singleton (FuncDeclaration (a, b, c, combine (brS d), e))
     | While (a, b) ->
         let brA = brE a
         if hasNoStatements brA then
@@ -951,37 +1086,117 @@ and private breakSt statement : Statement seq =
             brB |> toStatements (fun bE -> DoWhile (combine(brS a), bE))
         else
             let brB = brB |> toBrExpr
-            [
-                yield! toDecls brB.Variables
-                yield DoWhile (combine (Seq.append (brS a) brB.Statements), brB.Body)   
-            ]            
-            |> Seq.ofList
+            toDecls brB.Variables [ DoWhile (combine (Seq.append (brS a) brB.Statements), brB.Body) ]
+    //| For(Some (NewVars setters) as a, b, c, d) ->
+    //    let brA = Option.map brE a
+    //    let brB = Option.map brE b
+    //    let brC = Option.map brE c
+    //    let get x = x |> Option.map (fun y -> y.Body |> getExpr)
+    //    if Option.forall hasNoStatements brB && Option.forall hasNoStatements brC then
+    //        [
+    //            match brA with
+    //            | Some brA -> 
+    //                yield! brA.Variables
+    //            | _ -> ()
+    //            match brB with
+    //            | Some brB -> 
+    //                yield! brB.Variables
+    //            | _ -> ()
+    //            match brC with
+    //            | Some brC -> 
+    //                yield! brC.Variables
+    //            | _ -> ()
+    //            match brA with
+    //            | Some brA -> 
+    //                yield! brA.Statements
+    //            | _ -> ()
+    //            yield For(get brA, get brB, get brC, combine (brS d))
+    //        ]            
+    //        |> Seq.ofList
+    //    else
+    //        let withoutInit =
+    //            While (
+    //                match b with Some b -> b | _ -> Value (Bool true) 
+    //                ,
+    //                match c with Some c -> combine [ContinueTransformer(c).TransformStatement(d); ExprStatement c] | _ -> d
+    //            )
+    //        match a with
+    //        | Some a -> combine [ExprStatement a; withoutInit]
+    //        | _ -> withoutInit
+    //        |> brS
     | For(a, b, c, d) ->       
         let brA = Option.map brE a
         let brB = Option.map brE b
         let brC = Option.map brE c
         let get x = x |> Option.map (fun y -> y.Body |> getExpr)
         if Option.forall hasNoStatements brB && Option.forall hasNoStatements brC then
-            [
-                match brA with
-                | Some brA -> 
-                    yield! toDecls brA.Variables
-                | _ -> ()
-                match brB with
-                | Some brB -> 
-                    yield! toDecls brB.Variables
-                | _ -> ()
-                match brC with
-                | Some brC -> 
-                    yield! toDecls brC.Variables
-                | _ -> ()
-                match brA with
-                | Some brA -> 
-                    yield! brA.Statements
-                | _ -> ()
-                yield For(get brA, get brB, get brC, combine (brS d))
-            ]            
-            |> Seq.ofList
+            match a with 
+            | Some (NewVars setters) ->
+                let brSetters = 
+                    setters |> List.map (fun (i, v) -> i, v |> Option.map brE)
+                let brAS =
+                    brSetters |> List.map (fun (i, brV) -> 
+                        NewVar(i, get brV |> Option.defaultValue Undefined)
+                    )
+                    |> Sequential |> Some
+                let vars =
+                    [
+                        for (_, brS) in brSetters do
+                            match brS with
+                            | Some brS ->
+                                yield! brS.Variables
+                            | _ -> ()
+                        match brB with
+                        | Some brB -> 
+                            yield! brB.Variables
+                        | _ -> ()
+                        match brC with
+                        | Some brC -> 
+                            yield! brC.Variables
+                        | _ -> ()
+                    ]
+
+                let st =
+                    [
+                        for (_, brS) in brSetters do
+                            match brS with
+                            | Some brS ->
+                                yield! brS.Statements
+                            | _ -> ()
+                    ]
+                [
+                    yield! toDecls vars st
+                    yield For(brAS, get brB, get brC, combine (brS d))
+                ]            
+                |> Seq.ofList
+            | _ ->
+                let vars = 
+                    [
+                        match brA with
+                        | Some brA -> 
+                            yield! brA.Variables
+                        | _ -> ()
+                        match brB with
+                        | Some brB -> 
+                            yield! brB.Variables
+                        | _ -> ()
+                        match brC with
+                        | Some brC -> 
+                            yield! brC.Variables
+                        | _ -> ()
+                    ]  
+                let st = 
+                    [
+                        match brA with
+                        | Some brA -> 
+                            yield! brA.Statements
+                        | _ -> ()
+                    ]
+                [
+                    yield! toDecls vars st
+                    yield For(get brA, get brB, get brC, combine (brS d))
+                ]            
+                |> Seq.ofList
         else
             let withoutInit =
                 While (
@@ -1048,6 +1263,12 @@ and private breakSt statement : Statement seq =
         brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
     | Continuation(a, b) ->
         brE b |> toStatements (fun bE -> Continuation(a, bE))
+    | ClassMethod(isStatic, name, pars, thisVar, body, sgn) ->
+        ClassMethod(isStatic, name, pars, thisVar, body |> Option.map BreakStatement, sgn) |> Seq.singleton
+    | ClassConstructor(pars, thisVar, body, sgn) ->
+        ClassConstructor(pars, thisVar, body |> Option.map BreakStatement, sgn) |> Seq.singleton
+    | e ->
+        failwithf "Break statement error, not handled: %s" (Debug.PrintStatement e)
 
 and BreakStatement statement =
     match breakSt statement |> List.ofSeq with

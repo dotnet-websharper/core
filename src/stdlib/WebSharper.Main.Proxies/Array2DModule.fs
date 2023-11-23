@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "Arrays2D">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Collections.Array2DModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy"Microsoft.FSharp.Collections.Array2DModule, FSharp.Core">]
 module private WebSharper.Array2DModuleProxy
 
 open WebSharper.JavaScript

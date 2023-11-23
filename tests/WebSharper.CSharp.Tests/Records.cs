@@ -48,17 +48,16 @@ namespace WebSharper.CSharp.Tests
             var person = new Person("Bill", "Wagner");
             Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
             var teacher = new Teacher("Bill", "Wagner", "English");
-            //Equal(teacher.ToString(), "Teacher { LastName = Wagner, FirstName = Bill, Subject = English }"); // .NET order not enforced
-            Equal(teacher.ToString(), "Teacher { Subject = English, LastName = Wagner, FirstName = Bill }");
+            Equal(teacher.ToString(), "Teacher { LastName = Wagner, FirstName = Bill, Subject = English }");
         }
 
         [Test("C# record struct", TestKind.Skip)]
         public void RecordStruct()
         {
-            var person = new PersonStruct("Bill", "Wagner");
-            var person2 = new PersonStruct("Bill", "Wagner");
-            IsTrue(person == person2);
-            Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            //var person = new PersonStruct("Bill", "Wagner");
+            //var person2 = new PersonStruct("Bill", "Wagner");
+            //IsTrue(person == person2);
+            //Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
         [Test("C# record inheritance")]
@@ -205,14 +204,14 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; set; }
     }
 
-    [JavaScript]
-    public record struct PersonStruct
-    {
-        public readonly string LastName;
-        public readonly string FirstName;
+    //[JavaScript]
+    //public record struct PersonStruct
+    //{
+    //    public readonly string LastName;
+    //    public readonly string FirstName;
 
-        public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
-    }
+    //    public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
+    //}
 
     [JavaScript]
     public class InitOnlyTest

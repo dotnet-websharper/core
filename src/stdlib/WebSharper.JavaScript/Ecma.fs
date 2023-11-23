@@ -71,7 +71,7 @@ module Definition =
                 "" =@ a |> Indexed T<string>            
             ]
         |+> Static [
-                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "Object.fromEntries($nameValuePairs)"
             ]
 
     /// A resgular expression is an object that describes a pattern of characters.

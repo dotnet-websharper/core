@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -31,16 +31,15 @@ module I = IgnoreSourcePos
 let rec removePureParts expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Var _
     | Value _
     | Function _ 
     | GlobalAccess _
-    | Self
+    | JSThis
         -> Undefined
     | Sequential a
-    | NewArray a 
+    | NewArray a
         -> CombineExpressions (a |> List.map removePureParts) 
     | Conditional (a, b, c) 
         -> Conditional (a, removePureParts b, removePureParts c) 
@@ -55,10 +54,10 @@ let rec removePureParts expr =
     | ExprSourcePos (p, a)
         -> ExprSourcePos (p, removePureParts a)     
     | Object a 
-        -> a |> List.map (snd >> removePureParts) |> CombineExpressions
+        -> a |> List.map (fun (_, _, v) -> removePureParts v) |> CombineExpressions
     | LetRec (a, b) 
         -> LetRec (a, removePureParts b)
-    | Application(a, b, (NoSideEffect | Pure), _) ->
+    | Application(a, b, { Purity = NoSideEffect | Pure }) ->
         CombineExpressions ((a :: b) |> List.map removePureParts)
     | _ -> expr
 
@@ -66,16 +65,15 @@ let rec removePureParts expr =
 let rec isPureExpr expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Var _
     | Value _
     | Function _ 
     | GlobalAccess _
-    | Self
+    | JSThis
         -> true
     | Sequential a 
-    | NewArray a 
+    | NewArray a
         -> List.forall isPureExpr a 
     | Conditional (a, b, c) 
         -> isPureExpr a && isPureExpr b && isPureExpr c
@@ -87,20 +85,29 @@ let rec isPureExpr expr =
     | Unary (_, a) 
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
+    | Coerce (a, _, _)
         -> isPureExpr a     
     | Object a 
-        -> List.forall (snd >> isPureExpr) a 
+        -> List.forall (fun (_, _, v) -> isPureExpr v) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isPureExpr) a && isPureExpr b
-    | Application(a, b, (NoSideEffect | Pure), _) ->
+    | Application(a, b, { Purity = NoSideEffect | Pure }) ->
         isPureExpr a && List.forall isPureExpr b    
     | _ -> false
 
 let isPureFunction expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, (I.Return body | I.ExprStatement body)) -> isPureExpr body
-    | Function (_, (I.Empty | I.Block [])) -> true
+    | Function (_, _, _, (I.Return body | I.ExprStatement body)) -> isPureExpr body
+    | Function (_, _, _, (I.Empty | I.Block [])) -> true
     | _ -> false
+
+let isTrivialFunction (args: Id list) body =
+    let rec check expr =
+        match IgnoreExprSourcePos expr with
+        | Var v -> args |> List.contains v
+        | NewTuple (e, _) -> e |> List.forall check
+        | _ -> false
+    check body
 
 let rec isTrivialValue expr =
     match expr with
@@ -112,18 +119,20 @@ let rec isTrivialValue expr =
         not v.IsMutable
     | ExprSourcePos (_, a) ->
         isTrivialValue a
+    //| Function (args, _, _, (I.Empty | I.Block [])) -> true
+    //| Function (args, _, _, (I.Return body)) ->
+    //    isTrivialValue body || isTrivialFunction args body
     | _ -> false
 
 /// Determine if expression has no side effect and value does not depend on execution order
 let rec isStronglyPureExpr expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Value _
-    | Function _ 
+    | Function _
     | GlobalAccess _
-    | Self
+    | JSThis
         -> true
     | Var v ->
         not v.IsMutable
@@ -132,7 +141,7 @@ let rec isStronglyPureExpr expr =
         match List.rev a with
         | [] -> true
         | h :: t -> isStronglyPureExpr h && List.forall isPureExpr t
-    | NewArray a 
+    | NewArray a
         -> List.forall isStronglyPureExpr a 
     | Conditional (a, b, c) 
         -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
@@ -148,30 +157,31 @@ let rec isStronglyPureExpr expr =
         | _ -> isStronglyPureExpr a 
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
+    | Coerce (a, _, _)
         -> isStronglyPureExpr a     
     | Object a 
-        -> List.forall (snd >> isStronglyPureExpr) a 
+        -> List.forall (fun (_, _, v) -> isStronglyPureExpr v) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
-    | Application(a, b, Pure, _) ->
+    | Application(a, b, { Purity = Pure }) ->
         isStronglyPureExpr a && List.forall isStronglyPureExpr b    
     | _ -> false
 
 let getFunctionPurity expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, (I.Return body | I.ExprStatement body)) -> 
+    | Function (_, _, _, (I.Return body | I.ExprStatement body)) -> 
         if isStronglyPureExpr body then
             Pure
         elif isPureExpr body then
             NoSideEffect
         else 
             NonPure
-    | Function (_, (I.Empty | I.Block [])) -> Pure
+    | Function (_, _, _, (I.Empty | I.Block [])) -> Pure
     | _ -> NonPure
 
 /// Checks if a specific Id is mutated or accessed within a function body
 /// (captured) inside an Expression
-type private NotMutatedOrCaptured(v) =
+type private NotMutatedOrCaptured(v, ?allowApplication) =
     inherit Visitor()
 
     let mutable scope = 0
@@ -196,9 +206,14 @@ type private NotMutatedOrCaptured(v) =
             this.VisitExpression a
             this.VisitExpression b
 
-    override this.VisitFunction(a, b) =
+    override this.VisitFuncDeclaration(i, p, t, b, g) =
         scope <- scope + 1
-        base.VisitFunction(a, b)
+        base.VisitFuncDeclaration(i, p, t, b, g)
+        scope <- scope - 1
+
+    override this.VisitFunction(a, i, t, b) =
+        scope <- scope + 1
+        base.VisitFunction(a, i, t, b)
         scope <- scope - 1
 
     override this.VisitExpression(a) =
@@ -207,12 +222,25 @@ type private NotMutatedOrCaptured(v) =
     override this.VisitId a =
         if a = v && scope > 0 then ok <- false
 
+    override this.VisitApplication(a, b, c) =
+        if defaultArg allowApplication false then
+            match a with
+            | I.Var av when av = v ->
+                b |> List.iter this.VisitExpression
+            | _ ->
+                base.VisitApplication(a, b, c)
+        else
+            base.VisitApplication(a, b, c)
+
     member this.Check(a) =
         this.VisitExpression(a)
         ok
 
-let notMutatedOrCaptured (v: Id) expr =
+let notMutatedOrCaptured (v: Id)  expr =
     NotMutatedOrCaptured(v).Check(expr)   
+
+let notMutatedOrCapturedExceptAppl (v: Id)  expr =
+    NotMutatedOrCaptured(v, true).Check(expr)   
 
 type VarsNotUsed(vs : HashSet<Id>) =
     inherit Visitor()
@@ -241,6 +269,24 @@ type VarsNotUsed(vs : HashSet<Id>) =
         this.VisitStatement(s) 
         ok
 
+type CollectUnusedVars(vs : HashSet<Id>) =
+    inherit Visitor()
+
+    new (vs: seq<Id>) = CollectUnusedVars(HashSet vs)
+    
+    override this.VisitId(a) =
+        vs.Remove(a) |> ignore
+
+    member this.Get(e) =
+        if vs.Count > 0 then
+            this.VisitExpression(e) 
+        vs
+
+    member this.GetSt(s) =
+        if vs.Count > 0 then
+            this.VisitStatement(s) 
+        vs
+
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
 /// between then, then extra Let forms and variables for them are not needed
@@ -263,15 +309,14 @@ let varEvalOrder (vars : Id list) expr =
         if ok then
             match e with
             | Undefined
-            | This
             | Base
             | Value _
-            | Self
+            | JSThis
             | GlobalAccess _
-            | OverrideName _
+            | SideeffectingImport _
                 -> ()
             | Sequential a
-            | NewArray a ->
+            | NewTuple (a, _) ->
                 List.iter eval a
             | Conditional (a, b, c) ->
                 eval a
@@ -302,9 +347,11 @@ let varEvalOrder (vars : Id list) expr =
             | UnionCaseGet (a, _, _, _)
             | UnionCaseTag (a, _)
             | UnionCaseTest (a, _, _)
+            | Cast (_, a)
+            | Coerce (a, _, _)
                 -> eval a
             | Object a 
-                -> List.iter (snd >> eval) a 
+                -> List.iter (fun (_, _, v) -> eval v) a 
             | Var a ->
                 if watchedVars.Contains a then
                     match vars with
@@ -319,6 +366,9 @@ let varEvalOrder (vars : Id list) expr =
                 else 
                     eval b
                     stop()
+            | GlobalAccessSet (_, a) ->
+                eval a
+                stop()
             | ItemSet(a, b, c) ->
                 eval a
                 eval b
@@ -336,11 +386,11 @@ let varEvalOrder (vars : Id list) expr =
                 eval a
                 eval c
                 stop()                 
-            | Application(a, b, c, _) ->
+            | Application(a, b, c) ->
                 eval a
                 List.iter eval b
-                if c = NonPure then stop()
-            | New(a, b) ->
+                if c.Purity = NonPure then stop()
+            | New(a, _, b) ->
                 eval a
                 List.iter eval b
                 stop()
@@ -357,17 +407,14 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            | Function(_, a)
-            | FuncWithThis(_, _, a) ->
+            | Function(_, _, _, a) ->
                 if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
                 evalSt a
-            | Arguments
             | Await _
-            | BaseCtor _
+            | ChainedCtor _
             | Ctor _
             | CallNeedingMoreArgs _
-            | Cctor _
             | Coalesce _
             | ComplexElement _
             | CopyCtor _
@@ -381,6 +428,9 @@ let varEvalOrder (vars : Id list) expr =
             | OptimizedFSharpArg _
             | RefOrOutParameter _
             | TraitCall _
+            | ObjectExpr _
+            | ClassExpr _
+            | Verbatim _
                 -> fail()
     
     and evalSt s =
@@ -398,7 +448,7 @@ let varEvalOrder (vars : Id list) expr =
             | Return (a) ->
                 eval a
                 stop()
-            | FuncDeclaration(_, _, a) -> 
+            | FuncDeclaration(_, _, _, a, _) -> 
                 if not <| varsNotUsed.GetSt(a) then fail()
             | TryFinally (a, b) ->
                 evalSt a
@@ -420,6 +470,17 @@ let varEvalOrder (vars : Id list) expr =
             | Switch _
             | While _
             | Yield _
+            | Alias _
+            | Class _
+            | ClassConstructor _
+            | ClassMethod _
+            | ClassProperty _
+            | ClassStatic _
+            | Declare _
+            | ExportDecl _
+            | Import _
+            | Interface _
+            | XmlComment _
                 -> fail()      
                
     eval expr
@@ -494,84 +555,50 @@ type Substitution(args, ?thisObj) =
     override this.TransformHole i = 
         if i <= args.Length - 1 then args.[i] else Undefined
 
-    override this.TransformFunction(args, body) =
-        let res = base.TransformFunction(args, body)
-        res
+    member this.RefreshVar(i: Id) =
+        let n = i.Clone()
+        refresh.Add(i, n)
+        n
+
+    override this.TransformFunction(args, isArr, typ, body) =
+        Function(args |> List.map this.RefreshVar, isArr, typ, this.TransformStatement body)
+
+    override this.TransformVarDeclaration(i, v) =
+        VarDeclaration(this.RefreshVar i, this.TransformExpression v)
+
+    override this.TransformLet(i, v, b) =
+        Let(this.RefreshVar i, this.TransformExpression v, this.TransformExpression b)
+
+    override this.TransformLetRec(vs, b) =
+        LetRec(vs |> List.map (fun (i, v) -> this.RefreshVar i, this.TransformExpression v), this.TransformExpression b)
+
+    override this.TransformNewVar(i, v) =
+        NewVar(this.RefreshVar i, this.TransformExpression v)
+
+    override this.TransformFuncDeclaration(i, a, t, b, ty) =
+        FuncDeclaration(this.RefreshVar i, a, t, this.TransformStatement b, ty)
 
     override this.TransformId i =
         match refresh.TryFind i with
         | Some n -> n
+        | _ -> i
+
+type TransformBaseCall(f) =
+    inherit Transformer()
+
+    override this.TransformApplication(a, b, c) =
+        match a with
+        | Base ->
+            f b
         | _ ->
-            let n = i.Clone()
-            refresh.Add(i, n)
-            n
-   
-type FixThisScope() =
-    inherit Transformer()
-    let mutable scope = 0
-    let mutable thisVar = None
-    let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
+            base.TransformApplication(a, b, c)
 
-    override this.TransformFuncDeclaration(var, args, body) =
-        scope <- scope + 1
-        let res = base.TransformFuncDeclaration(var, args, body)
-        scope <- scope - 1
-        res
-    
-    override this.TransformFunction(args, body) =
-        scope <- scope + 1
-        let res = base.TransformFunction(args, body)
-        scope <- scope - 1
-        res
-     
-    override this.TransformFuncWithThis (thisArg, args, body) =
-        scope <- scope + 1
-        let used = ref false
-        thisArgs.Add(thisArg, (scope, used))
-        let trBody = this.TransformStatement body
-        scope <- scope - 1
-        if !used then
-            Function(args, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
-        else
-            Function(args, trBody)
-    
-    member this.Fix(expr) =
-        let b = this.TransformExpression(expr)
-        match thisVar with
-        | Some t -> Let (t, This, b)
-        | _ -> b
-
-    member this.Fix(statement) =
-        let b = this.TransformStatement(statement)
-        match thisVar with
-        | Some t -> CombineStatements [ VarDeclaration(t, This); b ]
-        | _ -> b
-                
-    override this.TransformThis () =
-        if scope > 0 then
-            match thisVar with
-            | Some t -> Var t
-            | None ->
-                let t = Id.New ("$this", mut = false)
-                thisVar <- Some t
-                Var t
-        else This
-
-    override this.TransformVar v =
-        match thisArgs.TryFind v with
-        | Some (funcScope, used) ->
-            if scope > funcScope then
-                used := true
-                Var v
-            else This
-        | _ -> Var v
-
-type ReplaceThisWithVar(v) =
-    inherit Transformer()
-
-    override this.TransformThis () = Var v
-    override this.TransformBase () = failwith "Base call is not allowed inside inlined member"
-
+let funcFromLambda(funcId, thisVar, isRec, args, body, ts) =
+    if Option.isNone thisVar && not isRec then
+        VarDeclaration(funcId, Function(args, None, None, body))
+    else
+        FuncDeclaration(funcId, args, thisVar, body, ts)
+        
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
         SubstituteVars(vars |> Seq.mapi (fun i a -> a, Hole i) |> dict).TransformExpression(expr)
@@ -580,113 +607,37 @@ let makeExprInline (vars: Id list) expr =
             Let (v, h, body)    
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
 
-module JSRuntime =
-    let private runtime = ["Runtime"; "WebSharper"]
-    let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
-    let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
-    let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
-    let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
-    let Clone obj = runtimeFunc "Clone" Pure [obj]
-    let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
-    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
-    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
-    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" NonPure [obj; NewArray fields] 
-    let CombineDelegates dels = runtimeFunc "CombineDelegates" Pure [dels]  
-    let BindDelegate func obj = runtimeFunc "BindDelegate" Pure [func; obj]    
-    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" Pure [d1; d2]
-    let Curried f n = runtimeFuncI "Curried" Pure 3 [f; Value (Int n)]
-    let Curried2 f = runtimeFuncI "Curried2" Pure 1 [f]
-    let Curried3 f = runtimeFuncI "Curried3" Pure 1 [f]
-    let CurriedA f n arr = runtimeFuncI "Curried" Pure 3 [f; Value (Int n); arr]
-    let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
-    let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
+let isFunctionNameForInterface (t: TypeDefinition) =
+    "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Split('`')[0]
+
+let isFunctionMethodForInterface (t: TypeDefinition) =
+    Method {
+        MethodName = isFunctionNameForInterface t
+        Parameters = [ NonGenericType Definitions.Obj ]
+        ReturnType = NonGenericType Definitions.Bool
+        Generics = t.Value.GenericLength
+    }
 
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 
-    let Obj =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Object"    
-        }
-
-    let ValueType =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.ValueType"    
-        }
-
-    let Dynamic =
-        TypeDefinition {
-            Assembly = ""
-            FullName = "dynamic"
-        }
-
-    let IResource =
-        TypeDefinition {
-            Assembly = "WebSharper.Core"
-            FullName = "WebSharper.Core.Resources+IResource"    
-        }
-
-    let Async =
-        TypeDefinition {
-            Assembly = "FSharp.Core"
-            FullName = "Microsoft.FSharp.Control.FSharpAsync`1"
-        }
-        
-    let Task =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Threading.Tasks.Task"
-        }
-
-    let Task1 =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Threading.Tasks.Task`1"
-        }
-
-    let IRemotingProvider =
-        TypeDefinition {
-            Assembly = "WebSharper.Main"
-            FullName = "WebSharper.Remoting+IRemotingProvider"
-        } 
-
-    let String =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.String"
-        }
-
-    let Int =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Int32"
-        }
-
-    let Bool =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Boolean"
-        }
-
     // Private static field for single-case unions.
-    let SingletonUnionCase name =
+    let SingletonUnionCase name typ =
         Method {
             MethodName = "_unique_" + name
             Parameters = []
-            ReturnType = VoidType 
+            ReturnType = typ
             Generics = 0
         }
 
     let StringFormat1 =
         Method {
             MethodName = "Format"
-            Parameters = [ NonGenericType String; NonGenericType Obj ]
-            ReturnType = NonGenericType String
+            Parameters = [ NonGenericType Definitions.String; NonGenericType Definitions.Obj ]
+            ReturnType = NonGenericType Definitions.String
             Generics = 0
         }
-
+    
 let rec (|IsClientCall|_|) (e: Expression) =
     match e with
     | I.Call (None, td, m, []) ->
@@ -710,171 +661,257 @@ let rec (|IsClientCall|_|) (e: Expression) =
         | IsClientCall c -> Some (not c)
         | _ -> None
     | _ -> None
-    
-let ignoreSystemObject td =
-    if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
 
-open WebSharper.Core.Metadata 
+//let ignoreSystemObject td =
+//    if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
+
+let getConcreteType t =
+    match t with
+    | ConcreteType ct -> ct
+    | t -> failwithf "invalid base type or interface form: %O" t
+
+let ignoreSystemObject t =
+    let td = t.Entity
+    if td = Definitions.Obj || td = Definitions.ValueType then None else Some t
+
+open WebSharper.Core.Metadata
 
 module Resolve =
+    open System.Collections.Generic
 
     let newName (name: string) =
-        match name.LastIndexOf '$' with
-        | -1 -> name + "$1"
+        match name.LastIndexOf '_' with
+        | -1 -> name + "_1"
         | i -> 
             match System.Int32.TryParse (name.Substring(i + 1)) with
-            | true, n -> name.Substring(0, i) + "$" + string (n + 1)
-            | _ -> name + "$1"
-
-    type private ResolveNode =
-        | Module
-        | Class
-        | Member
+            | true, n -> name.Substring(0, i) + "_" + string (n + 1)
+            | _ -> 
+                if name.EndsWith "_" then name + "1" else name + "_1"
     
-    type Prototype = 
-        | Prototype of HashSet<string> * ResizeArray<Prototype>
+    type Class = 
+        {
+            InstanceMembers: HashSet<string * MemberKind>
+            StaticMembers: HashSet<string * MemberKind>
+            Functions: HashSet<string>
+            SubClasses: ResizeArray<Class>
+        } with 
+        static member New() =
+            {
+                InstanceMembers = HashSet()
+                StaticMembers = HashSet()
+                Functions = HashSet()
+                SubClasses = ResizeArray()
+            }
 
-    let rec addToPrototype (Prototype (names, subTypes)) name =
+    let rec addInstanceMemberToClass (c: Class) name =
         [
-            yield names.Add name 
-            for s in subTypes do
-                yield addToPrototype s name
+            yield c.InstanceMembers.Add name 
+            for s in c.SubClasses do
+                yield addInstanceMemberToClass s name
         ]
         |> List.forall id
     
+    let addStaticMemberToClass (c: Class) name =
+        c.StaticMembers.Add name 
+
+    let addFunctionToClass (c: Class) name =
+        c.Functions.Add name 
+
     type Resolver() =
-        let statics = Dictionary<Address, ResolveNode>()
-        let prototypes = Dictionary<TypeDefinition, Prototype>()
+        let classes = Dictionary<TypeDefinition, Class>()
 
-        let rec getSubAddress (root: list<string>) (name: string) node =
-            let tryAddr = Address (name :: root)
-            match statics.TryFind tryAddr, node with
-            | Some _, Member
-            | Some Member, _ 
-            | Some Class, Class -> getSubAddress root (newName name) node
-            | Some (Class | Module), Module -> tryAddr
-            | _ -> 
-                statics.[tryAddr] <- node
-                tryAddr
+        //let rec getSubAddress (root: list<string>) (name: string) node =
+        //    let name = name.Replace('.', '_')
+        //    let tryAddr = Hashed (name :: root)
+        //    match statics.TryFind tryAddr, node with
+        //    | Some _, Member
+        //    | Some Member, _ 
+        //    | Some Class, Class -> getSubAddress root (newName name) node
+        //    | Some (Class | Module), Module -> tryAddr
+        //    | _ -> 
+        //        statics.[tryAddr] <- node
+        //        tryAddr
 
-        let getExactSubAddress (root: list<string>) (name: string) node =
-            let tryAddr = Address (name :: root)
-            match statics.TryFind tryAddr, node with
-            | Some (Class | Module), Module -> true
-            | Some Module, Class
-            | None, _ -> 
-                statics.[tryAddr] <- node
-                true
-            | _ -> false
+        //let getExactSubAddress (root: list<string>) (name: string) node =
+        //    let tryAddr = Hashed (name :: root)
+        //    match statics.TryFind tryAddr, node with
+        //    | Some (Class | Module), Module -> true
+        //    | Some Module, Class
+        //    | None, _ -> 
+        //        statics.[tryAddr] <- node
+        //        true
+        //    | _ -> false
 
-        let rec getFullAddress (address: list<string>) node =
-            match address with
-            | [] -> failwith "Empty address"
-            | [ x ] -> getSubAddress [] x node
-            | h :: r -> getSubAddress ((getFullAddress r Module).Value) h node
+        //let rec getFullAddress (address: list<string>) node =
+        //    match address with
+        //    | [] -> failwith "Empty address"
+        //    | [ x ] -> getSubAddress [] x node
+        //    | h :: r -> getSubAddress ((getFullAddress r Module).Value) h node
 
-        let rec getExactFullAddress (address: list<string>) node =
-            match address with
-            | [] -> failwith "Empty address"
-            | [ x ] -> getExactSubAddress [] x node
-            | h :: r -> 
-                getExactFullAddress r Module && getExactSubAddress r h node
+        //let rec getExactFullAddress (address: list<string>) node =
+        //    match address with
+        //    | [] -> failwith "Empty address"
+        //    | [ x ] -> getExactSubAddress [] x node
+        //    | h :: r -> 
+        //        getExactFullAddress r Module && getExactSubAddress r h node
 
-        member this.AddPrototype (typ, bTyp) =
-            let p = Prototype (HashSet(), ResizeArray())
+        member this.AddClass (typ, bTyp) =
+            let c = Class.New()
             match bTyp with
             | Some bTyp ->
-                match prototypes.[bTyp] with
-                | Prototype (_, subTypes) -> subTypes.Add p
+                let bc = classes.[bTyp]
+                bc.SubClasses.Add c
             | None -> ()
             try
-                prototypes.Add(typ, p)
+                classes.Add(typ, c)
             with _ ->
                 failwithf "Failed to add prototype for %A" typ
 
-        member this.HasPrototype typ =
-            prototypes.ContainsKey typ
+        member this.HasClass typ =
+            classes.ContainsKey typ
         
-        member this.LookupPrototype typ =
-            prototypes.[typ]
+        member this.LookupClass typ =
+            classes.[typ]
 
-        member this.ExactClassAddress(addr: list<string>, hasPrototype) =
-            getExactFullAddress addr (if hasPrototype then Class else Module)
-            && if hasPrototype then getExactSubAddress addr "prototype" Member else true 
-        
-        member this.ClassAddress(addr: list<string>, hasPrototype) =
-            let res = getFullAddress addr (if hasPrototype then Class else Module)
-            if hasPrototype then
-                getExactSubAddress addr "prototype" Member |> ignore    
-            res
-                    
-        member this.ExactStaticAddress addr =
-            getExactFullAddress addr Member 
+        //member this.ExactClassAddress(addr: list<string>, hasPrototype) =
+        //    getExactFullAddress addr (if hasPrototype then Class else Module)
+        //    && if hasPrototype then getExactSubAddress addr "prototype" Member else true 
 
-        member this.StaticAddress addr =
-            getFullAddress addr Member 
+        //member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
+        //    let removeGen (n: string) =
+        //        match n.LastIndexOf '`' with
+        //        | -1 -> n
+        //        | i -> n.[.. i - 1]
+        //    let addr = typ.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
+        //    let res = getFullAddress addr (if hasPrototype then Class else Module)
+        //    if hasPrototype then
+        //        getExactSubAddress addr "prototype" Member |> ignore    
+        //    res
+
+        //member this.ExactStaticAddress addr =
+        //    getExactFullAddress addr Member 
+
+        //member this.StaticAddress addr =
+        //    getFullAddress addr Member 
                      
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
 
-    let rec getRenamedForPrototype name p =
-        let rec isNameOk (Prototype (s, subTypes)) =
+    let rec getRenamedWithKind name kind (s: HashSet<string * MemberKind>) =
+        let hasConflict = 
+            match kind with
+            | MemberKind.Simple ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, MemberKind.Getter) 
+                || s.Contains (name, MemberKind.Setter)
+            | _ ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, kind) 
+        if hasConflict then 
+            getRenamedWithKind (newName name) kind s
+        else
+            s.Add (name, kind) |> ignore
+            name
+
+    let rec getRenamedInstanceMemberForClass name kind c =
+        let rec isNameOk (c: Class) =
+            let hasConflict = 
+                let s = c.InstanceMembers
+                match kind with
+                | MemberKind.Simple ->
+                    s.Contains (name, MemberKind.Simple) 
+                    || s.Contains (name, MemberKind.Getter) 
+                    || s.Contains (name, MemberKind.Setter)
+                | _ ->
+                    s.Contains (name, MemberKind.Simple) 
+                    || s.Contains (name, kind) 
             seq {
-                yield not (s.Contains name)
-                for p in subTypes do 
-                    yield isNameOk p
+                yield not hasConflict
+                for sc in c.SubClasses do 
+                    yield isNameOk sc
             }
             |> Seq.forall id
-        if isNameOk p then
-            addToPrototype p name |> ignore
+        if isNameOk c then
+            addInstanceMemberToClass c (name, kind) |> ignore
             name
         else
-            getRenamedForPrototype (newName name) p
+            getRenamedInstanceMemberForClass (newName name) kind c
+
+    let rec getRenamedStaticMemberForClass name kind c =
+        let hasConflict = 
+            let s = c.StaticMembers
+            match kind with
+            | MemberKind.Simple ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, MemberKind.Getter) 
+                || s.Contains (name, MemberKind.Setter)
+            | _ ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, kind) 
+        if not hasConflict then
+            addStaticMemberToClass c (name, kind) |> ignore
+            name
+        else
+            getRenamedStaticMemberForClass (newName name) kind c
+
+    let rec getRenamedFunctionForClass name c =
+        if not (c.Functions.Contains name) then
+            addFunctionToClass c name |> ignore
+            name
+        else
+            getRenamedFunctionForClass (newName name) c
        
+    let rec getRenamedInDict name v (s: Dictionary<string, _>) =
+        if not (s.ContainsKey name) then
+            s.Add(name, v) 
+            name
+        else
+            getRenamedInDict (newName name) v s
+
     let addInherits (r: Resolver) (classes: IDictionary<TypeDefinition, ClassInfo>) =
         let rec inheritMembers typ (cls: ClassInfo) =
-            if not (r.HasPrototype typ) then
+            if not (r.HasClass typ) then
                 match cls.BaseClass with
                 | None ->
-                    r.AddPrototype(typ, None)    
+                    r.AddClass(typ, None)    
                 | Some b ->
                     // assembly containing base class may not be referenced
-                    match classes.TryFind b with
+                    match classes.TryFind b.Entity with
                     | None ->
-                        r.AddPrototype(typ, None)
+                        r.AddClass(typ, None)
                     | Some bCls ->
-                        inheritMembers b bCls  
-                        r.AddPrototype(typ, Some b)
+                        inheritMembers b.Entity bCls  
+                        r.AddClass(typ, Some b.Entity)
         for KeyValue(typ, cls) in classes do
             inheritMembers typ cls        
 
 let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
-    Resolve.addInherits r meta.Classes
+    let classes =
+        meta.Classes |> Dict.choose (fun (_, _, cls) -> cls)
+    Resolve.addInherits r classes
     // add members
-    for KeyValue(typ, cls) in meta.Classes do
+    for KeyValue(typ, cls) in classes do
         if typ.Value.FullName.StartsWith "Generated$" then () else
-        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
+        let pr = if cls.HasWSPrototype then Some (r.LookupClass typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | Static a 
-            | Constructor a -> r.ExactStaticAddress a.Value |> ignore
+            | Instance (n, k) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, k) |> ignore)            
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
-        for m, _, _ in cls.Constructors.Values do addMember m
-        for f, _, _ in cls.Fields.Values do
-            match f with
+        for m in cls.Constructors.Values do addMember m.CompiledForm
+        for f in cls.Fields.Values do
+            match f.CompiledForm with
             | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | StaticField a -> r.ExactStaticAddress a.Value |> ignore
+            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, MemberKind.Simple) |> ignore)
             | IndexedField _ -> ()
-        for m, _ in cls.Implementations.Values do addMember m
-        for m, _, _ in cls.Methods.Values do addMember m
-        match cls.StaticConstructor with
-        | Some (a, _) -> r.ExactStaticAddress a.Value |> ignore  
-        | _ -> ()
+            | _ -> ()
+        for m in cls.Implementations.Values do addMember m.CompiledForm
+        for m in cls.Methods.Values do addMember m.CompiledForm
     r
+ 
+open WebSharper.Core.Metadata 
+open System.Collections.Generic
 
 type Refresher() =
     inherit Transformer()
@@ -892,28 +929,25 @@ type Refresher() =
 let refreshAllIds (i: Info) =
     let r = Refresher()
 
-    let rec refreshNotInline (i, p, e) =
+    let rec refreshNotInline i e =
         match i with
-        | Inline
-        | NotCompiledInline -> i, p, e
-        | Macro (_, _, Some f) -> refreshNotInline (f, p, e)
-        | _ -> i, p, r.TransformExpression e
+        | Inline _ -> e
+        | Macro (_, _, Some f) -> refreshNotInline f e
+        | _ -> r.TransformExpression e
 
-    { i with
-        Classes =
-            i.Classes |> Dict.map (fun c ->
-                { c with
-                    Constructors = 
-                        c.Constructors |> Dict.map refreshNotInline
-                    StaticConstructor = 
-                        c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
-                    Methods = 
-                        c.Methods |> Dict.map refreshNotInline
-                    Implementations = 
-                        c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
-                }
-            )
-    }
+    i.MapClasses((fun c ->
+        { c with
+            Constructors = 
+                c.Constructors |> Dict.map (fun c -> { c with Expression = refreshNotInline c.CompiledForm c.Expression })
+            StaticConstructor = 
+                c.StaticConstructor |> Option.map (fun b -> r.TransformStatement b) 
+            Methods = 
+                c.Methods |> Dict.map (fun m -> { m with Expression = refreshNotInline m.CompiledForm m.Expression })
+            Implementations = 
+                c.Implementations |> Dict.map (fun i -> { i with Expression = r.TransformExpression i.Expression })
+            Fields =
+                c.Fields |> Dict.map (fun f -> { f with CompiledForm = match f.CompiledForm with VarField i -> VarField (r.TransformId i) | cf -> cf })
+        }), r.TransformStatement)
 
 type MaybeBuilder() =
     member this.Bind(x, f) = 
@@ -929,50 +963,124 @@ let maybe = new MaybeBuilder()
 
 let trimMetadata (meta: Info) (nodes : seq<Node>) =
     let classes = Dictionary<_,_>() 
-    let getOrAddClass td =
-        try
-            match classes.TryGetValue td with
-            | true, cls -> cls
-            | _ ->
+    let interfaces = Dictionary<_,_>() 
+    let rec getOrAddClass td =
+        match classes.TryGetValue td with
+        | true, (_, _, x) -> x
+        | false, _ ->
+            match meta.Classes.TryGetValue td with
+            | true, (a, ct, Some cls) ->
+                cls.BaseClass |> Option.iter (fun c -> getOrAddClass c.Entity |> ignore)
+                let methods = cls.Methods |> Dict.filter (fun _ m ->
+                    // keep abstract members
+                    match m.CompiledForm, m.Expression with
+                    | CompiledMember.Instance _, IgnoreExprSourcePos Undefined -> true
+                    | _ -> false
+                )
                 let cls = 
-                    { meta.Classes.[td] with
+                    { cls with
                         Constructors = Dictionary<_,_>()
-                        Methods = Dictionary<_,_>()
+                        Methods = methods
                         Implementations = Dictionary<_,_>()
                     }
-                classes.Add(td, cls)
-                cls    
-        with _ ->
-            failwithf "Assembly needed for bundling but is not referenced: %s" td.Value.Assembly
+                classes.Add(td, (a, ct, Some cls))
+                Some cls
+            | true, (_, _, None as actNone) ->
+                classes.Add(td, actNone)
+                None
+            | _ ->
+                eprintfn "WebSharper warning: Assembly needed for bundling but is not referenced: %s (missing type: %s)"
+                //failwithf "Assembly needed for bundling but is not referenced: %s (missing type: %s)"
+                    td.Value.Assembly td.Value.FullName
+                None
+    let getOrAddClassNeeded td =
+        match getOrAddClass td with
+        | Some cls -> cls
+        | _ -> failwithf "Class not found during bundling: %s" td.Value.AssemblyQualifiedName
+    let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) kind (td: TypeDefinition) key =
+        match fromDic.TryGetValue(key) with
+        | true, value -> toDic.[key] <- value
+        | false, _ ->
+            let toOneLine (s: string) =
+                let res = System.Text.StringBuilder()
+                let mutable lastSpace = false
+                for c in s do
+                    if c = ' ' || c = '\r' || c = '\n' then
+                        if not lastSpace then
+                            res.Append(' ') |> ignore
+                            lastSpace <- true
+                    else
+                        res.Append(c) |> ignore
+                        lastSpace <- false
+                res.ToString()
+            eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
+            //failwithf "%s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
     for n in nodes do
         match n with
+        | AbstractMethodNode (td, m) ->
+            if meta.Interfaces.ContainsKey(td) then
+                interfaces[td] <- meta.Interfaces[td]
+            else
+                let cls = getOrAddClassNeeded td 
+                m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method" td
         | MethodNode (td, m) -> 
-            (getOrAddClass td).Methods.Add(m, meta.Classes.[td].Methods.[m])
+            let cls = getOrAddClassNeeded td 
+            m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "method" td
         | ConstructorNode (td, c) -> 
-            (getOrAddClass td).Constructors.Add(c, meta.Classes.[td].Constructors.[c])
+            let cls = getOrAddClassNeeded td
+            c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor" td
         | ImplementationNode (td, i, m) ->
-            match meta.Classes.[td].Implementations.TryFind(i, m) with
-            | Some impl ->
-                (getOrAddClass td).Implementations.Add((i, m), impl)
-            | _ -> ()
+            //try
+                //if td = Definitions.Obj then () else
+                let cls = getOrAddClassNeeded td
+                let clsImpl = meta.ClassInfo(td).Implementations
+                let k = i, m
+                if clsImpl.ContainsKey k then
+                    k |> moveToDict clsImpl cls.Implementations "implementation" td
+                else
+                    match getOrAddClass i with
+                    | Some icls ->
+                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" i
+                    | _ ->
+                        // this will fail but report original error
+                        k |> moveToDict clsImpl cls.Implementations "implementation" td
+
+            //with _ ->
+            //    failwithf "implementation node not found %A" n
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 
+            if meta.Interfaces.ContainsKey td then
+                interfaces[td] <- meta.Interfaces[td]
         | _ -> ()
-    { meta with Classes = classes}
+    let classes =
+        classes |> Dict.map (
+            function 
+            | a, cti, Some ({ Implements = _ :: _ } as cls) ->
+                let clsTrimmedImplements =
+                    { cls with
+                        Implements = cls.Implements |> List.filter (fun i -> interfaces.ContainsKey(i.Entity))
+                    }
+                a, cti, Some clsTrimmedImplements
+            | ci -> ci
+        )
 
-let removeSourcePositionFromMetadata (meta: Info) =
     { meta with 
-        Classes = 
-            meta.Classes |> Dict.map (fun c ->
-                { c with 
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)    
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, removeSourcePos.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, removeSourcePos.TransformExpression e)
-                }
-            )
+        Classes = classes
+        Interfaces = interfaces
     }
+
+//let private exposeAddress asmName (a: Address) =
+//    match a.Module with
+//    | CurrentModule ->
+//        { a with Module = WebSharperModule asmName }
+//    | _ -> a
+
+//type RemoveSourcePositionsAndUpdateModule (asmName) =
+//    inherit RemoveSourcePositions ()
+
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| exposeAddress asmName a
 
 type TransformSourcePositions(asmName) =
     inherit Transformer()
@@ -981,7 +1089,7 @@ type TransformSourcePositions(asmName) =
 
     let fileNames = HashSet()
 
-    let trFileName (fn: string) =
+    let trFileName fn =
         match fileMap.TryFind fn with
         | Some res -> res
         | None ->
@@ -1004,20 +1112,90 @@ type TransformSourcePositions(asmName) =
             this.TransformStatement s
         )
 
-let transformAllSourcePositionsInMetadata asmName (meta: Info) =
-    let tr = TransformSourcePositions(asmName)
+//type TransformSourcePositionsAndUpdateModule(asmName) =
+//    inherit TransformSourcePositions(asmName)
+
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| a
+
+//let rec private exposeCompiledMember asmName m = 
+//    match m with
+//    | Static (a, k) -> Static (exposeAddress asmName a, k)
+//    | Macro (td, p, Some r) ->
+//        Macro (td, p, Some (exposeCompiledMember asmName r))
+//    | _ -> m
+
+//let private exposeCompiledField asmName f =
+//    match f with
+//    | StaticField a -> StaticField <| exposeAddress asmName a
+//    | _ -> f
+
+let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
+    let tr, sp = 
+        if isRemove then
+            RemoveSourcePositions() :> Transformer, None 
+        else
+            let tr = TransformSourcePositions(asmName)
+            tr :> _, Some tr
     { meta with 
         Classes = 
-            meta.Classes |> Dict.map (fun c ->
-                { c with 
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
-                }
+            meta.Classes |> Dict.map (fun (a, ct, c) ->
+                a, ct,
+                c |> Option.map (fun c ->
+                    { c with 
+                        Constructors = c.Constructors |> Dict.map (fun c -> { c with Expression = tr.TransformExpression c.Expression })    
+                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
+                        Methods = c.Methods |> Dict.map (fun m -> { m with Expression = tr.TransformExpression m.Expression })
+                        Implementations = c.Implementations |> Dict.map (fun i -> { i with Expression = tr.TransformExpression i.Expression })
+                    }
+                )
             )
     },
-    tr.FileMap
+    match sp with
+    | None -> [||]
+    | Some t -> t.FileMap
+
+//let private localizeAddress (a: Address) =
+//    match a.Module with
+//    | WebSharperModule _ ->
+//        { a with Module = CurrentModule }
+//    | _ -> a
+
+//let rec private localizeCompiledMember m = 
+//    match m with
+//    | Static (a, k) -> Static (localizeAddress a, k)
+//    | Macro (td, p, Some r) ->
+//        Macro (td, p, Some (localizeCompiledMember r))
+//    | _ -> m
+
+//let private localizeCompiledField f =
+//    match f with
+//    | StaticField a -> StaticField <| localizeAddress a
+//    | _ -> f
+
+//type UpdateModuleToLocal() =
+//    inherit Transformer()
+
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| localizeAddress a
+
+//let transformToLocalAddressInMetadata (meta: Info) =
+//    let tr = UpdateModuleToLocal() 
+//    { meta with 
+//        Classes = 
+//            meta.Classes |> Dict.map (fun (a, ct, c) ->
+//                localizeAddress a, ct,
+//                c |> Option.map (fun c ->
+//                    { c with 
+//                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
+//                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
+//                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
+//                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
+//                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
+//                    }
+//                )
+//            )
+//    }
 
 type Capturing(?var) =
     inherit Transformer()
@@ -1065,9 +1243,9 @@ type Capturing(?var) =
                 i
         else i
 
-    override this.TransformFunction (args, body) =
+    override this.TransformFunction (args, isArr, typ, body) =
         scope <- scope + 1
-        let res = Function (args, this.TransformStatement body)
+        let res = Function (args, isArr, typ, this.TransformStatement body)
         scope <- scope - 1
         res
 
@@ -1075,8 +1253,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Application (Function ([], Return res), [], NonPure, None)
-            | Some c -> Application (Function ([c], Return res), [Var var.Value], NonPure, None)        
+            | None -> Appl (Function ([], None, None, Return res), [], NonPure, None)
+            | Some c -> Appl (Function ([c], None, None, Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -1100,7 +1278,7 @@ type NeedsScoping() =
         if scope > 0 && defined.Contains i then 
             needed <- true
 
-    override this.VisitFunction (args, body) =
+    override this.VisitFunction (args, thisVar, typ, body) =
         scope <- scope + 1
         this.VisitStatement body
         scope <- scope - 1
@@ -1119,20 +1297,26 @@ type NeedsScoping() =
 let needsScoping args values body =
     NeedsScoping().Check(args, values, body)    
     
-type HasNoThisVisitor() =
-    inherit Visitor()
+//type HasNoThisVisitor() =
+//    inherit Visitor()
 
-    let mutable ok = true
+//    let mutable ok = true
 
-    override this.VisitThis() = ok <- false
+//    override this.VisitThis() = 
+//        ok <- false
 
-    member this.Check(e) =
-        this.VisitExpression e
-        ok
+//    override this.VisitFunction (_, isArrow, _, _) = ()
+
+//    override this.VisitFuncDeclaration (_, _, _, _) = ()
+    
+//    member this.Check(e) =
+//        this.VisitStatement e
+//        ok
 
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
-let errorPlaceholder = Value (String "$$ERROR$$")
+let errorPlaceholder = 
+    Cast(TSType.Any, Value (String "$$ERROR$$"))
 
 /// A transformer that tracks current source position
 type TransformerWithSourcePos(comp: Metadata.ICompilation) =
@@ -1207,27 +1391,42 @@ let BottomUp tr expr =
 let callArraySlice =
     (Global ["Array"]).[Value (String "prototype")].[Value (String "slice")].[Value (String "call")]   
 
-let sliceFromArguments slice =
-    Application (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], Pure, None)
-
 let (|Lambda|_|) e = 
     match e with
-    | Function(args, Return body) -> Some (args, body, true)
-    | Function(args, ExprStatement body) -> Some (args, body, false)
+    | Function(args, None, typ, Return body) -> Some (args, typ, body, true)
+    | Function(args, None, typ, ExprStatement body) -> Some (args, typ, body, false)
     | _ -> None
 
 let (|SimpleFunction|_|) expr =
-    match IgnoreExprSourcePos expr with
-    | Function (_, I.Empty) ->
-        Some <| Global [ "ignore" ]
-    | Function (x :: _, I.Return (I.Var y)) when x = y ->
-        Some <| Global [ "id" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
-        Some <| Global [ "fst" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
-        Some <| Global [ "snd" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
-        Some <| Global [ "trd" ]
+    // TODO : have typed versions in Runtime.ts
+    //match IgnoreExprSourcePos expr with
+    //| Function (_, I.Empty) ->
+    //    Some <| Global [ "ignore" ]
+    //| Function (x :: _, I.Return (I.Var y)) when x = y ->
+    //    Some <| Global [ "id" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
+    //    Some <| Global [ "fst" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
+    //    Some <| Global [ "snd" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
+    //    Some <| Global [ "trd" ]
+    //| _ -> None
+    None
+
+let rec (|NewVars|_|) expr =
+    let (|SingleNewVar|_|) e =
+        match e with
+        | NewVar(i, Undefined) -> Some (i, None)
+        | NewVar(i, v) -> Some (i, Some v)
+        | _ -> None
+    match expr with
+    | SingleNewVar r -> Some [ r ]
+    | Sequential s ->
+        let m = s |> List.map (|SingleNewVar|_|)
+        if m |> List.forall Option.isSome then
+            Some (m |> List.map Option.get)
+        else 
+            None
     | _ -> None
 
 let (|AlwaysTupleGet|_|) tupledArg length expr =
@@ -1251,7 +1450,7 @@ let (|AlwaysTupleGet|_|) tupledArg length expr =
 
 let (|TupledLambda|_|) expr =
     match expr with
-    | Lambda ([tupledArg], b, isReturn) when tupledArg.IsTuple ->
+    | Lambda ([tupledArg], ret, b, isReturn) when tupledArg.IsTuple ->
         // when the tuple itself is bound to a name, there will be an extra let expression
         let tupledArg, b =
             match b with
@@ -1260,7 +1459,7 @@ let (|TupledLambda|_|) expr =
             | _ -> tupledArg, b
         let rec loop acc = function
             | Let (v, ItemGet(Var t, Value (Int i), _), body) when t = tupledArg ->
-                loop ((int i, v) :: acc) body
+                loop ((i, v) :: acc) body
             | body -> 
                 if List.isEmpty acc then [], body else
                 let m = Map.ofList acc
@@ -1276,78 +1475,83 @@ let (|TupledLambda|_|) expr =
                 let vars = 
                     if List.length vars > maxTupleGet then vars
                     else vars @ [ for k in List.length vars .. maxTupleGet -> Id.New(mut = false) ]
-                Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
+                Some (vars, ret, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
             | _ ->                                                        
                 // if we would use the arguments object for anything else than getting
-                // a tuple item, do not optimize this lambda
+                // a tuple item, convert it to an array
+                //if List.isEmpty vars then None else
+                //Some (vars, ret, Let (tupledArg, sliceFromArguments [], body), isReturn)
+                
+                // we don't want arguments hack any more, does not work inside => functions
                 None
         else
             if List.isEmpty vars then None else
-            Some (vars, body, isReturn)
+            Some (vars, ret, body, isReturn)
     | _ -> None
 
 let (|CurriedLambda|_|) expr =
-    let rec curr args expr =
+    let rec curr args ret expr =
         match expr with
-        | Lambda ([], b, true) ->
+        | Lambda ([], ret, b, true) ->
             let a = Id.New(mut = false)
-            curr (a :: args) b
-        | Lambda ([a], b, true) ->
-            curr (a :: args) b
-        | Lambda ([], b, false) ->
+            curr (a :: args) ret b
+        | Lambda ([a], ret, b, true) ->
+            curr (a.ToNonOptional() :: args) ret b
+        | Lambda ([], ret, b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), b, false) 
+                Some (List.rev (a :: args), ret, b, false) 
             else None
-        | Lambda ([a], b, false) ->
+        | Lambda ([a], ret, b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), b, false) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, b, false) 
             else None
         | _ -> 
             if List.length args > 1 then
-                Some (List.rev args, expr, true)
+                Some (List.rev args, ret, expr, true)
             else None
-    curr [] expr
+    curr [] None expr
 
 let (|CurriedFunction|_|) expr =
-    let rec curr args expr =
+    let rec curr args ret expr =
         match expr with
-        | Lambda ([], b, true) ->
+        | Lambda ([], ret, b, true) ->
             let a = Id.New(mut = false)
-            curr (a :: args) b
-        | Lambda ([a], b, true) ->
-            curr (a :: args) b
-        | Lambda ([], b, false) ->
+            curr (a :: args) ret b
+        | Lambda ([a], ret, b, true) ->
+            curr (a.ToNonOptional() :: args) ret b
+        | Lambda ([], ret, b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), ExprStatement b) 
+                Some (List.rev (a :: args), ret, ExprStatement b) 
             else None
-        | Lambda ([a], b, false) ->
+        | Lambda ([a], ret, b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), ExprStatement b) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, ExprStatement b) 
             else None
-        | Function ([], b) ->
+        | Function ([], None, ret, b) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), b) 
+                Some (List.rev (a :: args), ret, b) 
             else None
-        | Function ([a], b) ->
+        | Function ([a], None, ret, b) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), b) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, b) 
             else None
         | _ -> 
             if List.length args > 1 then
-                Some (List.rev args, Return expr)
+                Some (List.rev args, ret, Return expr)
             else None
-    curr [] expr
+    curr [] None expr
 
 let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
-        | Application(func, [], p, Some _) ->
-            appl (Value Null :: args) func 
-        | Application(func, [a], p, Some _) ->
-            appl (a :: args) func 
+        | Application(func, [], { Purity = p; KnownLength = Some _ }) ->
+            appl ((true, Value Null) :: args) func 
+        | Application(func, [a], { Purity = p; KnownLength = Some _ }) ->
+            // TODO : what if a has type unit but has side effect?
+            appl ((false, a) :: args) func 
         | CurriedApplication(func, a) ->
             appl (a @ args) func
         | _ ->
@@ -1356,43 +1560,84 @@ let (|CurriedApplicationSeparate|_|) expr =
             else None
     appl [] expr
 
-type OptimizeLocalTupledFunc(var, tupling) =
+type OptimizeLocalTupledFunc(var: Id , tupling) =
     inherit Transformer()
+
+    let tupleAndRetType = 
+        match var.VarType with
+        | Some (FSharpFuncType (ts, ret)) ->
+           Some (ts, ret)
+        | _ -> None
 
     override this.TransformVar(v) =
         if v = var then
-            let t = Id.New(mut = false)
-            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
+            let t = Id.New(mut = false, ?typ = Option.map fst tupleAndRetType)
+            Lambda([t], Option.map snd tupleAndRetType, Appl(Var v, List.init tupling (fun i -> ItemGet(Var t, Value (Int i), Pure)), NonPure, Some tupling))
         else Var v  
 
-    override this.TransformApplication(func, args, isPure, length) =
+    override this.TransformApplication(func, args, info) =
         match func with
         | I.Var v when v = var ->                    
             match args with
             | [ I.NewArray ts ] when ts.Length = tupling ->
-                Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
+                Application (func, ts |> List.map this.TransformExpression, { info with KnownLength = Some tupling })
             | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, None)               
+                Application ((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], { info with KnownLength = None })               
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
-        | _ -> base.TransformApplication(func, args, isPure, length)
+        | _ -> base.TransformApplication(func, args, info)
 
-let curriedApplication func args =
+let applyUnitArg func a =
+    match IgnoreExprSourcePos a with
+    | Undefined | Value Null ->
+        Appl (func, [], NonPure, Some 0)
+    | _ ->
+        // if argument expression is not trivial, it might have a side effect which should
+        // be ran before the application but after evaluating the function
+        let x = Id.New(mut = false)
+        Let (x, func, Sequential [a; Appl (Var x, [], NonPure, Some 0)])
+
+let applyFSharpArg func (isUnit, a) =
+    if isUnit then
+        applyUnitArg func a
+    else
+        Appl (func, [ a ], NonPure, Some 1)
+
+let curriedApplication func (args: (bool * Expression) list) =
     let func, args =
         match func with
         | CurriedApplicationSeparate (f, fa) -> f, fa @ args
         | _ -> func, args
-    match List.length args with
-    | 0 -> func
-    | 1 -> Application (func, args, NonPure, Some 1)
+    match args with
+    | [] -> func
+    | [ a ] -> applyFSharpArg func a
     | _ -> CurriedApplication(func, args)
 
-type OptimizeLocalCurriedFunc(var, currying) =
+type OptimizeLocalCurriedFunc(var: Id, currying) =
     inherit Transformer()
+
+    let types =
+        let rec getTypes acc i t =
+            if i = 0 then List.rev acc, t else
+            match t with
+            | FSharpFuncType (a, r) -> getTypes (a :: acc) (i - 1) r
+            | TypeHelpers.OptimizedClosures3 (a1, a2, r) -> getTypes (a2 :: a1 :: acc) (i - 2) r
+            | TypeHelpers.OptimizedClosures4 (a1, a2, a3, r) -> getTypes (a3 :: a2 :: a1 :: acc) (i - 3) r
+            | TypeHelpers.OptimizedClosures5 (a1, a2, a3, a4, r) -> getTypes (a4 :: a3 :: a2 :: a1 :: acc) (i - 4) r
+            | TypeHelpers.OptimizedClosures6 (a1, a2, a3, a4, a5, r) -> getTypes (a5 :: a4 :: a3 :: a2 :: a1 :: acc) (i - 5) r
+            | TypeHelpers.PrintfFormat5 _ -> failwith "TODO correct types for the optimization of PrintfFormat functions" 
+            | _ -> failwithf "Trying to optimize currification of a non-function type: %A for var %s" t (var.Name |> Option.defaultValue "noname")
+        try
+            var.VarType |> Option.map (getTypes [] currying)
+        with _ ->
+            None
 
     override this.TransformVar(v) =
         if v = var then
-            let ids = List.init currying (fun _ -> Id.New(mut = false))
-            CurriedLambda(ids, Application(Var v, ids |> List.map Var, NonPure, Some currying))    
+            let ids, retType =
+                match types with
+                | Some (argTypes, retType) -> argTypes |> List.map (fun t -> Id.New(mut = false, typ = t)), Some retType
+                | None -> List.init currying (fun i -> Id.New(mut = false)), None
+            CurriedLambda(ids, retType, Appl(Var v, ids |> List.map Var, NonPure, Some currying))
         else Var v  
 
     override this.TransformCurriedApplication(func, args) =
@@ -1400,17 +1645,11 @@ type OptimizeLocalCurriedFunc(var, currying) =
         | Var v when v = var ->
             if args.Length >= currying then
                 let cargs, moreArgs = args |> List.splitAt currying
-                let f = Application(func, cargs |> List.map this.TransformExpression, NonPure, Some currying)  
-                curriedApplication f (moreArgs |> List.map this.TransformExpression)
+                let f = Appl(func, cargs |> List.map (fun (u, a) -> this.TransformExpression a), NonPure, Some currying)  
+                curriedApplication f (moreArgs |> List.map (fun (u, a) -> u, this.TransformExpression a))
             else
                 base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
-
-//Object.setPrototypeOf(this, ThisClass.prototype);
-let restorePrototype =
-    Application(
-        ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
-        , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
 
 #if DEBUG
 let mutable logTransformations = false

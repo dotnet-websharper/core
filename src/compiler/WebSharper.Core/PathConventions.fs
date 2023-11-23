@@ -95,11 +95,17 @@ module PathConventions =
         member p.MinifiedJavaScriptFileName(a) =
             a.ShortName + ".min.js"
 
-        member p.TypeScriptDefinitionsFileName(a) =
+        member p.TypeScriptFileName(a) =
+            a.ShortName + ".ts"
+
+        member p.TypeScriptDeclarationFileName(a) =
             a.ShortName + ".d.ts"
 
         member p.JavaScriptPath(a) =
             scripts ++ p.JavaScriptFileName(a)
+
+        member p.TypeScriptPath(a) =
+            scripts ++ p.TypeScriptFileName(a)
 
         member p.MapFileName(a) =
             a.ShortName + ".map"
@@ -116,8 +122,8 @@ module PathConventions =
         member p.MinifiedMapFilePath(a) =
             scripts ++ p.MinifiedMapFileName(a)
 
-        member p.TypeScriptDefinitionsPath(a) =
-            scripts ++ p.TypeScriptDefinitionsFileName(a)
+        member p.TypeScriptDeclarationPath(a) =
+            scripts ++ p.TypeScriptDeclarationFileName(a)
 
         member p.EmbeddedResourceKey(r) =
             r.Id.ShortName + "/" + r.Name

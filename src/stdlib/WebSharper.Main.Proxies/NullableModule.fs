@@ -18,10 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Linq.NullableModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Linq.NullableModule, FSharp.Core">]
 module private WebSharper.NullableModuleProxy 
 
 open System

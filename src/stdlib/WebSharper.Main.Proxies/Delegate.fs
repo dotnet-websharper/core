@@ -25,6 +25,7 @@ open WebSharper.JavaScript
 
 [<Name "WebSharper.Delegate">]
 [<Proxy(typeof<Delegate>)>]
+[<Type "Function">]
 type internal DelegateProxy =
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]

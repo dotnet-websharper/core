@@ -36,7 +36,7 @@ let parsefailf x =
 type VarKind =
     | LocalVar 
     | ByRefArg
-    | ThisArg
+    //| ThisArg
 
 type Environment =
     {
@@ -64,9 +64,9 @@ type Environment =
         | true, r ->
             this.Vars.[v]
         | _ ->
-            if v.Name = "this" then 
-                Id.Global(), ThisArg 
-            else
+            //if v.Name = "this" then 
+            //    Id.Global(), ThisArg 
+            //else
                 parsefailf "Failed to look up variable %s" v.Name
 
 let getOptSourcePos (expr: Expr) =
@@ -115,7 +115,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> Var v  
             | ByRefArg -> GetRef (Var v)
-            | ThisArg -> This
+            //| ThisArg -> This
         | Patterns.Lambda (arg, body) ->
             let lArg =
                 if arg.Type = typeof<unit> then
@@ -124,9 +124,9 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                     let i = Id.New(arg.Name, false)  
                     env.AddVar(i, arg)
                     [i]
-            Lambda(lArg, (tr body))
+            Lambda(lArg, Some (Reflection.ReadType body.Type), (tr body))
         | Patterns.Application(func, arg) ->
-            Application(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
+            Appl(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
             let i = Id.New(id.Name, id.IsMutable)
             env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)
@@ -192,7 +192,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         | Patterns.NewArray (_, items) ->
             NewArray (items |> List.map tr)              
         | Patterns.NewTuple (items) ->
-            NewArray (items |> List.map tr)              
+            NewTuple ((items |> List.map tr), (items |> List.map (fun i -> Reflection.ReadType i.Type)))              
         | Patterns.WhileLoop (cond, body) ->
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | Patterns.VarSet (var, value) ->
@@ -200,7 +200,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> VarSet(v, tr value) 
             | ByRefArg -> SetRef (Var v) (tr value)
-            | ThisArg -> parsefailf "'this' parameter cannot be set"
+            //| ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
         | Patterns.ForIntegerRangeLoop (var, start, end_, body) ->
@@ -249,13 +249,14 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | Patterns.AddressOf expr ->
+            let typ = Reflection.ReadType expr.Type
             match IgnoreExprSourcePos (tr expr) with
             | Var v as e ->
-                MakeRef e (fun value -> VarSet(v, value))
+                MakeRef e (fun value -> VarSet(v, value)) (Some typ)
             | ItemGet(o, i, _) as e ->
-                MakeRef e (fun value -> ItemSet(o, i, value))
+                MakeRef e (fun value -> ItemSet(o, i, value)) (Some typ)
             | FieldGet(o, t, f) as e ->
-                MakeRef e (fun value -> FieldSet(o, t, f, value))                
+                MakeRef e (fun value -> FieldSet(o, t, f, value)) (Some typ)
             | e -> parsefailf "AddressOf error" // not on a Var or ItemGet: %+A" e 
         | Patterns.AddressSet (addr, value) ->
             match addr with

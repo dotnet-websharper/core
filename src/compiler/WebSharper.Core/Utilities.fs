@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -56,6 +56,10 @@ type Hashed<'T when 'T : equality and 'T : comparison> =
             | _ -> failwith "invalid comparison"        
 
     static member Get (h: Hashed<'T>) = h.Value
+
+[<AutoOpen>]
+module HashedHelper =
+    let (|Hashed|) (h: Hashed<'T>) = h.Value
 
 /// Utility extensions of IDictionary and parsing value types
 [<AutoOpen>]
@@ -116,6 +120,15 @@ module Dict =
         let r = Dictionary() :> IDictionary<_,_>
         for KeyValue(k, v) in d do   
             r.Add(k, mapping v)
+        r 
+
+    /// Map and filter values of an IDictionary
+    let choose mapping (d: IDictionary<_,_>) =
+        let r = Dictionary() :> IDictionary<_,_>
+        for KeyValue(k, v) in d do
+            match mapping v with
+            | Some v' -> r.Add(k, v')
+            | None -> ()
         r 
 
     /// Map keys of an IDictionary

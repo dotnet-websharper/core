@@ -33,10 +33,7 @@ type internal PrintfFormat =
     new (value: string, args: obj[], types: System.Type[]) = {}
 
 [<Name "Printf">]
-[<Proxy
-    "Microsoft.FSharp.Core.PrintfModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Core.PrintfModule, FSharp.Core">]
 module private PrintfProxy =
     [<Inline "$f($k)">]
     let PrintFormatThen (k: string -> 'R) (f: Printf.StringFormat<'T, 'R>) = X<'T>

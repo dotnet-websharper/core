@@ -110,6 +110,25 @@ module Definition =
             "Ok" =? String |> WithGetterInline "WIGtest3" |> Requires [ res3 ]
         ]
 
+    let WIGtest4 =
+        Class "WIGtest4"
+        |> ImportDefault "./WIGtest4.js"
+        |+> Instance [
+            "sayHiInst" => String ^-> String
+        ]
+        |+> Static [
+            Constructor O
+            "sayHiStatic" => String ^-> String
+            "sayHiFunc" => String ^-> String |> Import "sayHi" "./WIGtest4.js"
+        ]
+
+    let NPMTest =
+        Class "NPMTest"
+        |> ImportDefault "NPMTest"
+        |+> Static [
+            "sayHiStatic" => String ^-> String
+        ]
+
     let WIGtestGeneric =
         Generic + [ "T"; "U" ] -- fun a b ->
             Class "WIGtestGeneric"
@@ -227,6 +246,8 @@ module Definition =
                  WIGtest
                  WIGtest2
                  WIGtest3
+                 WIGtest4
+                 NPMTest
                  WIGtestGeneric
                  ConfigObj
                  OneBasedArr

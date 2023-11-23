@@ -466,6 +466,8 @@ namespace WebSharper.CSharp.Tests
 
         public int DefaultOptionalTest([Optional] int x) => x;
 
+        public string OptionalStringTest(string x = "None") => x;
+
         [Test]
         public void OptionalArgument()
         {
@@ -475,6 +477,9 @@ namespace WebSharper.CSharp.Tests
             Equal(OptionalTest(1, 5, 2), 152);
             Equal(DefaultOptionalTest(1), 1);
             Equal(DefaultOptionalTest(), 0);
+            Equal(OptionalStringTest(), "None");
+            Equal(OptionalStringTest(null), null);
+            Equal(OptionalStringTest("Some"), "Some");
         }
 
         [Test]
@@ -614,6 +619,11 @@ namespace WebSharper.CSharp.Tests
             Equal(y ?? 67, 67, "Nullable null case");
             y = 23;
             Equal(y ?? 67, 23, "Nullable non-null case");
+            bool? b = null;
+            Equal(b ?? true, true, "Nullable bool null");
+            b = false;
+            Equal(b ?? true, false, "Nullable bool false");
+
         }
 
         public int this[int i] => i * i;

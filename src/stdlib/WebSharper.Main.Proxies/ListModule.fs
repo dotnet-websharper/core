@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "List">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Collections.ListModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Collections.ListModule, FSharp.Core">]
 module private WebSharper.ListModuleProxy
 
 open WebSharper.JavaScript
@@ -53,7 +50,7 @@ let setValueNonTail (l: list<'T>) (v: 'T) =
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
 
-[<Inline "new WebSharper.List.T({$: 1})"; Pure>]
+[<Inline "$wsruntime.Create($type('Microsoft.FSharp.Collections.FSharpList`1'), {$: 1})"; Pure>]
 let freshEmptyList() = X<list<'T>>
 
 [<Inline>]

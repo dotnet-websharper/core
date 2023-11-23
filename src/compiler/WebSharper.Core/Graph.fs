@@ -41,8 +41,19 @@ type AssemblyResource(name, isModule) =
                 let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
                 match R.Rendering.TryGetCdn(ctx, name, filename) with
                 | Some r -> r
-                | None -> ctx.GetAssemblyRendering name
-            fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
+                | None -> 
+                    ctx.GetAssemblyRendering name
+            ignore
+            //fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
+
+/// A resource class for including the compiled .js module for an type in Sitelets
+[<Sealed>]
+type ModuleResource(typ: TypeDefinition) =
+    interface R.IResource with
+        member this.Render ctx =
+            let r =
+                ctx.GetWebResourceRendering (Reflection.LoadTypeDefinition typ) (typ.Value.FullName + ".js")
+            fun writer -> r.Emit(writer R.Scripts, R.JsModule)
 
 /// The compilation-time mutable representation of a code dependency graph
 type Graph =
@@ -204,7 +215,7 @@ type Graph =
         allNodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq
 
     /// Get all resource nodes used by a graph node.
-    member private this.GetRequires (nodes : seq<Node>) =
+    member private this.GetRequires (metadata: Info) (nodes : seq<Node>) =
         let allNodes = HashSet()
         let newNodes = HashSet()
         let allTypesWithOverrides = HashSet()
@@ -219,9 +230,25 @@ type Graph =
         let addNode n i =
             if allNodes.Add i then
                 match n with
-                | ResourceNode _ 
+                | ResourceNode _
                 | AssemblyNode _ ->
                     resNodes.Add i |> ignore
+                | TypeNode typ ->
+                    match metadata.Classes.TryGetValue(typ) with
+                    | true, (addr, _, Some cls) when cls.BaseClass.IsSome ->
+                        let rec isWebControl (def: TypeDefinition) =
+                            def.Value.FullName = "WebSharper.Web.Control" || (
+                                match metadata.Classes.TryGetValue(def) with
+                                | true, (_, _, Some cls) when cls.BaseClass.IsSome ->
+                                    isWebControl cls.BaseClass.Value.Entity
+                                | _ ->
+                                    false
+                            )
+                        if isWebControl cls.BaseClass.Value.Entity then
+                            match addr.Module with
+                            | JavaScriptModule m -> resNodes.Add i |> ignore
+                            | _ -> ()
+                    | _ -> ()
                 | _ -> ()
                 newNodes.Add i |> ignore
                 match n with
@@ -260,12 +287,14 @@ type Graph =
 
     /// Gets all resource class instances for a set of graph nodes.
     /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
-    member this.GetResources (nodes : seq<Node>) =
+    member this.GetResources (metadata: Info) (nodes : seq<Node>) =
         let activate i n =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
                 | AssemblyNode (name, true, isModule) ->
                     AssemblyResource(name, isModule) :> R.IResource
+                | TypeNode typ ->
+                    ModuleResource(typ) :> R.IResource
                 | ResourceNode (t, p) ->
                     try
                         match p with
@@ -303,7 +332,7 @@ type Graph =
 
         let asmNodes, resNodes =
             nodes 
-            |> this.GetRequires
+            |> this.GetRequires metadata
             |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
@@ -312,6 +341,8 @@ type Graph =
                     Some (true, (i, n))
                 | ResourceNode _ ->
                     Some (false, (i, n))
+                | TypeNode typ ->
+                    Some(true, (i, n))
                 | _ -> None
             )    
             |> List.ofSeq
@@ -351,7 +382,7 @@ type Graph =
             | _ -> false
         )
         |> Seq.distinct
-        |> this.GetResources
+        |> this.GetResources Info.Empty
 
     member this.AddOrLookupNode n =
         match this.Lookup.TryFind n with
@@ -367,6 +398,13 @@ type Graph =
                 this.Edges.[i].Add(b) |> ignore
             | _ -> ()   
             i  
+
+    member this.AddOrLookupImplementation (typ, btyp, meth) =
+        if btyp <> typ then
+            ImplementationNode(typ, btyp, meth)
+        else
+            MethodNode(typ, meth)
+        |> this.AddOrLookupNode
 
     member this.GetNodeDeps n =
         this.Edges.[this.AddOrLookupNode n]    

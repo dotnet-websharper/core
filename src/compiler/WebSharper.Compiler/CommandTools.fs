@@ -74,14 +74,15 @@ type JavaScriptScope =
  
 type WsConfig =
     {
-        SourceMap   : bool
-        TypeScript  : bool
+        SourceMap : bool
+        TypeScriptOutput : bool
+        TypeScriptDeclaration : bool
         IsDebug : bool
         ProjectType : ProjectType option
-        OutputDir  : string option
+        OutputDir : string option
         ScriptBaseUrl : string option
         AssemblyFile : string
-        References  : string[] 
+        References : string[] 
         Resources : (string * string option)[]
         KeyFile : string option
         CompilerArgs : string[]        
@@ -112,20 +113,21 @@ type WsConfig =
 
     static member Empty =
         {                 
-            SourceMap   = false
-            TypeScript  = false
+            SourceMap = false
+            TypeScriptOutput = false
+            TypeScriptDeclaration = true
             IsDebug = false
             ProjectType = None
-            OutputDir  = None
+            OutputDir = None
             ScriptBaseUrl = None
             AssemblyFile = null
-            References  = [||]
+            References = [||]
             Resources = [||]
             KeyFile = None
             CompilerArgs = [||]
             ProjectFile = null
             Documentation = None
-            PrintJS  = false
+            PrintJS = false
             WarnOnly = false
             DeadCodeElimination = true
             DownloadResources = None       
@@ -144,7 +146,7 @@ type WsConfig =
                     false
                 else
                     match bool.TryParse(envVar) with
-                    | true, v -> v
+                    | true, v -> not v
                     | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
@@ -162,7 +164,8 @@ type WsConfig =
             with _ -> argError (sprintf "Failed to parse %s, not a valid json." fileName)
         let settings = 
             match json with
-            | Json.Object values -> values
+            | Json.Object values -> 
+                values |> List.filter (fun (k, v) -> v <> Json.Null)
             | _ -> argError (sprintf "Failed to parse %s, not a json object." fileName)
         let getString k v =
             match v with
@@ -212,6 +215,10 @@ type WsConfig =
                 res <- { res with DeadCodeElimination = getBool k v }
             | "sourcemap" ->
                 res <- { res with SourceMap = getBool k v }
+            | "dts" ->
+                res <- { res with TypeScriptDeclaration = getBool k v }
+            | "ts" ->
+                res <- { res with TypeScriptOutput = getBool k v }
             | "warnonly" ->
                 res <- { res with WarnOnly = getBool k v }
             | "downloadresources" ->
@@ -252,7 +259,10 @@ type WsConfig =
                     | _ -> argError (sprintf "Invalid value in %s for JavaScriptExport, expecting true or false or an array of strings." fileName) 
                 res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
             | "jsoutput" ->
-                res <- { res with JSOutputPath = Some (getPath k v) }
+                let path = getPath k v
+                //if path.EndsWith(".js") then
+                //    argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
+                res <- { res with JSOutputPath = Some path }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
             | "singlenojserrors" ->
@@ -274,6 +284,9 @@ type WsConfig =
                 res <- { res with RuntimeMetadata = runtimeMetadata }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
+        if res.ProjectType <> Some ProjectType.Bundle && res.ProjectType <> Some ProjectType.BundleOnly then
+            if res.JSOutputPath |> Option.map (fun x -> x.EndsWith(".js")) |> Option.defaultValue false then
+                argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
         res
     
 module ExecuteCommands =
@@ -333,7 +346,8 @@ module ExecuteCommands =
                     Assemblies = assemblies
                     RootDirectory = webRoot
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
+                    UnpackTypeScript = settings.TypeScriptOutput
+                    UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = Option.isSome settings.DownloadResources
                     Loader = Some loader
                     Logger = logger
@@ -360,7 +374,8 @@ module ExecuteCommands =
                     ProjectDirectory = settings.ProjectDir
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
+                    UnpackTypeScript = settings.TypeScriptOutput
+                    UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = settings.DownloadResources |> Option.defaultValue false
                     Metadata = meta
                     Logger = logger
@@ -372,7 +387,9 @@ let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
     let asm = WebSharper.Core.Reflection.LoadAssembly(file)
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
-    File.Move(file, genFile)
+    // Instead of removing the original dll, we are going to keep the original F# dll as is,
+    // so we can properly carry over the win32 resources, so that the file properties are populated
+    File.Copy(file, genFile)
     let name = asm.GetName()
     let typedArg =
         asm.CustomAttributes |> Seq.tryPick (fun a ->
@@ -411,7 +428,8 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
                 StrongNameKeyPath = snk
         }
     let cmp = InterfaceGenerator.Compiler.Create(logger)
-    let out = cmp.Compile(cfg, asmDef, asm)
+    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
+    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
     out.Save config.AssemblyFile
     logger.TimedStage "Writing final dll"
 
@@ -539,7 +557,8 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 let RecognizeWebSharperArg a wsArgs =
     match a with
     | Flag "--jsmap" v -> Some { wsArgs with SourceMap = v }
-    //| "--dts" -> Some { wsArgs with TypeScript = true } 
+    | "--ts" -> Some { wsArgs with TypeScriptOutput = true } 
+    | "--dts" -> Some { wsArgs with TypeScriptDeclaration = true } 
     | "--wig" -> Some { wsArgs with ProjectType = Some WIG }
     | "--bundle" -> Some { wsArgs with ProjectType =  Some Bundle }
     | "--bundleonly" -> Some { wsArgs with ProjectType = Some BundleOnly }

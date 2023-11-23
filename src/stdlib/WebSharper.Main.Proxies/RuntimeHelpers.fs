@@ -18,10 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy  "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers, FSharp.Core">]
 module private WebSharper.RuntimeHelpersProxy
 
 #nowarn "40"
@@ -34,7 +31,7 @@ type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
-[<Name "WebSharper.Seq.enumFinally">]
+[<Name "enumFinally">]
 let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
     Enumerable.Of <| fun () ->
         let enum = try Enumerator.Get s with e -> f(); raise e
@@ -45,7 +42,7 @@ let EnumerateThenFinally (s: seq<'T>) (f: unit -> unit) : seq<'T> =
             else
                 false
 
-[<Name "WebSharper.Seq.enumUsing">]
+[<Name "enumUsing">]
 let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
                                 and 'T2 :> seq<'T3>>
         (x: 'T1) (f: 'T1 -> 'T2) : seq<'T3> =
@@ -59,7 +56,7 @@ let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
             else
                 false
 
-[<Name "WebSharper.Seq.enumWhile">]
+[<Name "enumWhile">]
 let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->
         let rec next (en: Enumerator.T<IE<_>,'T>) =
@@ -80,7 +77,7 @@ let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
                     next en
         Enumerator.NewDisposing null (fun en -> safeDispose en.State) next)
 
-[<Name "WebSharper.Control.createEvent">]
+[<Name "createEvent">]
 let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate> 
         (add: 'D -> unit) 
         (remove: 'D -> unit)

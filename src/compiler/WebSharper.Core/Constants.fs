@@ -42,6 +42,9 @@ module EmbeddedResources =
     let EMBEDDED_MINMAP = "WebSharper.min.map"
 
     [<Literal>]
+    let EMBEDDED_TS = "WebSharper.ts"
+
+    [<Literal>]
     let EMBEDDED_DTS = "WebSharper.d.ts"
 
 [<AutoOpen>]

@@ -27,6 +27,10 @@ open System.Threading
 module P = WebSharper.Core.JavaScript.Parser
 module S = WebSharper.Core.JavaScript.Syntax
 
+module S =
+    let Var x = S.Var (S.Id.New x)
+    let Vars xs = S.Vars (xs |> List.map (fun (x, v) -> S.Id.New x, v), S.VarDecl)
+
 let private p s =
     P.ParseExpression (P.Source.FromString s)
 
@@ -84,10 +88,10 @@ let Run () =
         let num s = !~ (S.Number s)
         let one   = num "1"
         p @"{}"             =? S.NewObject []
-        p @"{a: 1}"         =? S.NewObject ["a", one]
-        p @"{""a\nb"": 1}"  =? S.NewObject ["a\nb", one]
-        p @"{1.25: 1}"      =? S.NewObject ["1.25", one]
-        p "{a: 1, b: 2, }"  =? S.NewObject ["a", one; "b", num "2"]
+        p @"{a: 1}"         =? S.NewObject ["a", S.Simple, one]
+        p @"{""a\nb"": 1}"  =? S.NewObject ["a\nb", S.Simple, one]
+        p @"{1.25: 1}"      =? S.NewObject ["1.25", S.Simple, one]
+        p "{a: 1, b: 2, }"  =? S.NewObject ["a", S.Simple, one; "b", S.Simple, num "2"]
     }
 
     Test "regex" {
@@ -106,20 +110,20 @@ let Run () =
         let f = S.Var "f"
         let x = S.Var "x"
         let y = S.Var "y"
-        p "f()" =? S.Application (f, [])
-        p "f(x)" =? S.Application (f, [x])
-        p "f(x,y)" =? S.Application (f, [x; y])
+        p "f()" =? S.Application (f, [], [])
+        p "f(x)" =? S.Application (f, [], [x])
+        p "f(x,y)" =? S.Application (f, [], [x; y])
     }
 
     Test "new" {
         let f = S.Var "f"
         let x = S.Var "x"
         let y = S.Var "y"
-        p "new f" =? S.New (f, [])
-        p "new f()" =? S.New (f, [])
-        p "new new f" =? S.New (S.New (f, []), [])
-        p "new new f(x)" =? S.New (S.New (f, [x]), [])
-        p "new new f(x)(y)" =? S.New (S.New (f, [x]), [y])
+        p "new f" =? S.New (f, [], [])
+        p "new f()" =? S.New (f, [], [])
+        p "new new f" =? S.New (S.New (f, [], []), [], [])
+        p "new new f(x)" =? S.New (S.New (f, [], [x]), [], [])
+        p "new new f(x)(y)" =? S.New (S.New (f, [], [x]), [], [y])
     }
 
     Test "member" {
@@ -137,7 +141,7 @@ let Run () =
 
     Test "lhs" {
         p "new a.b(c)[d](e)" =?
-            (S.New ((S.Var "a")?b, [S.Var "c"])).[S.Var "d"].[[S.Var "e"]]
+            (S.New ((S.Var "a")?b, [], [S.Var "c"])).[S.Var "d"].[[S.Var "e"]]
     }
 
     Test "operators" {

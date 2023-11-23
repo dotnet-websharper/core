@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module private WebSharper.Ref
+namespace WebSharper
 
 open WebSharper.JavaScript
 
@@ -34,3 +34,16 @@ type private RefProxy<'T> =
                 get () = X<'T>
         and     [<Inline "void ($this[0] = $x)">]
                 set (x: 'T) = X<unit>
+
+[<JavaScript; Name "">]
+type private ByRef<'T> =
+     abstract get: unit -> 'T
+     abstract set: 'T -> unit
+
+[<JavaScript; Name "">]
+type private OutRef<'T> =
+     abstract set: 'T -> unit
+
+[<JavaScript; Name "">]
+type private InRef<'T> =
+     abstract get: unit -> 'T

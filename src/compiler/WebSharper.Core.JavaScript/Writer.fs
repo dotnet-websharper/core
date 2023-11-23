@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -19,7 +19,6 @@
 // $end{copyright}
 
 module WebSharper.Core.JavaScript.Writer
-
 
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder
@@ -92,7 +91,9 @@ let PostfixOperatorAssociativity =
     NonAssociative
 
 let Precedence expression =
-    match expression with
+    match S.IgnoreExprPos expression with
+    | S.Cast _
+    | S.Lambda(_, _, _, true)
     | S.Application _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
     | S.Conditional _ -> 15
@@ -102,7 +103,7 @@ let Precedence expression =
     | _ -> 0
 
 let Associativity expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Application _ -> LeftAssociative
     | S.Binary (_, op, _) -> BinaryOperatorAssociativity op
     | S.Conditional _ -> RightAssociative
@@ -110,16 +111,6 @@ let Associativity expression =
     | S.Postfix (_, _) -> PostfixOperatorAssociativity
     | S.Unary (op, _) -> PrefixOperatorAssociativity op
     | _ -> NonAssociative
-
-let (|QualifiedName|_|) expression =
-    let rec loop acc = function
-        | S.Binary (x, B.``.``, S.Constant (S.String y)) ->
-            loop (y :: acc) x
-        | S.Var _ | S.This as expr ->
-            Some (expr, List.rev acc)
-        | _ ->
-            None
-    loop [] expression
 
 let Keywords =
     System.Collections.Generic.HashSet [|
@@ -142,6 +133,7 @@ let Keywords =
         "function"
         "if"
         "implements"
+        "import"
         "in"
         "instanceof"
         "interface"
@@ -174,7 +166,9 @@ let WriteUnicodeEscapeCodeForId (buf: StringBuilder) (c: char) =
 let EscapeId (id: string) =
     let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
-        invalidArg "id" "Cannot escape null and empty identifiers."
+        "$$EMPTY_ID_ERROR$$"
+        //invalidArg "id" "Cannot escape null and empty identifiers."
+    else
     let isFirst = function
         | '_' | '$' -> true
         | c when System.Char.IsLetter c -> true
@@ -221,6 +215,9 @@ let QuoteString (s: string) =
     buf.Append '"' |> ignore
     string buf
 
+let BracketString (s: string) =
+    "[" + QuoteString s + "]"
+
 let ListLayout separator brush items =
     match items with
     | [] -> Empty
@@ -228,48 +225,104 @@ let ListLayout separator brush items =
             |> Seq.reduce (fun a b -> separator a b)
 
 let CommaSeparated brush items =
-    ListLayout (fun a b -> a ++ Token "," ++ b) brush items
+    ListLayout (fun a b -> a ++ Token ", " ++ b) brush items
 
 let Parens layout =
     Token "(" ++ layout ++ Token ")"
 
-let Id (id: string) =
-    Word (EscapeId id)
-
-let Optional f layout =
-    match layout with
+let Optional f item =
+    match item with
     | None -> Empty
     | Some x -> f x
 
-let BlockLayout items =
-    Token "{"
-    -- ListLayout (fun a b -> a -- b) Indent items
-    -- Token "}"
+let OptionalList f items =
+    match items with
+    | [] -> Empty
+    | _ -> f items
 
-let rec Expression (expression) =
+let Conditional layout pred =
+    if pred then layout else Empty
+
+let BlockLayout items =
+    if List.isEmpty items then 
+        Word "{ }" 
+    else
+        Word "{"
+        -- ListLayout (fun a b -> a -- b) Indent items
+        -- Word "}"
+
+let inline Label (l: S.Label) =
+    Word l
+
+let rec startsWithObjectExpression = function
+    | S.IgnoreEPos (S.NewObject _) -> true
+    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _)) -> startsWithObjectExpression e
+    | _ -> false
+
+module Seq =
+    let alternate (seq1: seq<_>) (seq2 : seq<_>) =
+        seq {
+            use e1 = seq1.GetEnumerator()
+            use e2 = seq2.GetEnumerator()
+            while e1.MoveNext() do
+                yield e1.Current
+                if e2.MoveNext() then
+                    yield e2.Current
+        }
+
+let rec Id (id: S.Id) =
+    Conditional (Token "...") id.Rest
+    ++ Word (if id.IsTypeName then id.Name else (if id.IsPrivate then "#" else "") + EscapeId id.Name)
+    ++ Generics id.Generics
+    ++ Conditional (Token "?") id.Optional
+    ++ TypeAnnotation id.Type
+
+and IdOrString (id: S.Id) =
+    let priv = if id.IsPrivate then "#" else ""
+    Conditional (Token "...") id.Rest
+    ++ if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (BracketString (priv + id.Name))
+    ++ Generics id.Generics
+    ++ Conditional (Token "?") id.Optional
+    ++ TypeAnnotation id.Type
+
+and IdAndModifiers (id: S.Id, modifiers: S.Modifiers) =
+    (if modifiers.HasFlag S.Modifiers.Private then Word "private" else Empty)
+    ++ (if modifiers.HasFlag S.Modifiers.Public then Word "public" else Empty)
+    ++ (if modifiers.HasFlag S.Modifiers.ReadOnly then Word "readonly" else Empty)
+    ++ Id id
+
+and Generics items =
+    OptionalList (fun g -> Token "<" ++ CommaSeparated Id g ++ Token ">") items
+
+and TypeAnnotation a =
+    Optional (fun t -> Token ":" ++ Expression t) a
+
+and Expression (expression) =
     match expression with
     | S.ExprPos (x, pos) -> 
         SourceMapping pos ++ Expression x ++ SourceMappingEnd pos
     | S.ExprComment (x, c) ->
         Expression x ++ Word ("/*" + c +  "*/")
-    | S.Application (f, xs) ->
-        MemberExpression f
-        ++ Parens (CommaSeparated (AssignmentExpression) xs)
+    | S.Application (f, ts, xs) ->
+        let call = MemberExpression f
+        let args = Parens (CommaSeparated AssignmentExpression xs)
+        call ++ Generics ts ++ args
     | S.NewArray xs ->
         let element = function
-            | None -> Token ","
+            | None -> Token ", "
             | Some x -> AssignmentExpression x
         Token "[" ++ CommaSeparated element xs ++ Token "]"
     | S.Binary (x, op, y) ->
         match op, y with
-        | B.``.``, S.Constant (S.String y) when Identifier.IsValid y ->
+        | B.``.``, S.IgnoreEPos (S.Constant (S.String y)) when Identifier.IsValid y ->
             let e = Expression x
             let eL =
-                match x with
+                match S.IgnoreExprPos x with
                 | S.Constant (S.Number _) -> Parens e
                 | S.Application _
                 | S.Binary (_, B.``.``, _)
                 | S.This
+                | S.Super
                 | S.Var _
                 | S.Constant _
                 | S.NewArray _
@@ -305,28 +358,51 @@ let rec Expression (expression) =
         ++ Token ":"
         ++ AssignmentExpression c
     | S.VarNamed (x, n) ->
-        SourceName n ++ Word (EscapeId x)
+        SourceName n ++ Id x
     | S.Var x ->
-        Word (EscapeId x)
-    | S.Lambda (name, formals, body) ->
-        Word "function"
-        ++ Optional Id name
-        ++ Parens (CommaSeparated Id formals)
-        -- BlockLayout (List.map (Statement true) body)
-    | S.New (x, xs) ->
-        Word "new"
-        ++ MemberExpression x
-        ++ Parens (CommaSeparated AssignmentExpression xs)
+        Id x
+    | S.Lambda (name, formals, body, isArrow) ->
+        let args = Parens (CommaSeparated Id formals) 
+        if isArrow then
+            match body with
+            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word " =>" ++ Word " { }"
+            | [ S.IgnoreSPos (S.Return (Some e)) ] -> 
+                args ++ Word " =>" 
+                ++ (if startsWithObjectExpression e then Parens (Expression e) else Expression e)
+            | _ -> args ++ Word " =>" ++ BlockLayout (List.map (Statement true) body)
+        else
+            Word "function"
+            ++ Optional Id name
+            ++ args
+            ++ BlockLayout (List.map (Statement true) body)
+    | S.New (x, ts, xs) ->
+        let call = Word "new" ++ MemberExpression x
+        let args = Parens (CommaSeparated AssignmentExpression xs)
+        call ++ Generics ts ++ args
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->
-        let pair (k, v) =
-            Token (if Identifier.IsValid k then k else QuoteString k)
-            ++ Token ":"
-            ++ AssignmentExpression v
-        Token "{"
-        -- Indent (ListLayout (fun a b -> a ++ Token "," -- b) pair fields)
-        -- Token "}"
+        let mem (k, a, v) =
+            match v with 
+            | S.IgnoreEPos (S.Lambda (_, args, body, false)) -> 
+                Accessor a
+                ++ Word (if Identifier.IsValid k then k else BracketString k)
+                ++ Parens (CommaSeparated Id args) 
+                ++ BlockLayout (List.map (Statement true) body)
+            | _ ->
+                if a <> S.Simple then 
+                    failwithf "Unexpected: non-function used as getter or setter: %A" v
+                Token (if Identifier.IsValid k then k else QuoteString k)
+                ++ Token ":"
+                ++ AssignmentExpression v
+        if fields.Length <= 2 then
+            Token "{"
+            ++ ListLayout (fun a b -> a ++ Token ", " ++ b) mem fields
+            ++ Token "}"
+        else
+            Token "{"
+            -- Indent (ListLayout (fun a b -> a ++ Token ", " -- b) mem fields)
+            -- Token "}"
     | S.Postfix (x, op) ->
         ParensExpression PostfixOperatorPrecedence x
         ++ Token (string op)
@@ -343,35 +419,64 @@ let rec Expression (expression) =
         Word "this"
     | S.ImportFunc ->
         Word "import"
-    | _ ->
-        failwith "Syntax.Expression not recognized"
+    | S.Super ->
+        Word "super"    
+    | S.Cast (t, e) ->
+        Token "<" ++ Expression t ++ Token ">"
+        ++ ParensExpression 1 e 
+    | S.ClassExpr (n, b, i, ms) ->
+        Word "class" 
+        ++ Optional Id n 
+        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
+        ++ BlockLayout (List.map (Member true) ms)
+    | S.Verbatim (s, e) ->
+        match s, e with
+        | [si], [_] when si = "..." ->
+            Seq.alternate 
+                (s |> Seq.map Token)
+                (e |> Seq.map Expression)
+                |> Seq.reduce (++)
+        | _ ->
+            Token "(" ++ (
+                Seq.alternate 
+                    (s |> Seq.map Token)
+                    (e |> Seq.map Expression)
+                |> Seq.reduce (++)
+            ) ++ Token ")"
 
 and Statement canBeEmpty statement =
     match statement with
     | S.StatementPos (x, pos) -> 
         SourceMapping pos ++ Statement canBeEmpty x ++ SourceMappingEnd pos
     | S.StatementComment (x, c) ->
-        Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
+        match x with
+        | S.Empty when c.StartsWith "<" && c.EndsWith "/>" ->
+            Word ("/// " + c)   
+        | _ ->
+            Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
         BlockLayout (List.map (Statement true) ss)
-    | S.Break id ->
-        Word "break" ++ Optional Id id ++ Token ";"
-    | S.Continue id ->
-        Word "continue" ++ Optional Id id ++ Token ";"
+    | S.Break label ->
+        Word "break" ++ Optional Label label ++ Token ";"
+    | S.Continue label ->
+        Word "continue" ++ Optional Label label ++ Token ";"
     | S.Debugger ->
         Word "debugger" ++ Token ";"
     | S.Do (s, e) ->
         Word "do"
-        ++ Statement false s
-        ++ Word "while"
+        -- Indent (Statement false s)
+        -- Word "while"
         ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
-        if canBeEmpty then Empty else Token ";"
+        if canBeEmpty then Empty else Word "{ }"
     | S.Ignore e ->
-        let rec dangerous = function
+        let rec dangerous e =
+            match e with
             | S.Lambda _ | S.NewObject _ -> true
-            | S.Application (x, _)
+            | S.ExprPos (x, _)
+            | S.Application (x, _, _)
             | S.Binary (x, _, _)
             | S.Conditional (x, _, _)
             | S.Postfix (x, _) -> dangerous x
@@ -390,7 +495,7 @@ and Statement canBeEmpty statement =
         ++ Statement false body
     | S.ForVars (vs, e1, e2, body) ->
         Word "for"
-        ++ Parens (Word "var"
+        ++ Parens (Word "let"
                    ++ VarsNoIn vs
                    ++ Token ";"
                    ++ Optional Expression e1
@@ -412,30 +517,30 @@ and Statement canBeEmpty statement =
                    ++ Word "in"
                    ++ Expression e2)
         ++ Statement false body
-    | S.If (e, s, S.Empty) ->
+    | S.If (e, s, S.IgnoreSPos S.Empty) ->
         Word "if"
         ++ Parens (Expression e)
-        -- Indent (Statement false s)
+        ++ (Statement false s)
     | S.If (e, s1, s2) ->
         let s1L =
-            match s1 with
+            match S.IgnoreStatementPos s1 with
             | S.If (_,_,_) -> BlockLayout [ Statement true s1 ]
-            | _ -> Indent (Statement false s1)
+            | _ -> Statement false s1
         let rec isEmpty s =
-            match s with
+            match S.IgnoreStatementPos s with
             | S.Empty -> true
             | S.Block ss -> List.forall isEmpty ss
             | _ -> false
         let s2L =
             if isEmpty s2 then Empty else
                 Word "else"
-                -- Indent (Statement false s2)
+                ++ (Statement false s2)
         Word "if"
         ++ Parens (Expression e)
-        -- s1L
+        ++ s1L
         -- s2L
     | S.Labelled (label, s) ->
-        Id label ++ Token ":" ++ Statement canBeEmpty s
+        Label label ++ Token ": " ++ Statement canBeEmpty s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e
@@ -443,7 +548,7 @@ and Statement canBeEmpty statement =
     | S.Switch (e, cases) ->
         Word "switch"
         ++ Parens (Expression e)
-        -- BlockLayout [
+        ++ BlockLayout [
             for c in cases do
                 match c with
                 | S.Default ss ->
@@ -459,56 +564,124 @@ and Statement canBeEmpty statement =
         Word "throw" ++ Expression e ++ Token ";"
     | S.TryWith (s1, id, s2, f) ->
         Word "try"
-        -- Block s1
+        ++ Block s1
         -- Word "catch" ++ Parens (Id id)
-        -- Block s2
+        ++ Block s2
         -- Optional (fun x -> Word "finally" ++ Block x) f
     | S.TryFinally (s1, s2) ->
         Word "try"
-        -- Block s1
+        ++ Block s1
         -- Word "finally"
-        -- Block s2
-    | S.Vars [] ->
+        ++ Block s2
+    | S.Vars ([], _) ->
         Empty
-    | S.Vars vs ->
-        Word "var" ++ Vars vs ++ Token ";"
+    | S.Vars (vs, k) ->
+        let keyword =
+            match k with
+            | S.VarDecl -> "var"
+            | S.ConstDecl -> "const"
+            | S.LetDecl -> "let"
+        Word keyword ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
         Word "while" ++ Parens (Expression e)
         -- Indent (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
-    | S.Function (name, formals, body) ->
+    | S.Function (id, formals, body) ->
         Word "function"
-        ++ Id name
+        ++ Id (id.ToNonTyped())
         ++ Parens (CommaSeparated Id formals)
-        -- BlockLayout (List.map (Statement true) body)
-    | S.Import (e, x, f) ->
-        match e with 
-        | None ->
-            Word "import"
-            ++ Id (EscapeId x)
-        | Some "*" ->
-            Word "import * as"
-            ++ Id (EscapeId x)
-        | Some e ->
-            let ei = EscapeId x
-            if e <> ei then
-                Word "import {"
-                ++ Id e
-                ++ Word "as"
-                ++ Id ei
-                ++ Word "}"
-            else
-                Word "import {"
-                ++ Id e
-                ++ Word "}"
-        ++ Word "from "
-        ++ Token (QuoteString f)
+        ++ TypeAnnotation id.Type 
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Export (d, s) ->
+        Word "export" ++ Conditional (Word "default") d  ++ Statement false s
+    | S.ExportAlias (a, b) ->
+        Word "export" ++ Word "{" ++ Id a ++ Word "as" ++ Id b ++ Word "}"
+    | S.ImportAll (None, m) ->
+        Word "import " ++ Token (QuoteString m) 
+    | S.ImportAll (Some i, m) ->
+        Word "import * as" ++ Id i ++ Word "from " ++ Token (QuoteString m) 
+    | S.ImportAlias (i, e) ->
+        Word "import" ++ Id i ++ Token "=" ++ Expression e
+    | S.TypeAlias (i, e) ->
+        Word "type" ++ Id i ++ Token " = " ++ Expression e
+    | S.Declare s ->
+        Word "declare" ++ Statement false s
+    | S.DeclareGlobal s ->
+        Word "declare global"
+        ++ BlockLayout (List.map (Statement true) s)
+    | S.Namespace (n, s) ->
+        Word "namespace" ++ Id n
+        ++ BlockLayout (List.map (Statement true) s)
+    | S.Class (n, a, b, i, ms) ->
+        Conditional (Word "abstract") a
+        ++ Word "class" 
+        ++ Id n 
+        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
+        ++ BlockLayout (List.map (Member true) ms)
+    | S.Interface (n, i, ms) ->
+        Word "interface" 
+        ++ Id n 
+        ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
+        ++ BlockLayout (List.map (Member false) ms)
+    | S.Import (d, f, n, m) ->
+        let defImport =
+            d |> Option.map Id |> Option.toList   
+        let fullImport =
+            f |> Option.map (fun f -> Word "* as" ++ Id f) |> Option.toList
+        let namedImports =
+            n |> List.map (fun (n, i) -> 
+                let ei = EscapeId i.Name
+                if n <> ei then
+                    Word n
+                    ++ Word "as"
+                    ++ Word ei
+                else
+                    Word n
+            ) 
+        let namedImportBlock =
+            match namedImports with
+            | [] ->  []
+            | _ -> [ Word "{" ++ CommaSeparated id namedImports ++ Word "}" ]
+        Word "import"
+        ++ CommaSeparated id (defImport @ fullImport @ namedImportBlock)
+        ++ Word "from"
+        ++ Word (QuoteString m)
+
+and Accessor a =
+    match a with
+    | S.Get -> Word "get"
+    | S.Set -> Word "set"
+    | S.Simple -> Empty
+
+and Member isClass mem =
+    match mem with
+    | S.Method (s, a, n, args, body) ->
+        //Conditional (Word "abstract") (isClass && Option.isNone body)
+        Conditional (Word "static") s
+        ++ Accessor a
+        ++ IdOrString (n.ToNonTyped())
+        ++ Parens (CommaSeparated Id args)
+        ++ TypeAnnotation n.Type 
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Constructor (args, body) ->
+        Word "constructor"
+        ++ Parens (CommaSeparated IdAndModifiers args)
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Property (s, n, v) ->
+        Conditional (Word "static") s
+        ++ IdOrString n
+        ++ Optional (fun v -> Token "=" ++ Expression v) v
+        ++ Token ";"
+    | S.Static body ->
+        Word "static"
+        ++ BlockLayout (List.map (Statement true) body)
 
 and Block statement =
-    match statement with
+    match S.IgnoreStatementPos statement with
     | S.Block ss -> List.map (Statement true) (Seq.toList ss)
-    | s -> [Statement true s]
+    | _ -> [Statement true statement]
     |> BlockLayout
 
 and AssignmentExpression expression =
@@ -516,7 +689,7 @@ and AssignmentExpression expression =
     ParensExpression prec expression
 
 and LeftHandSideExpression expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Application _
     | S.New _
     | _ when Precedence expression <= BinaryOperatorPrecedence B.``.`` ->
@@ -556,7 +729,7 @@ and ExpressionNoIn expression =
         Expression expression
 
 and HasIn expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Binary (a, op, b) ->
         match op with
         | B.``in`` -> true
@@ -881,7 +1054,7 @@ let Render mode (out: CodeWriter) layout =
             match mode with
             | Compact -> ()
             | Readable -> for k in 1 .. line.Indent do
-                              out.Write ' '
+                              out.Write "  "
             renderAtoms xs
         out.WriteLine()
     ToLines mode layout

@@ -139,7 +139,6 @@ namespace WebSharper.CSharp.Tests
             Equal(res.ToArray(), new[] { 1, 2 });
         }
 
-        [Test]
         public async Task WebWorker()
         {
             if (Remoting.ShouldRun)

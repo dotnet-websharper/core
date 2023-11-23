@@ -92,6 +92,7 @@ type HtmlCommand() =
                         Actions = actions
                         UnpackSourceMap = options.UnpackSourceMap
                         UnpackTypeScript = options.UnpackTypeScript
+                        UnpackTypeScriptDeclaration = options.UnpackTypeScriptDeclaration
                         Metadata = options.Metadata
                         Logger = options.Logger
                     }

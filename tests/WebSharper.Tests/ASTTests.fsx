@@ -22,12 +22,14 @@
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
@@ -286,6 +288,9 @@ let wsRefs =
         "WebSharper.Collections"
         "WebSharper.Control"
         "WebSharper.Web"
+        "WebSharper.MathJS"
+        "WebSharper.MathJS.Extensions"
+        "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
@@ -321,11 +326,12 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
             yield "-r:" + r
      |]
 
+let metas =
+    wsRefs |> List.choose(
+        WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
+    )
+
 let metadata =
-    let metas =
-        wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
-        )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
@@ -333,9 +339,11 @@ let metadata =
 
 metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
+let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
+
 open System.IO
 
-let translate source = 
+let translate isBundle source = 
 
     let tempFileName = Path.GetTempFileName()
     let fileName = Path.ChangeExtension(tempFileName, ".fs")
@@ -352,6 +360,8 @@ let translate source =
         for err in wholeProjectResults.Diagnostics |> Seq.filter (fun e -> e.Severity = Diagnostics.FSharpDiagnosticSeverity.Error) do
             printfn "F# Error: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
     else
+    for err in wholeProjectResults.Diagnostics do
+        printfn "F# Error/Warning: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
 
     let fsDeclarations = 
@@ -362,17 +372,17 @@ let translate source =
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             logger
-            (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
+            (WebSharper.Compiler.Compilation(metadata, true, UseLocalMacros = false))
             "TestProject"
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             wholeProjectResults
 
     let expressions =
         Seq.concat [
-            comp.CompilingMethods.Values |> Seq.map snd
+            comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
-            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
+            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,a)) -> stExpr a)
         ]
         |> List.ofSeq
 
@@ -391,13 +401,16 @@ let translate source =
 
     let currentMeta = comp.ToCurrentMetadata()
     let compiledExpressions = 
-        currentMeta.Classes.Values |> Seq.collect (fun c ->
-            Seq.concat [
-                c.Methods.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Implementations.Values |> Seq.map snd
-                c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
-            ]
+        currentMeta.Classes.Values |> Seq.collect (
+            function
+            | _, _, Some c ->
+                Seq.concat [
+                    c.Methods.Values |> Seq.map (fun a -> a.Expression)
+                    c.Constructors.Values |> Seq.map (fun a -> a.Expression)
+                    c.Implementations.Values |> Seq.map (fun a -> a.Expression)
+                    c.StaticConstructor |> Option.map stExpr |> Option.toList |> Seq.ofList
+                ]
+            | _ -> Seq.empty
         )
         |> List.ofSeq 
         
@@ -408,12 +421,50 @@ let translate source =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta None WebSharper.Compiler.Packager.OnLoadIfExists
-    
-    let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
+    if isBundle then
 
-    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
-    js |> printfn "%s" 
+        let graph =
+            metas |> Seq.map (fun m -> m.Dependencies)
+            |> Seq.append (Seq.singleton currentMeta.Dependencies)
+            |> WebSharper.Core.DependencyGraph.Graph.FromData
+
+        let nodes =
+            graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
+    
+        printfn "nodes: %A" (nodes |> List.map string)
+
+        let mergedMeta = 
+            WebSharper.Core.Metadata.Info.UnionWithoutDependencies [ metadata; currentMeta ]
+
+        let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
+    
+        //printfn "trimmedMeta: %A" trimmedMeta
+
+        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+        //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
+
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        printfn "%s" js
+    
+    else
+
+        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+        for (file, p) in pkg do
+            printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))
+
+        let jsFiles = 
+            pkg 
+            |> Array.map (fun (file, p) ->
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                file, js
+            )
+
+        //compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
+        for (name, js) in jsFiles do 
+            printfn "File: %s" name
+            printfn "%s" js
 
 let translateQ q =
     let comp = 
@@ -437,59 +488,108 @@ let getBody expr =
         | Patterns.PropertySet(_, p, _, _) -> p.SetMethod
         | _ -> failwithf "not recognized: %A" expr
     let typ = AST.Reflection.ReadTypeDefinition mi.DeclaringType 
-    let cls = metadata.Classes.[typ]
-    match AST.Reflection.ReadMember mi |> Option.get with
-    | AST.Member.Method (_, meth) 
-    | AST.Member.Override (_, meth) ->
-        let _, _, expr = cls.Methods.[meth]
-        expr
-    | AST.Member.Implementation (intf, meth) ->
-        let _, expr = cls.Implementations.[intf, meth]
-        expr
-    | AST.Member.Constructor ctor ->
-        let _, _, expr = cls.Constructors.[ctor]
-        expr
-    | AST.Member.StaticConstructor ->
-        let _, expr = cls.StaticConstructor |> Option.get
-        expr
+    match metadata.Classes.[typ] with
+    | _, _, Some cls ->
+        match AST.Reflection.ReadMember mi |> Option.get with
+        | AST.Member.Method (_, meth) 
+        | AST.Member.Override (_, meth) ->
+            cls.Methods.[meth].Expression
+        | AST.Member.Implementation (intf, meth) ->
+            cls.Implementations.[intf, meth].Expression
+        | AST.Member.Constructor ctor ->
+            cls.Constructors.[ctor].Expression
+        | AST.Member.StaticConstructor ->
+            cls.StaticConstructor |> Option.get |> stExpr
+    | _ -> failwithf "class data not found: %A" typ
 
-translate """
+translate false """
 namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Collections.Generic
 
 [<JavaScript>]
-module LetRecTest = 
-    let rec y = x()
-    and x() = 1
+module MyTest =
 
+    let Main() =
+        let f x y = x + y
+        let g() =
+            f 1 2 + f 2 3
+        g() + g()
 """
 
-translate """
-namespace WebSharper.Tests
+//translate """
+//module M
 
-open WebSharper
-open WebSharper.JavaScript
+//open WebSharper
 
-[<JavaScript>]
-module LetRecTest2 = 
-    let rec x = y + z
-    and y = z
-    and z = 1
-"""
+//[<JavaScript>]
+//let anonymousRecord() = 
+//    let r = {| A = 42 |}
+//    r.A
+//"""
 
-translate """
-namespace WebSharper.Tests
+//translate """
+//module M
 
-open WebSharper
-open WebSharper.JavaScript
+//open WebSharper
 
-[<JavaScript>]
-module rec ModuleRecTest = 
-    let y = (X().x())
+//[<JavaScript>]
+//let stringInterpolation() = 
+//    //sprintf "x=%d %d" 5 6
+//    //$"x={(5, 5)}" 
+//    $"x=%d{5}" 
+//"""
 
-    type X() =
-        member this.x() = 1
+//translate """
+//module M
 
-"""
+//open WebSharper
+
+//[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
+//let testImport () = ()
+
+//[<JavaScript>]
+//let useImport() = 
+//    testImport ()
+//"""
+
+
+//translate """
+//module M
+
+//open WebSharper
+
+//[<Inline>]
+//let tailRecSingleInline n =
+//    let rec f n =
+//        if n > 0 then f (n - 1) else 0
+//    f n
+//"""
+
+//translate """
+//module M
+
+//open WebSharper
+
+//module Bug923 =
+//    type V2<[<Measure>] 'u> =
+//        struct
+//            val x : float<'u>
+//            val y : float<'u>
+//            new (x, y) = {x=x; y=y}
+//        end
+
+//        static member (+) (a : V2<_>, b : V2<_>) = 
+//            V2 (a.x + b.x, a.y + b.y)
+
+//    [<JavaScript>]
+//    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
+
+//    """
+
+//getBody <@ JS.Document.Cookie <- X<_> @>
+//|> WebSharper.Core.AST.Debug.PrintExpression
+
+//let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata

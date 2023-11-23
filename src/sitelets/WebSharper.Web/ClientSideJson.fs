@@ -40,6 +40,9 @@ module Provider =
         ()
         fun () -> id
 
+    [<Inline "$wsruntime.Create($ctor, $copyFrom)">]
+    let Create<'T> (ctor: obj) (copyFrom: obj) = X<'T>
+
     let EncodeTuple (encs: (unit -> obj -> obj)[]) : (unit -> obj[] -> obj) =
         ()
         fun () args ->
@@ -84,14 +87,14 @@ module Provider =
                 | _ -> failwith "Invalid field option kind")
             o
 
-    let EncodeUnion (_: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
+    let EncodeUnion (_: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
         ()
         fun () x ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
                 let o = New []
                 let tag = x?("$")
                 let tagName, fields = cases.[tag]
-                if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
+                if JS.TypeOf discr = JS.Kind.String then o?(As<string> discr) <- tagName
                 fields |> Array.iter (fun (from, ``to``, enc, kind) ->
                     match from with
                     | null -> // inline record
@@ -199,7 +202,7 @@ module Provider =
     let DecodeRecord (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
-            let o = if t ===. JS.Undefined then New [] else JS.New t
+            let o = New []
             fields |> Array.iter (fun (name, dec, kind) ->
                 match kind with
                 | OptionalFieldKind.NotOption ->
@@ -218,18 +221,32 @@ module Provider =
                     if x?(name) ===. JS.Undefined then
                         o?(name) <- (dec () x?(name))
                 | _ -> failwith "Invalid field option kind")
-            o
+            if t ===. JS.Undefined then o else Create t o
 
-    let DecodeUnion (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
+    let DecodeClass (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) (subClassDecoders: (unit -> obj -> 'T)[]) : (unit -> obj -> 'T) =
+        ()
+        fun () (x: obj) ->
+            subClassDecoders
+            |> Array.tryPick (fun dec ->
+                try 
+                    Some (dec () x)
+                with _ ->
+                    None
+            )
+            |> Option.defaultWith (fun () ->
+                DecodeRecord t fields () x
+            )
+
+    let DecodeUnion (t: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
-                let o = if t ===. JS.Undefined then New [] else JS.New t
+                let o = New []
                 let tag =
                     // [<NamedUnionCases(discr)>]
-                    if JS.TypeOf discr = JS.Kind.String then
-                        let tagName = x?(discr)
-                        cases |> Array.findIndex (fun (name, _) -> name = tagName)
+                    if JS.TypeOf discr ===. JS.Kind.String then
+                        let tagName = x?(As<string> discr)
+                        cases |> Array.findIndex (fun case -> if case.JS <> null then fst case = tagName else false)
                     else // [<NamedUnionCases>]
                         let r = ref JS.Undefined
                         JS.ForEach discr (fun k ->
@@ -242,7 +259,7 @@ module Provider =
                         let r = dec () x
                         // eliminate tag field if record deserializer is identity
                         if As<bool> ``to`` then 
-                            JS.Delete r discr
+                            JS.Delete r (As<string> discr)
                         o?("$0") <- r
                     | from -> // normal args
                         match kind with
@@ -254,7 +271,7 @@ module Provider =
                                 then Some (dec () x?(``to``))
                                 else None
                         | _ -> failwith "Invalid field option kind")
-                o
+                if t ===. JS.Undefined then o else Create t o
             else x :?> 'T // [<Constant>]
 
     let DecodeArray (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =
@@ -344,11 +361,20 @@ module Macro =
             }
         let invoke (comp: M.ICompilation) isEnc n args = 
             let f = (if isEnc then "Encode" else "Decode") + n
-            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
-            Call(None, NonGeneric providerType, NonGeneric m, args)
+            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.tryFind (fun m -> m.Value.MethodName = f)
+            match m with 
+            | Some m ->
+                Call(None, NonGeneric providerType, NonGeneric m, args)
+            | None ->
+                failwithf "Json macro failed to find method %s.%s" providerType.Value.FullName f
+
         let invokeId (comp: M.ICompilation) = 
-            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
-            Call(None, NonGeneric providerType, NonGeneric m, [])
+            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.tryFind (fun m -> m.Value.MethodName = "Id")
+            match m with 
+            | Some m ->
+                Call(None, NonGeneric providerType, NonGeneric m, [])
+            | None ->
+                failwithf "Json macro failed to find method %s.Id" providerType.Value.FullName
 
         type EncodeResult = Choice<Expression, string, Type>
 
@@ -365,28 +391,43 @@ module Macro =
             | Choice1Of3 x -> Choice1Of3 (f x) 
             | _ -> x
 
+        let isIdentExpr (e: Expression) =
+            match e with
+            | Call(None, pt, m, []) when pt.Entity = providerType && m.Entity.Value.MethodName = "Id" -> true
+            | _ -> false
+
         /// Returns None if MacroNeedsResolvedTypeArg.
         let getEncoding name isEnc param (t: Type) : EncodeResult =
             let warn msg = param.Warnings.Add msg
             let addTypeDep td = param.Dependencies.Add (M.TypeNode td)
             let comp = param.Compilation
             let call = invoke comp isEnc
-            let ident = invokeId comp 
+            let ident = lazy invokeId comp 
             let isIdent r =
                 match r with 
-                | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
+                | Choice1Of3 e when isIdentExpr e -> true
                 | _ -> false
+            let allJSClasses =
+                lazy comp.GetJavaScriptClasses()
             let rec encode t =
                 match t with
                 | ArrayType (t, 1)
                 | C (T "System.Collections.Generic.List`1", [t])
                 | C (T "System.Collections.Generic.Queue`1", [t])
                 | C (T "System.Collections.Generic.Stack`1", [t]) ->
-                    encode t >>= fun e ->
-                    ok (call "Array" [e])
+                    let itemEncoder = encode t
+                    if isIdent itemEncoder then
+                        ok ident.Value
+                    else
+                        encode t >>= fun e ->
+                        ok (call "Array" [e])
                 | ArrayType _ ->
                     fail "JSON serialization for multidimensional arrays is not supported."
+                | TSType (TSType.ArrayOf t) ->
+                    encode (TSType t) >>= fun e ->
+                    ok (call "Array" [e])
                 | VoidType
+                | TSType (TSType.Number | TSType.String | TSType.Null | TSType.Void)
                 | C (T ("Microsoft.FSharp.Core.Unit"
                             | "System.Boolean"
                             | "System.SByte"   | "System.Byte"
@@ -396,11 +437,11 @@ module Macro =
                             | "System.Single"  | "System.Double"
                             | "System.String"  | "System.Guid"
                             | "WebSharper.Core.Json+Encoded"), []) ->
-                    ok ident
+                    ok ident.Value
                 | C (T "System.Object", []) ->
                     if isEnc then 
                         fail "JSON serialization for System.Object is not supported; only deserialization." 
-                    else ok ident
+                    else ok ident.Value
                 | C (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
                     encode t >>= fun e ->
                     ok (call "List" [e])
@@ -429,58 +470,85 @@ module Macro =
                     encode t >>= fun e ->
                     ok (call "LinkedList" [e])
                 | TupleType (ts, _) ->
-                    ((fun es -> ok (call "Tuple" [NewArray es])), ts)
-                    ||> List.fold (fun k t ->
-                        fun es -> encode t >>= fun e -> k (e :: es))
-                    <| []
+                    let itemEncoders = ts |> List.map encode
+                    if itemEncoders |> List.forall isIdent then
+                        ok ident.Value
+                    else
+                        ((fun es -> ok (call "Tuple" [NewArray es])), itemEncoders)
+                        ||> List.fold (fun k enc ->
+                            fun es -> enc >>= fun e -> k (e :: es))
+                        <| []
+                | TSType (TSType.Tuple ts) ->
+                    encodeTuple (List.map TSType ts)
                 | C (T "System.DateTime", []) ->
                     ok (call "DateTime" [])
                 | C (T "System.DateTimeOffset", []) ->
                     ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
-                    let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
-                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                    match comp.GetMetadataEntries key with                    
-                    | M.StringEntry "id" :: _ ->
-                        ok ident
-                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
-                    | _ ->
-                        let gtd, gm, _ = comp.NewGenerated([top; "j"])
-                        let _, gv, va = comp.NewGenerated([top; "_" + "v"])
-                        comp.AddGeneratedCode(gv, Undefined)
-                        comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
-                        ((fun es ->
-                            let enc = encRecType t args es
-                            if isIdent enc then
-                                comp.AddMetadataEntry(key, M.StringEntry "id")
-                                comp.AddGeneratedInline(gm, ident)
-                                enc
-                            else
-                                enc >>= fun e ->
-                                let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
-                                let vn = Value (String va.Value.Head)
-                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], NonPure, Some 0))))
-                                comp.AddGeneratedCode(gm, b)
-                                Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
-                         ), args)
-                        ||> List.fold (fun k t es ->
-                            encode t >>= fun e -> k ((t, e) :: es))
-                        <| []
+                    let defaultEnc() = 
+                        //let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
+                        //let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
+                        match comp.GetJsonMetadataEntry(isEnc, t) with                    
+                        | Some M.JsonId ->
+                            ok ident.Value
+                        | Some (M.JsonSerializer (gtd, gm)) ->
+                            Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                        | _ ->
+                            let gtd, gm, _ = comp.NewGenerated((if isEnc then "EncodeJson_" else "DecodeJson_") + t.DisplayName)
+                            comp.AddJsonMetadataEntry(isEnc, t, M.JsonSerializer (gtd, gm ))
+                            ((fun es ->
+                                let enc = encRecType t args es
+                                if isIdent enc then
+                                    comp.AddJsonMetadataEntry(isEnc, t, M.JsonId)
+                                    comp.AddGeneratedInline(gm, ident.Value)
+                                    enc
+                                else
+                                    enc >>= fun e ->
+                                    let gv = comp.NewGeneratedVar((if isEnc then "Encoder_" else "Decoder_") + t.DisplayName)
+                                    let v = Var gv
+                                    let b = Lambda ([], None, Conditional(v, v, VarSet(gv, Appl(e, [], NonPure, Some 0))))
+                                    comp.AddGeneratedCode(gm, b)
+                                    Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                             ), args)
+                            ||> List.fold (fun k t es ->
+                                encode t >>= fun e -> k ((t, e) :: es))
+                            <| []
+                    match comp.GetClassInfo(td) with
+                    | Some cls ->
+                        let m =
+                            Method { 
+                                MethodName = if isEnc then "EncodeJson" else "DecodeJson"
+                                Parameters = [ if isEnc then t else NonGenericType Definitions.Obj ]
+                                ReturnType = if isEnc then NonGenericType Definitions.Obj else t
+                                Generics = 0
+                            }
+                        if cls.Methods.ContainsKey(m) then
+                            let x = Id.New()
+                            Lambda([], None, Lambda ([x], None, Call(None, Generic td args, NonGeneric m, [Var x]))) |> ok
+                        else
+                            defaultEnc()    
+                    | _ -> defaultEnc()    
                 | ConcreteType _ -> failwith "impossible"
                 | FSharpFuncType _ -> 
                     fail (name + ": Cannot de/serialize a function value.")
                 | ByRefType _ ->
                     fail (name + ": Cannot de/serialize a byref value.")
+                | TSType _ ->
+                    fail (name + ": Cannot de/serialize this type: unknown [<Type>].")
                 | LocalTypeParameter
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
                     generic t
+            and encodeTuple ts =
+                ((fun es -> ok (call "Tuple" [NewArray es])), ts)
+                ||> List.fold (fun k t ->
+                    fun es -> encode t >>= fun e -> k (e :: es))
+                <| []
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 let td = t.TypeDefinition
                 match comp.GetCustomTypeInfo td with
-                | M.EnumInfo _ -> ok ident
+                | M.EnumInfo _ -> ok ident.Value
                 | M.FSharpRecordInfo fields ->
                     let fieldEncoders =
                         fields
@@ -493,8 +561,8 @@ module Macro =
                             let t, optionKind =
                                 match f.RecordFieldType with
                                 | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
-                                    if f.Optional then p, OptionalFieldKind.MarkedOption
-                                    else p, OptionalFieldKind.NormalOption
+                                    if f.Optional then p, OptionalFieldKind.MarkedOption    
+                                    else p, OptionalFieldKind.NormalOption 
                                 | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "WebSharper.JavaScript.Optional`1" ->
                                     p, OptionalFieldKind.ErasedOption
                                 | t ->    
@@ -506,17 +574,48 @@ module Macro =
                         | Some cls -> 
                             addTypeDep td 
                             if cls.HasWSPrototype then
-                                GlobalAccess cls.Address.Value
+                                GlobalAccess cls.Address
                             else Undefined
                         | _ -> Undefined
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                         fo <> OptionalFieldKind.NormalOption && isIdent fe
                     )
-                    then ok ident
+                    then ok ident.Value
                     else
                         ((fun es ->
                             let es, tts = List.unzip es
                             ok (call "Record" [pr; NewArray es])
+                            ), fieldEncoders)
+                        ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                fe >>= fun e ->
+                                k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                        <| []
+                | M.FSharpAnonRecordInfo fields ->
+                    let fieldTypes =
+                        match t with
+                        | ConcreteType { Generics = ft } -> ft
+                        | _ -> failwith ("Field types not found for F# anonymous record " + t.TypeDefinition.Value.FullName)
+                    let fieldEncoders =
+                        (fields, fieldTypes)
+                        ||> List.map2 (fun f t ->
+                            let t, optionKind =
+                                match t with
+                                | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
+                                    p, OptionalFieldKind.NormalOption 
+                                | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "WebSharper.JavaScript.Optional`1" ->
+                                    p, OptionalFieldKind.ErasedOption
+                                | t ->    
+                                    t, OptionalFieldKind.NotOption
+                            f, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
+                        )  
+                    if fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                        fo <> OptionalFieldKind.NormalOption && isIdent fe
+                    )
+                    then ok ident.Value
+                    else
+                        ((fun es ->
+                            let es, tts = List.unzip es
+                            ok (call "Record" [Undefined; NewArray es])
                             ), fieldEncoders)
                         ||> List.fold (fun k (fn, fo, fe) es ->                     
                                 fe >>= fun e ->
@@ -588,13 +687,15 @@ module Macro =
                         | Some (Some n) -> JI.NamedField n
                     let cases = u.Cases
                     ((0, fun cases ->
-                        let cases = NewArray cases
+                        let cases = Cast(TSType.Any, NewArray cases)
                         let discr =
                             match discr with
                             | JI.NoField discrFields ->
-                                discrFields
-                                |> List.map (fun (name, id) -> name, cInt id)
-                                |> Object
+                                Cast(TSType.Any,
+                                    discrFields
+                                    |> List.map (fun (name, id) -> name, MemberKind.Simple, cInt id)
+                                    |> Object
+                                )
                             | JI.StandardField -> cString "$"
                             | JI.NamedField n -> cString n
                         let tn =
@@ -602,7 +703,7 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address.Value
+                                    GlobalAccess cls.Address
                                 else
                                     Undefined
                             | _ -> Undefined
@@ -661,12 +762,37 @@ module Macro =
                 | _ -> 
                     match comp.GetClassInfo td with
                     | Some cls ->
+                        let subclassesEncoders = 
+                            if isEnc then [||] else
+                            allJSClasses.Value |> Seq.choose (fun c ->
+                                match comp.GetClassInfo(c) with
+                                | Some ccls -> 
+                                    match ccls.BaseClass with
+                                    | Some bc when bc.Entity = td ->
+                                        Some (encode (NonGenericType c))
+                                    | _ -> None
+                                | _ -> None
+                            )
+                            |> Array.ofSeq
+                        let getFields (cls: M.IClassInfo) =
+                            let rec collect acc (cls: M.IClassInfo) =
+                                match cls.BaseClass with
+                                | None ->
+                                    List.ofSeq cls.Fields.Values @ acc
+                                | Some bTd ->
+                                    match comp.GetClassInfo bTd.Entity with
+                                    | Some bCls ->
+                                        collect (List.ofSeq cls.Fields.Values @ acc) bCls
+                                    | None -> 
+                                        List.ofSeq cls.Fields.Values @ acc
+                            collect [] cls
                         let fieldEncoders =
-                            cls.Fields.Values
-                            |> Seq.choose (fun (f, _, ft) ->
+                            getFields cls
+                            |> Seq.sortBy (fun f -> f.Order)
+                            |> Seq.choose (fun f ->
                                 let jsNameTypeAndOption =
                                     let isOption name isMarked =
-                                        match ft with
+                                        match f.Type with
                                         | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
                                             if isMarked then
                                                 Some (name, p, OptionalFieldKind.MarkedOption) 
@@ -676,11 +802,12 @@ module Macro =
                                             Some (name, p, OptionalFieldKind.ErasedOption) 
                                         | ft ->    
                                             Some (name, ft, OptionalFieldKind.NotOption)
-                                    match f with
+                                    match f.CompiledForm with
                                     | M.InstanceField n -> isOption n false
                                     | M.IndexedField i -> isOption (string i) false
                                     | M.OptionalField n -> isOption n true
-                                    | M.StaticField _ -> None
+                                    | M.StaticField _
+                                    | M.VarField _ -> None
                                 jsNameTypeAndOption |> Option.map (fun (jsName, t, optionKind) ->
                                     jsName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                                 )
@@ -690,41 +817,78 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td 
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address.Value
+                                    GlobalAccess cls.Address
                                 else Undefined
                             | _ -> Undefined
                         if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                             fo <> OptionalFieldKind.NormalOption && isIdent fe
                         )
-                        then ok ident
+                        then ok ident.Value
                         else
-                            ((fun es ->
-                                let es, tts = List.unzip es
-                                ok (call "Record" [pr; NewArray es])
-                                ), fieldEncoders)
-                            ||> List.fold (fun k (fn, fo, fe) es ->                     
-                                    fe >>= fun e ->
-                                    k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
-                            <| []
+                            if not isEnc && not (Array.isEmpty subclassesEncoders) then
+                                if subclassesEncoders |> Array.forall (function Choice1Of3 _ -> true | _ -> false) then
+                                    let encoders =
+                                        subclassesEncoders |> Array.map (function Choice1Of3 e -> e | _ -> Undefined) |> List.ofArray
+                                    ((fun es ->
+                                        let es, tts = List.unzip es
+                                        ok (call "Class" [pr; NewArray es; NewArray encoders])
+                                        ), fieldEncoders)
+                                    ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                            fe >>= fun e ->
+                                            k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                                    <| []
+                                else
+                                    subclassesEncoders |> Array.find (function Choice1Of3 _ -> false | _ -> true)    
+                            else
+                                ((fun es ->
+                                    let es, tts = List.unzip es
+                                    ok (call "Record" [pr; NewArray es])
+                                    ), fieldEncoders)
+                                ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                        fe >>= fun e ->
+                                        k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                                <| []
                     | _ ->
                         fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             encode t
 
+        let isIdentLambda (e: Expression) =
+            match e with
+            | Application(f, [], _) 
+            | Cast (_, Application(f, [], _))
+                when isIdentExpr f -> true
+            | _ -> false
+        
         let encodeLambda name param t =
             getEncoding name true param t
-            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
+            |> mapOk (fun x -> Appl(x, [], Pure, Some 0))
 
         let encode name param t arg =
             encodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
+            |> mapOk (fun x -> 
+                if isIdentLambda x then
+                    arg
+                else
+                    Appl(x, [arg], Pure, Some 1)
+            )
 
         let decodeLambda name param t =
             getEncoding name false param t
-            |> mapOk (fun x -> Application(x, [], Pure, Some 0))
+            |> mapOk (fun x ->
+                Cast(
+                    TSType.Lambda([TSType.Any], param.Compilation.GetTSTypeOf(t)),
+                    Appl(x, [], Pure, Some 0)
+                )
+            )
 
         let decode name param t arg =
             decodeLambda name param t
-            |> mapOk (fun x -> Application(x, [arg], Pure, Some 1))
+            |> mapOk (fun x -> 
+                if isIdentLambda x then
+                    arg
+                else
+                    Appl(x, [arg], Pure, Some 1)
+            )
 
     let Encode param t arg =
         // ENCODE()(arg)
@@ -746,8 +910,8 @@ module Macro =
             let arg = Id.New(mut = false)
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
-                Lambda([arg],
-                    mJson param.Compilation "Stringify" [Application(Var enc, [Var arg], Pure, Some 1)])))
+                Lambda([arg], Some (NonGenericType Definitions.String),
+                    mJson param.Compilation "Stringify" [Appl(Var enc, [Var arg], Pure, Some 1)])))
 
     let Decode param t arg =
         // DECODE()(arg)
@@ -768,8 +932,8 @@ module Macro =
             let arg = Id.New(mut = false)
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
-                Lambda([arg],
-                    Application(Var dec, [mJson param.Compilation "Parse" [Var arg]], Pure, Some 1))))
+                Lambda([arg], Some t,
+                    Appl(Var dec, [mJson param.Compilation "Parse" [Var arg]], Pure, Some 1))))
 
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()

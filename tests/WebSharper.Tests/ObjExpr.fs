@@ -39,6 +39,8 @@ type TestObj() as self =
         with get () = v
         and set x = v <- x
 
+    new (vv) as this = TestObj() then this.Value <- vv
+
 [<JavaScript>]
 let Tests =
     TestCategory "ObjExpr" {
@@ -63,6 +65,15 @@ let Tests =
                 }    
             equal o.Value 2
             o.SetValueModified 3
-            equal o.Value 4                   
+            equal o.Value 4        
+            
+            let o2 = 
+                { new TestObj(3) with
+                    override this.SetValueModified x = this.Value <- x + 2
+                }
+
+            equal o2.Value 3
+            o2.SetValueModified 3
+            equal o2.Value 5        
         }
     }

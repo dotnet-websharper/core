@@ -8,7 +8,6 @@
     <Compile Include="Preferences.fs" />
     <Compile Include="Identifier.fsi" />
     <Compile Include="Identifier.fs" />
-    <Compile Include="Syntax.fsi" />
     <Compile Include="Syntax.fs" />
     <Compile Include="Lexer.fsi" />
     <Compile Include="Lexer.fs" />
@@ -17,6 +16,7 @@
     <Compile Include="Writer.fsi" />
     <Compile Include="Writer.fs" />
     <Compile Include="Annotations.fs" />
+    <EmbeddedResource Include="Runtime.ts" />
     <EmbeddedResource Include="Runtime.js" />
     <EmbeddedResource Include="Runtime.min.js" />
     <None Include="paket.references" />

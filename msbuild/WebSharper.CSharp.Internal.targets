@@ -30,7 +30,8 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net6.0/wscsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net6.0/wscsc.sh</WebSharperToolPath>
-    <WebSharperSourceMap>True</WebSharperSourceMap>
+    <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
+    <WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
@@ -42,16 +43,16 @@
     </ItemGroup>
   </Target>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/FSharp.Core.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/Mono.Cecil.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/Mono.Cecil.Pdb.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.Compiler.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.Core.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.Core.JavaScript.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.CSharp.Analyzer.dll" />
-    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/FSharp.Core.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Mdb.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Pdb.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.CSharp.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Core.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Core.JavaScript.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.CSharp.Analyzer.dll" />
+    <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
@@ -75,6 +76,7 @@
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"

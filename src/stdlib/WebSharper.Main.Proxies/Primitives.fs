@@ -35,7 +35,7 @@ type internal N =
             raise (System.OverflowException overflowMsg)
         else As<'T> x
 
-    static member TryParse<'T>(s: string, min: 'T, max: 'T, r: byref<'T>) =
+    static member TryParse<'T>(s: string, min: 'T, max: 'T, r: outref<'T>) =
         let x : float = JS.Plus s
         let ok = x ===. (x -. (x %. 1)) && (x >=. min) && (x <=. max)
         if ok then r <- As<'T> x
@@ -47,7 +47,7 @@ type internal N =
         | "false" -> false
         | _ -> raise (System.FormatException "String was not recognized as a valid Boolean.")
 
-    static member TryParseBool(s: string, r: byref<bool>) =
+    static member TryParseBool(s: string, r: outref<bool>) =
         match s.ToLower() with
         | "true" -> r <- true; true
         | "false" -> r <- false; true
@@ -55,108 +55,101 @@ type internal N =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]
+[<Type "number">]
 type internal NB =
 
-    [<Name "WebSharper.Numeric.ParseByte">]
     static member Parse(s: string) : System.Byte =
         N.Parse(s, System.Byte.MinValue, System.Byte.MaxValue, "Value was either too large or too small for an unsigned byte.")
 
-    [<Name "WebSharper.Numeric.TryParseByte">]
-    static member TryParse(s: string, r: byref<System.Byte>) : bool =
+    static member TryParse(s: string, r: outref<System.Byte>) : bool =
         N.TryParse(s, System.Byte.MinValue, System.Byte.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.SByte>)>]
+[<Type "number">]
 type internal NSB =
 
-    [<Name "WebSharper.Numeric.ParseSByte">]
     static member Parse(s: string) : System.SByte =
         N.Parse(s, System.SByte.MinValue, System.SByte.MaxValue, "Value was either too large or too small for a signed byte.")
 
-    [<Name "WebSharper.Numeric.TryParseSByte">]
-    static member TryParse(s: string, r: byref<System.SByte>) : bool =
+    static member TryParse(s: string, r: outref<System.SByte>) : bool =
         N.TryParse(s, System.SByte.MinValue, System.SByte.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int16>)>]
 [<Name "Int16">]
+[<Type "number">]
 type internal NI16 =
 
-    [<Name "WebSharper.Numeric.ParseInt16">]
     static member Parse(s: string) : System.Int16 =
         N.Parse(s, System.Int16.MinValue, System.Int16.MaxValue, "Value was either too large or too small for an Int16.")
 
-    [<Name "WebSharper.Numeric.TryParseInt16">]
-    static member TryParse(s: string, r: byref<System.Int16>) : bool =
+    static member TryParse(s: string, r: outref<System.Int16>) : bool =
         N.TryParse(s, System.Int16.MinValue, System.Int16.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int32>)>]
 [<Name "Int32">]
+[<Type "number">]
 type internal NI32 =
 
-    [<Name "WebSharper.Numeric.ParseInt32">]
     static member Parse(s: string) : System.Int32 =
         N.Parse(s, System.Int32.MinValue, System.Int32.MaxValue, "Value was either too large or too small for an Int32.")
 
-    [<Name "WebSharper.Numeric.TryParseInt32">]
-    static member TryParse(s: string, r: byref<System.Int32>) : bool =
+    static member TryParse(s: string, r: outref<System.Int32>) : bool =
         N.TryParse(s, System.Int32.MinValue, System.Int32.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt16>)>]
 [<Name "UInt16">]
+[<Type "number">]
 type internal NUI16 =
 
-    [<Name "WebSharper.Numeric.ParseUInt16">]
     static member Parse(s: string) : System.UInt16 =
         N.Parse(s, System.UInt16.MinValue, System.UInt16.MaxValue, "Value was either too large or too small for an UInt16.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt16">]
-    static member TryParse(s: string, r: byref<System.UInt16>) : bool =
+    static member TryParse(s: string, r: outref<System.UInt16>) : bool =
         N.TryParse(s, System.UInt16.MinValue, System.UInt16.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt32>)>]
 [<Name "UInt32">]
+[<Type "number">]
 type internal NUI32 =
 
-    [<Name "WebSharper.Numeric.ParseUInt32">]
     static member Parse(s: string) : System.UInt32 =
         N.Parse(s, System.UInt32.MinValue, System.UInt32.MaxValue, "Value was either too large or too small for an UInt32.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt32">]
-    static member TryParse(s: string, r: byref<System.UInt32>) : bool =
+    static member TryParse(s: string, r: outref<System.UInt32>) : bool =
         N.TryParse(s, System.UInt32.MinValue, System.UInt32.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
 [<Name "Int64">]
+[<Type "number">]
 type internal NI64 =
 
-    [<Name "WebSharper.Numeric.ParseInt64">]
     static member Parse(s: string) : System.Int64 =
         N.Parse(s, System.Int64.MinValue, System.Int64.MaxValue, "Value was either too large or too small for an Int64.")
 
-    [<Name "WebSharper.Numeric.TryParseInt64">]
-    static member TryParse(s: string, r: byref<System.Int64>) : bool =
+    static member TryParse(s: string, r: outref<System.Int64>) : bool =
         N.TryParse(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
+[<Type "number">]
 type internal NUI64 =
 
-    [<Name "WebSharper.Numeric.ParseUInt64">]
     static member Parse(s: string) : System.UInt64 =
         N.Parse(s, System.UInt64.MinValue, System.UInt64.MaxValue, "Value was either too large or too small for an UInt64.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt64">]
-    static member TryParse(s: string, r: byref<System.UInt64>) : bool =
+    static member TryParse(s: string, r: outref<System.UInt64>) : bool =
         N.TryParse(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]
+[<Type "number">]
 type internal NS =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -175,13 +168,14 @@ type internal NS =
     static member Parse(x: string) = X<System.Single>
 
     [<Macro(typeof<M.NumericMacro>)>]
-    static member TryParse(x: string, r: byref<System.Single>) = X<bool>
+    static member TryParse(x: string, r: outref<System.Single>) = X<bool>
 
     [<Inline "$0 / $1">]
     static member DivideByInt(a: single, b: int) = X<single>
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
+[<Type "number">]
 type internal ND =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -200,12 +194,13 @@ type internal ND =
     static member Parse(x: string) = X<System.Double>
 
     [<Macro(typeof<M.NumericMacro>)>]
-    static member TryParse(x: string, r: byref<System.Double>) = X<bool>
+    static member TryParse(x: string, r: outref<System.Double>) = X<bool>
 
     [<Inline "$0 / $1">]
     static member DivideByInt(a: double, b: int) = X<double>
 
 [<Proxy(typeof<System.Boolean>)>]
+[<Type "boolean">]
 type internal B = 
     [<Inline>]
     static member op_LogicalNot(a: bool) = not a
@@ -247,5 +242,5 @@ type internal B =
         N.ParseBool x
 
     [<Inline>]
-    static member TryParse(x: string, r: byref<bool>) =
+    static member TryParse(x: string, r: outref<bool>) =
         N.TryParseBool(x, &r)

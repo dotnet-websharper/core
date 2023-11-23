@@ -118,6 +118,23 @@ type PrintF =
     new : unit -> PrintF
     inherit Macro
 
+[<AbstractClass>]
+type StringInterpolationBase =
+    new : unit -> StringInterpolationBase
+    inherit Macro
+
+    abstract Process: stringParts: list<string> * holes: list<WebSharper.Core.AST.Expression> -> MacroResult
+
+[<Sealed>]
+type JSVerbatim =
+    new : unit -> JSVerbatim
+    inherit StringInterpolationBase
+
+[<Sealed>]
+type JSHtml =
+    new : unit -> JSHtml
+    inherit StringInterpolationBase
+
 [<Sealed>]
 type Comp =
     inherit Macro
@@ -148,6 +165,11 @@ type DefaultToUndefined =
 [<Sealed>]
 type TypeTest =
     new : unit -> TypeTest
+    inherit Macro
+
+[<Sealed>]
+type Unbox =
+    new : unit -> Unbox
     inherit Macro
 
 [<Sealed>]

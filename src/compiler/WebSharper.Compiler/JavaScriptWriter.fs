@@ -29,80 +29,97 @@ open WebSharper.Core
 open WebSharper.Core.AST
 
 type P = WebSharper.Core.JavaScript.Preferences
+type O = WebSharper.Core.JavaScript.Output
 
 type Environment =
     {
-        Preference : WebSharper.Core.JavaScript.Preferences
+        Preference : P
+        Output: O
         mutable ScopeNames : Set<string>
+        mutable VisibleGlobals : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
-        ScopeVars : ResizeArray<J.Id>
-        FuncDecls : ResizeArray<J.Statement>
-        mutable InFuncScope : bool
+        //ScopeVars : ResizeArray<string>
         OuterScope : bool
+        IsJSX : bool ref
     }
-    static member New(pref) =
+    static member New(pref, ?mode) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window"; "self" ]
+            Output = mode |> Option.defaultValue O.JavaScript
+            ScopeNames = Set [ "window"; "self"; "globalThis"; "import"; "_" ]
+            VisibleGlobals = Set [ "window"; "self"; "globalThis"; "import" ]
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ]
-            ScopeVars = ResizeArray()
-            FuncDecls = ResizeArray()
-            InFuncScope = false
+            ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
+            //ScopeVars = ResizeArray()
             OuterScope = true
+            IsJSX = ref false
         }
 
     member this.NewInner() =
         {
             Preference = this.Preference    
+            Output = this.Output
             ScopeNames = this.ScopeNames
+            VisibleGlobals = this.VisibleGlobals
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
-            ScopeVars = ResizeArray()
-            FuncDecls = ResizeArray()
-            InFuncScope = true
+            //ScopeVars = ResizeArray()
             OuterScope = false
+            IsJSX = this.IsJSX
         }
-
-    member this.Declarations =
-        if this.ScopeVars.Count = 0 then [] else
-            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> v, None) |> List.ofSeq) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
+let globalThis = J.Var (J.Id.New "globalThis")
+
+let undefVar (id: Id) =
+//#if DEBUG
+    J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
+//#else
+//    failwithf "Undefined variable during writing JavaScript: %s" (string id)
+//#endif
+
 let transformId (env: Environment) (id: Id) =
-    try Map.find id env.ScopeIds
+    if id.HasStrongName then J.Id.New id.Name.Value else
+    try 
+        J.Id.New (Map.find id env.ScopeIds) 
     with _ -> 
-        "MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
-        //failwithf "Undefined variable during writing JavaScript: %s" (string id)
+        undefVar id
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
 let getCompactName (env: Environment) =
-    let vars = env.ScopeNames
     let mutable name = formatter env.CompactVars   
     env.CompactVars <- env.CompactVars + 1   
-    while vars |> Set.contains name do
+    while env.ScopeNames |> Set.contains name || env.VisibleGlobals |> Set.contains name do
         name <- formatter env.CompactVars   
         env.CompactVars <- env.CompactVars + 1   
     name
 
-let defineId (env: Environment) addToDecl (id: Id) =
-    if env.Preference = P.Compact then
-        let name = getCompactName env    
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name 
-    else 
-        let vars = env.ScopeNames
-        let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
-        while vars |> Set.contains name do
-            name <- Resolve.newName name 
-        env.ScopeNames <- vars |> Set.add name
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name
+let defineId (env: Environment) (id: Id) =
+    let name =
+        if id.HasStrongName then
+            let name = id.Name.Value 
+            env.ScopeNames <- env.ScopeNames |> Set.add name
+            env.VisibleGlobals <- env.VisibleGlobals |> Set.remove name
+            name
+        else
+            if env.Preference = P.Compact then
+                let name = getCompactName env    
+                env.ScopeIds <- env.ScopeIds |> Map.add id name
+                //if addToDecl then env.ScopeVars.Add(name)
+                name 
+            else 
+                let vars = env.ScopeNames
+                let mutable name = (I.MakeValid (defaultArg id.Name "_1"))
+                while env.ScopeNames |> Set.contains name || env.VisibleGlobals |> Set.contains name do
+                    name <- Resolve.newName name 
+                env.ScopeNames <- vars |> Set.add name
+                env.ScopeIds <- env.ScopeIds |> Map.add id name
+                //if addToDecl then env.ScopeVars.Add(name)
+                name
+    J.Id.New(name, rest = id.IsRest)
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
@@ -119,31 +136,74 @@ let invalidForm c =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _) =
-        defineId env false f |> ignore    
+    override this.VisitFuncDeclaration(f, _, _, _, _) =
+        defineId env f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
-        defineId env true v |> ignore
+        defineId env v |> ignore
+
+    override this.VisitInterface(i, _, _, _) =
+        defineId env i |> ignore
+
+    override this.VisitClass(c, _, _, _, _) =
+        defineId env c |> ignore
+
+    override this.VisitAlias(a, _, _) =
+        defineId env a |> ignore
+
+    override this.VisitImport(d, f, n, m) =
+        if m = "" then
+            // global values used
+            let jsNames = n |> Seq.map fst |> Set
+            env.ScopeNames <- Set.union env.ScopeNames jsNames
+            env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
 
 let flattenJS s =
     let res = ResizeArray()
     let rec add a =
-        match J.RemoveOuterStatementSourcePos a with
+        match J.IgnoreStatementPos a with
         | J.Block b -> b |> List.iter add
         | J.Empty -> ()
         | _ -> res.Add a
     s |> Seq.iter add
     List.ofSeq res    
 
+let flattenFuncBody s =
+    let res = ResizeArray()
+    let mutable go = true
+    let rec add a =
+        if go then 
+            match J.IgnoreStatementPos a with
+            | J.Block b -> b |> List.iter add
+            | J.Empty -> ()
+            | J.Return None ->
+                go <- false
+            | J.Return _ ->
+                go <- false
+                res.Add a
+            | J.Throw _ ->
+                go <- false
+                res.Add a
+            | _ -> res.Add a
+    add s
+    List.ofSeq res    
+
 let block s = J.Block (flattenJS s)
+
+let transformMemberKind k =
+    match k with
+    | MemberKind.Getter -> J.Get
+    | MemberKind.Setter -> J.Set
+    | MemberKind.Simple -> J.Simple
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
     let inline trI x = transformId env x
     match expr with
     | Undefined -> undef
-    | This -> J.This
-    | Arguments -> J.Var "arguments"
+    | JSThis -> J.This
+    | Base -> J.Super
+    | Var importId when importId = Id.Import() -> J.ImportFunc
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with
@@ -164,7 +224,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
-    | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
+    | Application (e, ps, i) -> J.Application (trE e, transformGenerics env i.Params, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 
         let jpos =
@@ -176,24 +236,17 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
-    | Function (ids, b) ->
+    | Function (ids, thisVar, _, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv false) 
+        let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
-        let body =
-            match b |> transformStatement innerEnv with
-            | J.Block b -> 
-                match List.rev b with
-                | J.Return None :: more -> List.rev more
-                | _ -> b
-            | J.Empty
-            | J.Return None -> []
-            | b -> [ b ]
-        let useStrict =
-            if env.OuterScope then
-                [ J.Ignore (J.Constant (J.String "use strict")) ]
-            else []
-        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body))
+        let body = b |> transformStatement innerEnv |> flattenFuncBody
+        //let useStrict =
+        //    if env.OuterScope then
+        //        [ J.Ignore (J.Constant (J.String "use strict")) ]
+        //    else []
+
+        J.Lambda(None, args, flattenJS body, thisVar.IsNone)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -241,8 +294,20 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
         | MutatingBinaryOperator.``??=``  -> J.Binary(trE x, J.BinaryOperator.``??=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
-    | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
-    | New (x, y) -> J.New(trE x, y |> List.map trE)
+    | Object fs -> 
+        J.NewObject (
+            fs |> List.map (fun (k, mk, v) -> 
+                match mk with
+                | MemberKind.Getter 
+                | MemberKind.Setter ->
+                    match v with 
+                    | IgnoreSourcePos.Function _ -> ()
+                    | _ -> failwithf "getter/setter in object expression is not a function: %s" (Debug.PrintExpression v)
+                | _ -> ()
+                k, transformMemberKind mk, trE v
+            )
+        )
+    | New (x, ts, y) -> J.New(trE x, transformGenerics env ts, y |> List.map trE)
     | Sequential x ->
         let x =
             match List.rev x with 
@@ -271,13 +336,57 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
+    | Cast (t, e) ->
+        J.Cast(transformType env t, trE e)
+    | ClassExpr (n, b, m) ->
+        let innerEnv = env.NewInner()
+        let jn = n |> Option.map (defineId innerEnv)
+        J.ClassExpr(jn, Option.map trE b, [], List.map (transformMember innerEnv) m)
+    | GlobalAccess a ->
+        match a.Module with     
+        | ImportedModule g when g.IsGlobal() ->
+            match List.rev a.Address with
+            | [] ->
+                //J.Var (J.Id.New "exports")
+                failwith "top scope of current module not accessible directly"
+            | h :: t ->
+                List.fold (fun e n ->
+                    e.[J.Constant (J.String n)]
+                ) (J.Var (J.Id.New h)) t
+        | ImportedModule v ->
+            List.foldBack (fun n e -> 
+                e.[J.Constant (J.String n)]
+            ) a.Address (J.Var (trI v))
+        | StandardLibrary | JavaScriptFile _ ->
+            match List.rev a.Address with
+            | [] -> globalThis
+            | h :: t ->
+                let ha =
+                    if env.VisibleGlobals.Contains(h) then
+                        J.Var (J.Id.New h)
+                    else
+                        globalThis.[J.Constant (J.String h)]
+                List.fold (fun e n ->
+                    e.[J.Constant (J.String n)]
+                ) ha t
+        | NpmPackage _
+        | JavaScriptModule _
+        | DotNetType _ -> 
+            J.Var (J.Id.New "IMPORT_ERROR")
+            //failwithf "Addresses must be resolved to ImportedModule before writing JavaScript: %s from %s"
+            //    (a.Address.Value |> List.rev |> String.concat ".") m
+    | GlobalAccessSet (a, v) ->
+        trE (GlobalAccess a) ^= trE v
+    | Verbatim (a, b, isJSX) ->
+        env.IsJSX.Value <- env.IsJSX.Value || isJSX
+        J.Verbatim(a, b |> List.map trE)
     | _ -> 
-        failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformExpression(expr))
         invalidForm (GetUnionCaseName expr)
 
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
+    let inline trT x = transformType env x
     let sequential s effect =
         match List.rev s with
         | h :: t -> effect h :: List.map ExprStatement t |> List.rev          
@@ -313,7 +422,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let mutable skip = false
         res |> Seq.filter (fun s ->
             if skip then
-                match J.RemoveOuterStatementSourcePos s with
+                match J.IgnoreStatementPos s with
                 | J.Function _ | J.Vars _ -> 
                     true
                 | J.Labelled _ ->
@@ -322,7 +431,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ ->
                     false
             else
-                match J.RemoveOuterStatementSourcePos s with
+                match J.IgnoreStatementPos s with
                 | J.Return _ | J.Throw _ | J.Break _ | J.Continue _ -> 
                     skip <- true
                 | _ -> ()
@@ -332,20 +441,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         match IgnoreStatementSourcePos s with
         | Block s -> flatten s
         | _ -> [ trS s ]
-    // collect function declarations to be on top level of functions to satisfy strict mode
-    // requirement by some JavaScript engines
-    let withFuncDecls f =
-        if env.InFuncScope then
-            env.InFuncScope <- false
-            let woFuncDecls = f()
-            env.InFuncScope <- true
-            if env.FuncDecls.Count > 0 then
-                let res = block (Seq.append env.FuncDecls (Seq.singleton woFuncDecls))
-                env.FuncDecls.Clear()
-                res
-            else woFuncDecls
-        else 
-            f()
     match statement with
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
@@ -366,27 +461,33 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> 
-        withFuncDecls <| fun () -> 
-            J.If(trE a, trS b, trS c)
+        J.If(trE a, trS b, trS c)
     | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> block [ J.Ignore(trE a); J.Return None ]
     | Return (IgnoreSourcePos.Sequential s) -> block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
         match e with
-        | IgnoreSourcePos.Undefined -> J.Empty 
-        | IgnoreSourcePos.Application(Var importId, args, NonPure, Some 0) when importId = Id.Import() ->
-            match args with
-            | [ Value (String from) ] ->
-                J.Import(None, defineId env false id, from)  
-            | [ Value (String export); Value (String from) ] ->
-                J.Import(Some export, defineId env false id, from)  
-            | _ -> failwith "unrecognized args for import"
-        | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
-    | FuncDeclaration (x, ids, b) ->
-        let id = transformId env x
+        | IgnoreSourcePos.Undefined -> 
+            J.Vars([transformIdTyped env id, None], J.LetDecl)
+            //J.Empty 
+        //| IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
+        //    match args with
+        //    | [ Value (String from) ] ->
+        //        J.Import(None, defineId env false id, from)  
+        //    | [ Value (String export); Value (String from) ] ->
+        //        J.Import(Some export, defineId env false id, from)  
+        //    | _ -> failwith "unrecognized args for import"
+        | _ -> 
+            let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
+            J.Vars([transformIdTyped env id, Some (trE e)], kind)
+            //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
+    | FuncDeclaration (x, ids, t, b, g) ->
+        let jsgen = g |> transformGenerics env
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv false) 
+        let args = getUsedArgs ids b innerEnv
+        let id = transformIdTyped innerEnv x
+        let id = id.WithGenerics(jsgen)
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with
@@ -397,44 +498,244 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | J.Empty
             | J.Return None -> []
             | b -> [ b ]
-        let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
-        if env.InFuncScope then
-            f
-        else
-            env.FuncDecls.Add f 
-            J.Empty
+        J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
     | While(a, b) -> 
-        withFuncDecls <| fun () -> 
-            J.While (trE a, trS b)
+        J.While (trE a, trS b)
     | DoWhile(a, b) ->
-        withFuncDecls <| fun () -> 
-            J.Do (trS a, trE b)
+        J.Do (trS a, trE b)
     | For(a, b, c, d) -> 
-        withFuncDecls <| fun () -> 
+        match a with 
+        | Some (NewVars setters) ->
+            let trV =
+                List.zip
+                    (setters |> List.map (fst >> defineId env))
+                    (setters |> List.map (snd >> Option.map trE))
+            J.ForVars(trV, Option.map trE b, Option.map trE c, trS d)
+        | _ ->
             J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | Switch(a, b) -> 
-        withFuncDecls <| fun () ->
-            J.Switch(trE a, 
-                b |> List.map (fun (l, s) -> 
-                    match l with 
-                    | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
-                    | _ -> J.SwitchElement.Default (flattenS s)
-                )
+        J.Switch(trE a, 
+            b |> List.map (fun (l, s) -> 
+                match l with 
+                | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
+                | _ -> J.SwitchElement.Default (flattenS s)
             )
+        )
     | Throw (IgnoreSourcePos.Sequential s) -> block (sequential s Throw |> List.map trS)
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> 
-        withFuncDecls <| fun () -> 
-            J.Labelled(a.Name.Value, trS b)
+        J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
-        withFuncDecls <| fun () ->
-            J.TryWith(trS a, defineId env false (match b with Some b -> b | _ -> Id.New()), trS c, None)
+        J.TryWith(trS a, defineId env (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
-        withFuncDecls <| fun () ->
-            J.TryFinally(trS a, trS b)
+        J.TryFinally(trS a, trS b)
+    | Import(None, _, _, "") ->
+        J.Empty
+    | Import(None, None, [], d) ->
+        J.ImportAll(None, d)               
+    | Import(a, Some b, ((_ :: _) as c), d) ->
+        // import * and named exports cannot be on same statement, separate them
+        J.Block [
+            J.ImportAll(b |> defineId env |> Some, d)            
+            J.Import(
+                a |> Option.map (defineId env), 
+                None, 
+                c |> List.map (fun (n, x) -> n, defineId env x),
+                d)
+        ]
+    | Import(a, b, c, d) ->
+        J.Import(
+            a |> Option.map (defineId env), 
+            b |> Option.map (defineId env), 
+            c |> List.map (fun (n, x) -> n, defineId env x),
+            d)
+    | ExportDecl (a, b) ->
+        J.Export (a, trS b)
+    | Declare a ->
+        J.Declare (trS a)
     | ForIn(a, b, c) -> 
-        withFuncDecls <| fun () ->
-            J.ForVarIn(defineId env false a, None, trE b, trS c)
+        J.ForVarIn(defineId env a, None, trE b, trS c)
+    | XmlComment a ->
+        J.StatementComment (J.Empty, a)
+    | Class (n, b, i, m, g) ->
+        let jn = (transformId env n).WithGenerics(transformGenerics env g)
+        let innerEnv = env.NewInner()
+        let isAbstract =
+            if env.Output = O.TypeScriptDeclaration then false else
+            m |> List.exists (function
+                | ClassMethod (_, _, _, _, None, _) -> true
+                | _ -> false
+            )
+        J.Class(jn, isAbstract, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
+    | Interface (n, e, m, g) ->
+        let jn = (transformId env n).WithGenerics(transformGenerics env g)
+        J.Interface(jn, List.map trT e, List.map (transformMember env) m)
+    | Alias (a, g, t) ->
+        let trA = (transformId env a).WithGenerics(transformGenerics env g)  
+        J.TypeAlias(trA, trT t)
+    | XmlComment a ->
+        J.StatementComment (J.Empty, a)
     | _ -> 
-        failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformStatement(statement))
         invalidForm (GetUnionCaseName statement)
+
+and transformGenerics (env: Environment) (g: TSType list) =
+    if env.Output = O.JavaScript then
+        []
+    else
+        g |> List.map (transformTypeName env false)    
+
+and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSType) : J.Id =
+    let inline trN x = (transformTypeName env false x).Name
+    match typ with
+    | TSType.Any -> "any"
+    | TSType.Named ["Array"] ->
+        "any[]"
+    | TSType.Named n -> 
+        n |> String.concat "."
+    | TSType.Generic (TSType.Named ["Array"], [ TSType.Named _ as n ]) ->
+        trN n + "[]"
+    | TSType.Generic (TSType.Named ["Array"], [ t ]) ->
+        "(" + trN t + ")[]"
+    | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
+    | TSType.Imported (i, n) -> (transformId env i).Name :: n |> String.concat "."
+    | TSType.Importing _ -> "TODO_TYPE" //failwith "TypeScript type from an unresolved module"
+    | TSType.Function (t, a, e, r)  -> 
+        let this = t |> Option.map (fun t -> "this: " + trN t) 
+        let args = a |> List.mapi (fun i (t, o) -> string ('a' + char i) + (if o then "?:" else ":") + trN t)
+        let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
+        "((" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r + ")"
+    | TSType.New (a, r)  -> 
+        "new (" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
+        + " => " + trN r
+    | TSType.Tuple ts -> "[" + (ts |> Seq.map (trN) |> String.concat ", ") + "]"
+    | TSType.Union cs -> "(" + (cs |> Seq.map (trN) |> String.concat " | ") + ")"
+    | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
+    | TSType.Param n -> "T" + string n
+    | TSType.Constraint (t, g) ->
+        if isDeclaringParameter
+        then trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
+        else trN t
+    | TSType.TypeGuard (i, t) ->
+        (transformId env i).Name + " is " + trN t
+    | TSType.ObjectOf t ->
+        "{[a:string]:" + trN t + "}"
+    | TSType.TypeLiteral o ->
+        "{" + (
+            o |> List.map (fun (n, k, t)  ->
+                n + ":" + trN t 
+            )
+            |> String.concat ","
+        ) + "}"
+    |> fun n -> J.Id.New(n, typn = true)
+
+and transformType (env: Environment) (typ: TSType) =
+    transformTypeName env false typ |> J.Var
+
+and defineIdTyped env id =
+    let i = defineId env id
+    match id.TSType with
+    | None -> i
+    | Some t -> i |> withType env t
+
+and transformIdTyped env x =
+    let i = transformId env x 
+    match x.TSType with
+    | None -> i
+    | Some t -> i |> withType env t
+
+and getUsedArgs (args: Id list) b env = 
+    if List.isEmpty args then [] else
+    if env.Output = O.TypeScriptDeclaration then args |> List.map (defineIdTyped env) else
+    let unusedArgs = CollectUnusedVars(args).GetSt(b)
+    let argNum =
+        args |> Seq.mapi (fun i a -> if unusedArgs.Contains a then 0 else i + 1) |> Seq.max
+    args |> List.take argNum |> List.map (fun a -> 
+        if unusedArgs.Contains a then 
+            defineIdTyped env (Id.New())
+        else 
+            defineIdTyped env a
+    ) 
+
+and withType (env: Environment) (typ: TSType) (i: J.Id) : J.Id =
+    if env.Output = O.JavaScript then
+        i
+    else
+        match typ with
+        | TSType.Any -> i
+        | _ -> i.WithType(transformType env typ)
+
+and withTypeAny (env: Environment) (typ: TSType) (i: J.Id) =
+    i.WithType(transformType env typ)
+
+and getGenericParams (env: Environment) (typ: TSType) =
+    match typ with
+    | TSType.Generic (t, []) -> t, []
+    | TSType.Generic (t, g) -> t, g |> List.map (transformTypeName env true)
+    | _ -> typ, []
+
+and transformMember (env: Environment) (mem: Statement) : J.Member =
+    let inline trE x = transformExpr env x
+    let inline trS x = transformStatement env x
+    match mem with
+    | ClassMethod (s, n, p, _, b, t) ->
+        let innerEnv = env.NewInner()
+        let t, jsgen =
+            match t with
+            | TSType.Generic (t, g) -> t, g |> List.map (transformTypeName env true)
+            | _ -> t, []
+        let args, tr =
+            match t with 
+            | TSType.Function (_, ta, trest, tr) -> 
+                (p, ta) ||> List.map2 (fun a (t, _) -> defineId innerEnv a |> withType env t) 
+                , tr
+            | _ ->
+                p |> List.map (defineId innerEnv)
+                , t
+        let body = 
+            b |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                flattenJS [ b |> transformStatement innerEnv ]
+            )
+        let id = J.Id.New(n, gen = jsgen) |> withType env tr 
+        let acc = transformMemberKind s.Kind
+        J.Method(s.IsStatic, acc, id, args, body)   
+    | ClassConstructor (p, _, b, t) ->
+        let innerEnv = env.NewInner()
+        let args =
+            match t with 
+            | TSType.New (ta, _) -> 
+                let ta =
+                    // TODO remove workaround
+                    if ta.Length < p.Length then
+                        ta @ (List.replicate (p.Length - ta.Length) TSType.Any)
+                    else ta
+                (p, ta) ||> List.map2 (fun (a, m) t -> defineId innerEnv a |> withType env t, m)
+            | _ ->
+                p |> List.map (fun (a, m) -> defineId innerEnv a, m)
+        let body = 
+            b |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                flattenJS [ b |> transformStatement innerEnv ]
+            )
+        J.Constructor(args, body)   
+    | ClassProperty (s, n, t, v) ->
+        let opt = env.Output <> O.JavaScript && s.IsOptional
+        J.Property (s.IsStatic, J.Id.New(n, opt = opt) |> withType env t, v |> Option.map (transformExpr env))
+    | ClassStatic (b) ->
+        let innerEnv = env.NewInner()
+        let body = 
+            CollectVariables(innerEnv).VisitStatement(b)
+            flattenJS [ b |> transformStatement innerEnv ]
+        J.Static body
+    | _ -> 
+        invalidForm (GetUnionCaseName mem)
+
+let transformProgram output pref statements =
+    if List.isEmpty statements then [], false else
+    let env = Environment.New(pref, output)
+    //let cnames = CollectStrongNames(env)
+    //statements |> List.iter cnames.VisitStatement
+    let cvars = CollectVariables(env)
+    statements |> List.iter cvars.VisitStatement
+    //J.Ignore (J.Constant (J.String "use strict")) ::
+    (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value

@@ -56,9 +56,8 @@ open System.Runtime.InteropServices
 [<Proxy(typeof<D<_,_>.KeyCollection.Enumerator>)>]
 [<Stub>]
 type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'K> 0        
-    member this.MoveNext() = false
+    member this.Current with get() = X<'K>        
+    member this.MoveNext() = X<bool>
     member this.Dispose() = ()
 
 // not really used, a sequence enumerator is cast to this type instead
@@ -67,9 +66,8 @@ type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 [<Proxy(typeof<D<_,_>.ValueCollection.Enumerator>)>]
 [<Stub>]
 type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'V> 0        
-    member this.MoveNext() = false
+    member this.Current with get() = X<'V>        
+    member this.MoveNext() = X<bool>
     member this.Dispose() = ()
 
 [<Name "WebSharper.Collections.KeyCollection">]
@@ -180,10 +178,9 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
 [<Stub>]
-type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<KVP<'K,'V>> 0        
-    member this.MoveNext() = false
+type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =    
+    member this.Current with get() = X<KVP<'K,'V>>        
+    member this.MoveNext() = X<bool>
     member this.Dispose() = ()
 
 /// Implements a proxy for the .NET dictionary.

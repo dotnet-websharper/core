@@ -18,11 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Name "Arrays">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Collections.ArrayModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Collections.ArrayModule, FSharp.Core">]
 module private WebSharper.ArrayModuleProxy
 
 open WebSharper.JavaScript
@@ -38,7 +34,7 @@ let checkLength (arr1: 'T1[]) (arr2: 'T2[]) =
 [<Inline "$x.push($y)">]
 let push (x: obj) (y: obj) = ()
 
-[<Inline "$arr1.concat($arr2)">]
+[<Inline "$arr1.concat($arr2)"; Pure>]
 let Append<'T> (arr1: 'T []) (arr2: 'T []) : 'T [] = arr1
 
 [<Name "allPairs">]
@@ -81,7 +77,7 @@ let Concat<'T> (xs: seq<'T []>) : 'T [] =
 [<Inline>]
 let SplitInto count (arr: 'T[]) = ArraySplitInto count arr
 
-[<Inline "$x.slice()">]
+[<Inline "$x.slice()"; Pure>]
 let Copy (x: 'T []) = X<'T []>
 
 [<Name "create">]
@@ -91,7 +87,7 @@ let Create (size: int) value =
         r.[i] <- value
     r.Self
 
-[<Inline "[]">]
+[<Inline "[]"; Pure>]
 let Empty () = X<'T []>
 
 [<Name "exists">]
@@ -220,7 +216,7 @@ let Initialize (size: int) f =
         r.[i] <- f i
     r.Self
 
-[<Inline "$arr.length == 0">]
+[<Inline "$arr.length == 0"; Pure>]
 let IsEmpty (arr: _ []) = X<bool>
 
 [<Name "iter">]
@@ -245,7 +241,7 @@ let IterateIndexed2 f (arr1: _ []) (arr2: _ []) =
     for i = 0 to Array.length arr1 - 1 do
         f i arr1.JS.[i] arr2.JS.[i]
 
-[<Inline "$arr.length">]
+[<Inline "$arr.length"; Pure>]
 let Length<'T> (arr: 'T []) = X<int>
 
 [<Name "map">]
@@ -398,7 +394,7 @@ let ReduceBack f (arr: _ []) =
         acc <- f arr.JS.[len - i] acc
     acc
 
-[<Inline "$x.slice().reverse()">]
+[<Inline "$x.slice().reverse()"; Pure>]
 let Reverse (x: 'T []) = X<'T []>
 
 [<Name "scan">]
@@ -454,7 +450,7 @@ let SortByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) : 'T 
 let SortDescending<'T when 'T: comparison> (arr: 'T []) : 'T [] =
     (Array.mapi (fun i x -> x, i) arr).JS.Sort(fun (x, y) -> - compare x y) |> Array.map fst
 
-[<Inline "$x.slice($start,$start+$length)">]
+[<Inline "$x.slice($start,$start+$length)"; Pure>]
 let private subArray (x: 'T) start length = X<'T>
 
 [<Inline>]

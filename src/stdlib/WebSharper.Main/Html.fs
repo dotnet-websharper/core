@@ -25,11 +25,27 @@ open WebSharper.JavaScript
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
+type ClientCode =
+    | ClientRequire of M.Node
+    | ClientJsonData of J.Value
+    | ClientArrayData of seq<ClientCode>
+    | ClientObjectData of seq<string * ClientCode>
+    | ClientImport of WebSharper.Core.AST.Address 
+    | ClientApply of ClientCode * seq<ClientCode>
+    | ClientReplaceInDom of string * ClientCode
+    | ClientReplaceInDomWithBody of string * ClientCode
+    | ClientAddEventListener of string * string * ClientCode
+    | ClientDOMElement of string
+    | ClientInitialize of string * ClientCode
+
+/// Use to get a new unique id for an element on a page.
+type IUniqueIdSource =
+    abstract member NewId : unit -> string
+
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : M.Info -> seq<M.Node>
-    abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
+    abstract member Requires : M.Info * J.Provider * IUniqueIdSource -> seq<ClientCode>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -47,7 +63,6 @@ type IControl =
     inherit IRequiresResources
     [<JavaScript; Name "Body">]
     abstract member Body : IControlBody
-    abstract member Id : string
 
 /// An interface that has to be implemented by controls that
 /// are subject to activation but are not attached to a
@@ -88,61 +103,3 @@ module HtmlContentExtensions =
         [<JavaScript>]
         static member SingleNode (node: Dom.Node) =
             new SingleNode(node) :> IControlBody
-
-[<JavaScript>]
-module Activator =
-
-    /// The identifier of the meta tag holding the controls.
-    [<Literal>]
-    let META_ID = "websharper-data"
-
-    let mutable Instances : obj = null
-
-    let private onReady (f: unit -> unit) =
-        let mutable readyFired = false
-        let rec ready() =
-            if not readyFired then
-                readyFired <- true
-                f()
-                JS.Document.RemoveEventListener("DOMContentLoaded", ready, false)
-                JS.Window.RemoveEventListener("load", ready, false)
-        if JS.Document?readyState = "complete" then
-            ready()
-        else
-            JS.Document.AddEventListener("DOMContentLoaded", ready, false)
-            JS.Window.AddEventListener("load", ready, false)
-
-    let private Activate() =
-        if As JS.Document then
-            let meta = JS.Document.GetElementById(META_ID)
-            if (As meta) then
-                onReady <| fun () ->
-                    let text = meta.GetAttribute("content")
-                    let obj = Json.Activate (Json.Parse text)
-                    Instances <- obj
-                    let fields = JS.GetFields obj
-                    // PreInitialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IInitializer as i ->
-                            i.PreInitialize(k)
-                        | _ -> ()
-                    )
-                    // Initialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IControl as v ->
-                            let p = v.Body
-                            let old = JS.Document.GetElementById k
-                            p.ReplaceInDom old
-                        | :? IInitializer as i ->
-                            i.Initialize(k)
-                        | _ -> ()
-                    )
-                    // PostInitialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IInitializer as i ->
-                            i.PostInitialize(k)
-                        | _ -> ()
-                    )

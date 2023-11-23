@@ -71,6 +71,9 @@ module PathConventions =
         /// Path or URL to the `.js` JavaScript file corresponding to an assembly.
         member JavaScriptPath : AssemblyId -> string
 
+        /// Path or URL to the `.ts` TypeScript file corresponding to an assembly.
+        member TypeScriptPath : AssemblyId -> string
+
         /// Filename for the `.map` source mapping file corresponding to an assembly.
         member MapFileName : AssemblyId -> string
 
@@ -79,6 +82,9 @@ module PathConventions =
 
         /// Filename for the `.js` JavaScript file corresponding to an assembly.
         member JavaScriptFileName : AssemblyId -> string
+
+        /// Filename for the `.ts` TypeScript file corresponding to an assembly.
+        member TypeScriptFileName : AssemblyId -> string
 
         /// Path or URL to the `.min.js` JavaScript file corresponding to an assembly.
         member MinifiedJavaScriptPath : AssemblyId -> string
@@ -93,10 +99,10 @@ module PathConventions =
         member MinifiedMapFilePath : AssemblyId -> string
 
         /// Path or URL to the `.d.ts` TypeScript file corresponding to an assembly.
-        member TypeScriptDefinitionsPath : AssemblyId -> string
+        member TypeScriptDeclarationPath : AssemblyId -> string
 
         /// Filename for the `.d.ts` TypeScript file corresponding to an assembly.
-        member TypeScriptDefinitionsFileName : AssemblyId -> string
+        member TypeScriptDeclarationFileName : AssemblyId -> string
 
         /// Base path for content URLs.
         member ContentBasePath : string

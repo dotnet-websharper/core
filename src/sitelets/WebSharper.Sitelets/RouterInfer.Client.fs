@@ -138,7 +138,7 @@ type RoutingMacro() =
     let allJSClasses = Dictionary()
     let parsedClassEndpoints = Dictionary()
 
-    let someOf x = Object [ "$", cInt 1; "$0", x ]
+    let someOf x = Object [ "$", MemberKind.Simple, cInt 1; "$0", MemberKind.Simple, x ]
     let none = Value Null
     let optOf x =
         match x with
@@ -166,19 +166,19 @@ type RoutingMacro() =
                     | _ ->
                         let genCall =
                             lazy 
-                            let gtd, gm, _ = comp.NewGenerated([top; "r"])
+                            let gtd, gm, _ = comp.NewGenerated("Router_" + t.DisplayName)
                             gtd, gm, Call(None, NonGeneric gtd, NonGeneric gm, [])
                         recurringOn.Add(t, genCall)
                         let isTrivial, res = createRouter t
                         recurringOn.Remove(t) |> ignore
                         if isTrivial then res else
                         let gtd, gm, call = genCall.Value
-                        comp.AddGeneratedCode(gm, Lambda([], res))
+                        comp.AddGeneratedCode(gm, Lambda([], None, res))
                         comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         call
                 | true, genCall -> 
                     let _, _, call = genCall.Value
-                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])   
+                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], None, call) ])   
             
             and wildCardRouter (t: Type) =
                 match t with
@@ -199,6 +199,15 @@ type RoutingMacro() =
                     Call(None, NonGeneric routerOpsModule, Generic QueryNullableOp [ t ], [ cString name; getRouter t ])    
                 | _ ->
                     Call(None, NonGeneric routerOpsModule, Generic QueryOp [t], [ cString name; r() ])
+
+            and queryRouter2 (t: Type) name r qName =
+                match t with
+                | C (T "Microsoft.FSharp.Core.FSharpOption`1", [ t ]) ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryOptionOp [ t ], [ cString qName; getRouter t ])    
+                | C (T "System.Nullable`1", [ t ]) ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryNullableOp [ t ], [ cString qName; getRouter t ])    
+                | _ ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryOp [t], [ cString qName; r() ])
 
             and fieldRouter (t: Type) (annot: Annotation) name =
                 let name =
@@ -272,7 +281,7 @@ type RoutingMacro() =
                         | Some cls -> 
                             deps.Add (M.TypeNode e) |> ignore
                             if cls.HasWSPrototype then
-                                GlobalAccess cls.Address.Value
+                                GlobalAccess cls.Address
                             else
                                 Undefined
                         | _ -> Undefined
@@ -315,15 +324,17 @@ type RoutingMacro() =
                                             | M.SingletonFSharpUnionCase ->
                                                 none, NewArray []
                                             | M.NormalFSharpUnionCase fields ->
-                                                let queryFields = annot.Query |> Option.map HashSet
+                                                let mutable queryFields = annot.Query
                                                 let formDataFields = annot.FormData |> Option.map HashSet
                                                 let jsonField = annot.Json |> Option.bind id
                                                 let fRouters = 
                                                     fields |> List.map (fun f ->
                                                         let fTyp = f.UnionFieldType.SubstituteGenerics(Array.ofList g)
                                                         let r() = getRouter fTyp
-                                                        if queryFields |> Option.exists (fun q -> q.Remove f.Name) then
-                                                            queryRouter fTyp f.Name r
+                                                        if queryFields |> Option.exists (fun q -> q.ContainsKey f.Name) then
+                                                            let qName = queryFields |> Option.map (fun q -> q.Item f.Name)
+                                                            queryFields <- queryFields |> Option.map (fun q -> q.Remove f.Name)
+                                                            queryRouter2 fTyp f.Name r (qName |> Option.defaultValue f.Name)
                                                         elif formDataFields |> Option.exists (fun q -> q.Remove f.Name) then
                                                             Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ queryRouter fTyp f.Name r ])
                                                         elif jsonField |> Option.exists (fun j -> j = f.Name) then
@@ -332,7 +343,7 @@ type RoutingMacro() =
                                                         else r()
                                                     )
                                                 if queryFields |> Option.exists (fun q -> q.Count > 0) then
-                                                    failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
+                                                    failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value.Values)
                                                 none, NewArray fRouters
                                                
                                         NewArray [ constant; endpoints; routers ]
@@ -365,13 +376,13 @@ type RoutingMacro() =
                                         let b = 
                                             match cls.BaseClass with
                                             | None -> None
-                                            | Some bc when bc = Definitions.Object -> None
+                                            | Some bc when bc.Entity = Definitions.Object -> None
                                             | Some bc -> Some ( getClassAnnotation bc)
                                         let thisAnnot = comp.GetTypeAttributes(e) |> getAnnot
                                         let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
                                         parsedClassEndpoints.Add(td, annot)
                                         annot
-                                let annot = getClassAnnotation e 
+                                let annot = getClassAnnotation (NonGeneric e) 
                                 let endpoints = 
                                     annot.EndPoints |> List.map (fun e ->
                                         e.Method, Route.FromUrl e.Path |> S.GetPathHoles |> fst
@@ -383,11 +394,11 @@ type RoutingMacro() =
                                     allJSClasses |> Seq.choose (fun (KeyValue(td, cls)) ->
                                         if td.Value.FullName.StartsWith nestedIn then
                                             match cls.BaseClass with
-                                            | Some bc when bc = e -> Some td
+                                            | Some bc when bc.Entity = e -> Some td
                                             | _ -> None
                                         else None
                                     ) |> List.ofSeq
-                                let choice i x = Object [ "$", cInt i; "$0", x ] 
+                                let choice i x = Object [ "$", MemberKind.Simple, cInt i; "$0", MemberKind.Simple, x ] 
                                 let rec getAllFields td (cls: M.IClassInfo) = 
                                     let currentFields =
                                         cls.Fields |> Seq.map (fun (KeyValue(fn, f)) -> 
@@ -396,8 +407,8 @@ type RoutingMacro() =
                                         )
                                     match cls.BaseClass with
                                     | None -> currentFields
-                                    | Some bc when bc = Definitions.Object -> currentFields
-                                    | Some bc -> Seq.append currentFields (getAllFields bc allJSClasses.[bc])
+                                    | Some bc when bc.Entity = Definitions.Object -> currentFields
+                                    | Some bc -> Seq.append currentFields (getAllFields bc.Entity allJSClasses.[bc.Entity])
                                 let allFieldsArr = getAllFields e cls |> Array.ofSeq
                                 let allFields = dict allFieldsArr
                                 let allQueryFields =
@@ -408,17 +419,18 @@ type RoutingMacro() =
                                     ) |> Set
                                 let getFieldRouter fName = 
                                     match allFields.TryFind fName with
-                                    | Some ((f, _, fTyp), fAnnot) ->
-                                        let fTyp = fTyp.SubstituteGenerics(Array.ofList g)
+                                    | Some (f, fAnnot) ->
+                                        let fTyp = f.Type.SubstituteGenerics(Array.ofList g)
                                         let res = fieldRouter fTyp fAnnot fName
-                                        match f with
+                                        match f.CompiledForm with
                                         | M.InstanceField n ->
                                             NewArray [ cString n; cFalse; res ]
                                         | M.IndexedField i ->
                                             NewArray [ cInt i; cFalse; res ]
                                         | M.OptionalField n ->
                                             NewArray [ cString n; cTrue; res ] 
-                                        | M.StaticField _ ->
+                                        | M.StaticField _
+                                        | M.VarField _ ->
                                             failwith "Static field cannot be encoded to URL path"
                                     | _ ->
                                         failwithf "Could not find field %s" fName
@@ -462,7 +474,7 @@ type RoutingMacro() =
                                         subClasses |> List.map (fun sc -> getRouter (GenericType sc g))
                                     )
                                 let ctor =
-                                    Lambda([], Ctor(Generic e g, ConstructorInfo.Default(), []))
+                                    Lambda([], None, Ctor(Generic e g, ConstructorInfo.Default(), []))
                                 let unboxed = Call(None, NonGeneric routerOpsModule, NonGeneric ClassOp, [ ctor; fieldRouters; partsAndFields; subClassRouters ]) // todo use ctor instead of getProto   
                                 Call(None, NonGeneric routerOpsModule, Generic BoxOp [ t ], [ unboxed ])
                             | _ -> failwithf "Failed to create Router for type %O, it does not have the JavaScript attribute" t

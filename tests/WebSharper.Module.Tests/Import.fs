@@ -27,39 +27,85 @@ open WebSharper.Testing
 [<JavaScript>]
 let mA, mB = 1, 2
 
-//[<Inline>]
-//let importTestJsAll : obj = JS.ImportAll "/modules/test.js"
+[<Stub; Import "./sayHi.js">]
+type MyClassStub() =
+    member this.sayHiInst(user: string) = X<string>
+    static member sayHiStatic(user: string) = X<string>
 
-//[<Inline>]
-//let importTestJs : obj = JS.Import("testExport", "/modules/test.js")
+[<Import "./sayHi.js">]
+type MyClassInline [<Inline "new $import()">] () =
+    [<Inline "$this.sayHiInst($user)">]
+    member this.sayHiInst(user: string) = X<string>
+    [<Inline "$import.sayHiStatic($user)">]
+    static member sayHiStatic(user: string) = X<string>
 
-//[<Inline>]
-//let importTestJsDefault : obj = JS.ImportDefault "/modules/test.js"
+[<JavaScript>]
+module JSXTest =
+    let html() =
+        let x = "hello"
+        let kecske x = JS.Html $"<div>{x?children}</div>" 
+        JS.Html $"<h1>{x}</h1><{kecske}>{x}</{kecske}>"
 
-//[<Inline "import('/modules/test.js')">]
-//let importInline = X<obj>
+[<JavaScript>]
+module NPMTest =
+    let npmImportTest() =
+        WebSharper.InterfaceGenerator.Tests.NPMTest.SayHiStatic "World"
 
 [<JavaScript>]
 let Tests =
     TestCategory "Import" {
 
         Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "./WebSharper.Module.Tests/sayHi.js")
+            let sayHi = JS.Import<string -> string>("sayHi", "./sayHi.js")
+            equal (sayHi "World") "Hello, World!"
+        }
+
+        Test "JS.Import default" {
+            let sayHiClass = JS.Import<obj>("default", "./sayHi.js")
+            let sayHi = sayHiClass?sayHiStatic : string -> string
+            equal (sayHi "World") "Hello, World!"
+        }
+
+        Test "JS.ImportDefault" {
+            let sayHiClass = JS.ImportDefault<obj>("./sayHi.js")
+            let sayHi = sayHiClass?sayHiStatic : string -> string
+            equal (sayHi "World") "Hello, World!"
+        }
+
+        Test "JS.Import *" {
+            let sayHiModule = JS.Import<obj>("*", "./sayHi.js")
+            let sayHi = sayHiModule?sayHi : string -> string
+            equal (sayHi "World") "Hello, World!"
+        }
+
+        Test "JS.ImportAll" {
+            let sayHiModule = JS.ImportAll<obj>("./sayHi.js")
+            let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("./WebSharper.Module.Tests/sayHi.js") |> Promise.AsAsync
+            let! sayHiModule = JS.ImportDynamic("./sayHi.js") |> Promise.AsAsync
             let sayHi = As<string -> string>(sayHiModule?sayHi)
             equal (sayHi "World") "Hello, World!"
         }
 
-        //Test "import" {
-        //    Console.Log("import all", importTestJsAll)
-        //    Console.Log("import all 2", importTestJsAll)
-        //    Console.Log("import", importTestJs)
-        //    Console.Log("import default", importTestJsDefault)
-        //    Console.Log("import inline", importInline)
-        //    expect 0
-        //}
+        Skip "Import attribute with Stub" {
+            equal (MyClassStub.sayHiStatic "World") "Hello, World!"
+            let c = MyClassStub() 
+            equal (c.sayHiInst "World") "Hello, World!"
+        }
+
+        Test "Import attribute with Inline" {
+            equal (MyClassInline.sayHiStatic "World") "Hello, World!"
+            let c = MyClassInline() 
+            equal (c.sayHiInst "World") "Hello, World!"
+        }
+
+        Test "WIG Import" {
+            equal (WebSharper.InterfaceGenerator.Tests.WIGtest4.SayHiFunc "World") "Hello, World!"
+            equal (WebSharper.InterfaceGenerator.Tests.WIGtest4.SayHiStatic "World") "Hello, World!"
+            let c = WebSharper.InterfaceGenerator.Tests.WIGtest4()
+            equal (c.SayHiInst "World") "Hello, World!"
+        }
     }

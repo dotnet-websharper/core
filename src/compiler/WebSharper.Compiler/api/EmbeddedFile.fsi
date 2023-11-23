@@ -38,6 +38,9 @@ type EmbeddedFile =
     /// The file name.
     member FileName : string
 
+    /// The file name as found in assembly.
+    member EmbeddedFileName : string
+
     /// True for Script resources.
     member IsScript : bool
 
@@ -45,5 +48,6 @@ type EmbeddedFile =
         assemblyFullName: string
         * resourceName: string
         * bytes: byte[]
-        * contentType: CT.ContentType ->
+        * contentType: CT.ContentType 
+        * ?origResName: string ->
         EmbeddedFile

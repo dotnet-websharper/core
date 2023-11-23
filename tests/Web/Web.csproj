@@ -4,6 +4,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
+    <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />
@@ -20,8 +22,6 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS\WebSharper.MathJS.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj" />
@@ -30,7 +30,6 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
-    <ProjectReference Include="..\WebSharper.SPA.Tests\WebSharper.SPA.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
     <ProjectReference Include="..\Website\Website.fsproj" />

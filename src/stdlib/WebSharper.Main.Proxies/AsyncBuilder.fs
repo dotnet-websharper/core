@@ -26,9 +26,7 @@ open WebSharper
 open WebSharper.JavaScript
 module C = WebSharper.Concurrency
 
-[<Proxy "Microsoft.FSharp.Control.FSharpAsyncBuilder, \
-         FSharp.Core, Culture=neutral, \
-         PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.FSharpAsyncBuilder, FSharp.Core">]
 type private AsyncBuilderProxy [<Inline "null">]() =
 
     [<Inline>]

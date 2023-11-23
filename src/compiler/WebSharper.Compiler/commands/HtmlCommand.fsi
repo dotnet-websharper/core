@@ -50,8 +50,11 @@ module HtmlCommand =
             /// Outputs source maps and source files.
             UnpackSourceMap : bool
 
-            /// Outputs TypeScript declaration files.
+            /// Outputs TypeScript source files.
             UnpackTypeScript : bool
+
+            /// Outputs TypeScript declaration files.
+            UnpackTypeScriptDeclaration : bool
 
             DownloadResources : bool
 

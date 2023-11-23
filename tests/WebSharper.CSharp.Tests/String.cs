@@ -37,6 +37,11 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
+        class B
+        {
+            public override string ToString() => "b object";
+        }
+
         [Test]
         public void Format()
         {
@@ -117,7 +122,7 @@ namespace WebSharper.CSharp.Tests
             Equal(String.Concat(new A(), "!"), "a object!");
             Equal(String.Concat(new[] { "a", "b" }), "ab");
             Equal(String.Concat(new List<string> { "a", "b" }), "ab");
-            Equal(String.Concat(new A(), new A(), new A(), new A(), new A()), "a objecta objecta objecta objecta object");
+            Equal(String.Concat(new A(), new B(), new A(), new B(), new A()), "a objectb objecta objectb objecta object");
             Equal(String.Concat(new List<A> { new A(), new A() }), "a objecta object");
         }
     }

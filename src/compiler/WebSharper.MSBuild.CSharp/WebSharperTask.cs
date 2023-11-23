@@ -45,6 +45,7 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperProject { get; set; }
         public string WebSharperSourceMap { get; set; } = "";
         public string WebSharperTypeScriptDeclaration { get; set; } = "";
+        public string WebSharperTypeScriptOutput { get; set; } = "";
         public string WebSharperErrorsAsWarnings { get; set; } = "";
         public string WebSharperDeadCodeElimination { get; set; } = "";
         public string WebSharperDownloadResources { get; set; } = "";
@@ -115,6 +116,12 @@ namespace WebSharper.MSBuild.CSharp
 
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");
+
+                if (TryParseBool(WebSharperTypeScriptDeclaration))
+                    w.WriteLine("--dts");
+
+                if (TryParseBool(WebSharperTypeScriptOutput))
+                    w.WriteLine("--ts");
 
                 if (TryParseBool(WebSharperErrorsAsWarnings))
                     w.WriteLine("--wswarnonly");

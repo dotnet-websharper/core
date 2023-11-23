@@ -32,8 +32,8 @@ module internal Internal =
 
     open WebSharper.Testing.RandomValues.Internal
 
-    let asserter = ty "WebSharper.QUnit+Asserter"
-    let runnerOf t = !@asserter ^-> Definitions.FSharpChoice 2 @@[t; Definitions.FSharpAsync @@[t]]
+    let runner = ty "WebSharper.Testing.Pervasives+Runner`1"
+    let runnerOf t = runner @@[t]
 
     type TestPropertyMacro() =
         inherit Macro()
@@ -52,8 +52,8 @@ module internal Internal =
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([id],
-                            Return (mkSample t (Application(gen, [Var id], Pure, Some 1)) (cInt 100)))
+                        Function([id], None, Some t, 
+                            Return (mkSample t (Appl(gen, [Var id], Pure, Some 1)) (cInt 100)))
                         attempt
                     ]
                 )
@@ -62,7 +62,7 @@ module internal Internal =
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([], Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
+                        Function([], None, Some t, Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
                         attempt
                     ]
                 )
@@ -107,15 +107,8 @@ type TestCategoryBuilder(name: string) =
 [<JavaScript>]
 let TestCategory name = new TestCategoryBuilder(name)
 
-// This could simply be (Asserter -> Async<'A>), but since QUnit's performance
-// degrades a lot when used in asynchronous mode, we want to use it in
-// synchronous mode whenever possible (ie. when all assertions in a test
-// are synchronous).
-type Runner<'A> = QUnit.Asserter -> Choice<'A, Async<'A>>
-
 [<JavaScript>]
-module private Runner =
-
+module Runner =
     let ToAsync x =
         match x with
         | Choice1Of2 args -> async { return args }
@@ -145,825 +138,411 @@ module private Runner =
             return! f args
         })
 
-    let AddTest t r =
-        fun asserter ->
-            r asserter |> Map (fun args ->
-                t asserter args
-                args)
-
-    let AddTestAsync t r =
-        fun asserter ->
-            r asserter |> MapAsync (fun args -> async {
-                do! t asserter args
-                return args
-            })
-
     let WithTimeout timeOut a = a // TODO: enable timeout
 //        async {
 //            let! child = Async.StartChild (a, timeOut)
 //            return! child
 //        }
 
-[<JavaScript>]
-type SubtestBuilder () =
+open Runner
 
-    [<CustomOperation("expect", MaintainsVariableSpace = true)>]
-    member this.Expect
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] assertionCount: 'A -> int
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+// This could simply be (Asserter -> Async<'A>), but since QUnit's performance
+// degrades a lot when used in asynchronous mode, we want to use it in
+// synchronous mode whenever possible (ie. when all assertions in a test
+// are synchronous).
+[<JavaScript>]
+type Runner<'A> = 
+    | Runner of (QUnit.Asserter -> Choice<'A, Async<'A>>)
+
+    with
+
+    member r.Invoke a = 
+        let (Runner f) = r 
+        f a
+
+    member r.AddTest t =
+        Runner <|
+        fun asserter ->
+            r.Invoke asserter |> Map (fun args ->
+                t asserter args
+                args)
+
+    member r.AddTestAsync t =
+        Runner <|
+        fun asserter ->
+            r.Invoke asserter |> MapAsync (fun args -> async {
+                do! t asserter args
+                return args
+            })
+
+    member r.Expect (assertionCount: 'A -> int) =
+        r.AddTest (fun asserter args ->
             asserter.Expect(assertionCount args)
         )
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("equal", MaintainsVariableSpace = true)>]
-    member this.Equal<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.Equal (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push((actual = expected), actual, expected)
         )
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("equalMsg", MaintainsVariableSpace = true)>]
-    member this.EqualMsg<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.EqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push((actual = expected), actual, expected, message)
         )
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("equalAsync", MaintainsVariableSpace = true)>]
-    member this.EqualAsync<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.EqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push((actual = expected), actual, expected)
         })
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("equalMsgAsync", MaintainsVariableSpace = true)>]
-    member this.EqualMsgAsync<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.EqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push((actual = expected), actual, expected, message)
         })
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("notEqual", MaintainsVariableSpace = true)>]
-    member this.NotEqual<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push((actual <> expected), actual, expected)
         )
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("notEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotEqualMsg<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push((actual <> expected), actual, expected, message)
         )
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("notEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotEqualAsync<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push((actual <> expected), actual, expected)
         })
 
-    /// Tests equality between two values using F# `=`.
-    [<CustomOperation("notEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotEqualMsgAsync<'T, 'A when 'T : equality>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push((actual <> expected), actual, expected, message)
         })
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("jsEqual", MaintainsVariableSpace = true)>]
-    member this.JsEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.JsEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.Equal(actual args, expected args)
         )
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("jsEqualMsg", MaintainsVariableSpace = true)>]
-    member this.JsEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.JsEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.Equal(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("jsEqualAsync", MaintainsVariableSpace = true)>]
-    member this.JsEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.JsEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Equal(actual, expected)
         })
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("jsEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.JsEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.JsEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Equal(actual, expected, message)
         })
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("notJsEqual", MaintainsVariableSpace = true)>]
-    member this.NotJsEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotJsEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.NotEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("notJsEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotJsEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotJsEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.NotEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("notJsEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotJsEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotJsEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotEqual(actual, expected)
         })
 
-    /// Tests equality between two values using JavaScript `==`.
-    [<CustomOperation("notJsEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotJsEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotJsEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("deepEqual", MaintainsVariableSpace = true)>]
-    member this.DeepEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.DeepEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.DeepEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("deepEqualMsg", MaintainsVariableSpace = true)>]
-    member this.DeepEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.DeepEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.DeepEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("deepEqualAsync", MaintainsVariableSpace = true)>]
-    member this.DeepEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.DeepEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.DeepEqual(actual, expected)
         })
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("deepEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.DeepEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.DeepEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.DeepEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("notDeepEqual", MaintainsVariableSpace = true)>]
-    member this.NotDeepEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotDeepEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.NotDeepEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("notDeepEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotDeepEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotDeepEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.NotDeepEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("notDeepEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotDeepEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotDeepEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotDeepEqual(actual, expected)
         })
 
-    /// Tests equality between two values using QUnit's deep equality test.
-    [<CustomOperation("notDeepEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotDeepEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotDeepEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotDeepEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("strictEqual", MaintainsVariableSpace = true)>]
-    member this.StrictEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.StrictEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("strictEqualMsg", MaintainsVariableSpace = true)>]
-    member this.StrictEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.StrictEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("strictEqualAsync", MaintainsVariableSpace = true)>]
-    member this.StrictEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.StrictEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.StrictEqual(actual, expected)
         })
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("strictEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.StrictEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.StrictEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.StrictEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("notStrictEqual", MaintainsVariableSpace = true)>]
-    member this.NotStrictEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotStrictEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.NotStrictEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("notStrictEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotStrictEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotStrictEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.NotStrictEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("notStrictEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotStrictEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotStrictEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotStrictEqual(actual, expected)
         })
 
-    /// Tests equality between two values using JavaScript `===`.
-    [<CustomOperation("notStrictEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotStrictEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotStrictEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotStrictEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("propEqual", MaintainsVariableSpace = true)>]
-    member this.PropEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.PropEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.PropEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("propEqualMsg", MaintainsVariableSpace = true)>]
-    member this.PropEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.PropEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.PropEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("propEqualAsync", MaintainsVariableSpace = true)>]
-    member this.PropEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.PropEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.PropEqual(actual, expected)
         })
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("propEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.PropEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.PropEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.PropEqual(actual, expected, message)
         })
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("notPropEqual", MaintainsVariableSpace = true)>]
-    member this.NotPropEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotPropEqual (actual: 'A -> 'T) (expected: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             asserter.NotPropEqual(actual args, expected args)
         )
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("notPropEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotPropEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> 'T,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotPropEqualMsg (actual: 'A -> 'T) (expected: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.NotPropEqual(actual args, expected args, message)
         )
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("notPropEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotPropEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotPropEqualAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotPropEqual(actual, expected)
         })
 
-    /// Tests equality between two values using QUnit's prop equality test.
-    [<CustomOperation("notPropEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotPropEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<'T>,
-            [<ProjectionParameter>] expected: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotPropEqualMsgAsync (actual: 'A -> Async<'T>) (expected: 'A -> 'T) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.NotPropEqual(actual, expected, message)
         })
 
-    /// Tests approximate equality between two floats.
-    [<CustomOperation("approxEqual", MaintainsVariableSpace = true)>]
-    member this.ApproxEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> float,
-            [<ProjectionParameter>] expected: 'A -> float
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.ApproxEqual (actual: 'A -> float) (expected: 'A -> float) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         )
 
-    /// Tests approximate equality between two floats.
-    [<CustomOperation("approxEqualMsg", MaintainsVariableSpace = true)>]
-    member this.ApproxEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> float,
-            [<ProjectionParameter>] expected: 'A -> float,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.ApproxEqualMsg (actual: 'A -> float) (expected: 'A -> float) (message: string) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         )
 
-    /// Tests approximate equality between two floats.
-    [<CustomOperation("approxEqualAsync", MaintainsVariableSpace = true)>]
-    member this.ApproxEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<float>,
-            [<ProjectionParameter>] expected: 'A -> float
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.ApproxEqualAsync (actual: 'A -> Async<float>) (expected: 'A -> float) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected)
         })
 
-    /// Tests approximate equality between two floats.
-    [<CustomOperation("approxEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.ApproxEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<float>,
-            [<ProjectionParameter>] expected: 'A -> float,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.ApproxEqualMsgAsync (actual: 'A -> Async<float>) (expected: 'A -> float) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push(abs (actual - expected) < 0.0001, actual, expected, message)
         })
 
-    /// Tests approximate inequality between two floats.
-    [<CustomOperation("notApproxEqual", MaintainsVariableSpace = true)>]
-    member this.NotApproxEqual<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> float,
-            [<ProjectionParameter>] expected: 'A -> float
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotApproxEqual (actual: 'A -> float) (expected: 'A -> float) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         )
 
-    /// Tests approximate inequality between two floats.
-    [<CustomOperation("notApproxEqualMsg", MaintainsVariableSpace = true)>]
-    member this.NotApproxEqualMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> float,
-            [<ProjectionParameter>] expected: 'A -> float,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.NotApproxEqualMsg (actual: 'A -> float) (expected: 'A -> float) (message: string) =
+        r.AddTest (fun asserter args ->
             let actual = actual args
             let expected = expected args
             asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
         )
 
-    /// Tests approximate inequality between two floats.
-    [<CustomOperation("notApproxEqualAsync", MaintainsVariableSpace = true)>]
-    member this.NotApproxEqualAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<float>,
-            [<ProjectionParameter>] expected: 'A -> float
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotApproxEqualAsync (actual: 'A -> Async<float>) (expected: 'A -> float) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push(abs (actual - expected) > 0.0001, actual, expected)
         })
 
-    /// Tests approximate inequality between two floats.
-    [<CustomOperation("notApproxEqualMsgAsync", MaintainsVariableSpace = true)>]
-    member this.NotApproxEqualMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] actual: 'A -> Async<float>,
-            [<ProjectionParameter>] expected: 'A -> float,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.NotApproxEqualMsgAsync (actual: 'A -> Async<float>) (expected: 'A -> float) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let expected = expected args
             let! actual = actual args 
             return asserter.Push(abs (actual - expected) > 0.0001, actual, expected, message)
         })
 
-    /// Checks that a boolean is true.
-    [<CustomOperation("isTrue", MaintainsVariableSpace = true)>]
-    member this.IsTrue<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> bool
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.IsTrue (value: 'A -> bool) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(value args, true)
         )
 
-    /// Checks that a boolean is true.
-    [<CustomOperation("isTrueMsg", MaintainsVariableSpace = true)>]
-    member this.IsTrueMsg<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> bool,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.IsTrueMsg (value: 'A -> bool) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(value args, true, message)
         )
 
-    /// Checks that a boolean is true.
-    [<CustomOperation("isTrueAsync", MaintainsVariableSpace = true)>]
-    member this.IsTrueAsync<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<bool>
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.IsTrueAsync (value: 'A -> Async<bool>) =
+        r.AddTestAsync (fun asserter args -> async {
             let! value = value args 
             return asserter.StrictEqual(value, true)
         })
 
-    /// Checks that a boolean is true.
-    [<CustomOperation("isTrueMsgAsync", MaintainsVariableSpace = true)>]
-    member this.IsTrueMsgAsync<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<bool>,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.IsTrueMsgAsync (value: 'A -> Async<bool>) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let! value = value args 
             return asserter.StrictEqual(value, true, message)
         })
 
-    /// Checks that a boolean is false.
-    [<CustomOperation("isFalse", MaintainsVariableSpace = true)>]
-    member this.IsFalse<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> bool
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.IsFalse (value: 'A -> bool) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(value args, false)
         )
 
-    /// Checks that a boolean is false.
-    [<CustomOperation("isFalseMsg", MaintainsVariableSpace = true)>]
-    member this.IsFalseMsg<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> bool,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.IsFalseMsg (value: 'A -> bool) (message: string) =
+        r.AddTest (fun asserter args ->
             asserter.StrictEqual(value args, false, message)
         )
 
-    /// Checks that a boolean is false.
-    [<CustomOperation("isFalseAsync", MaintainsVariableSpace = true)>]
-    member this.IsFalseAsync<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<bool>
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.IsFalseAsync (value: 'A -> Async<bool>) =
+        r.AddTestAsync (fun asserter args -> async {
             let! value = value args 
             return asserter.StrictEqual(value, false)
         })
 
-    /// Checks that a boolean is false.
-    [<CustomOperation("isFalseMsgAsync", MaintainsVariableSpace = true)>]
-    member this.IsFalseAsync<'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<bool>,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args -> async {
+    member r.IsFalseMsgAsync (value: 'A -> Async<bool>) (message: string) =
+        r.AddTestAsync (fun asserter args -> async {
             let! value = value args 
             return asserter.StrictEqual(value, false, message)
         })
 
-    /// Runs a test for each element in a sequence.
-    [<CustomOperation("forEach", MaintainsVariableSpace = true)>]
-    member this.ForEach
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] src: 'A -> #seq<'T>,
-            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
-        ) : Runner<'A> =
+    member r.ForEach (src: 'A -> #seq<'T>) (attempt: 'A -> 'T -> Runner<'B>) : Runner<'A> =
+        Runner <|
         fun asserter ->
             let rec loop (attempt: 'T -> Runner<'B>) (acc: Choice<'A, Async<'A>>) (src: list<'T>) =
                 match src with
                 | [] -> acc
                 | e :: l ->
                     let r = attempt e
-                    loop attempt (acc |> Runner.Bind (fun args -> r asserter |> Runner.Map (fun _ -> args))) l
-            r asserter |> Runner.Bind (fun args ->
+                    loop attempt (acc |> Bind (fun args -> r.Invoke asserter |> Map (fun _ -> args))) l
+            r.Invoke asserter |> Bind (fun args ->
                 loop (attempt args) (Choice1Of2 args) (List.ofSeq (src args))
             )
 
-    /// Runs a test for each element in a randomly generated set.
-    [<CustomOperation("propertyWithSample", MaintainsVariableSpace = true)>]
-    member this.PropertyWithSample<'T, 'A, 'B>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] sample: 'A -> RandomValues.Sample<'T>,
-            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
-        ) : Runner<'A> =
+    member r.PropertyWithSample (sample: 'A -> RandomValues.Sample<'T>) (attempt: 'A -> 'T -> Runner<'B>) : Runner<'A> =
+        Runner <|
         fun asserter ->
             let rec loop (attempt: 'T -> Runner<'B>) (acc: Choice<'A, Async<'A>>) (src: list<'T>) =
                 match src with
@@ -971,58 +550,36 @@ type SubtestBuilder () =
                 | e :: l ->
                     let r = attempt e
                     loop attempt
-                        (acc |> Runner.Bind (fun args ->
-                            r asserter |> Runner.Map (fun _ -> args)))
+                        (acc |> Bind (fun args ->
+                            r.Invoke asserter |> Map (fun _ -> args)))
                         l
-            r asserter |> Runner.Bind (fun args ->
+            r.Invoke asserter |> Bind (fun args ->
                 let sample = sample args
                 loop (attempt args) (Choice1Of2 args) sample.Data
             )
 
-    /// Runs a test for each element in a randomly generated sample.
-    member this.For(sample: RandomValues.Sample<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+    static member ForSample (f: 'A -> Runner<'B>) (sample: RandomValues.Sample<'A>) : Runner<'B> =
+        Runner <|
         fun asserter ->
             let rec loop (acc: Choice<'B, Async<'B>>) (src: list<'A>) =
                 match src with
                 | [] -> acc
                 | e :: l ->
                     let r = f e
-                    loop (acc |> Runner.Bind (fun _ -> r asserter)) l
+                    loop (acc |> Bind (fun _ -> r.Invoke asserter)) l
             loop (Choice1Of2 JS.Undefined) sample.Data
 
-    /// Runs a test for 100 occurrences of a random generator.
-    [<CustomOperation("propertyWith", MaintainsVariableSpace = true)>]
-    [<Macro(typeof<Internal.TestPropertyMacro>)>]
-    member this.PropertyWith<'T, 'A, 'B>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] gen: 'A -> RandomValues.Generator<'T>,
-            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
-        ) : Runner<'A> =
-            this.PropertyWithSample(r, (fun args -> RandomValues.Sample<'T>(gen args)), attempt)
+    member r.PropertyWith (gen: 'A -> RandomValues.Generator<'T>) (attempt: 'A -> 'T -> Runner<'B>) =
+        r.PropertyWithSample (fun args -> RandomValues.Sample<'T>(gen args)) attempt
 
-    /// Runs a test for 100 occurrences of a random generator.
-    member this.For(gen: RandomValues.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
-        this.For(RandomValues.Sample(gen), f)
+    static member ForGenerator (f: 'A -> Runner<'B>) (gen: RandomValues.Generator<'A>) : Runner<'B> =
+        Runner.ForSample f (RandomValues.Sample(gen))
 
-    /// Runs a test for 100 random occurrences.
-    [<CustomOperation("property", MaintainsVariableSpace = true)>]
-    [<Macro(typeof<Internal.TestPropertyMacro>)>]
-    member this.Property<'T, 'A, 'B>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
-        ) : Runner<'A> =
-            this.PropertyWithSample(r, (fun _ -> RandomValues.Sample<'T>()), attempt)
+    member r.Property (attempt: 'A -> 'T -> Runner<'B>) = 
+        r.PropertyWithSample (fun _ -> RandomValues.Sample<'T>()) attempt
 
-    /// Checks that an expression raises an exception.
-    [<CustomOperation("raises", MaintainsVariableSpace = true)>]
-    member this.Raises<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> 'T
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.Raises (value: 'A -> 'T) =
+        r.AddTest (fun asserter args ->
             try
                 value args |> ignore
                 asserter.Ok(false, "Expected raised exception")
@@ -1030,15 +587,8 @@ type SubtestBuilder () =
                 asserter.Ok(true)
         )
 
-    /// Checks that an expression raises an exception.
-    [<CustomOperation("raisesMsg", MaintainsVariableSpace = true)>]
-    member this.RaisesMsg<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> 'T,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTest (fun asserter args ->
+    member r.RaisesMsg (value: 'A -> 'T) (message: string) =
+        r.AddTest (fun asserter args ->
             try
                 value args |> ignore
                 asserter.Ok(false, message)
@@ -1046,14 +596,8 @@ type SubtestBuilder () =
                 asserter.Ok(true, message)
         )
 
-    /// Checks that an expression raises an exception.
-    [<CustomOperation("raisesAsync", MaintainsVariableSpace = true)>]
-    member this.RaisesAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<'T>
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args ->
+    member r.RaisesAsync (value: 'A -> Async<'T>) =
+        r.AddTestAsync (fun asserter args ->
             let value = value args 
             async {
                 try
@@ -1064,15 +608,8 @@ type SubtestBuilder () =
             }
         )
 
-    /// Checks that an expression raises an exception.
-    [<CustomOperation("raisesMsgAsync", MaintainsVariableSpace = true)>]
-    member this.RaisesMsgAsync<'T, 'A>
-        (
-            r: Runner<'A>,
-            [<ProjectionParameter>] value: 'A -> Async<'T>,
-            message: string
-        ) : Runner<'A> =
-        r |> Runner.AddTestAsync (fun asserter args ->
+    member r.RaisesMsgAsync (value: 'A -> Async<'T>) (message: string) =
+        r.AddTestAsync (fun asserter args ->
             let value = value args 
             async {
                 try
@@ -1083,60 +620,773 @@ type SubtestBuilder () =
             }
         )
 
+    member r.RunSubtest (subtest: 'A -> Runner<'B>) =
+        Runner <|
+        fun asserter ->
+            r.Invoke asserter |> Bind (fun args -> (subtest args).Invoke asserter |> Map (fun _ -> args))
+
+    static member BindAsync (f: 'A -> Runner<'B>) (a: Async<'A>) : Runner<'B> =
+        Runner <|
+        fun asserter ->
+            Choice2Of2 (async {
+                let! a = a
+                match (f a).Invoke asserter with
+                | Choice1Of2 b -> return b
+                | Choice2Of2 b -> return! b
+            })
+
+    static member BindPromise (f: 'A -> Runner<'B>) (a: Promise<'A>) : Runner<'B> =
+        Runner.BindAsync f (Promise.AsAsync a)
+
+    static member Yield(x: 'A) : Runner<'A> = 
+        Runner <|
+        fun asserter -> Choice1Of2 x
+
+    static member Return(x: 'A) : Runner<'A> = 
+        Runner <|
+        fun asserter -> Choice1Of2 x
+
+    static member Zero() : Runner<'A> = 
+        Runner <|
+        fun asserter -> Choice1Of2 JS.Undefined
+
+    member r.For (y: 'A -> Runner<'B>) =
+        Runner <|
+        fun asserter ->
+            match r.Invoke asserter with
+            | Choice1Of2 a ->
+                (y a).Invoke asserter
+            | Choice2Of2 a ->
+                Choice2Of2 (async {
+                    let! a = a
+                    match (y a).Invoke asserter with
+                    | Choice1Of2 b -> return b
+                    | Choice2Of2 b -> return! b
+                })
+
+
+[<JavaScript>]
+type SubtestBuilder () =
+
+    [<CustomOperation("expect", MaintainsVariableSpace = true); Inline>]
+    member this.Expect
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] assertionCount: 'A -> int
+        ) : Runner<'A> =
+        r.Expect assertionCount
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("equal", MaintainsVariableSpace = true); Inline>]
+    member this.Equal<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.Equal actual expected
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("equalMsg", MaintainsVariableSpace = true); Inline>]
+    member this.EqualMsg<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.EqualMsg actual expected message
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("equalAsync", MaintainsVariableSpace = true); Inline>]
+    member this.EqualAsync<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.EqualAsync actual expected
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("equalMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.EqualMsgAsync<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.EqualMsgAsync actual expected message
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("notEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotEqual<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotEqual actual expected
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("notEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotEqualMsg<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotEqualMsg actual expected message
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("notEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotEqualAsync<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotEqualAsync actual expected
+
+    /// Tests equality between two values using F# `=`.
+    [<CustomOperation("notEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotEqualMsgAsync<'T, 'A when 'T : equality>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("jsEqual", MaintainsVariableSpace = true); Inline>]
+    member this.JsEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.JsEqual actual expected
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("jsEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.JsEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.JsEqualMsg actual expected message
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("jsEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.JsEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.JsEqualAsync actual expected
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("jsEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.JsEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.JsEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("notJsEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotJsEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotJsEqual actual expected
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("notJsEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotJsEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotJsEqualMsg actual expected message
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("notJsEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotJsEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotJsEqualAsync actual expected
+
+    /// Tests equality between two values using JavaScript `==`.
+    [<CustomOperation("notJsEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotJsEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotJsEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("deepEqual", MaintainsVariableSpace = true); Inline>]
+    member this.DeepEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.DeepEqual actual expected
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("deepEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.DeepEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.DeepEqualMsg actual expected message
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("deepEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.DeepEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.DeepEqualAsync actual expected
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("deepEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.DeepEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.DeepEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("notDeepEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotDeepEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotDeepEqual actual expected
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("notDeepEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotDeepEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotDeepEqualMsg actual expected message
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("notDeepEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotDeepEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotDeepEqualAsync actual expected
+
+    /// Tests equality between two values using QUnit's deep equality test.
+    [<CustomOperation("notDeepEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotDeepEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotDeepEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("strictEqual", MaintainsVariableSpace = true); Inline>]
+    member this.StrictEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.StrictEqual actual expected
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("strictEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.StrictEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.StrictEqualMsg actual expected message
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("strictEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.StrictEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.StrictEqualAsync actual expected
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("strictEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.StrictEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.StrictEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("notStrictEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotStrictEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotStrictEqual actual expected
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("notStrictEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotStrictEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotStrictEqualMsg actual expected message
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("notStrictEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotStrictEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotStrictEqualAsync actual expected
+
+    /// Tests equality between two values using JavaScript `===`.
+    [<CustomOperation("notStrictEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotStrictEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotStrictEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("propEqual", MaintainsVariableSpace = true); Inline>]
+    member this.PropEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.PropEqual actual expected
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("propEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.PropEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.PropEqualMsg actual expected message
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("propEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.PropEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.PropEqualAsync actual expected
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("propEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.PropEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.PropEqualMsgAsync actual expected message
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("notPropEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotPropEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotPropEqual actual expected
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("notPropEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotPropEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> 'T,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotPropEqualMsg actual expected message
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("notPropEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotPropEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T
+        ) : Runner<'A> =
+        r.NotPropEqualAsync actual expected
+
+    /// Tests equality between two values using QUnit's prop equality test.
+    [<CustomOperation("notPropEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotPropEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<'T>,
+            [<ProjectionParameter>] expected: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.NotPropEqualMsgAsync actual expected message
+
+    /// Tests approximate equality between two floats.
+    [<CustomOperation("approxEqual", MaintainsVariableSpace = true); Inline>]
+    member this.ApproxEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> float,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r.ApproxEqual actual expected
+
+    /// Tests approximate equality between two floats.
+    [<CustomOperation("approxEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.ApproxEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> float,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r.ApproxEqualMsg actual expected message
+
+    /// Tests approximate equality between two floats.
+    [<CustomOperation("approxEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.ApproxEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r.ApproxEqualAsync actual expected
+
+    /// Tests approximate equality between two floats.
+    [<CustomOperation("approxEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.ApproxEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r.ApproxEqualMsgAsync actual expected message
+
+    /// Tests approximate inequality between two floats.
+    [<CustomOperation("notApproxEqual", MaintainsVariableSpace = true); Inline>]
+    member this.NotApproxEqual<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> float,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r.NotApproxEqual actual expected
+
+    /// Tests approximate inequality between two floats.
+    [<CustomOperation("notApproxEqualMsg", MaintainsVariableSpace = true); Inline>]
+    member this.NotApproxEqualMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> float,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r.NotApproxEqualMsg actual expected message
+
+    /// Tests approximate inequality between two floats.
+    [<CustomOperation("notApproxEqualAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotApproxEqualAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float
+        ) : Runner<'A> =
+        r.NotApproxEqualAsync actual expected
+
+    /// Tests approximate inequality between two floats.
+    [<CustomOperation("notApproxEqualMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.NotApproxEqualMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] actual: 'A -> Async<float>,
+            [<ProjectionParameter>] expected: 'A -> float,
+            message: string
+        ) : Runner<'A> =
+        r.NotApproxEqualMsgAsync actual expected message
+
+    /// Checks that a boolean is true.
+    [<CustomOperation("isTrue", MaintainsVariableSpace = true); Inline>]
+    member this.IsTrue<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> bool
+        ) : Runner<'A> =
+        r.IsTrue value
+
+    /// Checks that a boolean is true.
+    [<CustomOperation("isTrueMsg", MaintainsVariableSpace = true); Inline>]
+    member this.IsTrueMsg<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> bool,
+            message: string
+        ) : Runner<'A> =
+        r.IsTrueMsg value message
+
+    /// Checks that a boolean is true.
+    [<CustomOperation("isTrueAsync", MaintainsVariableSpace = true); Inline>]
+    member this.IsTrueAsync<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<bool>
+        ) : Runner<'A> =
+        r.IsTrueAsync value
+
+    /// Checks that a boolean is true.
+    [<CustomOperation("isTrueMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.IsTrueMsgAsync<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<bool>,
+            message: string
+        ) : Runner<'A> =
+        r.IsTrueMsgAsync value message
+
+    /// Checks that a boolean is false.
+    [<CustomOperation("isFalse", MaintainsVariableSpace = true); Inline>]
+    member this.IsFalse<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> bool
+        ) : Runner<'A> =
+        r.IsFalse value
+
+    /// Checks that a boolean is false.
+    [<CustomOperation("isFalseMsg", MaintainsVariableSpace = true); Inline>]
+    member this.IsFalseMsg<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> bool,
+            message: string
+        ) : Runner<'A> =
+        r.IsFalseMsg value message
+
+    /// Checks that a boolean is false.
+    [<CustomOperation("isFalseAsync", MaintainsVariableSpace = true); Inline>]
+    member this.IsFalseAsync<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<bool>
+        ) : Runner<'A> =
+        r.IsFalseAsync value
+
+    /// Checks that a boolean is false.
+    [<CustomOperation("isFalseMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.IsFalseMsgAsync<'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<bool>,
+            message: string
+        ) : Runner<'A> =
+        r.IsFalseMsgAsync value message
+
+    /// Runs a test for each element in a sequence.
+    [<CustomOperation("forEach", MaintainsVariableSpace = true); Inline>]
+    member this.ForEach
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] src: 'A -> #seq<'T>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+        r.ForEach src attempt
+
+    /// Runs a test for each element in a randomly generated set.
+    [<CustomOperation("propertyWithSample", MaintainsVariableSpace = true); Inline>]
+    member this.PropertyWithSample<'T, 'A, 'B>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] sample: 'A -> RandomValues.Sample<'T>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+        r.PropertyWithSample sample attempt
+
+    /// Runs a test for each element in a randomly generated sample.
+    [<Inline>]
+    member this.For(sample: RandomValues.Sample<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        Runner.ForSample f sample
+
+    /// Runs a test for 100 occurrences of a random generator.
+    [<CustomOperation("propertyWith", MaintainsVariableSpace = true); Inline>]
+    [<Macro(typeof<Internal.TestPropertyMacro>)>]
+    member this.PropertyWith<'T, 'A, 'B>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] gen: 'A -> RandomValues.Generator<'T>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+            r.PropertyWith gen attempt
+
+    /// Runs a test for 100 occurrences of a random generator.
+    [<Inline>]
+    member this.For(gen: RandomValues.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        Runner.ForGenerator f gen
+
+    /// Runs a test for 100 random occurrences.
+    [<CustomOperation("property", MaintainsVariableSpace = true); Inline>]
+    [<Macro(typeof<Internal.TestPropertyMacro>)>]
+    member this.Property<'T, 'A, 'B>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+        ) : Runner<'A> =
+            r.Property attempt
+
+    /// Checks that an expression raises an exception.
+    [<CustomOperation("raises", MaintainsVariableSpace = true); Inline>]
+    member this.Raises<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> 'T
+        ) : Runner<'A> =
+        r.Raises value
+
+    /// Checks that an expression raises an exception.
+    [<CustomOperation("raisesMsg", MaintainsVariableSpace = true); Inline>]
+    member this.RaisesMsg<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> 'T,
+            message: string
+        ) : Runner<'A> =
+        r.RaisesMsg value message
+
+    /// Checks that an expression raises an exception.
+    [<CustomOperation("raisesAsync", MaintainsVariableSpace = true); Inline>]
+    member this.RaisesAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<'T>
+        ) : Runner<'A> =
+        r.RaisesAsync value
+
+    /// Checks that an expression raises an exception.
+    [<CustomOperation("raisesMsgAsync", MaintainsVariableSpace = true); Inline>]
+    member this.RaisesMsgAsync<'T, 'A>
+        (
+            r: Runner<'A>,
+            [<ProjectionParameter>] value: 'A -> Async<'T>,
+            message: string
+        ) : Runner<'A> =
+        r.RaisesMsgAsync value message
+
     /// Runs a sub-test.
-    [<CustomOperation("run", MaintainsVariableSpace = true)>]
+    [<CustomOperation("run", MaintainsVariableSpace = true); Inline>]
     member this.RunSubtest
         (
             r: Runner<'A>,
             [<ProjectionParameter>] subtest: 'A -> Runner<'B>
         ) : Runner<'A> =
-        fun asserter ->
-            r asserter |> Runner.Bind (fun args -> subtest args asserter |> Runner.Map (fun _ -> args))
+        r.RunSubtest subtest
 
+    [<Inline>]
     member this.Bind(a: Async<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
-        fun asserter ->
-            Choice2Of2 (async {
-                let! a = a
-                match f a asserter with
-                | Choice1Of2 b -> return b
-                | Choice2Of2 b -> return! b
-            })
+        Runner.BindAsync f a
 
     [<Inline>]
     member this.Bind(a: Promise<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
-        this.Bind(Promise.AsAsync a, f)
+        Runner.BindPromise f a
 
-    member this.Yield(x) = fun asserter -> Choice1Of2 x
+    [<Inline>]
+    member this.Yield(x: 'A) : Runner<'A> = Runner.Yield x
 
-    member this.Return(x) = fun asserter -> Choice1Of2 x
+    [<Inline>]
+    member this.Return(x: 'A) : Runner<'A> = Runner.Return x
 
-    member this.Zero() = fun asserter -> Choice1Of2 JS.Undefined
+    [<Inline>]
+    member this.Zero() : Runner<'A> = Runner.Zero()
 
+    [<Inline>]
     member this.For
         (
             r: Runner<'A>,
             y: 'A -> Runner<'B>
         ) : Runner<'B> =
-        fun asserter ->
-            match r asserter with
-            | Choice1Of2 a ->
-                y a asserter
-            | Choice2Of2 a ->
-                Choice2Of2 (async {
-                    let! a = a
-                    match y a asserter with
-                    | Choice1Of2 b -> return b
-                    | Choice2Of2 b -> return! b
-                })
+        r.For y 
 
 [<JavaScript>]
 type TestBuilder (run: (QUnit.Asserter -> unit) -> unit) =
     inherit SubtestBuilder ()
 
-    member this.Run(e) =
+    member this.Run(e : Runner<'A>) =
         run (fun asserter ->
             try
-                match e asserter with
+                match e.Invoke asserter with
                 | Choice1Of2 _ -> ()
                 | Choice2Of2 asy ->
                     let ``done`` = asserter.Async()
@@ -1155,35 +1405,35 @@ type TestBuilder (run: (QUnit.Asserter -> unit) -> unit) =
                 asserter.Equal(e, null, "Test threw an unexpected synchronous exception")
         )
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Test name = new TestBuilder(QUnit.Test name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let TestIf bool name = new TestBuilder(if bool then QUnit.Test name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Skip name = new TestBuilder(QUnit.Skip name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let SkipIf bool name = new TestBuilder(if bool then QUnit.Skip name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Todo name = new TestBuilder(QUnit.Todo name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let TodoIf bool name = new TestBuilder(if bool then QUnit.Todo name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Do = new SubtestBuilder()
 
-[<JavaScript>]
-let PropertyWith name gen f =
+[<JavaScript; Pure>]
+let PropertyWith name (gen: RandomValues.Generator<'T>) (f: 'T -> Runner<'B>) =
     Test name { propertyWith gen f }
 
-[<JavaScript>]
-let PropertyWithSample name set f =
+[<JavaScript; Pure>]
+let PropertyWithSample name (set: RandomValues.Sample<'T>) (f: 'T -> Runner<'B>) =
     Test name { propertyWithSample set f }
 
-[<Macro(typeof<Internal.PropertyMacro>)>]
+[<Macro(typeof<Internal.PropertyMacro>); Pure>]
 let Property<'T, 'O> name (f: 'T -> Runner<'O>) =
     PropertyWith name (RandomValues.Auto<'T>()) f

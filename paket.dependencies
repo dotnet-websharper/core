@@ -26,6 +26,8 @@ nuget System.Text.RegularExpressions 4.3.0
 nuget System.Text.Json 4.7.0
 nuget System.Security.Cryptography.Csp 4.3.0
 
+nuget Microsoft.TypeScript.MSBuild 4.9.4
+
 group wsbuild
     git https://github.com/dotnet-websharper/build-script websharper50
 
@@ -33,7 +35,7 @@ group includes
     references: strict
     framework: net6.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library.Ref
+    nuget NETStandard.Library.Ref 2.1.0
     nuget FSharp.Core
 
 group fcs
@@ -62,3 +64,12 @@ group nunit
     nuget FSharp.Core
     nuget System.Runtime.Loader 4.3.0
 
+
+group giraffe
+    framework: net6.0
+    source https://api.nuget.org/v3/index.json
+    storage: none
+
+    nuget Giraffe
+    nuget Giraffe.ViewEngine
+    nuget Ply

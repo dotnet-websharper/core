@@ -42,6 +42,7 @@ module CodeModel =
         val mutable Comment : option<string>
         val mutable ObsoleteStatus : ObsoleteStatus
         val mutable Warning : option<string>
+        val mutable Import : option<option<string> * string>
 
         internal new (name, t) =
             {
@@ -52,6 +53,7 @@ module CodeModel =
                 Comment = None
                 ObsoleteStatus = NotObsolete
                 Warning = None
+                Import = None
             }
 
         /// On type definitions, applies the update.
@@ -120,6 +122,7 @@ module CodeModel =
         val mutable Generics : list<TypeParameter>
         val mutable Methods : list<Method>
         val mutable Properties : list<Property>
+        val mutable TSType : option<string>
 
         internal new (name) =
             {
@@ -127,6 +130,7 @@ module CodeModel =
                 Generics = []
                 Methods = []
                 Properties = []
+                TSType = None
             }
 
         abstract IsAbstract : bool

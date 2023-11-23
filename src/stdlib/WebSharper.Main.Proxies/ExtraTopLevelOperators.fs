@@ -18,10 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.ExtraTopLevelOperators, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.ExtraTopLevelOperators, FSharp.Core">]
 module private WebSharper.ExtraTopLevelOperatorsProxy
 
 open WebSharper.JavaScript
@@ -31,7 +28,7 @@ module M = WebSharper.Core.Macros
 let DefaultAsyncBuilder : Control.AsyncBuilder =
     As (AsyncBuilderProxy())
 
-[<Name "WebSharper.Arrays.create2D" >]
+[<Name "create2D" >]
 let CreateArray2D (rows : seq<#seq<'T>>) =
     let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
     arr?dims <- 2

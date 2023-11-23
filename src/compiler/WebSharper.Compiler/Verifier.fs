@@ -107,7 +107,12 @@ type State(jP: J.Provider) =
                     match p with
                     | Some (p, _) -> Incorrect (sprintf "Failed to load argument type '%s' to verify decoding from JSON." p.AssemblyQualifiedName)
                     | None -> Correct
-                match m.ReturnType with
+                let rec returnType t =
+                    match t with
+                    | FSharpFuncType (_, ret) ->
+                        returnType ret
+                    | _ -> t
+                match returnType m.ReturnType with
                 | VoidType -> checkForLoadErrors()
                 | AsyncOrTask t ->
                     match t with

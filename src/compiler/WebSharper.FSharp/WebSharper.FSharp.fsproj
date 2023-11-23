@@ -14,7 +14,6 @@
   <ItemGroup>
     <Compile Include="NamedPipeClient.fs" />
     <Compile Include="Program.fs" />
-    <None Include="NLog.config" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="wsfscservice_start.cmd" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="wsfscservice_start.sh" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="wsfsc.cmd" CopyToOutputDirectory="PreserveNewest" />

@@ -32,6 +32,7 @@ type Content = WebSharper.Compiler.Content
 type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
+type O = WebSharper.Core.JavaScript.Output
 
 let TryReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
@@ -91,29 +92,32 @@ let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     
 let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     if sourceMap then
-        let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
+        let current, fileNames = transformAllSourcePositionsInMetadata assemblyName false current
         let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
         current, sources
     else
-        removeSourcePositionFromMetadata current, [||]
+        transformAllSourcePositionsInMetadata assemblyName true current |> fst, [||]
 
 let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
-    let pkg = 
-        Packager.packageAssembly refMeta current entryPoint Packager.EntryPointStyle.OnLoadIfExists
+    //let pkg = 
+    //    JavaScriptPackager.packageAssembly refMeta current entryPoint JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
-    if pkg = AST.Undefined then None else
-        let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
+    //if pkg = AST.Undefined then None else
+    //    let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-        let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        logger.TimedStage "Writing .js for bundle"
-        let minJs, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        logger.TimedStage "Writing .min.js for bundle"
+    //    let js, _ = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+    //    logger.TimedStage "Writing .js for bundle"
+    //    let minJs, _ = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+    //    logger.TimedStage "Writing .min.js for bundle"
 
-        Some (js, minJs)
+    //    Some (js, minJs)
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) =
+    Some ("", "")
+
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary =
     let assemblyName = a.Name.Name
+    let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
         
@@ -125,14 +129,17 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     logger.TimedStage "Source position transformations"
 
     let pkg = 
-        Packager.packageAssembly refMeta current (comp |> Option.bind (fun c -> c.EntryPoint)) Packager.EntryPointStyle.OnLoadIfExists
+        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
 
     logger.TimedStage "Packaging assembly"
     
+    let mapPkg f pkg =
+        pkg |> Array.map (fun (n, p) -> n, p |> List.map f)    
+
     let pkg =
         match comp, closures with
         | Some comp, Some moveToTop ->
-            let clPkg = pkg |> Closures.ExamineClosures(logger, comp, moveToTop).TransformExpression 
+            let clPkg = pkg |> mapPkg (Closures.ExamineClosures(logger, comp, moveToTop).TransformStatement)
             logger.TimedStage "Closure analyzation"
             clPkg
         | _ -> pkg
@@ -142,18 +149,30 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     
     let pkg =
         if sourceMap then
-            TransformSourcePositions(assemblyName).TransformExpression pkg
+            pkg |> mapPkg (TransformSourcePositions(assemblyName).TransformStatement)
         else
-            removeSourcePos.TransformExpression pkg
+            pkg |> mapPkg removeSourcePos.TransformStatement
 
     let addRes name path data = 
+        //let rename p =
+        //    let rec renameWithTag i =
+        //        let name = p + "-" + string i
+        //        if current.ResourceHashes.ContainsKey p then  
+        //            renameWithTag (i + 1)
+        //        else
+        //            name
+        //    if current.ResourceHashes.ContainsKey p then
+        //        renameWithTag 1
+        //    else 
+        //        p
+        
         match data with
         | Some d ->
             res.Add(name, d)
-            match path with
-            | Some p ->
-                resToHash.Add(p, d)
-            | _ -> ()
+            //match path with
+            //| Some p ->
+            //    resToHash.Add(p, d)
+            //| _ -> ()
         | None ->
             res.Add(name, [||])
 
@@ -182,7 +201,10 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         for (p, d) in resToHash do
-            current.ResourceHashes.Add(p, AST.StableHash.data d)
+            try                                   
+                current.ResourceHashes.Add(p, AST.StableHash.data d)
+            with _ ->
+                failwithf "Resource name collision: %s" p
             rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         logger.TimedStage "Hashing resources"
@@ -214,7 +236,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             i.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
         )
     
-    if pkg <> AST.Undefined then
+    if pkg.Length > 0 then
         
         let getCodeWriter() = 
             if sourceMap then
@@ -224,33 +246,84 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        addRes EMBEDDED_JS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
-        map |> Option.iter (fun m ->
-            addRes EMBEDDED_MAP None (Some (getBytes m)))
-        logger.TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
-        minMap |> Option.iter (fun m ->
-            addRes EMBEDDED_MINMAP None (Some (getBytes m)))
-        logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
-
-        let isJSModule =
-            match pkg with
-            | AST.Sequential _ -> true
-            | _ -> false
-
-        if isJSModule then
-            // set current AssemblyNode to be a module
-            current.Dependencies.Nodes |> Array.tryFindIndex (function
-                | M.AssemblyNode (n, _, _) when n = assemblyName -> true
-                | _ -> false
-            ) |> Option.iter (fun asmNodeIndex ->
-                current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
+        let shouldUseJSX = ResizeArray<string>()
+        let jss' = 
+            pkg 
+            |> Array.map (fun (n, p) ->
+                let program, jsx = p |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript WebSharper.Core.JavaScript.Readable
+                if jsx then
+                    shouldUseJSX.Add n
+                n, program, jsx
             )
+        let jss = 
+            jss' |> Array.map (fun (n, p, jsx) ->
+                let jsxModifiedProgram =
+                    p
+                    |> List.map (fun st ->
+                        match st with
+                        | JavaScript.Syntax.Statement.Import(di, fi, ni, mn) ->
+                            if shouldUseJSX.Exists(fun x -> mn.EndsWith(x + ".js")) then
+                                JavaScript.Syntax.Statement.Import(di, fi, ni, mn + "x")
+                            else
+                                st
+                        | _ -> st
+                    )
+                let js, map, isJSX = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter jsxModifiedProgram jsx
+                n, js, map, isJSX
+            )
+        for n, js, map, isJSX in jss do
+            let x = if isJSX then "x" else ""
+            addRes (n + ".js" + x) (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
+            map |> Option.iter (fun m ->
+                addRes (n + ".map") None (Some (getBytes m)))
+            logger.TimedStage (if sourceMap then sprintf "Writing %s.js and %s.map.js" n n else sprintf "Writing %s.js" n)
+            //let minJs, minMap = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Compact getCodeWriter
+            //addRes (n + ".min.js") (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
+            //minMap |> Option.iter (fun m ->
+            //    addRes (n + ".min.map") None (Some (getBytes m)))        
+            //logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        let resources = 
+            match comp with
+            | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
+            | _ -> []
+
+        if ts then
+            let tspkg = 
+                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+            for (n, p) in tspkg do
+                let ts, _, isJSX =
+                    p
+                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScript WebSharper.Core.JavaScript.Readable
+                    |> fun (prog, jsx) ->
+                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+                let x = if isJSX then "x" else ""
+                addRes (n + ".ts" + x) (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
+            logger.TimedStage "Writing .ts files"
+
+        if dts then
+            let dtspkg = 
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+            for (n, p) in dtspkg do
+                let ts, _, _ =
+                    p
+                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+                    |> fun (prog, jsx) ->
+                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+                addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
+            logger.TimedStage "Writing .d.ts files"
+
+        // set current AssemblyNode to be a module
+        current.Dependencies.Nodes |> Array.tryFindIndex (function
+            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
+            | _ -> false
+        ) |> Option.iter (fun asmNodeIndex ->
+            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
+        )
 
         addMeta()
-        Some (js, minJs), currentPosFixed, sources, res.ToArray()
+        Some jss, currentPosFixed, sources, res.ToArray()
     else
         // set current AssemblyNode to have no js
         current.Dependencies.Nodes |> Array.tryFindIndex (function
@@ -263,16 +336,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures runtimeMeta a
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
-    jsOpt, currentPosFixed, sources
+    jsOpt, currentPosFixed, sources, res
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (assembly : Assembly) =
-    ModifyCecilAssembly logger comp refMeta current sourceMap closures runtimeMeta assembly.Raw
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) isLibrary =
+    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw isLibrary
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

@@ -41,15 +41,6 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let nLogger = 
-        let callerType = 
-            System.Diagnostics.StackTrace(0, false)
-                .GetFrames().[0]
-                .GetMethod()
-                .DeclaringType
-        NLog.LogManager.GetLogger(callerType.Name)
-    nLogger.Trace "Trace level is on"
-    nLogger.Debug "Debug level is on"
     let argv = formatArgv argv
     let logger = ConsoleLogger()   
     let parsedOptions = 
@@ -66,6 +57,9 @@ let main(argv) =
     | HelpOrCommand r ->
         r
     | ParsedOptions (wsConfig, warnSettings) ->
+        let wsLogPath = Path.Combine(wsConfig.ProjectDir, "websharper.log")
+        if System.IO.File.Exists wsLogPath then
+            System.IO.File.Delete wsLogPath
         if wsConfig.Standalone then
             let reason =
                 if System.Environment.GetEnvironmentVariables()
@@ -75,7 +69,6 @@ let main(argv) =
                     "WebSharperBuildService environment variable is set to false"
                 else
                     "--standalone compile flag is set or WebSharperStandalone targets variable set"
-            nLogger.Debug(sprintf "Start compilation in standalone mode because %s." reason)
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
 #if DEBUG
@@ -91,8 +84,7 @@ let main(argv) =
                 1
 #endif
         else
-            nLogger.Debug "Start compilation with wsfscservice"
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
-            let res = sendCompileCommand argv
+            let res = sendCompileCommand argv wsConfig.ProjectDir
             res

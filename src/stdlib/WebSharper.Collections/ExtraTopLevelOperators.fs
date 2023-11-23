@@ -18,18 +18,15 @@
 //
 // $end{copyright}
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.ExtraTopLevelOperators, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
-module private WebSharper.Collections.ExtraTopLevelOperatorsProxy
+[<WebSharper.Proxy "Microsoft.FSharp.Core.ExtraTopLevelOperators, FSharp.Core">]
+module internal WebSharper.Collections.ExtraTopLevelOperatorsProxy
 
 open WebSharper
 
 open System.Collections.Generic
 
-[<Name("WebSharper.Collections.dict")>]
-let private MakeDict (s : seq<('K * 'V)>) =
+[<Name("dict")>]
+let MakeDict (s : seq<('K * 'V)>) =
     let d = Dictionary()
     for a, b in s do
         d.Add(a, b)

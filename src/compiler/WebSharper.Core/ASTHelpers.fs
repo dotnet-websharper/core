@@ -21,6 +21,8 @@
 [<AutoOpen>]
 module WebSharper.Core.AST.ASTHelpers
 
+open WebSharper.Core
+
 /// Constructs a Concrete<'T> instance
 let Generic e g =
     {
@@ -116,6 +118,11 @@ let DefaultValueOf (typ : Type) =
 let IsDefaultValue td meth =
     td = uncheckedOps && meth = defaultOf
 
+let (|DefaultValueOf|_|) expr =
+    match IgnoreExprSourcePos expr with
+    | Call(None, { Entity = td; Generics = [] }, { Entity = meth; Generics = [ typ ] }, []) when IsDefaultValue td meth -> Some typ
+    | _ -> None
+
 /// Combines a list of AST.Statements into a single AST.Statement
 let CombineStatements statements =
     let mutable go = true
@@ -158,23 +165,36 @@ let CombineExpressions exprs =
     | res -> Sequential res
 
 /// Creates a GlobalAccess case from an access list in normal order
-let Global a = GlobalAccess (Address (List.rev a))
+let Global a = GlobalAccess (Address.LibAddr a)
 
 /// Make a proxy for a by-address value, having two functions for get/set.
-let MakeRef getVal setVal =
+let MakeRef getVal setVal typ =
+    let value = Id.New("v", false, ?typ = typ)
+    Object [
+        "get", MemberKind.Simple, (Function ([], None, typ, Return getVal))
+        "set", MemberKind.Simple, (Function ([value], None, None, ExprStatement (setVal (Var value))))
+    ]
+
+/// Make a proxy for a out argument, having a setter function.
+let MakeOutRef setVal typ =
     let value = Id.New("v", false)
     Object [
-        "get", (Function ([], Return getVal))
-        "set", (Function ([value], ExprStatement (setVal (Var value))))
+        "set", MemberKind.Simple, (Function ([value], None, typ, ExprStatement (setVal (Var value))))
+    ]
+
+/// Make a proxy for an in argument, having a getter function.
+let MakeInRef getVal typ =
+    Object [
+        "get", MemberKind.Simple, (Function ([], None, typ, Return getVal))
     ]
 
 /// Gets the value from a by-address value proxy
 let GetRef r =
-    Application(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
+    Appl(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
 
 /// Sets the value of a by-address value proxy
 let SetRef r v =
-    Application(ItemGet (r, Value (String "set"), Pure), [v], NonPure, Some 1)
+    Appl(ItemGet (r, Value (String "set"), Pure), [v], NonPure, Some 1)
 
 /// recognizes .NET names for binary operators
 let (|BinaryOpName|_|) = function
@@ -313,15 +333,40 @@ let private toUIntMeth =
         Generics = 0      
     } |> NonGeneric
 
+//let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
+//    match fromTyp.Value.FullName, toTyp.Value.FullName with
+//    | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
+//    | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
+//    | ScalarType, ScalarType
+//    | CharType, (CharType | StringType)
+//    | StringType, StringType
+//        -> expr
+//    | ScalarType, SmallIntegralType
+//        -> expr ^>> !~(Int 0)
+//    | ScalarType, BigIntegralType
+//        -> MathTrunc expr
+//    | (SmallIntegralType | BigIntegralType | ScalarType), CharType
+//        -> Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+//    | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
+//        -> Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [ Value (Int 0) ], Pure, None) 
+//    | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
+//        -> Appl(Global ["String"], [expr], Pure, Some 1)
+//    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
+//        -> Appl(Global ["Number"], [expr], Pure, Some 1)
+//    | _ -> expr
+
+let MathTrunc expr =
+    Appl(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
+
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     let toNumber expr =
-        Application(Global ["Number"], [expr], Pure, Some 1)
+        Appl(Global ["Number"], [expr], Pure, Some 1)
     let toDecimal expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
     let charCode expr =
-        Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
+        Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
-        Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+        Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
     let toIntegral (neg: int64) (mask: int64) expr =
         if mask = 4294967295L then
             if neg = 0L then
@@ -343,7 +388,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | (SmallIntegralType _ | BigIntegralType | ScalarType), SmallIntegralType (neg, mask)
         -> expr |> toIntegral neg mask
     | ScalarType, BigIntegralType
-        -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
+        -> Appl(Global ["Math"; "trunc"], [expr], Pure, Some 1)
     | (SmallIntegralType _ | BigIntegralType | ScalarType), CharType
         -> fromCharCode expr
     | DecimalType, CharType
@@ -358,7 +403,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | CharType, DecimalType
         -> charCode expr |> toDecimal
     | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
-        -> Application(Global ["String"], [expr], Pure, Some 1)
+        -> Appl(Global ["String"], [expr], Pure, Some 1)
     | (StringType | DecimalType | NonNumericType), (BigIntegralType | ScalarType)
         -> toNumber expr
     | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
@@ -389,3 +434,65 @@ type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
 let EmbedAST<'T> (v: Expression) : FSharp.Quotations.Expr<'T> =
     FSharp.Quotations.Expr.Value(v, typeof<'T>) 
     |> FSharp.Quotations.Expr.Cast
+
+module TSType =
+    open System
+
+    let Basic x = TSType.Named [ x ]
+    let (|Basic|_|) = function
+        | TSType.Named [ x ] -> Some x
+        | _ -> None
+    
+    let Object = Basic "object"
+    let (|Object|_|) = function
+        | Basic "object" -> Some ()
+        | _ -> None
+    let Null = Basic "null"
+    let (|Null|_|) = function
+        | Basic "null" -> Some ()
+        | _ -> None
+    let String = Basic "string"
+    let (|String|_|) = function
+        | Basic "string" -> Some ()
+        | _ -> None
+    let Number = Basic "number"
+    let (|Number|_|) = function
+        | Basic "number" -> Some ()
+        | _ -> None
+    let Boolean = Basic "boolean"
+    let (|Boolean|_|) = function
+        | Basic "boolean" -> Some ()
+        | _ -> None
+    let Never = Basic "never"
+    let (|Never|_|) = function
+        | Basic "never" -> Some ()
+        | _ -> None
+    let Void = Basic "void"
+    let (|Void|_|) = function
+        | Basic "void" -> Some ()
+        | _ -> None
+    let private Array = Basic "Array"
+    let ArrayOf t = TSType.Generic(Array, [ t ])
+    let (|ArrayOf|_|) t = 
+        match t with
+        | TSType.Generic(TSType.Named [ "Array" ], [ t ]) -> Some t
+        | _ -> None
+    let LambdaWithOpt (a, r) = TSType.Function(None, a, None, r)
+    let Lambda (a, r) = 
+        let a =
+            match a with
+            | [ TSType.Param _ as p ] -> [ p, true ]
+            | _ -> a |> List.map (fun a -> a, false) 
+        TSType.Function(None, a, None, r)
+
+    let Parse x =
+        // todo expand parser
+        match x with
+        | "any" -> TSType.Any
+        | "$0" -> TSType.Param 0
+        | "()=>$0" -> Lambda ([], TSType.Param 0)
+        | "$0[]" -> ArrayOf (TSType.Param 0) 
+        | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
+        | "{c: boolean, r: (() => void)[]}" -> TSType.TypeLiteral [ "c", MemberKind.Simple, TSType.Named [ "boolean" ]; "r", MemberKind.Simple, TSType.Named [ "(() => void)[]" ] ]
+        | _ -> 
+            TSType.Named (List.ofArray (x.Split('.')))

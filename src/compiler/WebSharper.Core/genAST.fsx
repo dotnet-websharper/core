@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -31,22 +31,6 @@ type Case =
         match a with
         | Tuple at -> Tuple (at @ [b])
         | _ -> Tuple [a; b]
-
-let rec shape c =
-    match c with
-    | Tuple l ->
-        match l |> List.choose shape with
-        | [] -> None
-        | cl -> Some (Tuple cl)
-    | List a ->
-        shape a |> Option.map List
-    | Id -> Some Id 
-    | Option a -> 
-        shape a |> Option.map Option
-    | Expr -> Some Expr
-    | Statement -> Some Statement
-    | Object _ -> None
-    | Empty -> None
 
 let rec toType c =
     match c with
@@ -97,32 +81,39 @@ let Str = Object "string"
 let Type = Object "Type"
 let Int = Object "int"
 let Bool = Object "bool"
+let TSType = Object "TSType"
+let VarKind = Object "VarKind"
+let Modifiers = Object "Modifiers"
+let ApplicationInfo = Object "ApplicationInfo"
+let ClassMethodInfo = Object "ClassMethodInfo"
+let MemberKind = Object "MemberKind"
+let ClassPropertyInfo = Object "ClassPropertyInfo"
 
 let ExprDefs = 
     [
         "Undefined", []
             , "JavaScript `undefined` value or `void` in .NET"
-        "This", []
-            , "The `this` value of current JavaScript function scope"
-        "Arguments", []
-            , "The `arguments` value of current JavaScript function scope"
-        "Var", [ Id, "variable"]
+        //"This", []
+        //    , "The `this` value of current JavaScript function scope"
+        //"Arguments", []
+        //    , "The `arguments` value of current JavaScript function scope"
+        "Var", [ Id, "variable" ]
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
-        "Application", [ Expr, "func" ; List Expr, "arguments"; Purity, "pure"; Option Int, "knownLength" ]
+        "Application", [ Expr, "func" ; List Expr, "arguments"; ApplicationInfo, "info" ]
             , "Function application with extra information. \
-               The `pure` field should be true only when the function called has no side effects, so the side effects of \
+               The `Purity` field should be true only when the function called has no side effects, so the side effects of \
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
-               The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
+               The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
                and does not use the `this` value."
-        "Function", [ List Id, "parameters"; Statement, "body" ]
+        "Function", [ List Id, "parameters"; Option Id, "thisVar"; Option Type, "return"; Statement, "body" ]
             , "Function declaration"
         "VarSet", [ Id, "variable"; Expr, "value" ]
             , "Variable set"
         "Sequential", [ List Expr, "expressions" ]
             , "Sequential evaluation of expressions, value is taken from the last"
-        "NewArray", [ List Expr, "items" ]
+        "NewTuple", [ List Expr, "items"; List Type, "tupleType" ]
             , "Creating a new array"
         "Conditional", [ Expr, "condition"; Expr, "whenTrue"; Expr, "whenFalse" ]  
             , "Conditional operation"
@@ -140,29 +131,27 @@ let ExprDefs =
             , "Unary operation mutating value"
         "ExprSourcePos", [ Object "SourcePos", "range"; Expr, "expression" ]
             , "Original source location for an expression"
-        "FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Statement, "body" ]
-            , "Temporary - Method of F# object expressions"
-        "Self", []
-            , "Temporary - Refers to the class from a static method"
+        //"FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
+        //    , "Temporary - Method of F# object expressions"
+        "JSThis", []
+            , "JavaScript - the this value"
         "Base", []
-            , "Temporary - Refers to the base class from an instance method"
+            , "Refers to the base class from an instance method, `super` in JavaScript"
         "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , ".NET - Method call"
         "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , "Temporary - Partial application, workaround for FCS issue #414"
-        "CurriedApplication", [ Expr, "func"; List Expr, "arguments" ]
-            , "Temporary - F# function application"
-        "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt"]
+        "CurriedApplication", [ Expr, "func"; List (Bool * Expr), "arguments" ]
+            , "Temporary - F# function application, bool indicates if the argument has type unit"
+        "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt" ]
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
             , ".NET - Constructor call"
-        "BaseCtor", [ Expr, "thisObject"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
-            , ".NET - Base constructor call"
+        "ChainedCtor", [ Bool, "isBase"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
+            , ".NET - Chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
             , ".NET - Creating an object from a plain object"
-        "Cctor", [ NonGenericTypeDefinition, "typeDefinition" ]
-            , ".NET - Static constructor"
-        "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"]
+        "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field" ]
             , ".NET - Field getter"
         "FieldSet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"; Expr, "value" ]
             , ".NET - Field setter"
@@ -174,8 +163,8 @@ let ExprDefs =
             , ".NET - Null-coalescing"
         "TypeCheck", [ Expr, "expression"; Type, "type" ]
             , ".NET - Type check, returns bool"
-        "OverrideName", [ NonGenericTypeDefinition, "typeDefinition"; NonGenericMethod, "method" ]
-            , ".NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions"
+        "Coerce", [ Expr, "expression"; Type, "fromType"; Type, "toType" ]
+            , ".NET - Type coercion"
         "NewDelegate", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method" ]
             , ".NET - Creates a new delegate"
         "StatementExpr", [ Statement, "statement"; Option Id, "result" ]
@@ -204,14 +193,26 @@ let ExprDefs =
             , "Temporary - C# ref or out parameter"
         "ComplexElement", [ List Expr, "items" ]
             , "Temporary - C# complex element in initializer expression"
-        "Object", [ List (Object "string" * Expr), "properties" ]
+        "Object", [ List (Str * MemberKind * Expr), "properties" ]
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
-            , "A global value by path, list is reversed"
-        "New", [ Expr, "func"; List Expr, "arguments" ]
+            , "A global or imported value"
+        "SideeffectingImport", [ Object "Address", "address" ]
+        , "An import statement with no value used"
+        "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
+            , "A global or imported value setter"
+        "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
-        "Hole", [ Object "int", "index" ]
+        "Hole", [ Int, "index" ]
             , "Temporary - A hole in an expression for inlining"
+        "Cast", [ TSType, "targetType"; Expr, "expression" ]
+            , "TypeScript - type cast <...>..."
+        "ClassExpr", [ Option Id, "classId"; Option Expr, "baseClass"; List Statement, "members" ]
+            , "JavaScript - class { ... }"
+        "ObjectExpr", [ Type, "objectType"; Option Expr, "constructor"; List (Tuple [NonGenericTypeDefinition; NonGenericMethod; Expr]), "overrides" ]
+            , ".NET - F# object expression"
+        "Verbatim", [ List Str, "stringParts"; List Expr, "holes"; Bool, "isJSX" ]
+            , "JavaScript verbatim code"
     ]    
 
 let StatementDefs =
@@ -230,7 +231,7 @@ let StatementDefs =
             , "Block of statements"
         "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
-        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Option Id, "thisVar"; Statement, "body"; List TSType, "generics" ]
             , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
             , "'while' loop"
@@ -266,10 +267,34 @@ let StatementDefs =
             , "Temporary - C# 'switch' statement"
         "GotoCase", [ Option Expr, "caseExpression" ]
             , "Temporary - C# 'goto case' statement"
-//        "Statements", [ List Statement, "statements" ]
 
-        "DoNotReturn", [],
-            ".NET - F# tail call position"
+        // F#
+        "DoNotReturn", []
+            , ".NET - F# tail call position"
+
+        // JavaScript/TypeScript
+        "Import", [ Option Id, "defaultImport"; Option Id, "fullImport"; List (Str * Id), "namedImports" ; Str, "moduleName" ]
+            , "JavaScript - import * as ... from ..."
+        "ExportDecl", [ Bool, "isDefault"; Statement, "statement" ]
+            , "JavaScript - export"
+        "Declare", [ Statement, "statement" ]
+            , "TypeScript - declare ..."
+        "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
+            , "JavaScript - class { ... }"
+        "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
+            , "JavaScript - class method"
+        "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
+            , "JavaScript - class method"
+        "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Option Expr, "value" ]
+            , "JavaScript - class plain property"
+        "ClassStatic", [ Statement, "optional" ]
+            , "JavaScript - class static block"
+        "Interface", [ Id, "intfId"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
+            , "TypeScript - interface { ... }"
+        "Alias", [ Id, "alias"; List TSType, "generics"; TSType, "origType" ]
+            , "TypeScript - type or import alias"
+        "XmlComment", [ Str, "xml" ]
+            , "TypeScript - triple-slash directive"
     ]
 
 let binaryOps =
@@ -300,7 +325,7 @@ let binaryOps =
 
 let NL = System.Environment.NewLine
 
-let letters = [| "a"; "b"; "c"; "d" |]
+let letters = [| "a"; "b"; "c"; "d"; "e"; "f" |]
 
 let code = 
     let code = ResizeArray()
@@ -319,8 +344,8 @@ let code =
             cprintfn "    with"
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
-            cprintfn "    member a.Item b = ItemGet (a, b, NonPure)"
-            cprintfn "    member a.Item b = Application (a, b, NonPure, None)"
+            cprintfn "    [<System.Obsolete>] member a.Item b = ItemGet (a, b, Pure)"
+            cprintfn "    [<System.Obsolete>] member a.Item b = Application (a, b, ApplicationInfo.None)"
 
     let ExprAndStatementDefs =
         seq {
@@ -356,21 +381,26 @@ let code =
             match c with
             | List Expr -> "List.map this.TransformExpression " + x
             | Option Expr -> "Option.map this.TransformExpression " + x
+            | Option Statement -> "Option.map this.TransformStatement " + x
             | Expr -> "this.TransformExpression " + x 
             | Statement -> "this.TransformStatement " + x
             | Id -> "this.TransformId " + x
             | Option Id -> "Option.map this.TransformId " + x
             | List Id -> "List.map this.TransformId " + x
             | List (Tuple [Id; Expr]) -> "List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) " + x 
+            | List (Tuple [Object _; Id]) -> "List.map (fun (a, b) -> a, this.TransformId b) " + x 
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
+            | List (Tuple [Object _; Object _; Expr]) -> "List.map (fun (a, b, c) -> a, b, this.TransformExpression c) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
+            | List (Tuple [Option Expr; Expr]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) " + x
             | List (Tuple [List (Option Expr); Statement]) -> "List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) " + x
+            | List (Tuple [Id; Object _]) -> "List.map (fun (a, b) -> this.TransformId a, b) " + x
             | Object _ -> x
             | List (Object _) -> x
             | Option (Object _) -> x
             | Empty -> ""
-            | _ -> " failwith \"no transform\""
+            | _ -> failwithf "no transformer defined for %A" c
         let trArgs = 
             match c with
             | [] -> ""
@@ -420,21 +450,26 @@ let code =
             match c with
             | List Expr -> "List.iter this.VisitExpression " + x
             | Option Expr -> "Option.iter this.VisitExpression " + x
+            | Option Statement -> "Option.iter this.VisitStatement " + x
             | Expr -> "this.VisitExpression " + x 
             | Statement -> "this.VisitStatement " + x
             | Id -> "this.VisitId " + x
             | Option Id -> "Option.iter this.VisitId " + x
             | List Id -> "List.iter this.VisitId " + x
             | List (Tuple [Id; Expr]) -> "List.iter (fun (a, b) -> this.VisitId a; this.VisitExpression b) " + x 
+            | List (Tuple [Object _; Id]) -> "List.iter (fun (a, b) -> this.VisitId b) " + x 
             | List Statement -> "List.iter this.VisitStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
+            | List (Tuple [Object _; Object _; Expr]) -> "List.iter (fun (a, b, c) -> this.VisitExpression c) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
+            | List (Tuple [Option Expr; Expr]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) " + x 
             | List (Tuple [List (Option Expr); Statement]) -> "List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) " + x
+            | List (Tuple [Id; Object _]) -> "List.iter (fst >> this.VisitId) " + x
             | Object _ -> "()"
             | List (Object _) -> "()"
             | Option (Object _) -> "()"
             | Empty -> ""
-            | _ -> " failwith \"no visit\""
+            | _ -> failwithf "no visitor defined for %A" c
         let trArgs = 
             match c with
             | [] -> "()"
@@ -489,7 +524,8 @@ let code =
             cprintfn "    let (|%s|_|) x = match ignore%sSourcePos x with %s %s -> Some %s | _ -> None" n t n args trArgs
 
     cprintfn "module Debug =" 
-    cprintfn "    let private PrintObject x = sprintf \"%%A\" x" 
+    cprintfn "    let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
+    cprintfn "    let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
     for isExrps, tl in [ true, ExprDefs; false, StatementDefs ] do
         if isExrps then 
             cprintfn "    let rec PrintExpression x =" 
@@ -507,26 +543,31 @@ let code =
                 match c with
                 | List Expr -> "\"[\" + String.concat \"; \" (List.map PrintExpression " + x + ") + \"]\""
                 | Option Expr -> "defaultArg (Option.map PrintExpression " + x + ") \"_\""
+                | Option Statement -> "defaultArg (Option.map PrintStatement " + x + ") \"\""
                 | Expr -> "PrintExpression " + x 
                 | Statement -> "PrintStatement " + x
                 | Id -> "string " + x
                 | Option Id -> "defaultArg (Option.map string " + x + ") \"_\""
                 | List Id -> "\"[\" + String.concat \"; \" (List.map string " + x + ") + \"]\""
                 | List (Tuple [Id; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\"" 
+                | List (Tuple [Object _; Id]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + string b) " + x + ") + \"]\"" 
                 | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
-                | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
+                | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\""
+                | List (Tuple [Object _; Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b, c) -> string a + \", \" + string b + \", \" + PrintExpression c) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
+                | List (Tuple [Option Expr; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintExpression b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
+                | List (Tuple [Id; Object _]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m)) + \"]\""
                 | Object "TypeDefinition" -> x + ".Value.FullName"
-                | Object "Concrete<TypeDefinition>" -> x + ".Entity.Value.FullName + PrintGenerics " + x + ".Generics"
-                | Object "Concrete<Method>" -> x + ".Entity.Value.MethodName + PrintGenerics " + x + ".Generics"
+                | Object "Concrete<TypeDefinition>" -> "PrintTypeDefinition " + x
+                | Object "Concrete<Method>" -> "PrintMethod " + x
                 | Object "Constructor" -> "\".ctor\""
-                | Object "Literal" -> "PrintObject " + x + ".Value"
-                | Object _ -> "PrintObject " + x
-                | List (Object _) -> "\"[\" + String.concat \"; \" (List.map PrintObject " + x + ") + \"]\""
-                | Option (Object _) -> "defaultArg (Option.map PrintObject " + x + ") \"_\""
+                | Object "Literal" -> "string " + x + ".Value"
+                | Object _ -> "string " + x
+                | List (Object _) -> "\"[\" + String.concat \"; \" (List.map string " + x + ") + \"]\""
+                | Option (Object _) -> "defaultArg (Option.map string " + x + ") \"_\""
                 | Empty -> ""
-                | _ -> "TODOprinter"
+                | _ -> failwithf "no debug printer defined for %A" c
             match c with
             | [ Object "SourcePos", _; Expr, _ ] ->
                 cprintfn "        | %s (_, b) -> PrintExpression b" n

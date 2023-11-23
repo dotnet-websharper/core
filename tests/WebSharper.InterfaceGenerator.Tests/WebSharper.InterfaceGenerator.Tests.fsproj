@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <WebSharperProject>Extension</WebSharperProject>
+    <WebSharperProject>binding</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
@@ -9,6 +9,7 @@
     <EmbeddedResource Include="WIGtest.js" />
     <EmbeddedResource Include="WIGtest2.js" />
     <EmbeddedResource Include="WIGtest3.js" />
+    <EmbeddedResource Include="WIGtest4.js" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

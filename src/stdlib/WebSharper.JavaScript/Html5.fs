@@ -2167,14 +2167,14 @@ module AppCache =
             "abort" => T<unit> ^-> T<unit>
 
             // events
-            ///  Function onchecking;
-            ///  Function onerror;
-            ///  Function onnoupdate;
-            ///  Function ondownloading;
-            ///  Function onprogress;
-            ///  Function onupdateready;
-            ///  Function oncached;
-            ///  Function onobsolete;
+            //  Function onchecking;
+            //  Function onerror;
+            //  Function onnoupdate;
+            //  Function ondownloading;
+            //  Function onprogress;
+            //  Function onupdateready;
+            //  Function oncached;
+            //  Function onobsolete;
         ]
 
 module Fetch =

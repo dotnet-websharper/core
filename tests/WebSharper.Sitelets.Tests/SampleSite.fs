@@ -93,15 +93,13 @@ module Server =
     [<AbstractClass>]
     type RequiresNoResources() =
         interface IRequiresResources with
-            member this.Requires(_) = Seq.empty
-            member this.Encode(_, _) = []
+            member this.Requires(_, _, _) = Seq.empty
 
     type Elt(name, [<System.ParamArray>] contents: INode[]) =
         let attributes, children =
             contents |> Array.partition (fun n -> n.IsAttribute)
         interface IRequiresResources with
-            member this.Requires(meta) = children |> Seq.collect (fun c -> c.Requires(meta))
-            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
+            member this.Requires(meta, json, getId) = children |> Seq.collect (fun c -> c.Requires(meta, json, getId))
         interface INode with
             member this.Write(ctx, w) =
                 w.WriteBeginTag(name)
@@ -157,7 +155,7 @@ module SampleSite =
     /// A helper function to create a 'fresh' url with a random get parameter
     /// in order to make sure that browsers don't show a cached version.
     let private RandomizeUrl url =
-        url + "?d=" + System.Uri.EscapeUriString (System.DateTime.Now.ToString())
+        url + "?d=" + System.Uri.EscapeDataString (System.DateTime.Now.ToString())
 
     /// User-defined widgets.
     module Widgets =
