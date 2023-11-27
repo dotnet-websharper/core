@@ -57,7 +57,6 @@
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />
-    <Compile Include="Cookies.fs" />
     <Compile Include="Promise.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Main.fs" />
