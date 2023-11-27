@@ -16,8 +16,6 @@
     <Compile Include="../WebSharper.Main/Json.fsi" />
     <Compile Include="../WebSharper.Main/Json.fs" />
     <Compile Include="../WebSharper.Main/Remoting.fs" />
-    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.js" />
-    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js" />
     <Compile Include="../WebSharper.Main/Resources.fs" />
     <Compile Include="../WebSharper.Main/Html.fs" />
     <Compile Include="../WebSharper.Main/JSObject.fs" />

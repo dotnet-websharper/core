@@ -39,6 +39,4 @@ type IResource = R.IResource
 
 [<assembly: WebResource("Json.js", "text/javascript")>]
 [<assembly: WebResource("Json.min.js", "text/javascript")>]
-[<assembly: WebResource("AnimFrame.js", "text/javascript")>]
-[<assembly: WebResource("AnimFrame.min.js", "text/javascript")>]
 do ()

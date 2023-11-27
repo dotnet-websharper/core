@@ -23,17 +23,6 @@ namespace WebSharper.JavaScript
 open WebSharper
 module Re = WebSharper.Core.Resources
 
-type AnimationFrameResource() =
-    interface Re.IResource with
-        member this.Render ctx =
-            let name = if ctx.DebuggingEnabled then "AnimFrame.js" else "AnimFrame.min.js"
-            let ren = Re.Rendering.GetWebResourceRendering(ctx, typeof<AnimationFrameResource>, name)
-            fun html ->
-                let html = html Re.Scripts
-                html.WriteLine "<!--[if lte IE 9.0]>"
-                ren.Emit(html, Re.Js)
-                html.WriteLine "<![endif]-->"
-
 /// Defines common JavaScript operations.
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -254,12 +243,10 @@ type JS =
     static member Set (target: obj) (field: string) (v: obj) = X<unit>
 
     /// Requests a function to be called on the next animation frame.
-    [<Require(typeof<AnimationFrameResource>)>]
     [<Inline "requestAnimationFrame($f)">]
     static member RequestAnimationFrame (f: float -> unit) = X<JS.Handle>
 
     /// Cancels an animation frame request.
-    [<Require(typeof<AnimationFrameResource>)>]
     [<Inline "cancelAnimationFrame($handle)">]
     static member CancelAnimationFrame (handle: JS.Handle) = X<unit>
 

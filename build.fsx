@@ -131,7 +131,6 @@ Target.create "Prepare" <| fun _ ->
             stdout.WriteLine("Written {0}", out)
     minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
     minify "src/stdlib/WebSharper.Main/Json.js"
-    minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
     // install TypeScript
     Npm.install <| fun o -> 
