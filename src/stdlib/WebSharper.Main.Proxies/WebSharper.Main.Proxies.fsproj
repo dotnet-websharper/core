@@ -11,8 +11,6 @@
     <Compile Include="../WebSharper.Main/Pervasives.fs" />
     <Compile Include="../WebSharper.Main/Promise.fs" />
     <Compile Include="../WebSharper.Main/JavaScript.Pervasives.fs" />
-    <EmbeddedResource Include="../WebSharper.Main/Json.js" />
-    <EmbeddedResource Include="../WebSharper.Main/Json.min.js" />
     <Compile Include="../WebSharper.Main/Json.fsi" />
     <Compile Include="../WebSharper.Main/Json.fs" />
     <Compile Include="../WebSharper.Main/Remoting.fs" />

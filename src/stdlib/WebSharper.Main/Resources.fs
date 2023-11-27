@@ -37,6 +37,4 @@ type Runtime = R.Runtime
 /// Re-exports IResource.
 type IResource = R.IResource
 
-[<assembly: WebResource("Json.js", "text/javascript")>]
-[<assembly: WebResource("Json.min.js", "text/javascript")>]
 do ()

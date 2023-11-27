@@ -130,7 +130,6 @@ Target.create "Prepare" <| fun _ ->
             File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
             stdout.WriteLine("Written {0}", out)
     minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
-    minify "src/stdlib/WebSharper.Main/Json.js"
 
     // install TypeScript
     Npm.install <| fun o -> 

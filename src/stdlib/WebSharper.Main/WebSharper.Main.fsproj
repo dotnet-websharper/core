@@ -10,8 +10,6 @@
     <Compile Include="Pervasives.fs" />
     <Compile Include="Promise.fs" />
     <Compile Include="JavaScript.Pervasives.fs" />
-    <EmbeddedResource Include="Json.js" />
-    <EmbeddedResource Include="Json.min.js" />
     <Compile Include="Json.fsi" />
     <Compile Include="Json.fs" />
     <Compile Include="Remoting.fs" />
