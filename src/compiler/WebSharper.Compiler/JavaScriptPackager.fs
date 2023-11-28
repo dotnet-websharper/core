@@ -1301,7 +1301,15 @@ let readMapFileSources mapFile =
 
 let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statement list) =
     if List.isEmpty urls then
-        pkg
+        let start = Id.New("Start")
+        
+        let runtimeLoc = if skipAssemblyDir then "../"  else "./"
+        
+        [
+            Import (None, None, ["Start", start], runtimeLoc + "WebSharper.Core.JavaScript/Runtime.js")
+            yield! pkg
+            ExprStatement(ApplAny(Var start, []))
+        ]
     else
         let runtime = Id.New("Runtime")
         let loadScript = Id.New("LoadScript")
