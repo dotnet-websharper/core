@@ -134,27 +134,39 @@ module Content =
                     | ClientObjectData a ->
                         $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode v}" ) |> String.concat "," }}}"""    
                     | ClientImport f ->
-                        match f.Module with
-                        | AST.DotNetType m ->
-                            match imported.TryGetValue(f) with
-                            | true, i ->
-                                i
+                        let rec findInPreBundle a =
+                            match ctx.Metadata.PreBundle.TryFind a with
+                            | Some b -> Some ("wsbundle." + b)
+                            | None ->
+                                match a.Address with 
+                                | h :: t ->
+                                    match findInPreBundle { a with Address = t } with
+                                    | Some f -> Some (f + "." + h)
+                                    | _ -> None
+                                | [] -> None
+                        match findInPreBundle f with
+                        | Some b -> b
+                        | None ->
+                            match f.Module with
+                            | AST.DotNetType m ->
+                                match imported.TryGetValue(f) with
+                                | true, i ->
+                                    i
+                                | _ ->
+                                    let i = "i" + string (imported.Count + 1)
+                                    match f.Address |> List.rev with
+                                    | [] -> failwith "empty address"
+                                    | a :: r ->
+                                        let j = i :: r |> String.concat "."
+                                        imported.Add(f, j)
+                                        match a with
+                                        | "default" ->
+                                            scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                        | _ ->
+                                            scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                        j
                             | _ ->
-                                let i = "i" + string (imported.Count + 1)
-                                match f.Address |> List.rev with
-                                | [] -> failwith "empty address"
-                                | a :: r ->
-                                    let j = i :: r |> String.concat "."
-                                    imported.Add(f, j)
-                                    match a with
-                                    | "default" ->
-                                        scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                    | _ ->
-                                        scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                    j
-
-                        | _ ->
-                            f.Address |> List.rev |> String.concat "."
+                                f.Address |> List.rev |> String.concat "."
                     | ClientApply (c, args) ->
                         $"""{getCode c}({ args |> Seq.map getCode |> String.concat "," })"""
                     | ClientReplaceInDom (i, c) -> 

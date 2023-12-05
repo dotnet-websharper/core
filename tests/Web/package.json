@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "rollup": "^4.4.1"
+  }
+}

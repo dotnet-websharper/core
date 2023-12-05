@@ -20,14 +20,13 @@
 /msbuild.log
 .fake
 /.vscode/
-/tests/WebSharper.SPA.Tests/Content/*
 /netcore/
 /netfx/
 /.paket/fake.exe
 /.paket/.store/
 /.ionide
 /tests/StressTesting/reports/
-/src/compiler/WebSharper.TypeScriptParser/node_modules
+**/node_modules/
 /src/compiler/WebSharper.TypeScriptParser/app.js.map
 /src/compiler/WebSharper.TypeScriptParser/app.js
 websharper.log

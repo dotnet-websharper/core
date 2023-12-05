@@ -1335,3 +1335,78 @@ let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.C
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile(), isJSX
+
+let packageEntryPoint (runtimeMeta: M.Info) =
+    let addresses = ResizeArray()
+
+    let assumeClass typ =
+        match runtimeMeta.Classes.TryFind typ with
+        | Some (_, _, Some cls) -> cls
+        | Some _ -> failwithf "Found custom type but not class: %s" typ.Value.FullName
+        | _ -> failwithf "Couldn't find class: %s" typ.Value.FullName
+    let rec isWebControl (cls: M.ClassInfo) =
+        match cls.BaseClass with
+        | Some { Entity = bT } ->
+            bT.Value.FullName = "WebSharper.Web.Control" || isWebControl (assumeClass bT)
+        | _ -> false
+
+    for (addr, _, cls) in runtimeMeta.Classes.Values do
+        match cls with 
+        | Some cls when isWebControl cls ->
+            addresses.Add(addr)    
+        | _ -> ()
+
+    let quoted = 
+        runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
+        |> Seq.append runtimeMeta.QuotedMethods
+
+    for td, m in quoted do
+        match runtimeMeta.Classes.TryFind td with
+        | Some (addr, _, Some cls) ->
+            match cls.Methods.TryFind m with
+            | Some mi -> 
+                match mi.CompiledForm with
+                | M.Static (name, _, _) -> addresses.Add(addr)
+                | M.Func (name, _) -> addresses.Add(addr.Func(name))
+                | M.GlobalFunc (faddr, _) -> addresses.Add(faddr) 
+                | _ -> ()
+            | _ -> ()
+        | _ -> ()
+
+    let addressMap = Dictionary()
+
+    addressMap.Add("Runtime", Address.RuntimeAddr [ "default" ])
+
+    for a in addresses do
+        addressMap |> Resolve.getRenamedInDict a.Address.Head a |> ignore
+
+    let revAddressMap = addressMap |> Dict.swap
+
+    let rootJs =
+        revAddressMap |> Seq.groupBy (fun kv -> kv.Key.Module)
+        |> Seq.map (fun (m, addrs) ->
+            let namedImports = ResizeArray()
+            for KeyValue(a, n) in addrs do
+                match a.Address |> List.rev |> List.head with
+                | "default" -> 
+                    let newName = 
+                        match m with
+                        | JavaScriptModule m -> 
+                            m.Name.Replace('.', '_').Replace('`', '_')
+                        | DotNetType m -> 
+                            (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                        | _ -> "default"
+                    namedImports.Add("default", Id.New newName)
+                | i ->
+                    namedImports.Add(i, Id.New n)    
+            let moduleName =
+                match m with
+                | JavaScriptModule m 
+                | DotNetType m -> 
+                    "../" + m.Assembly + "/" + m.Name + ".js"
+                | _ -> ""
+            ExportDecl (false, Import(None, None, List.ofSeq namedImports, moduleName))
+        )
+        |> List.ofSeq
+    
+    rootJs, revAddressMap

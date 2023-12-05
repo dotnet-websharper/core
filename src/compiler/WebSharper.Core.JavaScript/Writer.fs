@@ -593,6 +593,8 @@ and Statement canBeEmpty statement =
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
         ++ Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Export (ed, S.Import (d, f, n, m)) ->
+        Word "export" ++ Conditional (Word "default") ed ++ Import d f n m
     | S.Export (d, s) ->
         Word "export" ++ Conditional (Word "default") d  ++ Statement false s
     | S.ExportAlias (a, b) ->
@@ -626,6 +628,10 @@ and Statement canBeEmpty statement =
         ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member false) ms)
     | S.Import (d, f, n, m) ->
+        Word "import"
+        ++ Import d f n m
+
+and Import d f n m =
         let defImport =
             d |> Option.map Id |> Option.toList   
         let fullImport =
@@ -644,8 +650,7 @@ and Statement canBeEmpty statement =
             match namedImports with
             | [] ->  []
             | _ -> [ Word "{" ++ CommaSeparated id namedImports ++ Word "}" ]
-        Word "import"
-        ++ CommaSeparated id (defImport @ fullImport @ namedImportBlock)
+        CommaSeparated id (defImport @ fullImport @ namedImportBlock)
         ++ Word "from"
         ++ Word (QuoteString m)
 

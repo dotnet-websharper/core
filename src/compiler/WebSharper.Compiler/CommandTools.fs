@@ -104,6 +104,7 @@ type WsConfig =
         Standalone : bool
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
+        PreBundle : bool
     }
 
     member this.ProjectDir =
@@ -150,6 +151,7 @@ type WsConfig =
                     | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
+            PreBundle = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -282,6 +284,8 @@ type WsConfig =
                     | "noexpressions" -> Metadata.MetadataOptions.DiscardExpressions
                     | _ -> argError (sprintf "Invalid value in %s for RuntimeMetadata, expecting 'noexpressions'/'inlines'/'notinlines'/'full'." fileName) 
                 res <- { res with RuntimeMetadata = runtimeMetadata }
+            | "prebundle" ->
+                res <- { res with PreBundle = res.PreBundle || getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         if res.ProjectType <> Some ProjectType.Bundle && res.ProjectType <> Some ProjectType.BundleOnly then
@@ -600,6 +604,7 @@ let RecognizeWebSharperArg a wsArgs =
         else 
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
     | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }
+    | Flag "--prebundle" v -> Some { wsArgs with PreBundle = wsArgs.PreBundle || v }
     | _ -> 
         None
 

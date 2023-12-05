@@ -71,6 +71,7 @@ namespace WebSharper.DllBrowser
                 Contents.Add(new MetadataModel(meta));
                 Contents.Add(new GraphModel(meta.Dependencies));
                 Contents.Add(new MacroEntriesModel(meta));
+                Contents.Add(new QuotationsModel(meta));
             }
             Contents.Add(new ResourcesModel(assembly));
         }
@@ -368,6 +369,53 @@ namespace WebSharper.DllBrowser
         {
             Key = key;
             Values = values;
+        }
+    }
+    public class QuotationsModel : TreeGroupNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "Quotations";
+        public QuotationsModel(Info metadata)
+        {
+            Metadata = metadata;
+            foreach (var x in metadata.Quotations)
+            {
+                Contents.Add(new QuotationModel(x.Key, x.Value));
+            }
+            Contents.Add(new QuotatedMethodsModel(metadata));
+        }
+    }
+    public class QuotationModel : TreeLeafNodeModel
+    {
+        private SourcePos Key;
+        private Tuple<Hashed<TypeDefinitionInfo>, Hashed<Core.AST.MethodInfo>, FSharpList<string>> Value;
+        public override string Name => Key.ToString();
+        public override string GetDetails()
+        {
+            return $"{Value.Item1.Value.FullName}.{Value.Item2.Value.MethodName}({string.Join(", ", Value.Item3)})";
+        }
+        public QuotationModel(SourcePos key, Tuple<Hashed<TypeDefinitionInfo>, Hashed<Core.AST.MethodInfo>, FSharpList<string>> value)
+        {
+            Key = key;
+            Value = value;
+        }
+    }
+    public class QuotatedMethodsModel : TreeLeafNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "Quoted methods";
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var qm in Metadata.QuotedMethods)
+            {
+                sb.AppendLine(qm.Item1.Value.FullName + "." + qm.Item2.Value.MethodName);
+            }
+            return sb.ToString();
+        }
+        public QuotatedMethodsModel(Info metadata)
+        {
+            Metadata = metadata;
         }
     }
 }

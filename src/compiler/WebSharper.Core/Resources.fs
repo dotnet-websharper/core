@@ -126,18 +126,35 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
     member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
-        if includeScriptTag then
-            this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
-        match scriptBaseUrl with
-        | Some url -> 
-            this.WriteLine("""import Runtime from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
-            this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
-            if skipAssemblyDir then
-                this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
-            match activation with
+        let isBundled = true // TODO use flag
+        if isBundled then
+            if includeScriptTag then
+                this.WriteLine("""<script src="Scripts/WebSharper/bundle.js"></script>""")
+                this.WriteLine("""<script>""")
+            this.WriteLine("""document.addEventListener("DOMContentLoaded", () => {""")
+            match scriptBaseUrl with
+            | Some url -> 
+                this.WriteLine("""wsbundle.Runtime.ScriptBasePath = '{0}';""", url)
+                if skipAssemblyDir then
+                    this.WriteLine("""wsbundle.Runtime.ScriptSkipAssemblyDir = true;""")
+                match activation with
+                | None -> ()
+                | Some a -> a url
             | None -> ()
-            | Some a -> a url
-        | None -> ()
+            this.WriteLine("});")
+        else
+            if includeScriptTag then
+                this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
+            match scriptBaseUrl with
+            | Some url -> 
+                this.WriteLine("""import Runtime from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
+                this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
+                if skipAssemblyDir then
+                    this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
+                match activation with
+                | None -> ()
+                | Some a -> a url
+            | None -> ()
         if includeScriptTag then
             this.WriteLine("""</script>""")
 

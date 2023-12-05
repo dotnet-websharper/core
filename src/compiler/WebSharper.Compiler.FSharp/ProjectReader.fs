@@ -938,9 +938,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
             let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
-            CodeReader.scanExpression env meth.LogicalName expr
+            let quotations, quotedMethods = CodeReader.scanExpression env meth.LogicalName expr
+            quotations
             |> Seq.iter (fun (pos, mdef, argNames, e) ->
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
+            )
+            quotedMethods
+            |> Seq.iter (fun (td, m) ->
+                comp.AddQuotedMethod(td.Entity, m.Entity)
             )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   

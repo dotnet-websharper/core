@@ -176,20 +176,39 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         | None ->
             res.Add(name, [||])
 
+    let isBundled = true // TODO use flag
+
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
             let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm 
-            {
-                trimmed with
-                    Dependencies = 
-                        DependencyGraph.Graph.FromData(
-                            refMetas |> Seq.map (fun m -> m.Dependencies)
-                            |> Seq.append [ trimmed.Dependencies ]
-                        ).GetData()
-            }
-            
-            |> Some
+            let bundleOpt =
+                if isBundled then
+                    JavaScriptPackager.packageEntryPoint trimmed |> Some
+                else
+                    None
+            let updated =
+                {
+                    trimmed with
+                        Dependencies = 
+                            DependencyGraph.Graph.FromData(
+                                refMetas |> Seq.map (fun m -> m.Dependencies)
+                                |> Seq.append [ trimmed.Dependencies ]
+                            ).GetData()
+                        PreBundle = 
+                            match bundleOpt with
+                            | Some (_, addrMap) -> addrMap
+                            | _ -> Map.empty
+                }
+            let bundleJs =
+                match bundleOpt with
+                | Some (bundleCode, _) ->
+                    let program, _ = bundleCode |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript WebSharper.Core.JavaScript.Readable
+                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                    Some js
+                | _ -> None
+
+            Some (updated, bundleJs)
         | _ -> None
 
     let addMeta() =
@@ -198,14 +217,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             let p = assemblyName + "/" + r.FileName
             let d = r.GetContentData()
             current.ResourceHashes.Add(p, AST.StableHash.data d)
-            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
+            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         for (p, d) in resToHash do
             try                                   
                 current.ResourceHashes.Add(p, AST.StableHash.data d)
             with _ ->
                 failwithf "Resource name collision: %s" p
-            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
+            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         logger.TimedStage "Hashing resources"
 
@@ -217,7 +236,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         res.Add(EMBEDDED_METADATA, meta)
 
         match rMeta with
-        | Some rm ->
+        | Some (rm, _) ->
             let erMeta = 
                 use s = new MemoryStream(8 * 1024)
                 M.IO.Encode s rm
@@ -236,6 +255,13 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             i.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
         )
     
+    let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+
+    match rMeta with
+    | Some (_, Some bundleJs) ->
+        addRes "root.js" (Some "") (Some (getBytes bundleJs))
+    | _ -> ()
+
     if pkg.Length > 0 then
         
         let getCodeWriter() = 
@@ -245,7 +271,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
-        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let shouldUseJSX = ResizeArray<string>()
         let jss' = 
             pkg 
@@ -282,6 +307,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             //minMap |> Option.iter (fun m ->
             //    addRes (n + ".min.map") None (Some (getBytes m)))        
             //logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        
         let resources = 
             match comp with
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
