@@ -2749,3 +2749,80 @@ type RoslynTransformer(env: Environment) =
         let o = Id.New()
         let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
         Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
+
+open System.Linq
+
+// Searches for calls within server-side code to method with JavaScript-enabled parameters.
+let scanExpression (env: Environment) (node: SyntaxNode) =
+
+    let getTypeAndMethod (symbol: IMethodSymbol) =
+        let symbol =
+            match symbol.OverriddenMethod with
+            | null -> symbol
+            | symbol -> symbol
+        let eSymbol =
+            match symbol.ReducedFrom with
+            | null -> symbol
+            | symbol -> symbol
+        let typ = env.SymbolReader.ReadNamedType eSymbol.ContainingType
+        let ma = 
+            (symbol.TypeArguments, eSymbol.TypeParameters) 
+            ||> Seq.map2 (fun a p -> if a.Equals p then dynTyp else env.SymbolReader.ReadType a) 
+            |> List.ofSeq
+        let meth = Generic (env.SymbolReader.ReadMethod eSymbol) ma
+        typ.Entity, meth.Entity
+
+    for n in node.DescendantNodes() do
+        
+        let checkQuotedArgs indexes (args: ArgumentListSyntax) =
+            args.Arguments |> Seq.iteri (fun i a -> 
+                if indexes |> Array.contains i then
+                    match a.Expression with
+                    | :? LambdaExpressionSyntax as e ->
+                        match e.Body with
+                        | :? InvocationExpressionSyntax as e ->
+                            let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
+                            if not (isNull esymbol) then
+                                let etyp, emeth = getTypeAndMethod esymbol
+                                env.Compilation.AddQuotedMethod(etyp, emeth)
+                        | :? IdentifierNameSyntax as e ->
+                            let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IPropertySymbol
+                            if not (isNull esymbol) then
+                                let etyp, emeth = getTypeAndMethod esymbol.GetMethod
+                                env.Compilation.AddQuotedMethod(etyp, emeth)
+                        | e -> 
+                            failwithf "Unexpected form in Client-side LINQ lambda body: %s" (e.ToString())
+
+                    | :? MemberAccessExpressionSyntax as e ->
+                        let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
+                        if not (isNull esymbol) then
+                            let etyp, emeth = getTypeAndMethod esymbol
+                            env.Compilation.AddQuotedMethod(etyp, emeth)
+
+                    | e -> failwithf "Unexpected form in Client-side LINQ expression: %s" (e.ToString())
+            )
+        
+        match n with 
+        | :? InvocationExpressionSyntax as n ->
+            let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
+            
+            if not (isNull symbol) then
+                let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
+                let meth = env.SymbolReader.ReadMethod symbol
+                //failwithf "Found InvocationExpression: %s.%s" typ.Value.FullName meth.Value.MethodName
+                match env.Compilation.TryLookupQuotedArgMethod(typ, meth) with
+                | Some indexes ->
+                    checkQuotedArgs indexes n.ArgumentList
+                | _ -> ()        
+        | :? ObjectCreationExpressionSyntax as n ->
+            let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
+
+            if not (isNull symbol) then
+                let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
+                let ctor = env.SymbolReader.ReadConstructor symbol
+                //failwithf "Found ObjectCreationExpression: %s" typ.Value.FullName
+                match env.Compilation.TryLookupQuotedConstArgMethod(typ, ctor) with
+                | Some indexes ->
+                    checkQuotedArgs indexes n.ArgumentList
+                | _ -> ()        
+        | _ -> ()

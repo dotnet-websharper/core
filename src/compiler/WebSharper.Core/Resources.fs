@@ -123,26 +123,27 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             "wbr"
         ]
 
-    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
+    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit, ?bundleNames: string[]) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
-        let isBundled = true // TODO use flag
-        if isBundled then
-            if includeScriptTag then
-                this.WriteLine("""<script src="Scripts/WebSharper/bundle.js"></script>""")
-                this.WriteLine("""<script>""")
-            this.WriteLine("""document.addEventListener("DOMContentLoaded", () => {""")
+        match bundleNames with
+        | Some bundles ->
             match scriptBaseUrl with
             | Some url -> 
+                if includeScriptTag then
+                    for b in bundles do
+                        this.WriteLine("""<script src="{0}{1}.js"></script>""", url, b)
+                    this.WriteLine("""<script>""")
+                this.WriteLine("""document.addEventListener("DOMContentLoaded", () => {""")
                 this.WriteLine("""wsbundle.Runtime.ScriptBasePath = '{0}';""", url)
                 if skipAssemblyDir then
                     this.WriteLine("""wsbundle.Runtime.ScriptSkipAssemblyDir = true;""")
                 match activation with
                 | None -> ()
                 | Some a -> a url
+                this.WriteLine("});")
             | None -> ()
-            this.WriteLine("});")
-        else
+        | _ ->
             if includeScriptTag then
                 this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
             match scriptBaseUrl with
@@ -158,10 +159,10 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
         if includeScriptTag then
             this.WriteLine("""</script>""")
 
-    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
+    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit, ?bundleNames: string[]) =
         writer.WriteLine()
         use w = new HtmlTextWriter(writer)
-        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?activation = activation)
+        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?activation = activation, ?bundleNames = bundleNames)
 
 type Rendering =
     | RenderInline of string

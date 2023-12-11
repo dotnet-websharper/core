@@ -1271,7 +1271,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | _ -> failwithf "static constructor should be a function"
                 clsMembers.Add (NotResolvedMember.StaticConstructor body)
         | _ -> 
-            ()
+            if decls.Length > 0 then
+                let syntax = decls.[0].GetSyntax()
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
+                let env = CodeReader.Environment.New(model, comp, sr, None)
+                CodeReader.scanExpression env syntax
     
     match staticInit with
     | Some si when not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) ->

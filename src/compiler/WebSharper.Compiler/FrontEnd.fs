@@ -115,7 +115,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     Some ("", "")
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
     let assemblyName = a.Name.Name
     let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
@@ -176,14 +176,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         | None ->
             res.Add(name, [||])
 
-    let isBundled = true // TODO use flag
-
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
             let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm 
             let bundleOpt =
-                if isBundled then
+                if prebundle then
                     JavaScriptPackager.packageEntryPoint trimmed |> Some
                 else
                     None
@@ -362,8 +360,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)

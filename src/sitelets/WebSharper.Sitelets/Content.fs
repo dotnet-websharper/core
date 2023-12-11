@@ -112,6 +112,11 @@ module Content =
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
             let scriptsTw = tw Core.Resources.Scripts
+            let bundleNames = 
+                if ctx.Metadata.PreBundle.Count > 0 then
+                    Some [| "bundle" |]
+                else
+                    None
             let activate (url: string) =
                 let imported = Dictionary<AST.Address, string>()
                 let elems = HashSet<string>()
@@ -210,9 +215,9 @@ module Content =
                         scriptsTw.WriteLine($"""{v}.$postinit("{i}");""")
                     | _ -> ()
 
-            Some activate
+            Some activate, bundleNames
         else    
-            None
+            None, None
 
     type RenderedResources =
         {
@@ -236,13 +241,13 @@ module Content =
         let stylesTw = new HtmlTextWriter(stylesW, " ")
         use metaW = new StringWriter()
         let metaTw = new HtmlTextWriter(metaW, " ")
-        let activation =
+        let activation, bundleNames =
             writeResources ctx controls (function
                 | Core.Resources.Scripts -> scriptsTw
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
         if Option.isSome activation then
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -252,9 +257,9 @@ module Content =
     let getResourcesAndScripts ctx controls =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
-        let activation = writeResources ctx controls (fun _ -> tw)
+        let activation, bundleNames = writeResources ctx controls (fun _ -> tw)
         if Option.isSome activation then
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -263,11 +268,11 @@ module Content =
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
                 let renderHead (tw: HtmlTextWriter) =
-                    let activation = writeResources context body (fun _ -> tw)
+                    let activation, bundleNames = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
                     if Option.isSome activation then
-                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation)
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)
