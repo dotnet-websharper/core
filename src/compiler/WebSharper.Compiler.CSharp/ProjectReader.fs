@@ -170,6 +170,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             NotResolvedMethods = List.ofSeq methods 
             Generics = getConstraints intf.TypeParameters sr
             Type = annot.Type
+            IsStub = annot.IsStub
         }
     )
 
