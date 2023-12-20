@@ -128,8 +128,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     
     logger.TimedStage "Source position transformations"
 
+    let epStyle =
+        if isLibrary then
+            JavaScriptPackager.EntryPointStyle.LibraryBundle
+        else
+            JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+
     let pkg = 
-        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
     logger.TimedStage "Packaging assembly"
     
@@ -179,24 +185,26 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
-            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm 
+            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm |> refreshVarFields
+            let graph =
+                DependencyGraph.Graph.FromData(
+                    refMetas |> Seq.map (fun m -> m.Dependencies)
+                    |> Seq.append [ trimmed.Dependencies ]
+                )
             let bundleOpt =
                 if prebundle then
-                    JavaScriptPackager.packageEntryPoint trimmed |> Some
+                    JavaScriptPackager.packageEntryPoint trimmed graph comp.AssemblyName |> Some
                 else
                     None
             let updated =
                 {
                     trimmed with
                         Dependencies = 
-                            DependencyGraph.Graph.FromData(
-                                refMetas |> Seq.map (fun m -> m.Dependencies)
-                                |> Seq.append [ trimmed.Dependencies ]
-                            ).GetData()
+                            graph.GetData() 
                         PreBundle = 
                             match bundleOpt with
                             | Some (_, addrMap) -> addrMap
-                            | _ -> Map.empty
+                            | _ -> Dictionary()
                 }
             let bundleJs =
                 match bundleOpt with
@@ -313,7 +321,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if ts then
             let tspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in tspkg do
                 let ts, _, isJSX =
@@ -327,7 +335,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if dts then
             let dtspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in dtspkg do
                 let ts, _, _ =

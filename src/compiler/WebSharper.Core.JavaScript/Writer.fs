@@ -595,6 +595,8 @@ and Statement canBeEmpty statement =
         ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Export (ed, S.Import (d, f, n, m)) ->
         Word "export" ++ Conditional (Word "default") ed ++ Import d f n m
+    | S.Export (false, S.Ignore(S.Var(v))) ->
+        Word "export" ++ Token "{" ++ Id v ++ Token "}"
     | S.Export (d, s) ->
         Word "export" ++ Conditional (Word "default") d  ++ Statement false s
     | S.ExportAlias (a, b) ->
