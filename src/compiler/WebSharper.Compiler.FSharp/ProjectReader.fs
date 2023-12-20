@@ -155,6 +155,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
             NotResolvedMethods = List.ofSeq methods
             Generics = getConstraints intf.GenericParameters sr tparams
             Type = annot.Type
+            IsStub = annot.IsStub
         }
     )
 
@@ -972,6 +973,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 NotResolvedMethods = List.ofArray methods 
                 Generics = getConstraints cls.GenericParameters sr clsTparams
                 Type = annot.Type
+                IsStub = annot.IsStub
             }
         comp.AddInterface(def, intf)
 

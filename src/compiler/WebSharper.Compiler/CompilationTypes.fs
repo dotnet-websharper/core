@@ -115,6 +115,7 @@ module NotResolved =
             NotResolvedMethods : list<Method * option<string> * list<GenericParam>>
             Generics : list<GenericParam>
             Type : option<TSType>
+            IsStub: bool
         }
 
     type N = NotResolvedMemberKind
