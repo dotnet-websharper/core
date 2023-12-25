@@ -218,11 +218,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         match content with
         | Bundle (_, SiteletBundle exportedTypes, _) ->
             let bundleExport() =
-                match statement with
-                | ExprStatement(Var _) -> Empty
-                | _ ->
-                    bundleExports.Add(addr, name)
-                    ExportDecl(false, statement)
+                bundleExports.Add(addr, name)
+                ExportDecl(false, statement)
             let ignoreVar() =
                 match statement with
                 | ExprStatement(Var _) -> Empty
@@ -1288,6 +1285,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
+        match content with 
+        | Bundle (_, SiteletBundle _, _) ->
+            let runtime = Id.New("Runtime")
+            declarations.Add(ExportDecl(false, Import(None, None, [ "default", runtime], "../WebSharper.Core.JavaScript/Runtime.js")))   
+        | _ -> ()
+        
         List.ofSeq (Seq.concat [ declarations; statements ]), bundleExports
 
 let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =

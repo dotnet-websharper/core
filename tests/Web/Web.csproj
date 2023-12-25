@@ -35,7 +35,7 @@
     <ProjectReference Include="..\Website\Website.fsproj" />
   </ItemGroup>
   <Target Name="RollupBundle" AfterTargets="WebSharperCompile">
-    <Exec Command="npx rollup -c" />
+    <Exec Command="node ./esbuild.config.mjs" />
   </Target>
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
