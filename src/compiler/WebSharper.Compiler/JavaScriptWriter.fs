@@ -739,3 +739,11 @@ let transformProgram output pref statements =
     statements |> List.iter cvars.VisitStatement
     //J.Ignore (J.Constant (J.String "use strict")) ::
     (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value
+
+let transformProgramAndAddrMap output pref (addrMap: IDictionary<Address, Id>) statements =
+    if List.isEmpty statements then [], false, dict [] else
+    let env = Environment.New(pref, output)
+    let cvars = CollectVariables(env)
+    statements |> List.iter cvars.VisitStatement
+    let trAddrMap = addrMap |> Dict.map (fun id -> (transformId env id).Name)
+    (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value, trAddrMap

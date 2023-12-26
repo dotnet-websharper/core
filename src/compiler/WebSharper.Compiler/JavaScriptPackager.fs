@@ -212,13 +212,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | ExprStatement(Var _) -> Empty
             | _ -> statement
 
-    let bundleExports = Dictionary<Address, string>()
+    let bundleExports = Dictionary<Address, Id>()
     
-    let exportWithBundleSupport isDefault typ mOpt addr name statement =
+    let exportWithBundleSupport isDefault typ mOpt addr id statement =
         match content with
         | Bundle (_, SiteletBundle exportedTypes, _) ->
             let bundleExport() =
-                bundleExports.Add(addr, name)
+                bundleExports.Add(addr, id)
                 ExportDecl(false, statement)
             let ignoreVar() =
                 match statement with
@@ -551,9 +551,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let addStatement st =
         statements.Add <| ThisTransformer().TransformStatement(st)
 
-    //let package a expr =
-    //    let o, x = getFieldAddress a
-    //    addStatement <| ExprStatement (ItemSet (o, x, expr))    
+    match content with 
+    | Bundle (_, SiteletBundle _, _) ->
+        let runtime = Id.New("Runtime")
+        declarations.Add(ExportDecl(false, Import(None, None, [ "default", runtime], "../WebSharper.Core.JavaScript/Runtime.js")))   
+    | _ -> ()
 
     let implExpr, implSt, implStOpt, implExprOpt =
         if output = O.TypeScriptDeclaration then 
@@ -708,7 +710,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    addStatement <| exportWithBundleSupport false typ (Some m) addr f.Name.Value 
+                    addStatement <| exportWithBundleSupport false typ (Some m) addr f 
                         (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
                     let f = 
@@ -1129,14 +1131,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         let packageLazyClass classExpr =
             addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId.Name.Value (ExprStatement(Var outerClassId))                
+            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))                
 
         let packageClass classDecl = 
             let trClassDecl =
                 classDecl
                 |> bTr().TransformStatement 
                 |> SubstituteVar(outerClassId, Var classId).TransformStatement
-            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId.Name.Value trClassDecl      
+            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId trClassDecl      
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -1285,11 +1287,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
-        match content with 
-        | Bundle (_, SiteletBundle _, _) ->
-            let runtime = Id.New("Runtime")
-            declarations.Add(ExportDecl(false, Import(None, None, [ "default", runtime], "../WebSharper.Core.JavaScript/Runtime.js")))   
-        | _ -> ()
         
         List.ofSeq (Seq.concat [ declarations; statements ]), bundleExports
 
@@ -1484,11 +1481,31 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
         runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
         |> Seq.append runtimeMeta.QuotedMethods
         |> Array.ofSeq
-    
+
+    let iControlBody =
+        TypeDefinition {
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.IControlBody"
+        }
+    let domNode = 
+        TypeDefinition {
+            Assembly = "WebSharper.JavaScript"
+            FullName = "WebSharper.JavaScript.Dom.Node"
+        }
+    let replaceInDom =
+        Method {
+            MethodName = "ReplaceInDom"
+            Parameters = [ NonGenericType domNode ]
+            ReturnType = VoidType
+            Generics = 0
+        }
+
     let nodes =
         seq {
             for td in webControls do
                 yield M.TypeNode td
+            if webControls.Length > 0 then
+                yield M.AbstractMethodNode (iControlBody, replaceInDom)
             for (td, m) in quoted do
                 yield M.MethodNode (td, m)
         }

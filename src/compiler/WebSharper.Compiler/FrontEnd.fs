@@ -191,29 +191,29 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                     refMetas |> Seq.map (fun m -> m.Dependencies)
                     |> Seq.append [ trimmed.Dependencies ]
                 )
-            let bundleOpt =
+            let meta = 
+                refMetas |> Seq.map refreshAllIds
+                |> Seq.append (Seq.singleton current)
+                |> M.Info.UnionWithoutDependencies
+
+            let bundleJs, addrMap =
                 if prebundle then
-                    JavaScriptPackager.packageEntryPoint trimmed graph comp.AssemblyName |> Some
+                    let bundleCode, addrMap = JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
+                    let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
+                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                    Some js, Some trAddrMap
                 else
-                    None
+                    None, None
             let updated =
                 {
                     trimmed with
                         Dependencies = 
                             graph.GetData() 
                         PreBundle = 
-                            match bundleOpt with
-                            | Some (_, addrMap) -> addrMap
+                            match addrMap with
+                            | Some am -> am
                             | _ -> Dictionary()
                 }
-            let bundleJs =
-                match bundleOpt with
-                | Some (bundleCode, _) ->
-                    let program, _ = bundleCode |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript WebSharper.Core.JavaScript.Readable
-                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                    Some js
-                | _ -> None
-
             Some (updated, bundleJs)
         | _ -> None
 
