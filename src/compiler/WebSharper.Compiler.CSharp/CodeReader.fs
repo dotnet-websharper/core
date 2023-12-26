@@ -404,7 +404,13 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                     Generics = x.Arity
                 }
             if x.IsOverride then
-                let o = x.OverriddenMethod.OriginalDefinition
+                let rec getOrig (x: IMethodSymbol) =
+                    let o = x.OverriddenMethod.OriginalDefinition
+                    if o.IsOverride && not (isNull o.OverriddenMethod) then
+                        getOrig o
+                    else
+                        o
+                let o = getOrig x
                 Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
             elif x.IsVirtual then
                 let o = x.OriginalDefinition                                        

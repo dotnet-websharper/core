@@ -589,7 +589,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | _ -> false
 
         if skipCompGen then () else
-        
+                
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
             hasStubMember <- true
@@ -608,6 +608,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some kind ->
             let memdef = sr.ReadMember meth
+            
+            if kind = A.MemberKind.JavaScript && meth.IsAbstract then
+                match memdef with
+                | Member.Method (isInstance, mdef) ->
+                    if not isInstance then failwith "Abstract method should not be static" 
+                    addMethod (Some (meth, memdef)) mAnnot mdef N.Abstract true Undefined
+                | _ -> failwith "Member kind not expected for astract method"
+            else
+
             let mutable makeInline = false
             let getParsed() =                 
                 let thisVar = Id.NewThis()
