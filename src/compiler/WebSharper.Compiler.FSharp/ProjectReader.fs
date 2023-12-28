@@ -259,7 +259,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let isProxy = Option.isSome annot.ProxyOf 
     let isThisInterface = cls.IsInterface
-    let isInterfaceProxy = isProxy && isInterface def
+    let isInterfaceProxy = 
+        if Option.isSome comp.ProxyTargetName then
+            isThisInterface
+        else 
+            isProxy && isInterface def
 
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))

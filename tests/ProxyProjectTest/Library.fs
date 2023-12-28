@@ -22,6 +22,9 @@ module ProxyProjectTest.Functions
 
 let add x y = x + y
 
+type IInterfaceTest =
+    abstract Add: int * int -> int
+
 let isJS() =
 #if JAVASCRIPT
     true
