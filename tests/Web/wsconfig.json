@@ -3,5 +3,6 @@
   "project": "web",
   "outputDir": "wwwroot",
   "downloadResources": true,
-  "runtimeMetadata": "full"
+  "runtimeMetadata": "full",
+  "preBundle": true
 }

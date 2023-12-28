@@ -111,6 +111,8 @@ type EntryPointStyle =
     | OnLoadIfExists
     | ForceOnLoad
     | ForceImmediate
+    | LibraryBundle
+    | SiteletBundle of IDictionary<TypeDefinition, ISet<Method>>
 
 type PackageContent =
     | SingleType of TypeDefinition
@@ -122,7 +124,7 @@ type PackageContent =
             | SingleType typ -> [| typ |]
             | Bundle (typs, _, _) -> typs
 
-let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) (isLibrary: bool) =
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
     let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
@@ -204,10 +206,41 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let export isDefault statement =
         match content with
         | SingleType _ -> ExportDecl(isDefault, statement)
+        | Bundle (_, SiteletBundle _, _) -> statement
         | Bundle _ -> 
             match statement with
             | ExprStatement(Var _) -> Empty
             | _ -> statement
+
+    let bundleExports = Dictionary<Address, Id>()
+    
+    let exportWithBundleSupport isDefault typ mOpt addr id statement =
+        match content with
+        | Bundle (_, SiteletBundle exportedTypes, _) ->
+            let bundleExport() =
+                bundleExports.Add(addr, id)
+                ExportDecl(false, statement)
+            let ignoreVar() =
+                match statement with
+                | ExprStatement(Var _) -> Empty
+                | _ -> statement
+
+            match exportedTypes.TryGetValue(typ) with
+            | true, null ->
+                bundleExport()
+            | true, methods ->
+                match mOpt with
+                | Some m ->
+                    if methods.Contains m then
+                        bundleExport()
+                    else
+                        ignoreVar()
+                | _ -> 
+                    bundleExport()
+            | _ ->
+                ignoreVar()
+        | _ -> 
+            export isDefault statement
 
     addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
@@ -518,9 +551,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let addStatement st =
         statements.Add <| ThisTransformer().TransformStatement(st)
 
-    //let package a expr =
-    //    let o, x = getFieldAddress a
-    //    addStatement <| ExprStatement (ItemSet (o, x, expr))    
+    match content with 
+    | Bundle (_, SiteletBundle _, _) ->
+        let runtime = Id.New("Runtime")
+        declarations.Add(ExportDecl(false, Import(None, None, [ "default", runtime], "../WebSharper.Core.JavaScript/Runtime.js")))   
+    | _ -> ()
 
     let implExpr, implSt, implStOpt, implExprOpt =
         if output = O.TypeScriptDeclaration then 
@@ -675,7 +710,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
+                    addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                        (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
                     let f = 
                         if output = O.JavaScript then f else
@@ -1095,14 +1131,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         let packageLazyClass classExpr =
             addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-            addStatement <| export true (ExprStatement(Var outerClassId))                
+            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))                
 
         let packageClass classDecl = 
             let trClassDecl =
                 classDecl
                 |> bTr().TransformStatement 
                 |> SubstituteVar(outerClassId, Var classId).TransformStatement
-            addStatement <| export true trClassDecl      
+            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId trClassDecl      
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -1198,23 +1234,25 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     if output <> O.TypeScriptDeclaration then
         match content with
         | Bundle(_, (OnLoadIfExists | ForceOnLoad), Some ep) ->
-            if isLibrary then
-                statements.Add (bodyTransformer([||]).TransformStatement(ep))
-            else
-                addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
-        | Bundle(_, ForceImmediate, Some ep) ->
+            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
+        | Bundle(_, (ForceImmediate | LibraryBundle), Some ep) ->
             statements.Add (bodyTransformer([||]).TransformStatement(ep))
         | Bundle(_, (ForceOnLoad | ForceImmediate), None) ->
             failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
         | _ -> ()
         
     if statements.Count = 0 then 
-        [] 
+        [], bundleExports 
     else
         if jsUsed.Count > 0 then
             let namedImports = 
                 jsUsed |> Seq.map (fun n -> n, Id.New(n, str = true)) |> List.ofSeq
             declarations.Add(Import(None, None, namedImports, ""))
+
+        let isSPABundleType =
+            match content with
+            | Bundle (_, (OnLoadIfExists | ForceOnLoad | ForceImmediate), _) -> true
+            | _ -> false
 
         for KeyValue(m, i) in imports do
             if not (currentScope.Contains(m)) then
@@ -1241,9 +1279,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 let fromModule =
                     if m.Assembly = "" then
                         m.Name
-                    elif isLibrary then
-                        "./" + m.Name + ext  
-                    elif not isSingleType then
+                    elif isSPABundleType then
                         "./" + m.Assembly + "/" + m.Name + ext  
                     elif m.Assembly = asmName then
                         "./" + m.Name + ext  
@@ -1251,13 +1287,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
-        List.ofSeq (Seq.concat [ declarations; statements ])
+        
+        List.ofSeq (Seq.concat [ declarations; statements ]), bundleExports
 
-let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle isLibrary =
+let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType output refMeta current asmName (SingleType typ) false
+        let p, _ = packageType output refMeta current asmName (SingleType typ)
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
@@ -1267,18 +1304,18 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = asmName; FullName = "$EntryPoint" }     
-        let p = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint)) isLibrary
+        let p, _ = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 
 let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let types =
         Seq.append current.Interfaces.Keys current.Classes.Keys
-        //current.Classes.Keys
         |> Seq.distinct
         |> Array.ofSeq
 
-    packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
+    let p, _ = packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
+    p
 
 let getImportedModules (pkg: Statement list) =
     pkg
@@ -1335,3 +1372,163 @@ let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.C
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile(), isJSX
+
+let packageEntryPointReexport (runtimeMeta: M.Info) =
+    let addresses = ResizeArray()
+
+    let assumeClass typ =
+        match runtimeMeta.Classes.TryFind typ with
+        | Some (_, _, Some cls) -> cls
+        | Some _ -> failwithf "Found custom type but not class: %s" typ.Value.FullName
+        | _ -> failwithf "Couldn't find class: %s" typ.Value.FullName
+    let rec isWebControl (cls: M.ClassInfo) =
+        match cls.BaseClass with
+        | Some { Entity = bT } ->
+            bT.Value.FullName = "WebSharper.Web.Control" || isWebControl (assumeClass bT)
+        | _ -> false
+
+    for (addr, _, cls) in runtimeMeta.Classes.Values do
+        match cls with 
+        | Some cls when isWebControl cls ->
+            addresses.Add(addr)    
+        | _ -> ()
+
+    let quoted = 
+        runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
+        |> Seq.append runtimeMeta.QuotedMethods
+
+    for td, m in quoted do
+        match runtimeMeta.Classes.TryFind td with
+        | Some (addr, _, Some cls) ->
+            match cls.Methods.TryFind m with
+            | Some mi -> 
+                match mi.CompiledForm with
+                | M.Static (name, _, _) -> addresses.Add(addr)
+                | M.Func (name, _) -> addresses.Add(addr.Func(name))
+                | M.GlobalFunc (faddr, _) -> addresses.Add(faddr) 
+                | _ -> ()
+            | _ -> ()
+        | _ -> ()
+
+    let addressMap = Dictionary()
+
+    addressMap.Add("Runtime", Address.RuntimeAddr [ "default" ])
+
+    for a in addresses do
+        addressMap |> Resolve.getRenamedInDict a.Address.Head a |> ignore
+
+    let revAddressMap = addressMap |> Dict.swap
+
+    let rootJs =
+        revAddressMap |> Seq.groupBy (fun kv -> kv.Key.Module)
+        |> Seq.map (fun (m, addrs) ->
+            let namedImports = ResizeArray()
+            for KeyValue(a, n) in addrs do
+                match a.Address |> List.rev |> List.head with
+                | "default" -> 
+                    let newName = 
+                        match m with
+                        | JavaScriptModule m -> 
+                            m.Name.Replace('.', '_').Replace('`', '_')
+                        | DotNetType m -> 
+                            (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                        | _ -> "default"
+                    namedImports.Add("default", Id.New newName)
+                | i ->
+                    namedImports.Add(i, Id.New n)    
+            let moduleName =
+                match m with
+                | JavaScriptModule m 
+                | DotNetType m -> 
+                    "../" + m.Assembly + "/" + m.Name + ".js"
+                | _ -> ""
+            ExportDecl (false, Import(None, None, List.ofSeq namedImports, moduleName))
+        )
+        |> List.ofSeq
+    
+    rootJs, revAddressMap
+
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
+    let addresses = ResizeArray()
+
+    let assumeClass typ =
+        match runtimeMeta.Classes.TryFind typ with
+        | Some (_, _, Some cls) -> cls
+        | Some _ -> failwithf "Found custom type but not class: %s" typ.Value.FullName
+        | _ -> failwithf "Couldn't find class: %s" typ.Value.FullName
+    let rec isWebControl (cls: M.ClassInfo) =
+        match cls.BaseClass with
+        | Some { Entity = bT } ->
+            bT.Value.FullName = "WebSharper.Web.Control" || isWebControl (assumeClass bT)
+        | _ -> false
+
+    for (addr, _, cls) in runtimeMeta.Classes.Values do
+        match cls with 
+        | Some cls when isWebControl cls ->
+            addresses.Add(addr)    
+        | _ -> ()
+
+    let webControls =
+        runtimeMeta.Classes |> Seq.choose (fun (KeyValue(td, (_, _, cls))) ->
+            match cls with 
+            | Some cls when isWebControl cls ->
+                Some td
+            | _ -> None
+        )
+        |> Array.ofSeq
+
+    let quoted = 
+        runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
+        |> Seq.append runtimeMeta.QuotedMethods
+        |> Array.ofSeq
+
+    let iControlBody =
+        TypeDefinition {
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.IControlBody"
+        }
+    let domNode = 
+        TypeDefinition {
+            Assembly = "WebSharper.JavaScript"
+            FullName = "WebSharper.JavaScript.Dom.Node"
+        }
+    let replaceInDom =
+        Method {
+            MethodName = "ReplaceInDom"
+            Parameters = [ NonGenericType domNode ]
+            ReturnType = VoidType
+            Generics = 0
+        }
+
+    let nodes =
+        seq {
+            for td in webControls do
+                yield M.TypeNode td
+            if webControls.Length > 0 then
+                yield M.AbstractMethodNode (iControlBody, replaceInDom)
+            for (td, m) in quoted do
+                yield M.MethodNode (td, m)
+        }
+        |> graph.GetDependencies
+    
+    let trimmed = trimMetadata runtimeMeta nodes 
+
+    let types =
+        Seq.append trimmed.Interfaces.Keys trimmed.Classes.Keys
+        |> Seq.distinct
+        |> Array.ofSeq
+
+    let exportedTypes = Dictionary<TypeDefinition, ISet<Method>>()
+    for (td, m) in quoted do
+        match exportedTypes.TryGetValue(td) with
+        | true, s -> s.Add(m) |> ignore
+        | false, _ ->
+            let s = HashSet()
+            s.Add(m) |> ignore
+            exportedTypes.Add(td, s)
+
+    for td in webControls do
+        exportedTypes[td] <- null
+
+    packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None))
+    

@@ -45,7 +45,7 @@ open Fake.JavaScript
 open WebSharper.Fake
 
 let version = "7.0"
-let pre = Some "beta3"
+let pre = Some "beta4"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x

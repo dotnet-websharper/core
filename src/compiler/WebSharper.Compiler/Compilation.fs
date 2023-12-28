@@ -90,6 +90,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notAnnotatedCustomTypes = Dictionary()
     let macroEntries = MergedDictionary meta.MacroEntries
     let quotations = MergedDictionary meta.Quotations
+    let quotedMethods = ResizeArray()
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -503,6 +504,8 @@ type Compilation(meta: Info, ?hasGraph) =
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
             ExtraBundles = this.CurrentExtraBundles
+            PreBundle = Map.empty
+            QuotedMethods = quotedMethods.ToArray()
         }    
 
     member this.HideInternalProxies(meta) =
@@ -550,6 +553,8 @@ type Compilation(meta: Info, ?hasGraph) =
             Quotations = quotations
             ResourceHashes = MergedDictionary meta.ResourceHashes
             ExtraBundles = this.AllExtraBundles
+            PreBundle = Map.empty
+            QuotedMethods = Seq.append meta.QuotedMethods quotedMethods |> Seq.toArray
         }    
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
@@ -618,6 +623,10 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, c: Constructor) =
         this.TryLookupQuotedArgMethod(typ, this.GetFakeMethodForCtor(c))
+
+    member this.AddQuotedMethod(typ, m) =        
+        if quotedMethods |> Seq.contains (typ, m) |> not then
+            quotedMethods.Add((typ, m))
 
     member this.AddClass(typ, cls) =
         try
@@ -2602,17 +2611,6 @@ type Compilation(meta: Info, ?hasGraph) =
                 ReturnType = ConcreteType (NonGeneric iControlBody)
                 Generics = 0
             } 
-        let info =
-            {
-                SiteletDefinition = this.SiteletDefinition 
-                Dependencies = GraphData.Empty
-                Interfaces = interfaces
-                Classes = classes
-                MacroEntries = macroEntries
-                Quotations = quotations
-                ResourceHashes = Dictionary()
-                ExtraBundles = this.AllExtraBundles
-            }    
         let jP = Json.ServerSideProvider
         let st = Verifier.State(jP)
         for KeyValue(t, cls) in classes.Current do

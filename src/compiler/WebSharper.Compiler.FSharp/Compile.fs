@@ -249,7 +249,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 let isLibrary = config.ProjectType = None 
 
                 let js, currentMeta, sources, res =
-                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary config.PreBundle
 
                 match config.ProjectType with
                 | Some (Bundle | Website) ->

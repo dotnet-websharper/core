@@ -374,6 +374,8 @@ type Info =
         Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
         ResourceHashes : IDictionary<string, int>
         ExtraBundles : Set<ExtraBundle>
+        PreBundle : IDictionary<Address, string>
+        QuotedMethods : (TypeDefinition * Method)[]
     }
 
     static member Empty =
@@ -386,6 +388,8 @@ type Info =
             Quotations = Map.empty
             ResourceHashes = Map.empty
             ExtraBundles = Set.empty
+            PreBundle = Map.empty
+            QuotedMethods = [||]
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -487,6 +491,8 @@ type Info =
                         pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
+            PreBundle = Map.empty
+            QuotedMethods = metas |> Array.collect (fun m -> m.QuotedMethods)
         }
 
     member this.ClassInfo(td) =
@@ -645,7 +651,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "7.0-beta3"
+    let CurrentVersion = "7.0-beta4"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

@@ -372,7 +372,7 @@ open System.Linq.Expressions
 //[<CallerFilePath; Optional>] sourceFilePath 
 //[<CallerLineNumber; Optional>] sourceLineNumber
 [<CompiledName "InlineControl">]
-type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBody>>) =
+type CSharpInlineControl([<JavaScript>] elt: System.Linq.Expressions.Expression<Func<IControlBody>>) =
     inherit Control()
 
     override this.Body = X<_>

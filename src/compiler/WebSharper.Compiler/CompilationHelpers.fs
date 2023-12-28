@@ -949,6 +949,38 @@ let refreshAllIds (i: Info) =
                 c.Fields |> Dict.map (fun f -> { f with CompiledForm = match f.CompiledForm with VarField i -> VarField (r.TransformId i) | cf -> cf })
         }), r.TransformStatement)
 
+let refreshVarFields (i: Info) =
+    i.MapClasses(fun c ->
+        if c.Fields.Values |> Seq.exists (fun f -> match f.CompiledForm with VarField _ -> true | _ -> false) then
+            let varFieldSubs = Dictionary()
+            let addVarField (i: Id) =
+                let n = i.Clone()
+                varFieldSubs.Add(i, Var n)  
+                n
+            let fields = 
+                c.Fields |> Dict.map (fun f -> { f with CompiledForm = match f.CompiledForm with VarField i -> VarField (addVarField i) | cf -> cf })
+            let subs = SubstituteVars(varFieldSubs)
+            let rec refreshNotInline i e =
+                match i with
+                | Inline _ -> e
+                | Macro (_, _, Some f) -> refreshNotInline f e
+                | _ -> subs.TransformExpression(e)
+            { c with
+                Constructors = 
+                    c.Constructors |> Dict.map (fun c -> { c with Expression = refreshNotInline c.CompiledForm c.Expression })
+                StaticConstructor = 
+                    c.StaticConstructor |> Option.map (fun b -> subs.TransformStatement b) 
+                Methods = 
+                    c.Methods |> Dict.map (fun m -> { m with Expression = refreshNotInline m.CompiledForm m.Expression })
+                Implementations = 
+                    c.Implementations |> Dict.map (fun i -> { i with Expression = subs.TransformExpression i.Expression })
+                Fields =
+                    fields
+            }
+        else
+            c
+    )
+
 type MaybeBuilder() =
     member this.Bind(x, f) = 
         match x with

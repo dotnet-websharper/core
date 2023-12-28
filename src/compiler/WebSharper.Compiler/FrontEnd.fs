@@ -115,7 +115,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     Some ("", "")
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
     let assemblyName = a.Name.Name
     let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
@@ -128,8 +128,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     
     logger.TimedStage "Source position transformations"
 
+    let epStyle =
+        if isLibrary then
+            JavaScriptPackager.EntryPointStyle.LibraryBundle
+        else
+            JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+
     let pkg = 
-        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
     logger.TimedStage "Packaging assembly"
     
@@ -179,17 +185,36 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
-            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm 
-            {
-                trimmed with
-                    Dependencies = 
-                        DependencyGraph.Graph.FromData(
-                            refMetas |> Seq.map (fun m -> m.Dependencies)
-                            |> Seq.append [ trimmed.Dependencies ]
-                        ).GetData()
-            }
-            
-            |> Some
+            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm |> refreshVarFields
+            let graph =
+                DependencyGraph.Graph.FromData(
+                    refMetas |> Seq.map (fun m -> m.Dependencies)
+                    |> Seq.append [ trimmed.Dependencies ]
+                )
+            let meta = 
+                refMetas |> Seq.map refreshAllIds
+                |> Seq.append (Seq.singleton current)
+                |> M.Info.UnionWithoutDependencies
+
+            let bundleJs, addrMap =
+                if prebundle then
+                    let bundleCode, addrMap = JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
+                    let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
+                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                    Some js, Some trAddrMap
+                else
+                    None, None
+            let updated =
+                {
+                    trimmed with
+                        Dependencies = 
+                            graph.GetData() 
+                        PreBundle = 
+                            match addrMap with
+                            | Some am -> am
+                            | _ -> Dictionary()
+                }
+            Some (updated, bundleJs)
         | _ -> None
 
     let addMeta() =
@@ -198,14 +223,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             let p = assemblyName + "/" + r.FileName
             let d = r.GetContentData()
             current.ResourceHashes.Add(p, AST.StableHash.data d)
-            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
+            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         for (p, d) in resToHash do
             try                                   
                 current.ResourceHashes.Add(p, AST.StableHash.data d)
             with _ ->
                 failwithf "Resource name collision: %s" p
-            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
+            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         logger.TimedStage "Hashing resources"
 
@@ -217,7 +242,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         res.Add(EMBEDDED_METADATA, meta)
 
         match rMeta with
-        | Some rm ->
+        | Some (rm, _) ->
             let erMeta = 
                 use s = new MemoryStream(8 * 1024)
                 M.IO.Encode s rm
@@ -236,6 +261,13 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             i.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
         )
     
+    let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+
+    match rMeta with
+    | Some (_, Some bundleJs) ->
+        addRes "root.js" (Some "") (Some (getBytes bundleJs))
+    | _ -> ()
+
     if pkg.Length > 0 then
         
         let getCodeWriter() = 
@@ -245,7 +277,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
-        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let shouldUseJSX = ResizeArray<string>()
         let jss' = 
             pkg 
@@ -282,6 +313,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             //minMap |> Option.iter (fun m ->
             //    addRes (n + ".min.map") None (Some (getBytes m)))        
             //logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        
         let resources = 
             match comp with
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
@@ -289,7 +321,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if ts then
             let tspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in tspkg do
                 let ts, _, isJSX =
@@ -303,7 +335,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if dts then
             let dtspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in dtspkg do
                 let ts, _, _ =
@@ -336,8 +368,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)

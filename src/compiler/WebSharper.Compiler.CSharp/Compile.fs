@@ -134,7 +134,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | _ -> None
 
             let js, currentMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None)
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) config.PreBundle
 
             match config.ProjectType with
             | Some (Bundle | Website) ->

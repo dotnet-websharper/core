@@ -1319,6 +1319,7 @@ type FSharp.Compiler.Text.Range with
 let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
     let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
     let quotations = ResizeArray()
+    let quotedMethods = ResizeArray()
     let rec scan (expr: FSharpExpr) =
         let default'() =
             List.iter scan expr.ImmediateSubExpressions
@@ -1371,6 +1372,11 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             | _ -> false
                         if not isTrivial then
                             quotations.Add(pos, qm, argNames, f) 
+                        else
+                            match e with 
+                            | I.Call(None, td, m, _) ->
+                                quotedMethods.Add(td, m) 
+                            | _ -> ()
                     | None -> scan arg
                 )
             
@@ -1414,4 +1420,4 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
             // see https://github.com/dotnet-websharper/core/issues/904
             ()
     scan expr
-    quotations :> _ seq
+    quotations :> _ seq, quotedMethods :> _ seq

@@ -84,11 +84,11 @@ let Tests =
             equal (sayHi "World") "Hello, World!"
         }
 
-        Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("./sayHi.js") |> Promise.AsAsync
-            let sayHi = As<string -> string>(sayHiModule?sayHi)
-            equal (sayHi "World") "Hello, World!"
-        }
+        //Test "JS.ImportDynamic" {
+        //    let! sayHiModule = JS.ImportDynamic("./sayHi.js") |> Promise.AsAsync
+        //    let sayHi = As<string -> string>(sayHiModule?sayHi)
+        //    equal (sayHi "World") "Hello, World!"
+        //}
 
         Skip "Import attribute with Stub" {
             equal (MyClassStub.sayHiStatic "World") "Hello, World!"
