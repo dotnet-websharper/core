@@ -450,9 +450,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Inline _ -> true
             | M.Macro(_, _, Some f) -> ii f
             | _ -> false
-        match info with        
-        | NotCompiled (m, _, _, _) 
-        | NotGenerated (_, _, m, _, _) -> ii m
+        ii info.CompiledMember 
 
     let breakExpr e = 
         if currentIsInline then
@@ -498,7 +496,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if hasDelayedTransform then res else
             CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformStatement res
      
-    member this.Generate(g, p, m) =
+    member this.Generate(g, p, m, cm, e) =
         match comp.GetGeneratorInstance(g) with
         | Some gen ->
             let genResult = 
@@ -507,12 +505,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Member = m
                         Parameter = p
                         Compilation = comp
+                        CompiledMember = cm
+                        Expression = e
                     }
                 with e -> GeneratorError (e.Message + " at " + e.StackTrace)
             let verifyFunction gres =
                 match IgnoreExprSourcePos gres with 
                 | Function _ -> gres
                 | _ -> this.Error(sprintf "Generator not returning a function: %s" g.Value.FullName)
+            let mutable cm = cm
             let rec getExpr gres = 
                 match gres with
                 | GeneratedQuotation q -> 
@@ -526,14 +527,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | GeneratorWarning (msg, gres) ->
                     this.Warning (sprintf "Generator warning in %s: %s" g.Value.FullName msg)
                     getExpr gres
-            getExpr genResult
-            |> breakExpr
+                | GeneratorCompiledMemberChange (updatedCM, gres) ->
+                    cm <- updatedCM
+                    getExpr gres
+            getExpr genResult |> breakExpr, cm
         | None ->
             if comp.UseLocalMacros then
-                this.Error("Getting generator failed")
+                this.Error("Getting generator failed"), cm
             else
                 this.Warning("Could not run generator in code service.")
-                Undefined       
+                Undefined, cm       
 
     member this.CustomTypeConstructor (typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, ctor: Constructor, args) =
         match i with
@@ -679,35 +682,28 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let addr, cls = comp.TryLookupClassInfo(typ).Value
             currentGenerics <- Array.ofList (cls.Generics @ gs)
             currentIsInline <- isInline info
-            match info with
-            | NotCompiled (i, notVirtual, opts, jsOpts) ->
-                currentFuncArgs <- opts.FuncArgs
-                currentJsOpts <- jsOpts
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
-                let res = this.CheckResult(res)
-                let opts =
-                    { opts with
-                        IsPure = notVirtual && (opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res))
-                    } 
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
-            | NotGenerated (g, p, i, notVirtual, opts) ->
-                let m = GeneratedMethod(typ, meth)
-                let res = this.Generate (g, p, m)
-                let res = this.CheckResult(res)
-                let opts =
-                    { opts with
-                        IsPure = notVirtual && (opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res))
-                    }
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            currentFuncArgs <- info.Optimizations.FuncArgs
+            currentJsOpts <- info.JavaScriptOptions
+            let res, cm = 
+                match info.Generator with
+                | None ->
+                    expr |> applyJsOptions currentJsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.CheckResult,
+                    info.CompiledMember
+                | Some (g, p) ->
+                    let m = GeneratedMethod(typ, meth)
+                    let gen, cm = this.Generate (g, p, m, info.CompiledMember, expr) 
+                    gen |> this.CheckResult, cm
+            let opts =
+                { info.Optimizations with
+                    IsPure = info.NotVirtual && (info.Optimizations.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res))
+                } 
+            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo cm, opts, res)
 #if DEBUG
             logTransformations <- false
 #endif
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
-            match info with
-            | NotCompiled (i, _, opts, _) 
-            | NotGenerated (_, _, i, _, opts) ->
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo info.CompiledMember, info.Optimizations, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
@@ -715,22 +711,19 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentNode <- M.ImplementationNode(typ, intf, meth)
             currentGenerics <- comp.GetAbtractMethodGenerics intf meth
             currentIsInline <- isInline info
-            match info with
-            | NotCompiled (i, _, _, jsOpts) -> 
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
-                let res = this.CheckResult(res)
-                comp.AddCompiledImplementation(typ, intf, meth, i, res)
-            | NotGenerated (g, p, i, _, _) ->
-                let m = GeneratedImplementation(typ, intf, meth)
-                let res = this.Generate (g, p, m) |> breakExpr
-                let res = this.CheckResult(res)
-                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+            let res, cm =
+                match info.Generator with
+                | None ->
+                    expr |> applyJsOptions info.JavaScriptOptions |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.CheckResult,
+                    info.CompiledMember
+                | Some (g, p) ->
+                    let m = GeneratedImplementation(typ, intf, meth)
+                    let gen, cm = this.Generate (g, p, m, info.CompiledMember, expr)
+                    gen |> this.CheckResult, cm
+            comp.AddCompiledImplementation(typ, intf, meth, cm, res)
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
-            match info with
-            | NotCompiled (i, _, _, _) 
-            | NotGenerated (_, _, i, _, _) ->
-                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+            comp.AddCompiledImplementation(typ, intf, meth, info.CompiledMember, res)
 
     member this.CompileConstructor(info, expr, typ, ctor) =
         try
@@ -743,32 +736,25 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentIsInline <- isInline info
             let addr, cls = comp.TryLookupClassInfo(typ).Value
             currentGenerics <- Array.ofList cls.Generics
-            match info with
-            | NotCompiled (i, _, opts, jsOpts) -> 
-                currentFuncArgs <- opts.FuncArgs
-                currentJsOpts <- jsOpts
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
-                let res = this.CheckResult(res)
-                let opts =
-                    { opts with
-                        IsPure = opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res)
-                    }
-                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
-            | NotGenerated (g, p, i, _, opts) ->
-                let m = GeneratedConstructor(typ, ctor)
-                let res = this.Generate (g, p, m)
-                let res = this.CheckResult(res)
-                let opts =
-                    { opts with
-                        IsPure = opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res)
-                    }
-                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+            currentFuncArgs <- info.Optimizations.FuncArgs
+            currentJsOpts <- info.JavaScriptOptions
+            let res, cm =
+                match info.Generator with
+                | None ->
+                    expr |> applyJsOptions info.JavaScriptOptions |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.CheckResult,
+                    info.CompiledMember
+                | Some (g, p) ->
+                    let m = GeneratedConstructor(typ, ctor)
+                    let gen, cm = this.Generate (g, p, m, info.CompiledMember, expr)
+                    gen |> this.CheckResult, cm
+            let opts =
+                { info.Optimizations with
+                    IsPure = info.Optimizations.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res)
+                }
+            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo cm, opts, res)
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
-            match info with
-            | NotCompiled (i, _, opts, _)
-            | NotGenerated (_, _, i, _, opts) ->
-                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo info.CompiledMember, info.Optimizations, res)
 
     member this.CompileStaticConstructor(expr, typ) =
         try
@@ -1182,11 +1168,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.AnotherNode().CompileMethod(info, gc, expr, typ.Entity, meth.Entity)
                 this.TransformCall (thisObj, typ, meth, args)
             else
-                match info with
-                | NotCompiled (info, _, opts, _) ->
-                    this.CompileCall(info, gc, opts, expr, thisObj, typ, meth, args)
-                | NotGenerated (_, _, info, _, _) ->
-                    this.CompileCall(info, gc, M.Optimizations.None, expr, thisObj, typ, meth, args)
+                this.CompileCall(info.CompiledMember, gc, info.Optimizations, expr, thisObj, typ, meth, args)
         | CustomTypeMember ct ->  
             try
                 this.CustomTypeMethod(thisObj, typ, ct, meth, args)
@@ -1286,7 +1268,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             call        
         match comp.LookupMethodInfo(typ.Entity, meth.Entity, false) with
         | Compiled (info, _, _, _)
-        | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
+        | Compiling ({ CompiledMember = info }, _, _) ->
             match info with 
             | M.Static (name, _, kind) ->
                 match kind with
@@ -1677,11 +1659,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
                 this.TransformCtor(typ, ctor, args)
             else 
-                match info with
-                | NotCompiled (info, _, opts, _) -> 
-                    this.CompileCtor(info, gc, opts, expr, typ, ctor, args)
-                | NotGenerated (_, _, info, _, _) ->
-                    this.CompileCtor(info, gc, M.Optimizations.None, expr, typ, ctor, args)
+                this.CompileCtor(info.CompiledMember, gc, info.Optimizations, expr, typ, ctor, args)
         | CustomTypeMember ct ->  
             try
                 this.CustomTypeConstructor(typ, ct, ctor, args)
@@ -1837,7 +1815,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let getOverrideNameAndKind typ meth =
             match comp.LookupMethodInfo(typ, meth, false) with
             | Compiled (M.Instance (name, kind), _, _, _) 
-            | Compiling ((NotCompiled ((M.Instance (name, kind)), _, _, _) | NotGenerated (_,_,M.Instance (name, kind), _, _)), _, _) ->
+            | Compiling ({ CompiledMember = M.Instance (name, kind) }, _, _) ->
                 name, kind
             | LookupMemberError err ->
                 this.Error err |> ignore

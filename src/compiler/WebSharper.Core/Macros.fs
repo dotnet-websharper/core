@@ -1671,17 +1671,29 @@ type ImportJS() =
                     c.Compilation.AddJSImport (None, from) |> MacroOk                
                 else
                     MacroError "JS.Import `export` argument must be a valid identifier"
-            | _ -> MacroError "JS.Import arguments must be constant string"
+            | _ -> 
+                if c.IsInline then
+                    MacroNeedsResolvedTypeArg (NonGenericType Definitions.String)
+                else
+                    MacroError "JS.Import arguments must be constant string"
         | "ImportDefault" ->
             match c.Arguments with
             | [I.Value (String from)] ->
                 c.Compilation.AddJSImport (None, from) |> MacroOk
-            | _ -> MacroError "JS.ImportDefault arguments must be constant string"
+            | _ ->
+                if c.IsInline then
+                    MacroNeedsResolvedTypeArg (NonGenericType Definitions.String)
+                else
+                    MacroError "JS.ImportDefault arguments must be constant string"
         | "ImportAll" ->
             match c.Arguments with
             | [I.Value (String from)] ->
                 c.Compilation.AddJSImport (Some "*", from) |> MacroOk
-            | _ -> MacroError "JS.ImportAll argument must be constant string"
+            | _ -> 
+                if c.IsInline then
+                    MacroNeedsResolvedTypeArg (NonGenericType Definitions.String)
+                else
+                    MacroError "JS.ImportAll argument must be constant string"
         | _ ->
             failwith "Unrecognized method using ImportJS"
 

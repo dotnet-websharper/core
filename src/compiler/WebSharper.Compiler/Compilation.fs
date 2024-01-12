@@ -337,11 +337,27 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Func (meth.Value.MethodName, false), true, Optimizations.None, JavaScriptOptions.None), [], body))
+            let c =
+                {
+                    CompiledMember = Func (meth.Value.MethodName, false)
+                    NotVirtual = true
+                    Optimizations = Optimizations.None
+                    JavaScriptOptions = JavaScriptOptions.None
+                    Generator = None
+                }
+            compilingMethods.Add((td, meth), (c, [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Inline (true, false), true, Optimizations.None, JavaScriptOptions.None), [], body))
+            let c =
+                {
+                    CompiledMember = Inline (true, false)
+                    NotVirtual = true
+                    Optimizations = Optimizations.None
+                    JavaScriptOptions = JavaScriptOptions.None
+                    Generator = None
+                }
+            compilingMethods.Add((td, meth),(c, [], body))
 
         member this.AssemblyName = this.AssemblyName
 
@@ -1694,10 +1710,13 @@ type Compilation(meta: Info, ?hasGraph) =
             }
 
         let toCompilingMember (nr : NotResolvedMethod) (comp: CompiledMember) =
-            match nr.Generator with
-            | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind, opts nr.Pure nr)
-            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr, nr.JavaScriptOptions)
-            
+            {
+                CompiledMember = comp
+                NotVirtual = notVirtual nr.Kind
+                Optimizations = opts nr.Pure nr
+                JavaScriptOptions = nr.JavaScriptOptions
+                Generator = nr.Generator
+            }
 
         //let setClassAddress typ (clAddr: PlainAddress) =
         //    match classes.Current.TryFind typ with
@@ -2364,7 +2383,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | Some smi -> Some smi.CompiledForm
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
-                                    | Some ((NotCompiled (smi,_,_,_) | NotGenerated (_,_,smi,_,_)),_,_) -> Some smi
+                                    | Some (cm,_,_) -> Some cm.CompiledMember
                                     | None ->
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
@@ -2403,9 +2422,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingMethods 
                         |> Seq.tryPick(fun (KeyValue((td, m), (cm, _, _))) ->
                             if td = typ then
-                                match cm with 
-                                | NotCompiled (Instance (name, kind), _, _, _) 
-                                | NotGenerated (_, _, Instance (name, kind), _, _) when name = n -> Some (MethodNode(typ, m))
+                                match cm.CompiledMember with 
+                                | Instance (name, _) when name = n -> Some (MethodNode(typ, m))
                                 | _ -> None
                             else None
                         )
@@ -2414,9 +2432,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingImplementations 
                         |> Seq.tryPick(fun (KeyValue((td, i, m), (cm, _))) ->
                             if td = typ then
-                                match cm with 
-                                | NotCompiled (Instance (name, kind), _, _, _) 
-                                | NotGenerated (_, _, Instance (name, kind), _, _) when name = n -> Some (ImplementationNode(typ, i, m))
+                                match cm.CompiledMember with 
+                                | Instance (name, _) when name = n -> Some (ImplementationNode(typ, i, m))
                                 | _ -> None
                             else None
                         )
@@ -2449,9 +2466,8 @@ type Compilation(meta: Info, ?hasGraph) =
                                 compilingMethods 
                                 |> Seq.choose(fun (KeyValue((td, m), (cm, _, _))) ->
                                     if td = typ && m = meth then
-                                        match cm with 
-                                        | NotCompiled (Instance (name, kind), _, _, _) 
-                                        | NotGenerated (_, _, Instance (name, kind), _, _) -> Some name
+                                        match cm.CompiledMember with 
+                                        | Instance (name, _) -> Some name
                                         | _ -> None
                                     else None
                                 )
@@ -2460,9 +2476,8 @@ type Compilation(meta: Info, ?hasGraph) =
                                 compilingImplementations 
                                 |> Seq.choose(fun (KeyValue((td, _, m), (cm, _))) ->
                                     if td = typ && m = meth then
-                                        match cm with 
-                                        | NotCompiled (Instance (name, kind), _, _, _) 
-                                        | NotGenerated (_, _, Instance (name, kind), _, _) -> Some name
+                                        match cm.CompiledMember with 
+                                        | Instance (name, _) -> Some name
                                         | _ -> None
                                     else None
                                 )
