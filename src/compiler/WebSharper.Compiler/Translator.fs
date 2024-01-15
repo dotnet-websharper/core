@@ -1568,14 +1568,37 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         Labeled(a, this.TransformStatement b)
 
     override this.TransformOverrideName(typ, meth) =
-        match comp.LookupMethodInfo(typ, meth, false) with
-        | Compiled (M.Instance name, _, _) 
-        | Compiling ((NotCompiled ((M.Instance name), _, _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
-            Value (String name)
-        | LookupMemberError err ->
-            this.Error err
-        | _ -> 
-            this.Error ("Could not get name of abstract method")
+        let rec transformOverrideName typ meth fallback =
+            match comp.LookupMethodInfo(typ, meth, false) with
+            | Compiled (M.Instance name, _, _) 
+            | Compiling ((NotCompiled ((M.Instance name), _, _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
+                Value (String name)
+            | LookupMemberError err ->
+                let fail() =
+                    this.Error err
+                if not fallback then
+                    match comp.TryLookupInterfaceInfo typ with
+                    | Some ii ->
+                        let methodByName =
+                            ii.Methods.Keys |> Seq.where (fun m -> m.Value.MethodName = meth.Value.MethodName) |> Array.ofSeq
+                        match methodByName with
+                        | [| m |] -> transformOverrideName typ m true
+                        | _ -> fail()
+                    | _ ->
+                        match comp.TryLookupClassInfo typ with
+                        | Some ci ->
+                            let methodByName =
+                                ci.Methods.Keys |> Seq.where (fun m -> m.Value.MethodName = meth.Value.MethodName) |> Array.ofSeq
+                            match methodByName with
+                            | [| m |] -> transformOverrideName typ m true
+                            | _ -> fail()
+                        | _ ->
+                            fail()
+                else
+                    fail()
+            | _ -> 
+                this.Error ("Could not get name of abstract method")
+        transformOverrideName typ meth false
 
     override this.TransformSelf () = 
         match selfAddress with
