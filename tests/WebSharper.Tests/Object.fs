@@ -241,6 +241,23 @@ type StaticTypeTest() =
         | :? StaticTypeTest -> true
         | _ -> false
 
+[<JavaScript; Name "">]
+type IParseState =
+    abstract RaiseError<'b> : unit -> 'b
+
+[<JavaScript; Name "">]
+type IParseState2 =
+    abstract RaiseError<'a, 'b> : unit -> 'a * 'b
+
+[<JavaScript; AbstractClass>]
+type ParseStateAbstract() =
+    abstract RaiseError<'b> : unit -> 'b
+
+[<JavaScript>]
+type ParseState() =
+    interface IParseState with
+        member _.RaiseError()  = raise <| System.Exception("asd")
+
 [<JavaScript>]
 let Tests =
     TestCategory "Object" {
@@ -546,6 +563,35 @@ let Tests =
         Test "Static method type test against current type" {
             let o = StaticTypeTest()
             isTrue (StaticTypeTest.TestType(o))
+        }
+
+        Test "Generics in interface implementation" {
+            let parseState = ParseState() 
+            raises ((parseState :> IParseState).RaiseError())
+            isTrue (parseState?RaiseError !==. JS.Undefined)
+        }
+
+        Test "Local generics in interface implementation" {
+            let parseState =                                                                                            
+                { new IParseState with 
+                    member _.RaiseError()  = raise <| System.Exception("asd")
+                }
+            raises (parseState.RaiseError())
+            isTrue (parseState?RaiseError !==. JS.Undefined)
+
+            let parseStateAbstract =                                                                                            
+                { new ParseStateAbstract() with 
+                    override _.RaiseError()  = raise <| System.Exception("asd")
+                }
+            raises (parseStateAbstract.RaiseError())
+            isTrue (parseStateAbstract?RaiseError !==. JS.Undefined)
+
+            let parseState2 =                                                                                            
+                { new IParseState2 with 
+                    member _.RaiseError()  = raise <| System.Exception("asd")
+                }
+            raises (parseState2.RaiseError())
+            isTrue (parseState2?RaiseError !==. JS.Undefined)
         }
 
         Skip "Default interface member consumption" {

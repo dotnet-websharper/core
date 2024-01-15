@@ -1834,14 +1834,35 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         Binary(this.TransformExpression a, BinaryOperator.``??``, this.TransformExpression c) 
 
     override this.TransformObjectExpr(typ, ctor, ovr) =
-        let getOverrideNameAndKind typ meth =
+        let rec getOverrideNameAndKind typ meth fallback =
             match comp.LookupMethodInfo(typ, meth, false) with
             | Compiled (M.Instance (name, kind), _, _, _) 
             | Compiling ((NotCompiled ((M.Instance (name, kind)), _, _, _) | NotGenerated (_,_,M.Instance (name, kind), _, _)), _, _) ->
                 name, kind
             | LookupMemberError err ->
-                this.Error err |> ignore
-                "$$ERROR$$", MemberKind.Simple
+                let fail() =
+                    this.Error err |> ignore
+                    "$$ERROR$$", MemberKind.Simple
+                if not fallback then
+                    match comp.TryLookupInterfaceInfo typ with
+                    | Some ii ->
+                        let methodByName =
+                            ii.Methods.Keys |> Seq.where (fun m -> m.Value.MethodName = meth.Value.MethodName) |> Array.ofSeq
+                        match methodByName with
+                        | [| m |] -> getOverrideNameAndKind typ m true
+                        | _ -> fail()
+                    | _ ->
+                        match comp.TryLookupClassInfo typ with
+                        | Some (_, ci) ->
+                            let methodByName =
+                                ci.Methods.Keys |> Seq.where (fun m -> m.Value.MethodName = meth.Value.MethodName) |> Array.ofSeq
+                            match methodByName with
+                            | [| m |] -> getOverrideNameAndKind typ m true
+                            | _ -> fail()
+                        | _ ->
+                            fail()
+                else
+                    fail()
             | _ -> 
                 this.Error ("Could not get name of abstract method") |> ignore
                 "$$ERROR$$", MemberKind.Simple
@@ -1864,7 +1885,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let trOvr =
                 ovr |> List.map (
                     fun (t, m, e) ->                    
-                        let name, kind = getOverrideNameAndKind t m
+                        let name, kind = getOverrideNameAndKind t m false
                         match e with 
                         //| FuncWithThis (thisParam, pars, ret, body) ->
                         //    let bodyWithThis = SubstituteVar(thisParam, This).TransformStatement body
@@ -1878,7 +1899,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let obj =                
                 Object (
                     ovr |> List.map (fun (t, m, e) ->
-                        let name, kind = getOverrideNameAndKind t m
+                        let name, kind = getOverrideNameAndKind t m false
                         name, kind, this.TransformExpression e
                     )
                 )
