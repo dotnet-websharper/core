@@ -222,7 +222,7 @@ let (|BinaryOpName|_|) = function
 /// recognizes .NET names for unary operators
 let (|UnaryOpName|_|) = function
     | "op_UnaryPlus" -> Some UnaryOperator.``+``
-    | "op_LogicalNot" -> Some UnaryOperator.``!``
+    | "op_LogicalNot" -> Some UnaryOperator.``~``
     | "op_UnaryNegation" -> Some UnaryOperator.``-``
     | "op_OnesComplement" -> Some UnaryOperator.``~``
     | _ -> None
