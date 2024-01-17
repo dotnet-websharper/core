@@ -1164,7 +1164,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiled (info, opts, gc, expr) ->
             this.CompileCall(info, gc, opts, expr, thisObj, typ, meth, args)
         | Compiling (info, gc, expr) ->
-            if isInline info then
+            if isInline info || info.Generator.IsSome then 
                 this.AnotherNode().CompileMethod(info, gc, expr, typ.Entity, meth.Entity)
                 this.TransformCall (thisObj, typ, meth, args)
             else

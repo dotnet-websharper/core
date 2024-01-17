@@ -869,7 +869,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             addM nrInline true None i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
-                        addM (getKind()) false None Undefined
+                        addM (getKind()) false None (getBody false |> snd)
                     | A.MemberKind.AttributeConflict m -> error m
                     | A.MemberKind.Remote _ 
                     | A.MemberKind.Stub -> failwith "should be handled previously"

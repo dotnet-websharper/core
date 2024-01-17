@@ -1201,7 +1201,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         addMethod (Some (meth, memdef)) mAnnot mdef nrInline true i
                     else error "OptionalField attribute not on property"
                 | A.MemberKind.Generated _ ->
-                    addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) false Undefined
+                    addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) false (getBody false)
                 | A.MemberKind.AttributeConflict m -> error m
                 | A.MemberKind.Remote rp -> 
                     let remotingKind =
