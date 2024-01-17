@@ -206,7 +206,7 @@ type AttributeReader<'A>() =
     abstract GetCtorArgs : 'A -> obj[]
     abstract GetNamedArgs : 'A -> (string * obj)[]
     abstract GetTypeDef : obj -> TypeDefinition
-    abstract MacroOrGeneratedAttribute : 'A -> 'A option * bool
+    abstract GetAttributeRedirections : 'A -> 'A []
 
     member private this.CtorArg<'T>(attr, ?n) =
         this.GetCtorArgs(attr)
@@ -258,10 +258,17 @@ type AttributeReader<'A>() =
         def, param
 
     member private this.ReadExternal (attr: 'A) =
-        match this.MacroOrGeneratedAttribute attr with
-        | Some ma, true -> A.Macro (this.ReadTypeArg ma)
-        | Some ma, false -> A.Generated (this.ReadTypeArg ma)
-        | None, _ -> A.OtherAttribute         
+        [
+            for attr in this.GetAttributeRedirections attr do
+                if this.GetAssemblyName attr = "WebSharper.Core" then
+                    yield
+                        match this.GetName attr with
+                        | "MacroAttribute" ->
+                            A.Macro (this.ReadTypeArg attr)
+                        | "GeneratedAttribute" ->
+                            A.Generated (this.ReadTypeArg attr) 
+                        | n -> A.OtherAttribute
+        ]
 
     member private this.Read (attr: 'A) =
         let proxyAttr isInternal =
@@ -390,10 +397,11 @@ type AttributeReader<'A>() =
                 | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
             | _ ->
-                match this.ReadExternal a with
-                | A.Macro (m, p) -> macros.Add (m, p)
-                | A.Generated _ as ar -> attrArr.Add ar
-                | _ -> ()
+                for attr in this.ReadExternal a do
+                    match attr with
+                    | A.Macro (m, p) -> macros.Add (m, p)
+                    | A.Generated _ as ar -> attrArr.Add ar
+                    | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
             js <- Some true
         let isJavaScript, isStub =
@@ -563,7 +571,7 @@ type ReflectionAttributeReader() =
     override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq
     override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun a -> a.MemberName, a.TypedValue.Value) |> Array.ofSeq
     override this.GetTypeDef o = Reflection.ReadTypeDefinition (o :?> System.Type)
-    override this.MacroOrGeneratedAttribute _ = None, false
+    override this.GetAttributeRedirections attr = attr.AttributeType.GetCustomAttributesData() |> Array.ofSeq 
 
 let attrReader = ReflectionAttributeReader()
 
