@@ -18,12 +18,13 @@
 //
 // $end{copyright}
 
-/// Provides supporting types for implementing custom compilation
-/// rules using MacroAttribute.
+// Provides supporting types for implementing custom compilation
+// rules using MacroAttribute.
 namespace WebSharper.Core
 
 open WebSharper.Core.AST
 open System.Collections.Generic
+open Metadata
 
 /// Input for a TranslateCall method on a macro
 type MacroCall =
@@ -92,6 +93,7 @@ type GeneratorResult =
     | GeneratedJavaScript of JavaScript.Syntax.Expression
     | GeneratorError of string
     | GeneratorWarning of string * GeneratorResult
+    | GeneratorCompiledMemberChange of CompiledMember * GeneratorResult
 
 /// An abstract base class for macro definitions used with MacroAttribute.
 [<AbstractClass>]
@@ -124,6 +126,8 @@ type Generated =
         Member : GeneratedMember
         Parameter : option<obj>
         Compilation : Metadata.ICompilation
+        Expression : Expression
+        CompiledMember : CompiledMember
     }
 
 /// An abstract base class for code generation used with GeneratedAttribute.

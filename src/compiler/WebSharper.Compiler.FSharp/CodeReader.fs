@@ -343,6 +343,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (_, n, _, v) -> n, v) |> Array.ofSeq
             override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
+            override this.GetAttributeRedirections attr = attr.AttributeType.Attributes |> Array.ofSeq
         }
 
     member this.ResolveAnonRecord (d: FSharpAnonRecordTypeDetails) =

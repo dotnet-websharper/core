@@ -30,8 +30,13 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember * notVirtual: bool * opts: Optimizations * jsOpts: JavaScriptOptions
-    | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool * opts: Optimizations
+    {
+        CompiledMember : CompiledMember
+        NotVirtual : bool
+        Optimizations : Optimizations
+        JavaScriptOptions: JavaScriptOptions
+        Generator : option<TypeDefinition * option<obj>>
+    }
 
 module NotResolved =
     [<RequireQualifiedAccess>]

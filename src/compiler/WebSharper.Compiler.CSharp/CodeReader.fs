@@ -244,6 +244,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (KeyValue(n, v)) -> n, getTypedConstantValue v) |> Array.ofSeq
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
+            override this.GetAttributeRedirections attr = attr.AttributeClass.GetAttributes() |> Array.ofSeq
         }
 
     member this.RegisterCustomType def (td: INamedTypeSymbol) =
