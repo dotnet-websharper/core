@@ -132,7 +132,7 @@ type MacroAttribute private () =
 
 /// Annotates methods with a generator type that provides the method body.
 /// The supplied type should implement Macros.IGenerator and a default constructor.
-[<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
+[<Sealed; U(T.Constructor|||T.Method|||T.Property|||T.Struct|||T.Class|||T.Interface)>]
 type GeneratedAttribute private () =
     inherit A()
 

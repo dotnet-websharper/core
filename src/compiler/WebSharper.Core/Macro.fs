@@ -18,8 +18,8 @@
 //
 // $end{copyright}
 
-/// Provides supporting types for implementing custom compilation
-/// rules using MacroAttribute.
+// Provides supporting types for implementing custom compilation
+// rules using MacroAttribute.
 namespace WebSharper.Core
 
 open WebSharper.Core.AST

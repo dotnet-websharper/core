@@ -343,6 +343,16 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (_, n, _, v) -> n, v) |> Array.ofSeq
             override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
+            override this.MacroOrGeneratedAttribute attr =
+                let entityType = attr.AttributeType
+                entityType.Attributes
+                |> Seq.tryFind (fun a ->
+                    this.GetName a = "MacroAttribute" && this.GetAssemblyName a = "WebSharper.Core"
+                    || this.GetName a = "GeneratedAttribute" && this.GetAssemblyName a = "WebSharper.Core"
+                )
+                |> function
+                | Some attr -> Some attr, this.GetName attr = "MacroAttribute"
+                | None -> None, false
         }
 
     member this.ResolveAnonRecord (d: FSharpAnonRecordTypeDetails) =

@@ -206,6 +206,7 @@ type AttributeReader<'A>() =
     abstract GetCtorArgs : 'A -> obj[]
     abstract GetNamedArgs : 'A -> (string * obj)[]
     abstract GetTypeDef : obj -> TypeDefinition
+    abstract MacroOrGeneratedAttribute : 'A -> 'A option * bool
 
     member private this.CtorArg<'T>(attr, ?n) =
         this.GetCtorArgs(attr)
@@ -255,6 +256,12 @@ type AttributeReader<'A>() =
                 Some args.[1]
             else None
         def, param
+
+    member private this.ReadExternal (attr: 'A) =
+        match this.MacroOrGeneratedAttribute attr with
+        | Some ma, true -> A.Macro (this.ReadTypeArg ma)
+        | Some ma, false -> A.Generated (this.ReadTypeArg ma)
+        | None, _ -> A.OtherAttribute         
 
     member private this.Read (attr: 'A) =
         let proxyAttr isInternal =
@@ -339,8 +346,7 @@ type AttributeReader<'A>() =
             | [| f |] -> A.Import (None, unbox f)
             | [| e; f |] -> A.Import (Some (unbox e), unbox f)
             | _ -> failwith "invalid constructor arguments for ImportAttribute" 
-        | n -> 
-            A.OtherAttribute
+        | n -> A.OtherAttribute
 
     member private this.GetAttrs (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr = ResizeArray()
@@ -383,7 +389,11 @@ type AttributeReader<'A>() =
                 | A.Import (e, f) -> import <- Some (e, f)
                 | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
-            | _ -> ()
+            | _ ->
+                match this.ReadExternal a with
+                | A.Macro (m, p) -> macros.Add (m, p)
+                | A.Generated _ as ar -> attrArr.Add ar
+                | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
             js <- Some true
         let isJavaScript, isStub =
@@ -552,7 +562,8 @@ type ReflectionAttributeReader() =
     override this.GetName attr = attr.Constructor.DeclaringType.Name
     override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq
     override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun a -> a.MemberName, a.TypedValue.Value) |> Array.ofSeq
-    override this.GetTypeDef o = Reflection.ReadTypeDefinition (o :?> System.Type) 
+    override this.GetTypeDef o = Reflection.ReadTypeDefinition (o :?> System.Type)
+    override this.MacroOrGeneratedAttribute _ = None, false
 
 let attrReader = ReflectionAttributeReader()
 

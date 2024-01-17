@@ -237,6 +237,17 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Generics = x.Arity
         }
 
+    let isMacro (ar: A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>) (a: Microsoft.CodeAnalysis.AttributeData) =
+        a.AttributeClass.GetAttributes()
+        |> Seq.tryFind (fun ad ->
+            ar.GetName ad = "MacroAttribute" && ar.GetAssemblyName ad = "WebSharper.Core" ||
+            ar.GetName ad = "GeneratedAttribute" && ar.GetAssemblyName ad = "WebSharper.Core"
+        )
+        |> function
+            | Some attr ->
+                Some attr, ar.GetName attr = "MacroAttribute"
+            | None -> None, false
+
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
             override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
@@ -244,6 +255,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (KeyValue(n, v)) -> n, getTypedConstantValue v) |> Array.ofSeq
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
+            override this.MacroOrGeneratedAttribute attr = isMacro this attr
         }
 
     member this.RegisterCustomType def (td: INamedTypeSymbol) =
