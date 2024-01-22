@@ -37,6 +37,7 @@ type ClientCode =
     | ClientAddEventListener of string * string * ClientCode
     | ClientDOMElement of string
     | ClientInitialize of string * ClientCode
+    | ClientBundle of string
 
 /// Use to get a new unique id for an element on a page.
 type IUniqueIdSource =

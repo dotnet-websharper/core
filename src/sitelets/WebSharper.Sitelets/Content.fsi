@@ -51,10 +51,11 @@ type Content<'Endpoint> =
         * ?Head: #seq<#Web.INode>
         * ?Title: string
         * ?Doctype: string
+        * ?Bundle: string
         -> Async<Content<'Endpoint>>
 
     /// Creates an HTML content.
-    static member Page : Page -> Async<Content<'Endpoint>>
+    static member Page : Page * ?Bundle: string -> Async<Content<'Endpoint>>
 
     /// Creates a plain text content.
     static member Text : string * ?encoding: System.Text.Encoding -> Async<Content<'Endpoint>>
@@ -176,6 +177,8 @@ module Content =
             -> (CorsAllows -> CorsAllows)
             -> ('EndPoint -> Async<Content<'OuterEndPoint>>)
             -> Async<Content<'OuterEndPoint>>
+
+    val Bundle : name: string -> contents: #seq<#WebSharper.Web.INode> -> seq<WebSharper.Web.INode>
 
     type RenderedResources =
         {

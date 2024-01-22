@@ -92,31 +92,43 @@ module Content =
             controls
             |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
             |> Array.ofSeq
-        let resources =
-            let nodeSet =
-                requiresAndCode
-                |> Seq.choose (fun c -> match c with ClientRequire n -> Some n | _ -> None) 
-                |> Set
-            ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
-                ctx.Dependencies.GetResources ctx.Metadata nodes
-            )
-        let hasResources = not (List.isEmpty resources)
-        if hasResources then
-            // Meta tag encoding the client side controls
-            let toActivate = 
-                requiresAndCode
-                |> Seq.indexed
-                |> Array.ofSeq
+        if requiresAndCode.Length > 0 then
+
+            let resources =
+                let nodeSet =
+                    requiresAndCode
+                    |> Seq.choose (function ClientRequire n -> Some n | _ -> None) 
+                    |> Set
+                ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
+                    ctx.Dependencies.GetResources ctx.Metadata nodes
+                )
 
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
             let scriptsTw = tw Core.Resources.Scripts
+            
             let bundleNames = 
-                if ctx.Metadata.PreBundle.Count > 0 then
-                    Some [| "bundle" |]
-                else
-                    None
+                let requiredBundles =
+                    requiresAndCode
+                    |> Seq.choose (function ClientBundle n -> Some n | _ -> None)
+                    |> Array.ofSeq
+                match requiredBundles with
+                | [||] ->
+                    if ctx.Metadata.PreBundle.Count > 0 then
+                        Some [| "all" |]
+                    else
+                        None
+
+                | [| b |] -> Some requiredBundles
+                | _ -> Some [| "all" |]
+            
+            let toActivate = 
+                requiresAndCode
+                |> Seq.choose (function ClientBundle _ | ClientRequire _ -> None | n -> Some n)
+                |> Seq.indexed
+                |> Array.ofSeq
+
             let activate (url: string) =
                 let imported = Dictionary<AST.Address, string>()
                 let elems = HashSet<string>()
@@ -130,6 +142,7 @@ module Content =
 
                 let rec getCode a =
                     match a with
+                    | ClientBundle _ 
                     | ClientRequire _ ->
                         ""
                     | ClientJsonData d ->
@@ -202,6 +215,7 @@ module Content =
                     | ClientInitialize (i, _) ->
                         let v = "o" + string ii
                         scriptsTw.WriteLine($"""{v}.$init("{i}");""")
+                    | ClientBundle _
                     | ClientRequire _ ->
                         ()
                     | _ ->
@@ -512,6 +526,11 @@ module Content =
             }
             |> async.Return
 
+    let Bundle name (contents: #seq<#WebSharper.Web.INode>) =
+        Seq.append
+            (Seq.singleton (Web.BundleNode(name) :> Web.INode))
+            (Seq.cast contents)    
+
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
 
@@ -549,16 +568,20 @@ type Content<'Endpoint> with
         Content.JsonContent <| fun _ -> x
         |> async.Return
 
-    static member Page (?Body: #seq<#WebSharper.Web.INode>, ?Head:#seq<#WebSharper.Web.INode>, ?Title: string, ?Doctype: string) : Async<Content<'Endpoint>> =
-        Content.Page {
+    static member Page (?Body: #seq<#WebSharper.Web.INode>, ?Head:#seq<#WebSharper.Web.INode>, ?Title: string, ?Doctype: string, ?Bundle: string) : Async<Content<'Endpoint>> =
+        Content.Page({
             Doctype = Some (match Doctype with Some d -> d | None -> "<!DOCTYPE html>")
             Title = Title
             Head = match Head with None -> Seq.empty | Some x -> Seq.cast x
             Body = match Body with None -> Seq.empty | Some x -> Seq.cast x
             Renderer = Page.Default.Renderer
-        }
+        }, ?Bundle = Bundle)
 
-    static member Page (page: Page) : Async<Content<'Endpoint>> =
+    static member Page (page: Page, ?Bundle: string) : Async<Content<'Endpoint>> =
+        let page =
+            match Bundle with
+            | None -> page 
+            | Some b -> { page with Body = page.Body |> Content.Bundle b }
         Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return page }))
         |> async.Return
 

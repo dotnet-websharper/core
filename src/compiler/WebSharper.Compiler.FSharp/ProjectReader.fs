@@ -172,13 +172,6 @@ let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntit
         i.BasicQualifiedName = "WebSharper.IRequiresResources"
     )
 
-let rec private isWebControlType (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
-    match cls.BaseType with
-    | Some bCls ->
-        let typ = sr.ReadTypeDefinition bCls.TypeDefinition
-        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls.TypeDefinition
-    | _ -> false
-
 let isAugmentedFSharpType (e: FSharpEntity) =
     e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
         e.IsFSharpUnion 
@@ -1043,7 +1036,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let isThisAbstract = isAbstractClass cls
 
-    if not isThisAbstract && not isThisInterface && isWebControlType sr cls then
+    if not isThisAbstract && not isThisInterface && CodeReader.isWebControlType cls then
         match def.Value.FullName with
         | "WebSharper.Web.FSharpInlineControl"
         | "WebSharper.Web.InlineControl" -> ()

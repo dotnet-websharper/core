@@ -1315,12 +1315,52 @@ type FSharp.Compiler.Text.Range with
             End = this.EndLine, this.EndColumn
         }
 
+let contentModule =
+    TypeDefinition {
+        Assembly = "WebSharper.Sitelets"
+        FullName = "WebSharper.Sitelets.ContentModule"
+    }
+
+let contentType =
+    TypeDefinition {
+        Assembly = "WebSharper.Sitelets"
+        FullName = "WebSharper.Sitelets.FSharpContent`1"
+    }
+
+type Test =
+    static member Opt (?x : string) = x
+
+let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list) =
+    if typ = contentModule && m.Value.MethodName = "Bundle`2" then
+        match arguments[0] with
+        | P.Const (value, _) ->
+            string value |> Some
+        | _ ->
+            failwith "Content.Bundle argument must be constant string" 
+    elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
+        match arguments |> List.last with
+        | P.NewUnionCase (_, c, [ P.Const value ]) when c.Name = "Some" ->
+            string value |> Some
+        | P.NewUnionCase (_, c, _) when c.Name = "None" ->
+            None
+        | _ ->
+            failwith "Content.Page Bundle argument must be constant string" 
+    else
+        None
+
+let rec isWebControlType (cls: FSharpEntity) =
+    match cls.BaseType with
+    | Some bCls ->
+        bCls.TypeDefinition.QualifiedName.Split([|','|]).[0]  = "WebSharper.Web.Control" || isWebControlType bCls.TypeDefinition
+    | _ -> false
+
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
 // These quotations or auto-quoted expressions passed are then translated by WebSharper.
 let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
     let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
     let quotations = ResizeArray()
     let quotedMethods = ResizeArray()
+    let mutable bundleScope = None
     let rec scan (expr: FSharpExpr) =
         let default'() =
             List.iter scan expr.ImmediateSubExpressions
@@ -1354,11 +1394,11 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                         let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
                         let qm =
-                            Hashed {
-                                MethodInfo.Generics = 0
-                                MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
-                                MethodInfo.Parameters = argTypes
-                                MethodInfo.ReturnType = retTy
+                            Method {
+                                Generics = 0
+                                MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
+                                Parameters = argTypes
+                                ReturnType = retTy
                             }
                         let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
                         let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], None, e)
@@ -1400,10 +1440,19 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 scan a
                         )
                         storeExprTranslation meth indexes arguments
-                    | _ -> default'()
+                    | _ -> 
+                        match getBundleMethod (typ, m, arguments) with
+                        | Some name ->
+                            let currentBundleScope = bundleScope
+                            bundleScope <- Some name
+                            default'()
+                            bundleScope <- currentBundleScope
+                        | _ ->
+                            default'()
                 | _ -> default'()
             | P.NewObject(ctor, typeList, arguments) ->
-                let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity ctor)
+                let e = getDeclaringEntity ctor
+                let typ = env.SymbolReader.ReadTypeDefinition(e)
                 match env.SymbolReader.ReadMember(ctor) with
                 | Member.Constructor(con) ->
                     match env.Compilation.TryLookupQuotedConstArgMethod(typ, con) with
@@ -1413,7 +1462,13 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 scan a
                         )
                         storeExprTranslation ctor indexes arguments
-                    | _ -> default'()
+                    | _ -> 
+                        if isWebControlType e then
+                            comp.
+                            bundleScope
+                            default'()    
+                        else
+                            default'()
                 | _ -> default'()
             | _ -> default'()
         with _ -> 
