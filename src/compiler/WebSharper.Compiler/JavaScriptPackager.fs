@@ -1487,6 +1487,18 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
             Assembly = "WebSharper.Main"
             FullName = "WebSharper.IControlBody"
         }
+    let webControl =    
+        TypeDefinition {
+            Assembly = "WebSharper.Web"
+            FullName = "WebSharper.Web.Control"
+        }
+    let getBody =
+        Method {
+            MethodName = "get_Body"
+            Parameters = []
+            ReturnType = ConcreteType (NonGeneric iControlBody)
+            Generics = 0
+        } 
     let domNode = 
         TypeDefinition {
             Assembly = "WebSharper.JavaScript"
@@ -1506,6 +1518,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                 yield M.TypeNode td
             if webControls.Length > 0 then
                 yield M.AbstractMethodNode (iControlBody, replaceInDom)
+                yield M.AbstractMethodNode (webControl, getBody)
             for (td, m) in quoted do
                 yield M.MethodNode (td, m)
         }

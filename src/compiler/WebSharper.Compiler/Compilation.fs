@@ -269,6 +269,11 @@ type Compilation(meta: Info, ?hasGraph) =
             generatedClass <- Some (addr, td)
             addr, td
     
+    member this.GetMacroEntries key =
+        match macroEntries.TryFind key with
+        | Some l -> l
+        | _ -> []
+
     interface ICompilation with
         member this.GetCustomTypeInfo typ = 
             this.GetCustomType typ
