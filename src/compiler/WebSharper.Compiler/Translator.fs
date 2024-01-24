@@ -833,6 +833,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ]))
                     let toJS = DotNetToJavaScript(comp)
                     toJS.TransformExpression(decodeExpr) |> ignore
+                    let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry t ]
+                    match comp.GetMacroEntries(key) with
+                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                        comp.AddQuotedMethod(gtd, gm)
+                    | _ -> 
+                        ()
                 with e ->
                     let msg = sprintf "Error during creating deserializer for type %s: %s" t.AssemblyQualifiedName e.Message
                     comp.AddError(None, SourceError msg)
