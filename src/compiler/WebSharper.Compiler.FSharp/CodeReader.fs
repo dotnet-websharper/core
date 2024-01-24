@@ -1349,21 +1349,24 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
         None
 
 let rec isWebControlType (cls: FSharpEntity) =
-    match cls.BaseType with
-    | Some bCls ->
-        bCls.TypeDefinition.QualifiedName.Split([|','|]).[0]  = "WebSharper.Web.Control" || isWebControlType bCls.TypeDefinition
-    | _ -> false
+    match cls.FullName with
+    | "WebSharper.Web.FSharpInlineControl"
+    | "WebSharper.Web.InlineControl" ->
+        false
+    | _ ->
+        match cls.BaseType with
+        | Some bCls ->
+            bCls.TypeDefinition.QualifiedName.Split([|','|]).[0]  = "WebSharper.Web.Control" || isWebControlType bCls.TypeDefinition
+        | _ -> false
 
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
 // These quotations or auto-quoted expressions passed are then translated by WebSharper.
 let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
     let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
     let quotations = ResizeArray()
-    let quotedMethods = ResizeArray()
-    let mutable bundleScope = None
-    let rec scan (expr: FSharpExpr) =
+    let rec scan bundleScope (expr: FSharpExpr) =
         let default'() =
-            List.iter scan expr.ImmediateSubExpressions
+            List.iter (scan bundleScope) expr.ImmediateSubExpressions
         try
             let storeExprTranslation (mem: FSharpMemberOrFunctionOrValue) (indexes: int[]) (arguments: FSharpExpr list) =
                 let pars = mem.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
@@ -1416,9 +1419,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         else
                             match e with 
                             | I.Call(None, td, m, _) ->
-                                quotedMethods.Add(td, m) 
+                                env.Compilation.AddQuotedMethod(td.Entity, m.Entity)
                             | _ -> ()
-                    | None -> scan arg
+                    | None -> scan bundleScope arg
                 )
             
             match expr with
@@ -1426,7 +1429,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 // I'd rather pass around a Map than do this dictionary mutation,
                 // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
                 vars.[id] <- value
-                scan body
+                scan bundleScope body
                 vars.Remove(id) |> ignore
             | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
                 let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
@@ -1434,21 +1437,15 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 | Member.Method(_, m) ->
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
                     | Some indexes ->
-                        Option.iter scan this
+                        Option.iter (scan bundleScope) this
                         arguments |> List.iteri (fun i a -> 
                             if indexes |> Array.contains i |> not then
-                                scan a
+                                scan bundleScope a
                         )
                         storeExprTranslation meth indexes arguments
                     | _ -> 
-                        match getBundleMethod (typ, m, arguments) with
-                        | Some name ->
-                            let currentBundleScope = bundleScope
-                            bundleScope <- Some name
-                            default'()
-                            bundleScope <- currentBundleScope
-                        | _ ->
-                            default'()
+                        let newBundleScope = getBundleMethod (typ, m, arguments)
+                        List.iter (scan newBundleScope) expr.ImmediateSubExpressions
                 | _ -> default'()
             | P.NewObject(ctor, typeList, arguments) ->
                 let e = getDeclaringEntity ctor
@@ -1459,13 +1456,17 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                     | Some indexes ->
                         arguments |> List.iteri (fun i a -> 
                             if indexes |> Array.contains i |> not then
-                                scan a
+                                scan bundleScope a
                         )
                         storeExprTranslation ctor indexes arguments
                     | _ -> 
                         if isWebControlType e then
-                            comp.
+                            let typArgs = typeList |> List.map (env.SymbolReader.ReadType env.TParams)
+                            let pos = expr.Range.AsSourcePos
+                            env.Compilation.TypesNeedingDeserialization.Add(GenericType typ typArgs, pos)
+                            
                             bundleScope
+                            
                             default'()    
                         else
                             default'()
@@ -1475,5 +1476,5 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
             // some TP-s can create code that FCS fails to expose, ignore that
             // see https://github.com/dotnet-websharper/core/issues/904
             ()
-    scan expr
-    quotations :> _ seq, quotedMethods :> _ seq
+    scan None expr
+    quotations :> _ seq

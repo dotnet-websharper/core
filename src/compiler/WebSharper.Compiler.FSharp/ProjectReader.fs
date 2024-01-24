@@ -936,14 +936,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
             let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
-            let quotations, quotedMethods = CodeReader.scanExpression env meth.LogicalName expr
+            let quotations = CodeReader.scanExpression env meth.LogicalName expr
             quotations
             |> Seq.iter (fun (pos, mdef, argNames, e) ->
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
-            )
-            quotedMethods
-            |> Seq.iter (fun (td, m) ->
-                comp.AddQuotedMethod(td.Entity, m.Entity)
             )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   
@@ -1036,12 +1032,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let isThisAbstract = isAbstractClass cls
 
-    if not isThisAbstract && not isThisInterface && CodeReader.isWebControlType cls then
-        match def.Value.FullName with
-        | "WebSharper.Web.FSharpInlineControl"
-        | "WebSharper.Web.InlineControl" -> ()
-        | _ ->
-            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
+    if not isThisAbstract && not isThisInterface && CodeReader.isWebControlType cls && Map.isEmpty clsTparams then
+        comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
 
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
