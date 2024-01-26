@@ -827,7 +827,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Generics = 1       
                 }
 
-            for t, pos in comp.TypesNeedingDeserialization do
+            for t, pos in comp.TypesNeedingDeserialization |> Seq.distinctBy fst do
                 // call JSON macro to create deserializers
                 try
                     let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ]))

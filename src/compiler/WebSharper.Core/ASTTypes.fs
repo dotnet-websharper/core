@@ -759,9 +759,9 @@ type Type =
         match this with 
         | ConcreteType t -> t.Generics |> List.exists (fun p -> p.HasUnresolvedGenerics)
         | StaticTypeParameter _ 
-        | TypeParameter _ -> true
-        | VoidType 
-        | LocalTypeParameter -> false
+        | TypeParameter _ 
+        | LocalTypeParameter -> true
+        | VoidType -> false
         | ArrayType (t, _) -> t.HasUnresolvedGenerics
         | TupleType (ts, v) -> ts |> List.exists (fun p -> p.HasUnresolvedGenerics)
         | FSharpFuncType (a, r) -> a.HasUnresolvedGenerics || r.HasUnresolvedGenerics

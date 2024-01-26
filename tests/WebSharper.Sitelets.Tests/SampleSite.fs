@@ -67,24 +67,33 @@ module Client =
         override this.Body =
             Elt "div" [|Text "SIGNUP-SEQUENCE"|] :> _
 
+    
+    [<JavaScript>]
+    type LoginLink(link: string) =
+        member this.Link = link
+
     [<Sealed>]
-    type LoginControl(link: string) =
+    type LoginControl(link: LoginLink) =
         inherit Web.Control()
 
         [<JavaScript>]
         override this.Body =
             Elt "form" [|
                 Attr "method" "post"
-                Attr "action" link
-                Elt "div" [|Text ("LOGIN: " + link)|]
+                Attr "action" link.Link
+                Elt "div" [|Text ("LOGIN: " + link.Link)|]
                 Elt "input" [| Attr "name" "login"; Attr "placeholder" "Username" |]
                 Elt "input" [| Attr "name" "password"; Attr "placeholder" "Password" |]
                 Elt "input" [| Attr "type" "submit"; Attr "value" "Log in" |]
             |] :> _
 
     [<JavaScript>]
-    let Widget () =
-        Elt "button" [|Text "click me!"|]
+    type ButtonText(text: string) =
+        member this.Text = text
+
+    [<JavaScript>]
+    let Widget (buttonText: ButtonText) =
+        Elt "button" [|Text buttonText.Text|]
 
 /// A mini server-side HTML language
 module Server =
@@ -187,13 +196,14 @@ module SampleSite =
     let Tpl (t: Async<Template>) =
         async {
             let! t = t
+            let bt = Client.ButtonText("click me!")
             return! Content.Page(
                 Title = t.Title,
                 Body = [
                     yield! t.Login
                     yield! t.Menu
                     yield! t.Body
-                    yield Web.InlineControl ( Client.Widget () ) :> _
+                    yield Web.InlineControl ( Client.Widget bt ) :> _
                 ]
             )
         }
@@ -287,7 +297,7 @@ module SampleSite =
         /// A simple login page.
         let LoginPage =
             Template "Login" <| fun ctx ->
-                let redirectLink = ctx.Link (Action.DoLogin ("", ""))
+                let redirectLink = Client.LoginLink (ctx.Link (Action.DoLogin ("", "")))
                 [
                     Elt("h1", Text "Login")
                     Elt("p",

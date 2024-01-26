@@ -1395,6 +1395,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
                         let e = transformExpression env e
                         let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                        for t in argTypes do
+                            if not t.HasUnresolvedGenerics then
+                                env.Compilation.TypesNeedingDeserialization.Add(t, pos)
                         let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
                         let qm =
                             Method {

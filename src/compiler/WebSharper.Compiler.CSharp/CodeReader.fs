@@ -2792,6 +2792,11 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                             if not (isNull esymbol) then
                                 let etyp, emeth = getTypeAndMethod esymbol
                                 env.Compilation.AddQuotedMethod(etyp, emeth)
+                            let pos = getSourcePos e
+                            let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
+                            for t in argTypes do
+                                if not t.HasUnresolvedGenerics then
+                                    env.Compilation.TypesNeedingDeserialization.Add(t, pos)
                         | :? IdentifierNameSyntax as e ->
                             let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IPropertySymbol
                             if not (isNull esymbol) then
@@ -2805,6 +2810,11 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         if not (isNull esymbol) then
                             let etyp, emeth = getTypeAndMethod esymbol
                             env.Compilation.AddQuotedMethod(etyp, emeth)
+                        let pos = getSourcePos e
+                        let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
+                        for t in argTypes do
+                            if not t.HasUnresolvedGenerics then
+                                env.Compilation.TypesNeedingDeserialization.Add(t, pos)
 
                     | e -> failwithf "Unexpected form in Client-side LINQ expression: %s" (e.ToString())
             )
