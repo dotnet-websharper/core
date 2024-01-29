@@ -166,5 +166,15 @@ namespace WebSharper.MSBuild.CSharp
             if (value != null)
                 WriteIfSet(w, name, value.ItemSpec);
         }
+
+        protected override bool HandleTaskExecutionErrors()
+        {
+            var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), OutputAssembly.ItemSpec.Trim());
+            if (File.Exists(dllOutput))
+            {
+                File.Move(dllOutput, dllOutput + ".failed", true);
+            }
+            return base.HandleTaskExecutionErrors();
+        }
     }
 }
