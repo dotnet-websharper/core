@@ -172,7 +172,11 @@ namespace WebSharper.MSBuild.CSharp
             var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), OutputAssembly.ItemSpec.Trim());
             if (File.Exists(dllOutput))
             {
-                File.Move(dllOutput, dllOutput + ".failed", true);
+                if (File.Exists(dllOutput + ".failed"))
+                {
+                    File.Delete(dllOutput + ".failed");
+                }
+                File.Move(dllOutput, dllOutput + ".failed");
             }
             return base.HandleTaskExecutionErrors();
         }
