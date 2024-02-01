@@ -188,6 +188,11 @@ type StringFormat =
     inherit Macro
 
 [<Sealed>]
+type DateString =
+    new : unit -> DateString
+    inherit Macro
+
+[<Sealed>]
 type Tuple =
     new : unit -> Tuple
     inherit Macro

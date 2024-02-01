@@ -127,6 +127,9 @@ type private DateTimeProxy =
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
 
+    [<Macro(typeof<Core.Macros.DateString>)>]
+    member this.ToString(format: string) = Date(As<int> this).ToString()
+
     member this.Date 
         with [<Inline; JavaScript>] get() : D = DateTimeHelpers.DatePortion(As this)
 
