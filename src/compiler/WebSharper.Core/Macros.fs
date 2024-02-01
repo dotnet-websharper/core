@@ -533,7 +533,7 @@ type NumericMacro() =
                     <| fun _ -> ex
                     <| fun id -> Var id
                     |> MacroOk
-                else MacroError "numericMacro error"
+                else MacroFallback
             | _ -> MacroError "numericMacro error"
         | "TryParse" ->
             match c.Arguments with
@@ -548,7 +548,7 @@ type NumericMacro() =
                             Value (Bool true)
                         ]
                     |> MacroOk
-                else MacroError "numericMacro error"
+                else MacroFallback
             | _ -> MacroError "numericMacro error"
         | "Equals" ->
             translateComparison c.Compilation (ConcreteType c.DefiningType) (c.This.Value :: c.Arguments) false false Comparison.``=``
@@ -1826,12 +1826,12 @@ type Tuple() =
     inherit Macro()
 
     override __.TranslateCtor(c) =
-        MacroOk <| NewTuple (c.Arguments, c.DefiningType.Generics)
+        MacroFallback
 
     override __.TranslateCall(c) =
         let mname = c.Method.Entity.Value.MethodName
         if mname.StartsWith "get_Item" then
-            MacroOk <| ItemGet(c.This.Value, cInt (int mname.[8]), Pure)
+            MacroFallback
         else
             let t = TupleType (c.DefiningType.Generics, false)
             match mname with
@@ -1839,7 +1839,7 @@ type Tuple() =
             | "GetHashCode" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic hashMeth [ t ], [c.This.Value]) 
             | "Equals" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic equalsMeth [ t ], [c.This.Value; c.Arguments.Head]) 
             | "CompareTo" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic compareMeth [ t ], [c.This.Value; c.Arguments.Head]) 
-            | n ->  MacroError ("Unrecognized method of System.Tuple/ValueTuple: " + n)
+            | n ->  MacroFallback
 
 [<Sealed>]
 type TupleExtensions() =

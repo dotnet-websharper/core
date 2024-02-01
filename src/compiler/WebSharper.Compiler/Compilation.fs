@@ -828,89 +828,30 @@ type Compilation(meta: Info, ?hasGraph) =
             cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
         | _ -> false
 
-    //member this.LookupMethodInfo(typ, meth) = 
-    //    let typ = this.FindProxied typ
-    //    match interfaces.TryFind typ with
-    //    | Some intf -> 
-    //        match intf.Methods.TryFind meth with
-    //        | Some (m, c) ->
-    //            Compiled (Instance m, Optimizations.None, intf.Generics @ c, Undefined)              
-    //        | _ ->
-    //            let mName = meth.Value.MethodName
-    //            let candidates = 
-    //                [
-    //                    for m in intf.Methods.Keys do
-    //                        if m.Value.MethodName = mName then
-    //                            yield m
-    //                ]
-    //            if List.isEmpty candidates then
-    //                let names =
-    //                    seq {
-    //                        for m in intf.Methods.Keys do
-    //                            yield m.Value.MethodName
-    //                    }
-    //                    |> Seq.distinct |> List.ofSeq
-    //                LookupMemberError (MethodNameNotFound (typ, meth, names))
-    //            else
-    //                LookupMemberError (MethodNotFound (typ, meth, candidates))
-    //    | _ -> 
-    //    match this.GetClassOrCustomType typ with
-    //    | Choice1Of2 cls ->
-    //        match cls.Methods.TryFind meth with
-    //        | Some (mem, opts, gc, e) -> Compiled (mem, opts, cls.Generics @ gc, e)
-    //        | _ -> 
-    //            match compilingMethods.TryFind (typ, meth) with
-    //            | Some (mem, gc, e) -> Compiling (mem, cls.Generics @ gc, e)
-    //            | _ -> 
-    //                if not (List.isEmpty cls.Macros) then
-    //                    let info =
-    //                        List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-    //                    Compiled (info, Optimizations.None, [], Undefined)
-    //                else
-    //                    match this.GetCustomType typ with
-    //                    | NotCustomType -> 
-    //                        let mName = meth.Value.MethodName
-    //                        let candidates = 
-    //                            [
-    //                                for m in cls.Methods.Keys do
-    //                                    if m.Value.MethodName = mName then
-    //                                        yield m
-    //                                for t, m in compilingMethods.Keys do
-    //                                    if typ = t && m.Value.MethodName = mName then
-    //                                        yield m
-    //                            ]
-    //                        if List.isEmpty candidates then
-    //                            let names =
-    //                                seq {
-    //                                    for m in cls.Methods.Keys do
-    //                                        yield m.Value.MethodName
-    //                                    for t, m in compilingMethods.Keys do
-    //                                        if typ = t then
-    //                                            yield m.Value.MethodName
-    //                                }
-    //                                |> Seq.distinct |> List.ofSeq
-    //                            LookupMemberError (MethodNameNotFound (typ, meth, names))
-    //                        else
-    //                            LookupMemberError (MethodNotFound (typ, meth, candidates))
-    //                    | i -> CustomTypeMember i
-    //    | Choice2Of2 NotCustomType -> LookupMemberError (TypeNotFound typ)
-    //    | Choice2Of2 i -> CustomTypeMember i
-
     member private this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl) = 
         let typ = this.FindProxied typ
                 
         let tryFindClassMethod () =
             match classes.TryFind typ with
             | Some (_, _, Some cls) ->
+                let applyClsMacros cm =
+                    List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros cm |> Option.get    
                 match cls.Methods.TryFind meth with
-                | Some m -> Compiled (m.CompiledForm, m.Optimizations, m.Generics, m.Expression)
+                | Some m -> 
+                    if List.isEmpty cls.Macros then
+                        Compiled (m.CompiledForm, m.Optimizations, m.Generics, m.Expression)
+                    else
+                        Compiled (applyClsMacros (Some m.CompiledForm), m.Optimizations, m.Generics, m.Expression)
                 | _ -> 
                     match compilingMethods.TryFind (typ, meth) with
-                    | Some m -> Compiling m
+                    | Some ((cm, p, e) as m) -> 
+                        if List.isEmpty cls.Macros then
+                            Compiling m
+                        else
+                            Compiling ({ cm with CompiledMember = applyClsMacros (Some cm.CompiledMember) }, p, e)
                     | _ -> 
                         if not (List.isEmpty cls.Macros) then
-                            let info =
-                                List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
+                            let info = applyClsMacros None
                             Compiled (info, Optimizations.None, [], Undefined)
                         else
                             match this.GetCustomType typ with
@@ -1111,15 +1052,24 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ
         match this.GetClassOrCustomType typ with
         | Choice1Of2 cls ->
+            let applyClsMacros cm =
+                List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros cm |> Option.get    
             match cls.Constructors.TryFind ctor with
-            | Some c -> Compiled (c.CompiledForm, c.Optimizations, cls.Generics, c.Expression)
+            | Some c -> 
+                if List.isEmpty cls.Macros then
+                    Compiled (c.CompiledForm, c.Optimizations, cls.Generics, c.Expression)
+                else
+                    Compiled (applyClsMacros (Some c.CompiledForm), c.Optimizations, cls.Generics, c.Expression)
             | _ -> 
                 match compilingConstructors.TryFind (typ, ctor) with
-                | Some  (m, e) -> Compiling (m,  cls.Generics, e)
+                | Some (m, e) -> 
+                    if List.isEmpty cls.Macros then
+                        Compiling (m, cls.Generics, e)
+                    else
+                        Compiling ({ m with CompiledMember = applyClsMacros (Some m.CompiledMember) }, cls.Generics, e)
                 | _ -> 
                     if not (List.isEmpty cls.Macros) then
-                        let info =
-                            List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
+                        let info = applyClsMacros None
                         Compiled (info, Optimizations.None, [], Undefined)
                     else
                         match this.GetCustomType typ with
