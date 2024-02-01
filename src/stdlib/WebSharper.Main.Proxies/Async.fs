@@ -202,6 +202,9 @@ type private CancellationTokenSourceProxy () =
     [<Inline>]
     member this.CancelAfter(delay: System.TimeSpan) = this.CancelAfter(As<int> delay)
 
+    [<Inline>]
+    member this.Dispose() = (As<System.IDisposable> this).Dispose()
+
     static member CreateLinkedTokenSource(tokens: CT[]) =
         let cts = new CTS()
         tokens |> Array.iter (fun t -> t.Register(fun () -> cts.Cancel()) |> ignore)
