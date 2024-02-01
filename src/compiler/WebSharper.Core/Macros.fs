@@ -130,6 +130,34 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
     | _ -> MacroError "Arith macro: expecting 2 args"
 
 [<Sealed>]
+type DateString() =
+    inherit Macro()
+
+    let pervasivesTypeDef =
+        AST.TypeDefinition ({
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.JavaScript.Pervasives+DateTime"
+        })
+        |> NonGeneric
+    
+    let methodDef =
+        AST.Method
+            {
+                MethodName = "DateFormatter"
+                Parameters = [AST.ConcreteType (AST.Definitions.DateTime |> NonGeneric); AST.ConcreteType (AST.Definitions.String |> NonGeneric)]
+                ReturnType = AST.ConcreteType (AST.Definitions.String |> NonGeneric)
+                Generics = 0
+            }
+        |> NonGeneric
+
+    override this.TranslateCall(c) =
+        match c.Method.Entity.Value.Parameters with
+        | [AST.Type.ConcreteType ct] when c.Method.Entity.Value.MethodName = "ToString" && ct.Entity = AST.Definitions.String ->
+            Call(None, pervasivesTypeDef, methodDef, [c.This.Value; yield! c.Arguments]) |> MacroOk
+        | _ ->
+            MacroFallback
+
+[<Sealed>]
 type Arith() =
     inherit Macro()
     override this.TranslateCall(c) =
