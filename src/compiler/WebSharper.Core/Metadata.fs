@@ -364,6 +364,14 @@ type ExtraBundle =
     member this.MinifiedFileName =
         this.AssemblyName + "." + this.BundleName + ".min.js"
 
+type QuotationInfo =
+    {
+        TypeDefinition : TypeDefinition
+        Method : Method
+        Arguments : list<string>
+        PreBundles : list<string>
+    }
+
 type Info =
     {
         SiteletDefinition: option<TypeDefinition>
@@ -371,11 +379,12 @@ type Info =
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
         Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
-        Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
+        Quotations : IDictionary<SourcePos, QuotationInfo>
         ResourceHashes : IDictionary<string, int>
         ExtraBundles : Set<ExtraBundle>
-        PreBundle : IDictionary<Address, string>
-        QuotedMethods : (TypeDefinition * Method)[]
+        PreBundle : IDictionary<string, IDictionary<Address, string>>
+        QuotedMethods : (TypeDefinition * Method * string[])[]
+        WebControls : (Type * string[])[]
     }
 
     static member Empty =
@@ -390,6 +399,7 @@ type Info =
             ExtraBundles = Set.empty
             PreBundle = Map.empty
             QuotedMethods = [||]
+            WebControls = [||]
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -493,6 +503,7 @@ type Info =
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
             PreBundle = Map.empty
             QuotedMethods = metas |> Array.collect (fun m -> m.QuotedMethods)
+            WebControls = metas |> Array.collect (fun m -> m.WebControls)
         }
 
     member this.ClassInfo(td) =

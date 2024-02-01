@@ -576,6 +576,7 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.AllExtraBundles
             PreBundle = Map.empty
             QuotedMethods = Seq.append meta.QuotedMethods quotedMethods |> Seq.toArray
+            WebControls = []
         }    
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
