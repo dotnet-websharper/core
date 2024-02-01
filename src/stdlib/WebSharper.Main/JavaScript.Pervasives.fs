@@ -155,12 +155,16 @@ module Optional =
 
 [<JavaScript>]
 module DateTime =
+    open WebSharper.JavaScript
     
     [<Direct("return $str.replace(/(\w)\1*/g, $f)")>]
     let replace str f = X<string>
 
+    [<Inline "new Date($x)">]
+    let asJSDate (x: System.DateTime) = X<Date>
+
     let DateFormatter (date: System.DateTime) (f: string) =
-        let d = date.JS
+        let d = asJSDate date
         let padLeft (minLength: int) (x: string) =
             if x.Length < minLength then
                 String.replicate (minLength - x.Length) "0" + x
