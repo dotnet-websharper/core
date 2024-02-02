@@ -95,6 +95,7 @@ type WsConfig =
         AnalyzeClosures : bool option
         JavaScriptScope : JavaScriptScope
         JavaScriptExport : JsExport[]
+        StubInterfaces : bool
         JSOutputPath : string option
         MinJSOutputPath : string option
         SingleNoJSErrors : bool
@@ -135,6 +136,7 @@ type WsConfig =
             AnalyzeClosures = None
             JavaScriptScope = JSDefault
             JavaScriptExport = [||]
+            StubInterfaces = false
             JSOutputPath = None
             MinJSOutputPath = None
             SingleNoJSErrors = false
@@ -260,6 +262,8 @@ type WsConfig =
                         ) |> Array.ofSeq
                     | _ -> argError (sprintf "Invalid value in %s for JavaScriptExport, expecting true or false or an array of strings." fileName) 
                 res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
+            | "stubinterfaces" ->
+                res <- { res with StubInterfaces = getBool k v }
             | "jsoutput" ->
                 let path = getPath k v
                 //if path.EndsWith(".js") then

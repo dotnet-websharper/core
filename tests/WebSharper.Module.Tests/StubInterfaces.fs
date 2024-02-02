@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,18 +18,26 @@
 //
 // $end{copyright}
 
-module WebSharper.Module.Tests.Main
+module WebSharper.Module.Tests.StubInterfaces
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 
-[<assembly: JavaScript "WebSharper.Tests.Basis+TestOptionals">] // test for JavaScript "TypeName"
-[<assembly: WebResource("sayHi.js", "text/javascript")>]
-do()
+type ITest =
+    abstract member Something: int -> int
 
 [<JavaScript>]
-let RunTests () =
-    Runner.RunTests [|
-        StubInterfaces.Tests
-        Import.Tests
-    |]
+type TestImpl() =
+    interface ITest with
+        member this.Something x = x + 1
+
+[<JavaScript>]
+let Tests =
+    TestCategory "Stub Interfaces" {
+        Test "Config setting" {
+            let o = TestImpl()
+            equal ((o :> ITest).Something(3)) 4
+            equal (o?Something(3)) 4
+        }
+    }

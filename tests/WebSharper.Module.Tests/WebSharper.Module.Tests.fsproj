@@ -8,6 +8,7 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="StubInterfaces.fs" />
     <Compile Include="Import.fs" />
     <Compile Include="Main.fs" />
     <EmbeddedResource Include="sayHi.js" />
