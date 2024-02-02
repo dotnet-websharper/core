@@ -104,7 +104,7 @@ let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeRea
         }
     ) |> List.ofSeq
 
-let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
+let private transformInterface (sr: CodeReader.SymbolReader) stubInterfaces parentAnnot (intf: FSharpEntity) =
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
     if annot.IsForcedNotJavaScript then None else
@@ -155,7 +155,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
             NotResolvedMethods = List.ofSeq methods
             Generics = getConstraints intf.GenericParameters sr tparams
             Type = annot.Type
-            IsStub = annot.IsStub
+            IsStub = stubInterfaces || annot.IsStub
         }
     )
 
@@ -217,7 +217,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) stubInterfaces (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -664,9 +664,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | _ -> ()
                             let b = 
                                 match memdef with
-                                | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
+                                | Member.Constructor c when meth.CompiledName <> "CtorProxy" -> 
                                     try 
-                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This b
+                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This c b
                                         selfCtorFields <- cgenFieldNames
                                         b
                                     with e ->
@@ -942,10 +942,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
-            transformInterface sr annot i |> Option.iter comp.AddInterface
-            transformClass sc comp ac sr classAnnots isInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
+            transformInterface sr stubInterfaces annot i |> Option.iter comp.AddInterface
+            transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1694,10 +1694,10 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations isInterface recMembers c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
-                transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations isInterface recMembers i [||] |> Option.iter comp.AddClass
+                transformInterface sr config.StubInterfaces rootTypeAnnot i |> Option.iter comp.AddInterface
+                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces recMembers i [||] |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 

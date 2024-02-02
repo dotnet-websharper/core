@@ -154,7 +154,7 @@ let (|This|_|) v expr =
     | I.Var t, Some vv when t = vv -> Some()
     | _ -> None
 
-type FixCtorTransformer(typ, btyp, thisVar) =
+type FixCtorTransformer(typ, btyp, thisVar, thisCtor) =
     inherit Transformer()
 
     let mutable addedChainedCtor = false
@@ -206,7 +206,10 @@ type FixCtorTransformer(typ, btyp, thisVar) =
                     | None -> ()
                 ]
             else
-                ChainedCtor(isBase, t, c, a) 
+                if not isBase && thisCtor = c then
+                    failwith <| sprintf "Self referencing constructor in %s" t.Entity.Value.FullName
+                else
+                    ChainedCtor(isBase, t, c, a) 
         else JSThis
 
     member this.Fix(expr) = 
@@ -217,8 +220,8 @@ type FixCtorTransformer(typ, btyp, thisVar) =
         | _ -> res
         , cgenFieldNames
 
-let fixCtor thisTyp baseTyp thisVar expr =
-    FixCtorTransformer(thisTyp, baseTyp, thisVar).Fix(expr)
+let fixCtor thisTyp baseTyp thisVar c expr =
+    FixCtorTransformer(thisTyp, baseTyp, thisVar, c).Fix(expr)
 
 module Definitions =
     let List =

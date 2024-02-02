@@ -130,6 +130,34 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
     | _ -> MacroError "Arith macro: expecting 2 args"
 
 [<Sealed>]
+type DateString() =
+    inherit Macro()
+
+    let pervasivesTypeDef =
+        AST.TypeDefinition ({
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.JavaScript.Pervasives+DateTime"
+        })
+        |> NonGeneric
+    
+    let methodDef =
+        AST.Method
+            {
+                MethodName = "DateFormatter"
+                Parameters = [AST.ConcreteType (AST.Definitions.DateTime |> NonGeneric); AST.ConcreteType (AST.Definitions.String |> NonGeneric)]
+                ReturnType = AST.ConcreteType (AST.Definitions.String |> NonGeneric)
+                Generics = 0
+            }
+        |> NonGeneric
+
+    override this.TranslateCall(c) =
+        match c.Method.Entity.Value.Parameters with
+        | [AST.Type.ConcreteType ct] when c.Method.Entity.Value.MethodName = "ToString" && ct.Entity = AST.Definitions.String ->
+            Call(None, pervasivesTypeDef, methodDef, [c.This.Value; yield! c.Arguments]) |> MacroOk
+        | _ ->
+            MacroFallback
+
+[<Sealed>]
 type Arith() =
     inherit Macro()
     override this.TranslateCall(c) =
@@ -505,7 +533,7 @@ type NumericMacro() =
                     <| fun _ -> ex
                     <| fun id -> Var id
                     |> MacroOk
-                else MacroError "numericMacro error"
+                else MacroFallback
             | _ -> MacroError "numericMacro error"
         | "TryParse" ->
             match c.Arguments with
@@ -520,7 +548,7 @@ type NumericMacro() =
                             Value (Bool true)
                         ]
                     |> MacroOk
-                else MacroError "numericMacro error"
+                else MacroFallback
             | _ -> MacroError "numericMacro error"
         | "Equals" ->
             translateComparison c.Compilation (ConcreteType c.DefiningType) (c.This.Value :: c.Arguments) false false Comparison.``=``
@@ -1798,12 +1826,12 @@ type Tuple() =
     inherit Macro()
 
     override __.TranslateCtor(c) =
-        MacroOk <| NewTuple (c.Arguments, c.DefiningType.Generics)
+        MacroFallback
 
     override __.TranslateCall(c) =
         let mname = c.Method.Entity.Value.MethodName
         if mname.StartsWith "get_Item" then
-            MacroOk <| ItemGet(c.This.Value, cInt (int mname.[8]), Pure)
+            MacroFallback
         else
             let t = TupleType (c.DefiningType.Generics, false)
             match mname with
@@ -1811,7 +1839,7 @@ type Tuple() =
             | "GetHashCode" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic hashMeth [ t ], [c.This.Value]) 
             | "Equals" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic equalsMeth [ t ], [c.This.Value; c.Arguments.Head]) 
             | "CompareTo" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic compareMeth [ t ], [c.This.Value; c.Arguments.Head]) 
-            | n ->  MacroError ("Unrecognized method of System.Tuple/ValueTuple: " + n)
+            | n ->  MacroFallback
 
 [<Sealed>]
 type TupleExtensions() =

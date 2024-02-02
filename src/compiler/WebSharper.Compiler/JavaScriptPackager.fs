@@ -972,7 +972,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             // adding those with no dependencies first, so we will need to reverse in the end
             let addedCtors = HashSet()
             let orderedCtorData = ResizeArray<Statement option * string * Id list * (string * Expression list) option * Statement option * TSType>()
+            let mutable isLoopConstr = false
             while ctorData.Count > 0 do
+                isLoopConstr <- false
                 for KeyValue(name, (args, beforeCtor, chainedCtor, bodyRest, tsSig)) in ctorData |> Array.ofSeq do
                     let okToAdd =
                         match chainedCtor with
@@ -986,6 +988,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             bodyRest, tsSig
                         )
                         ctorData.Remove name |> ignore
+                        isLoopConstr <- true
+                if not isLoopConstr then failwith <| sprintf "Looping constructors found in %s" typ.Value.FullName
+ 
             orderedCtorData.Reverse()
             
             // signatures

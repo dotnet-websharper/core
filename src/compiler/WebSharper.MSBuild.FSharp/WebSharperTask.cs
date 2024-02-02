@@ -134,5 +134,19 @@ namespace WebSharper.MSBuild.FSharp
             if (value != null)
                 WriteIfSet(w, name, value.ItemSpec);
         }
+
+        protected override bool HandleTaskExecutionErrors()
+        {
+            var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), FscCommandLineArgs[0].ItemSpec.Replace("-o:", "").Trim());
+            if (File.Exists(dllOutput))
+            {
+                if (File.Exists(dllOutput + ".failed"))
+                {
+                    File.Delete(dllOutput + ".failed");
+                }
+                File.Move(dllOutput, dllOutput + ".failed");
+            }
+            return base.HandleTaskExecutionErrors();
+        }
     }
 }

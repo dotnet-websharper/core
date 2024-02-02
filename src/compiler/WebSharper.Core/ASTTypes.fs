@@ -474,6 +474,12 @@ module Definitions =
             FullName = "System.Int64"
         }
 
+    let DateTime =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.DateTime"
+        }
+
     let String =
         TypeDefinition {
             Assembly = "netstandard"

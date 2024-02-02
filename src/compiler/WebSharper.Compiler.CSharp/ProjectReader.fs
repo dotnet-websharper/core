@@ -129,7 +129,7 @@ let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReade
         }
     ) |> List.ofSeq
 
-let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
+let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None else
     let methods = ResizeArray()
     let def =
@@ -170,7 +170,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             NotResolvedMethods = List.ofSeq methods 
             Generics = getConstraints intf.TypeParameters sr
             Type = annot.Type
-            IsStub = annot.IsStub
+            IsStub = stubInterfaces || annot.IsStub
         }
     )
 
@@ -1521,7 +1521,7 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     for TypeWithAnnotation(t, d, a) in allTypes do
         match t.TypeKind with
         | TypeKind.Interface ->
-            transformInterface sr a t |> Option.iter comp.AddInterface
+            transformInterface sr config.StubInterfaces a t |> Option.iter comp.AddInterface
             transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
         | TypeKind.Struct | TypeKind.Class ->
             transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
