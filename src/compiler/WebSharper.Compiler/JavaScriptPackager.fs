@@ -972,9 +972,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             // adding those with no dependencies first, so we will need to reverse in the end
             let addedCtors = HashSet()
             let orderedCtorData = ResizeArray<Statement option * string * Id list * (string * Expression list) option * Statement option * TSType>()
-            let mutable isLoopConstr = false
+            let mutable isLoopConstr = true
             while ctorData.Count > 0 do
-                isLoopConstr <- false
+                isLoopConstr <- true
                 for KeyValue(name, (args, beforeCtor, chainedCtor, bodyRest, tsSig)) in ctorData |> Array.ofSeq do
                     let okToAdd =
                         match chainedCtor with
@@ -988,8 +988,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             bodyRest, tsSig
                         )
                         ctorData.Remove name |> ignore
-                        isLoopConstr <- true
-                if not isLoopConstr then failwith <| sprintf "Looping constructors found in %s" typ.Value.FullName
+                        isLoopConstr <- false
+                if isLoopConstr then failwith <| sprintf "Looping constructors found in %s" typ.Value.FullName
  
             orderedCtorData.Reverse()
             
@@ -1378,114 +1378,37 @@ let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.C
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile(), isJSX
 
-let packageEntryPointReexport (runtimeMeta: M.Info) =
-    let addresses = ResizeArray()
-
-    let assumeClass typ =
-        match runtimeMeta.Classes.TryFind typ with
-        | Some (_, _, Some cls) -> cls
-        | Some _ -> failwithf "Found custom type but not class: %s" typ.Value.FullName
-        | _ -> failwithf "Couldn't find class: %s" typ.Value.FullName
-    let rec isWebControl (cls: M.ClassInfo) =
-        match cls.BaseClass with
-        | Some { Entity = bT } ->
-            bT.Value.FullName = "WebSharper.Web.Control" || isWebControl (assumeClass bT)
-        | _ -> false
-
-    for (addr, _, cls) in runtimeMeta.Classes.Values do
-        match cls with 
-        | Some cls when isWebControl cls ->
-            addresses.Add(addr)    
-        | _ -> ()
-
-    let quoted = 
-        runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
-        |> Seq.append runtimeMeta.QuotedMethods
-
-    for td, m in quoted do
-        match runtimeMeta.Classes.TryFind td with
-        | Some (addr, _, Some cls) ->
-            match cls.Methods.TryFind m with
-            | Some mi -> 
-                match mi.CompiledForm with
-                | M.Static (name, _, _) -> addresses.Add(addr)
-                | M.Func (name, _) -> addresses.Add(addr.Func(name))
-                | M.GlobalFunc (faddr, _) -> addresses.Add(faddr) 
-                | _ -> ()
-            | _ -> ()
-        | _ -> ()
-
-    let addressMap = Dictionary()
-
-    addressMap.Add("Runtime", Address.RuntimeAddr [ "default" ])
-
-    for a in addresses do
-        addressMap |> Resolve.getRenamedInDict a.Address.Head a |> ignore
-
-    let revAddressMap = addressMap |> Dict.swap
-
-    let rootJs =
-        revAddressMap |> Seq.groupBy (fun kv -> kv.Key.Module)
-        |> Seq.map (fun (m, addrs) ->
-            let namedImports = ResizeArray()
-            for KeyValue(a, n) in addrs do
-                match a.Address |> List.rev |> List.head with
-                | "default" -> 
-                    let newName = 
-                        match m with
-                        | JavaScriptModule m -> 
-                            m.Name.Replace('.', '_').Replace('`', '_')
-                        | DotNetType m -> 
-                            (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
-                        | _ -> "default"
-                    namedImports.Add("default", Id.New newName)
-                | i ->
-                    namedImports.Add(i, Id.New n)    
-            let moduleName =
-                match m with
-                | JavaScriptModule m 
-                | DotNetType m -> 
-                    "../" + m.Assembly + "/" + m.Name + ".js"
-                | _ -> ""
-            ExportDecl (false, Import(None, None, List.ofSeq namedImports, moduleName))
-        )
-        |> List.ofSeq
-    
-    rootJs, revAddressMap
-
 let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
-    let addresses = ResizeArray()
 
-    let assumeClass typ =
-        match runtimeMeta.Classes.TryFind typ with
-        | Some (_, _, Some cls) -> cls
-        | Some _ -> failwithf "Found custom type but not class: %s" typ.Value.FullName
-        | _ -> failwithf "Couldn't find class: %s" typ.Value.FullName
-    let rec isWebControl (cls: M.ClassInfo) =
-        match cls.BaseClass with
-        | Some { Entity = bT } ->
-            bT.Value.FullName = "WebSharper.Web.Control" || isWebControl (assumeClass bT)
-        | _ -> false
+    //let webControls =
+    //    runtimeMeta.Classes |> Seq.choose (fun (KeyValue(td, (_, _, cls))) ->
+    //        match cls with 
+    //        | Some cls when isWebControl cls ->
+    //            Some td
+    //        | _ -> None
+    //    )
+    //    |> Array.ofSeq
 
-    for (addr, _, cls) in runtimeMeta.Classes.Values do
-        match cls with 
-        | Some cls when isWebControl cls ->
-            addresses.Add(addr)    
-        | _ -> ()
+    let all = ResizeArray()
+    let bundles = Dictionary()
+    bundles.Add("all", all) 
+    
+    let addToBundles names item =
+        all.Add(item)
+        for n in names do
+            match bundles.TryFind(n) with
+            | None -> 
+                let b = ResizeArray()
+                b.Add(item)
+                bundles.Add(n, b)
+            | Some b ->
+                b.Add(item)
 
-    let webControls =
-        runtimeMeta.Classes |> Seq.choose (fun (KeyValue(td, (_, _, cls))) ->
-            match cls with 
-            | Some cls when isWebControl cls ->
-                Some td
-            | _ -> None
-        )
-        |> Array.ofSeq
-
-    let quoted = 
-        runtimeMeta.Quotations.Values |> Seq.map (fun (td, m, _) -> td, m)
-        |> Seq.append runtimeMeta.QuotedMethods
-        |> Array.ofSeq
+    for qi in runtimeMeta.Quotations.Values do
+        (qi.TypeDefinition, qi.Method) |> addToBundles qi.PreBundles
+    
+    for qm in runtimeMeta.QuotedMethods do
+        qm.Key |> addToBundles qm.Value
 
     let iControlBody =
         TypeDefinition {
@@ -1517,36 +1440,46 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
             Generics = 0
         }
 
-    let nodes =
-        seq {
-            for td in webControls do
-                yield M.TypeNode td
-            if webControls.Length > 0 then
-                yield M.AbstractMethodNode (iControlBody, replaceInDom)
-                yield M.AbstractMethodNode (webControl, getBody)
-            for (td, m) in quoted do
-                yield M.MethodNode (td, m)
-        }
-        |> graph.GetDependencies
-    
-    let trimmed = trimMetadata runtimeMeta nodes 
+    for wc in runtimeMeta.WebControls do
+        (wc.Key.TypeDefinition, getBody) |> addToBundles wc.Value    
 
-    let types =
-        Seq.append trimmed.Interfaces.Keys trimmed.Classes.Keys
-        |> Seq.distinct
-        |> Array.ofSeq
+    let results = ResizeArray()
 
-    let exportedTypes = Dictionary<TypeDefinition, ISet<Method>>()
-    for (td, m) in quoted do
-        match exportedTypes.TryGetValue(td) with
-        | true, s -> s.Add(m) |> ignore
-        | false, _ ->
-            let s = HashSet()
-            s.Add(m) |> ignore
-            exportedTypes.Add(td, s)
+    for b in bundles do
+        let nodes =
+            let mutable hasWebControl = false
+            seq {
+                for td, m in b.Value do
+                    if m = getBody then
+                        yield M.TypeNode td
+                        if not hasWebControl then
+                            yield M.AbstractMethodNode (iControlBody, replaceInDom)
+                            yield M.AbstractMethodNode (webControl, getBody)
+                            hasWebControl <- true
+                    else
+                        yield M.MethodNode (td, m)    
+            }
+         
+        let trimmed = trimMetadata runtimeMeta nodes 
 
-    for td in webControls do
-        exportedTypes[td] <- null
+        let types =
+            Seq.append trimmed.Interfaces.Keys trimmed.Classes.Keys
+            |> Seq.distinct
+            |> Array.ofSeq
 
-    packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None))
+        let exportedTypes = Dictionary<TypeDefinition, ISet<Method>>()
+        for td, m in b.Value do
+            if m = getBody then    
+                exportedTypes[td] <- null
+            else
+                match exportedTypes.TryGetValue(td) with
+                | true, s -> s.Add(m) |> ignore
+                | false, _ ->
+                    let s = HashSet()
+                    s.Add(m) |> ignore
+                    exportedTypes.Add(td, s)
+
+        results.Add(b.Key, packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)))
+
+    results
     

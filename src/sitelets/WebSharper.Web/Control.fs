@@ -243,13 +243,14 @@ module ClientSideInternals =
                         |> Seq.map (sprintf "  %O")
                         |> String.concat "\n"
                     failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%s" p ex
-                | true, (declType, meth, argNames) ->
-                    match meta.Classes.TryGetValue declType with
-                    | false, _ -> failwithf "Error in ClientSide: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
+                //| true, (declType, meth, argNames) ->
+                | true, qi ->
+                    match meta.Classes.TryGetValue qi.TypeDefinition with
+                    | false, _ -> failwithf "Error in ClientSide: Couldn't find JavaScript address for method %s.%s" qi.TypeDefinition.Value.FullName qi.Method.Value.MethodName
                     | true, c ->
-                        let argIndices = Map (argNames |> List.mapi (fun i x -> x, i))
-                        let args = Array.create argNames.Length null
-                        let reqs = ref (M.MethodNode (declType, meth) :: M.TypeNode declType :: reqs)
+                        let argIndices = Map (qi.Arguments |> List.mapi (fun i x -> x, i))
+                        let args = Array.create qi.Arguments.Length null
+                        let reqs = ref (M.MethodNode (qi.TypeDefinition, qi.Method) :: M.TypeNode qi.TypeDefinition :: reqs)
                         let setArg (name: string) (value: obj) =
                             let i = argIndices.[name]
                             if isNull args.[i] then
@@ -261,7 +262,7 @@ module ClientSideInternals =
                                         let typ = value.GetType ()
                                         reqs := M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition typ) :: !reqs
                                         value
-                        if not (List.isEmpty argNames) then
+                        if not (List.isEmpty qi.Arguments) then
                             findArgs Set.empty setArg q
                         args, !reqs
             | None -> failwithf "Failed to find location of quotation: %A" q
@@ -329,9 +330,9 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 | None -> failwith "Failed to find location of quotation"
                 | Some p ->
                     match meta.Quotations.TryGetValue p with
-                    | true, (ty, m, _) ->
+                    | true, qi ->
                         let argVals, deps = compileClientSide meta [] elt
-                        ty, m, deps, argVals
+                        qi.TypeDefinition, qi.Method, deps, argVals
                     | false, _ ->
                         let argVals, ty, m, deps = compileClientSideFallback elt
                         ty, m, deps, argVals

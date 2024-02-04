@@ -827,7 +827,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Generics = 1       
                 }
 
-            for t, pos in comp.TypesNeedingDeserialization |> Seq.distinctBy fst do
+            for t, pos, bundleNames in comp.TypesNeedingDeserialization do
                 // call JSON macro to create deserializers
                 try
                     let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ]))
@@ -836,7 +836,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry t ]
                     match comp.GetMacroEntries(key) with
                     | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        comp.AddQuotedMethod(gtd, gm)
+                        comp.AddQuotedMethod(gtd, gm, bundleNames)
                     | _ -> 
                         ()
                 with e ->

@@ -1337,19 +1337,19 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
     if typ = contentModule && m.Value.MethodName = "Bundle`2" then
         match arguments[0] with
         | P.Const (value, _) ->
-            string value |> Some
+            [ string value ]
         | _ ->
             failwith "Content.Bundle argument must be constant string" 
     elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const value ]) when c.Name = "Some" ->
-            string value |> Some
+            [ string value ]
         | P.NewUnionCase (_, c, _) when c.Name = "None" ->
-            None
+            []
         | _ ->
             failwith "Content.Page Bundle argument must be constant string" 
     else
-        None
+        []
 
 let rec isWebControlType (cls: FSharpEntity) =
     match cls.FullName with
@@ -1400,7 +1400,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                         for t in argTypes do
                             if not t.HasUnresolvedGenerics then
-                                env.Compilation.TypesNeedingDeserialization.Add(t, pos)
+                                env.Compilation.AddTypeNeedingDeserialization(t, pos, bundleScope)
                         let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
                         let qm =
                             Method {
@@ -1421,11 +1421,11 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
                             | _ -> false
                         if not isTrivial then
-                            quotations.Add(pos, qm, argNames, f) 
+                            quotations.Add(pos, qm, argNames, f, bundleScope) 
                         else
                             match e with 
                             | I.Call(None, td, m, _) ->
-                                env.Compilation.AddQuotedMethod(td.Entity, m.Entity)
+                                env.Compilation.AddQuotedMethod(td.Entity, m.Entity, bundleScope)
                             | _ -> ()
                     | None -> scan bundleScope arg
                 )
@@ -1451,7 +1451,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         storeExprTranslation meth indexes arguments
                     | _ -> 
                         let newBundleScope = getBundleMethod (typ, m, arguments)
-                        List.iter (scan newBundleScope) expr.ImmediateSubExpressions
+                        List.iter (scan (newBundleScope @ bundleScope)) expr.ImmediateSubExpressions
                 | _ -> default'()
             | P.NewObject(ctor, typeList, arguments) ->
                 let e = getDeclaringEntity ctor
@@ -1469,9 +1469,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         if isWebControlType e then
                             let typArgs = typeList |> List.map (env.SymbolReader.ReadType env.TParams)
                             let pos = expr.Range.AsSourcePos
-                            env.Compilation.TypesNeedingDeserialization.Add(GenericType typ typArgs, pos)
+                            env.Compilation.AddTypeNeedingDeserialization(GenericType typ typArgs, pos, bundleScope)
                             
-                            bundleScope
+                            //bundleScope
                             
                             default'()    
                         else
@@ -1482,5 +1482,5 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
             // some TP-s can create code that FCS fails to expose, ignore that
             // see https://github.com/dotnet-websharper/core/issues/904
             ()
-    scan None expr
+    scan [] expr
     quotations :> _ seq

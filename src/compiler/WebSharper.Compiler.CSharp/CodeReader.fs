@@ -2791,17 +2791,17 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                             let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
                             if not (isNull esymbol) then
                                 let etyp, emeth = getTypeAndMethod esymbol
-                                env.Compilation.AddQuotedMethod(etyp, emeth)
+                                env.Compilation.AddQuotedMethod(etyp, emeth, [])
                             let pos = getSourcePos e
                             let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
                             for t in argTypes do
                                 if not t.HasUnresolvedGenerics then
-                                    env.Compilation.TypesNeedingDeserialization.Add(t, pos)
+                                    env.Compilation.AddTypeNeedingDeserialization(t, pos, [])
                         | :? IdentifierNameSyntax as e ->
                             let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IPropertySymbol
                             if not (isNull esymbol) then
                                 let etyp, emeth = getTypeAndMethod esymbol.GetMethod
-                                env.Compilation.AddQuotedMethod(etyp, emeth)
+                                env.Compilation.AddQuotedMethod(etyp, emeth, [])
                         | e -> 
                             failwithf "Unexpected form in Client-side LINQ lambda body: %s" (e.ToString())
 
@@ -2809,12 +2809,12 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
                         if not (isNull esymbol) then
                             let etyp, emeth = getTypeAndMethod esymbol
-                            env.Compilation.AddQuotedMethod(etyp, emeth)
+                            env.Compilation.AddQuotedMethod(etyp, emeth, [])
                         let pos = getSourcePos e
                         let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
                         for t in argTypes do
                             if not t.HasUnresolvedGenerics then
-                                env.Compilation.TypesNeedingDeserialization.Add(t, pos)
+                                env.Compilation.AddTypeNeedingDeserialization(t, pos, [])
 
                     | e -> failwithf "Unexpected form in Client-side LINQ expression: %s" (e.ToString())
             )

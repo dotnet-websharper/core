@@ -1373,7 +1373,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     if not cls.IsAbstract && not isInterface && isWebControlType sr cls then
         let sourcePos =
             CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences[0]
-        comp.TypesNeedingDeserialization.Add(NonGenericType def, sourcePos) |> ignore
+        comp.AddTypeNeedingDeserialization(NonGenericType def, sourcePos, []) |> ignore
 
     if isStruct then
         comp.AddCustomType(def, StructInfo)

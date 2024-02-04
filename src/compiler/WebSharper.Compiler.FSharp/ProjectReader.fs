@@ -938,8 +938,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
             let quotations = CodeReader.scanExpression env meth.LogicalName expr
             quotations
-            |> Seq.iter (fun (pos, mdef, argNames, e) ->
-                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
+            |> Seq.iter (fun (pos, mdef, argNames, e, bundleScope) ->
+                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames, bundleScope)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers ent nmembers |> Option.iter comp.AddClass   
@@ -1031,9 +1031,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let isThisAbstract = isAbstractClass cls
-
-    if not isThisAbstract && not isThisInterface && CodeReader.isWebControlType cls && Map.isEmpty clsTparams then
-        comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
 
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)

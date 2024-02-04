@@ -90,7 +90,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let notAnnotatedCustomTypes = Dictionary()
     let macroEntries = MergedDictionary meta.MacroEntries
     let quotations = MergedDictionary meta.Quotations
-    let quotedMethods = ResizeArray()
+    let webControls = Dictionary()
+    let quotedMethods = Dictionary()
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -104,7 +105,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
-    let typesNeedingDeserialization = ResizeArray<Type * SourcePos>()
+    let typesNeedingDeserialization = ResizeArray<Type * SourcePos * list<string>>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
@@ -298,7 +299,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 }
             | _ -> None
 
-        member this.GetQuotation(pos) = quotations.TryFind pos
+        member this.GetQuotation(pos) = 
+            quotations.TryFind pos |> Option.map (fun qi -> qi.TypeDefinition, qi.Method, qi.Arguments)
 
         member this.GetJavaScriptClasses() = classes.Keys |> List.ofSeq
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
@@ -526,7 +528,8 @@ type Compilation(meta: Info, ?hasGraph) =
             ResourceHashes = Dictionary()
             ExtraBundles = this.CurrentExtraBundles
             PreBundle = Map.empty
-            QuotedMethods = quotedMethods.ToArray()
+            QuotedMethods = quotedMethods
+            WebControls = webControls
         }    
 
     member this.HideInternalProxies(meta) =
@@ -575,8 +578,8 @@ type Compilation(meta: Info, ?hasGraph) =
             ResourceHashes = MergedDictionary meta.ResourceHashes
             ExtraBundles = this.AllExtraBundles
             PreBundle = Map.empty
-            QuotedMethods = Seq.append meta.QuotedMethods quotedMethods |> Seq.toArray
-            WebControls = []
+            QuotedMethods = Map.empty
+            WebControls = Map.empty
         }    
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
@@ -646,9 +649,12 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, c: Constructor) =
         this.TryLookupQuotedArgMethod(typ, this.GetFakeMethodForCtor(c))
 
-    member this.AddQuotedMethod(typ, m) =        
-        if quotedMethods |> Seq.contains (typ, m) |> not then
-            quotedMethods.Add((typ, m))
+    member this.AddQuotedMethod(typ, m, bs) =        
+        match quotedMethods.TryFind (typ, m) with
+        | Some e -> 
+            quotedMethods[(typ, m)] <- List.distinct (bs @ e)
+        | _ ->
+            quotedMethods.Add((typ, m), bs)
 
     member this.AddClass(typ, cls) =
         try
@@ -1182,7 +1188,17 @@ type Compilation(meta: Info, ?hasGraph) =
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
-    member this.TypesNeedingDeserialization = typesNeedingDeserialization
+    member this.AddTypeNeedingDeserialization (t, pos, bundles) =
+        typesNeedingDeserialization.Add(t, pos, bundles)    
+    
+    member this.TypesNeedingDeserialization = 
+        typesNeedingDeserialization 
+        |> Seq.groupBy (fun (t, _, _) -> t) 
+        |> Seq.map (fun (t, ts) -> 
+            let _, pos, _ = Seq.head ts
+            let bundleNames = ts |> Seq.collect (fun (_, _, bn) -> bn) |> List.ofSeq
+            t, pos, bundleNames
+        )
 
     member this.JSImport(export: string option, from: string) =
         Address.Import this.AssemblyName (export, from)
@@ -1768,11 +1784,18 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.AsStatic
                         | N.Remote _
                         | N.Constructor -> sn, Some true, false
-                        | N.Quotation (pos, argNames) -> 
+                        | N.Quotation (pos, argNames, bundles) -> 
                             match m with 
                             | M.Method (mdef, _) ->                     
                                 try 
-                                    quotations.Add(pos, (typ, mdef, argNames))
+                                    let qi =
+                                        {
+                                            TypeDefinition = typ
+                                            Method = mdef
+                                            Arguments = argNames
+                                            PreBundles = bundles
+                                        }
+                                    quotations.Add(pos, qi)
                                 with _ ->
                                     printerrf "Cannot have two instances of quoted JavaScript code at the same location of files with the same name: %s (%i, %i - %i, %i)"
                                         pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
