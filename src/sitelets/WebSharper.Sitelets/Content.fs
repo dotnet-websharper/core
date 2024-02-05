@@ -108,20 +108,48 @@ module Content =
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
             let scriptsTw = tw Core.Resources.Scripts
             
-            let bundleNames = 
-                let requiredBundles =
-                    requiresAndCode
-                    |> Seq.choose (function ClientBundle n -> Some n | _ -> None)
-                    |> Array.ofSeq
+            let requiredBundles =
+                requiresAndCode
+                |> Seq.choose (function ClientBundle n -> Some n | _ -> None)
+                |> Array.ofSeq
+
+            let allImports =
+                let rec importsOf a =
+                    match a with
+                    | ClientImport f ->
+                        Seq.singleton f
+                    | ClientArrayData a ->
+                        a |> Seq.collect importsOf
+                    | ClientObjectData a ->
+                        a |> Seq.collect (snd >> importsOf)
+                    | ClientApply (c, args) ->
+                        Seq.append (importsOf c) (args |> Seq.collect importsOf)
+                    | ClientReplaceInDom (_, c) 
+                    | ClientReplaceInDomWithBody (_, c)
+                    | ClientAddEventListener (_, _, c)
+                    | ClientInitialize (_, c) ->
+                        importsOf c   
+                    | _ ->
+                        Seq.empty
+                
+                requiresAndCode |> Seq.collect importsOf
+
+            let bundleName = 
                 match requiredBundles with
                 | [||] ->
                     if ctx.Metadata.PreBundle.Count > 0 then
-                        Some [| "all" |]
+                        Some "all"
                     else
                         None
 
-                | [| b |] -> Some requiredBundles
-                | _ -> Some [| "all" |]
+                | [| b |] -> Some b
+                | _ -> Some "all"
+
+            let bundle =
+                bundleName
+                |> Option.map (fun b ->
+                    ctx.Metadata.PreBundle[b]
+                )
             
             let toActivate = 
                 requiresAndCode
@@ -153,15 +181,18 @@ module Content =
                         $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode v}" ) |> String.concat "," }}}"""    
                     | ClientImport f ->
                         let rec findInPreBundle a =
-                            match ctx.Metadata.PreBundle.TryFind a with
-                            | Some b -> Some ("wsbundle." + b)
-                            | None ->
-                                match a.Address with 
-                                | h :: t ->
-                                    match findInPreBundle { a with Address = t } with
-                                    | Some f -> Some (f + "." + h)
-                                    | _ -> None
-                                | [] -> None
+                            match bundle with
+                            | None -> None
+                            | Some bundle ->
+                                match bundle.TryFind a with
+                                | Some b -> Some ("wsbundle." + b)
+                                | None ->
+                                    match a.Address with 
+                                    | h :: t ->
+                                        match findInPreBundle { a with Address = t } with
+                                        | Some f -> Some (f + "." + h)
+                                        | _ -> None
+                                    | [] -> None
                         match findInPreBundle f with
                         | Some b -> b
                         | None ->
@@ -229,7 +260,7 @@ module Content =
                         scriptsTw.WriteLine($"""{v}.$postinit("{i}");""")
                     | _ -> ()
 
-            Some activate, bundleNames
+            Some activate, bundleName |> Option.map Array.singleton
         else    
             None, None
 
