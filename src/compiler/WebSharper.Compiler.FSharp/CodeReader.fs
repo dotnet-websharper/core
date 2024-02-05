@@ -1356,7 +1356,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         let e = transformExpression env e
                         let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                         for t in argTypes do
-                            if not t.HasUnresolvedGenerics then
+                            if t.CanHaveDeserializer then
                                 env.Compilation.TypesNeedingDeserialization.Add(t, pos)
                         let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
                         let qm =

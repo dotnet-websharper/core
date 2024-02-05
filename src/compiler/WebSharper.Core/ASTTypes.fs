@@ -113,11 +113,6 @@ type Id =
         | Some t -> { this with Type = Some (t.SubstituteGenerics gs) }
         | _ -> this
 
-    member this.HasUnresolvedGenerics =
-        match this.Type with
-        | Some t -> t.HasUnresolvedGenerics
-        | _ -> false
-
     member this.IsGlobal() = this.Id = -1L
 
     member this.WithType(t) = { this with Type = t }
@@ -761,18 +756,22 @@ type Type =
         | LocalTypeParameter -> this
         | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenericsToSame"
 
-    member this.HasUnresolvedGenerics =
+    member this.CanHaveDeserializer =
         match this with 
-        | ConcreteType t -> t.Generics |> List.exists (fun p -> p.HasUnresolvedGenerics)
+        | ConcreteType t -> 
+            if t.Entity = Definitions.Obj then
+                false
+            else
+                t.Generics |> List.forall (fun p -> p.CanHaveDeserializer)
         | StaticTypeParameter _ 
         | TypeParameter _ 
-        | LocalTypeParameter -> true
-        | VoidType -> false
-        | ArrayType (t, _) -> t.HasUnresolvedGenerics
-        | TupleType (ts, v) -> ts |> List.exists (fun p -> p.HasUnresolvedGenerics)
-        | FSharpFuncType (a, r) -> a.HasUnresolvedGenerics || r.HasUnresolvedGenerics
-        | ByRefType t -> t.HasUnresolvedGenerics
-        | TSType _ -> invalidOp "TypeScript type does not support HasUnresolvedGenerics"
+        | LocalTypeParameter
+        | FSharpFuncType _ -> false
+        | VoidType -> true
+        | ArrayType (t, _) -> t.CanHaveDeserializer
+        | TupleType (ts, v) -> ts |> List.forall (fun p -> p.CanHaveDeserializer)
+        | ByRefType t -> t.CanHaveDeserializer
+        | TSType _ -> invalidOp "TypeScript type does not support CanHaveDeserializer"
 
     member this.GetStableHash()  =
         let inline (++) a b = StableHash.tuple (a, b)
