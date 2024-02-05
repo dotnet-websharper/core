@@ -930,28 +930,28 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | Member.Implementation (t, mdef) ->    
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
                     | _ -> ()
-            let jsArgs =
-                meth.CurriedParameterGroups
-                |> Seq.concat
-                |> Seq.mapi (fun i p -> i, sr.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess)
-                |> Seq.choose (fun (i, x) -> if x then Some i else None)
-                |> Array.ofSeq
-            if not (Array.isEmpty jsArgs) then
-                match sr.ReadMember(meth, cls) with
-                | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
-                | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
-                | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
-            let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-            let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
-            let quotations, quotedMethods = CodeReader.scanExpression env meth.LogicalName expr
-            quotations
-            |> Seq.iter (fun (pos, mdef, argNames, e) ->
-                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
-            )
-            quotedMethods
-            |> Seq.iter (fun (td, m) ->
-                comp.AddQuotedMethod(td.Entity, m.Entity)
-            )
+                let jsArgs =
+                    meth.CurriedParameterGroups
+                    |> Seq.concat
+                    |> Seq.mapi (fun i p -> i, sr.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess)
+                    |> Seq.choose (fun (i, x) -> if x then Some i else None)
+                    |> Array.ofSeq
+                if not (Array.isEmpty jsArgs) then
+                    match sr.ReadMember(meth, cls) with
+                    | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
+                    | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
+                    | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
+                let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+                let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
+                let quotations, quotedMethods = CodeReader.scanExpression env meth.LogicalName expr
+                quotations
+                |> Seq.iter (fun (pos, mdef, argNames, e) ->
+                    addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
+                )
+                quotedMethods
+                |> Seq.iter (fun (td, m) ->
+                    comp.AddQuotedMethod(td.Entity, m.Entity)
+                )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
