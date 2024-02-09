@@ -681,7 +681,9 @@ let Tests =
         }
 
         Test "Proxy project no namespace" {
-            equal (NoNamespace.add1 1) 2
+            equal (NoNamespace.Base.add1 1) 2
+            equal (NoNamespace.Sub.add1 1) 2
+            equal (NoNamespace.Sub.add2 1) 3
         }
 
         Test "nameof" {

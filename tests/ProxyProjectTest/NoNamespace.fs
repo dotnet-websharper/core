@@ -20,4 +20,9 @@
 
 module NoNamespace
 
-let add1 x = x + 1
+type Base =
+    static member inline add1 x = x + 1
+
+type Sub =
+    inherit Base
+    static member inline add2 x = x + 2
