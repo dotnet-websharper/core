@@ -553,6 +553,17 @@ module Bug1334 =
         [<JavaScript>]
         member this.Foo() = 1
 
+module Bug1390 =
+    type prop =
+        [<Inline>]
+        static member Func(str: 'T) = printfn "%A" str
+
+    type MyProp =
+        inherit prop
+
+        [<JavaScript>]
+        static member MyFunction(str: string) = sprintf "MyFunction: %A" str
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -1097,5 +1108,9 @@ let Tests =
             equal qr.size 100
             equal qr.message "hello"
             equal (qr.Foo()) 1
+        }
+
+        Test "#1390 BaseClass with no generated code" {
+            equal (Bug1390.MyProp.MyFunction("hello")) "MyFunction: \"hello\""
         }
     }

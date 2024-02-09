@@ -600,6 +600,12 @@ module Definitions =
             Assembly = "WebSharper.Main"
             FullName = "WebSharper.Remoting+IRemotingProvider"
         } 
+
+    let Exception =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Exception"
+        }
     
 /// Stores a definition and type parameter information
 type Concrete<'T> =

@@ -1404,6 +1404,32 @@ type Compilation(meta: Info, ?hasGraph) =
             HashSet [ "toString"; "Equals"; "GetHashCode" ]
 
         let typesWithSingleConstructor = HashSet()
+        let classHasPrototype = Dictionary()
+        classHasPrototype.Add(Definitions.Exception, true)
+        let rec doesClassHavePrototype typ =
+            match classHasPrototype.TryFind(typ) with
+            | Some res -> res
+            | None ->
+                let res =
+                    match classes.TryFind typ with
+                    | Some (a, _, Some c) ->
+                        match a.Module with
+                        | DotNetType _ -> c.HasWSPrototype
+                        | _ -> true
+                    | _ ->
+                        match notResolvedClasses.TryFind typ with
+                        | Some cls ->
+                            let baseCls = 
+                                cls.BaseClass |> Option.bind (fun b ->
+                                    let be = this.FindProxied b.Entity
+                                    if classes.ContainsKey be || notResolvedClasses.ContainsKey be then Some { b with Entity = be } else None
+                                )
+                            baseCls |> Option.forall (fun bc -> doesClassHavePrototype bc.Entity) && 
+                            hasWSPrototype cls.Kind baseCls cls.Members
+                        | _ -> 
+                            true
+                classHasPrototype.Add(typ, res)
+                res
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -1456,7 +1482,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ -> false
                     )
                 )
-            let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
+            let hasWSPrototype = doesClassHavePrototype typ
             let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
                 match classes.TryFind typ with
