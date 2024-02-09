@@ -680,6 +680,10 @@ let Tests =
             isTrue (ProxyProjectTest.Functions.isJS())
         }
 
+        Test "Proxy project no namespace" {
+            equal (NoNamespace.add1 1) 2
+        }
+
         Test "nameof" {
             equal (nameof System) "System"
             equal (nameof System.Int32) "Int32"

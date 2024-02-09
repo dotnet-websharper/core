@@ -5,6 +5,7 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="NoNamespace.fs" />
     <Compile Include="Library.fs" />
     <None Include="paket.references" />
   </ItemGroup>
