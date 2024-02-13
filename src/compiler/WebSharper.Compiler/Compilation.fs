@@ -411,6 +411,9 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddJSImport(export, from) = 
             this.AddJSImport(export, from)
 
+        member this.AddJSImportSideEffect(from) =
+            this.AddJSImportSideEffect(from)
+
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -1188,6 +1191,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.AddJSImport(export: string option, from: string) =
         GlobalAccess (this.JSImport(export, from))
+
+    member this.AddJSImportSideEffect(from: string) =
+        Expression.SideeffectingImport (this.JSImport(None, from))
 
     member this.GetMethodNameAndKind (m: Method) =
         let mname = m.Value.MethodName 

@@ -274,6 +274,9 @@ type JS =
     [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
     static member ImportDefault<'T> (from: string) = X<'T>
 
+    [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
+    static member ImportFile (from: string) = X<unit>
+
     [<Inline "import($moduleName)">]
     static member ImportDynamic<'T> (moduleName: string) = X<Promise<'T>>
 
