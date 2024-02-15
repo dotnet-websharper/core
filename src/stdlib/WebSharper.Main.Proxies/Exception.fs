@@ -58,6 +58,13 @@ type private IndexOutOfRangeExceptionProxy(message: string) =
 
     new () = IndexOutOfRangeExceptionProxy "Index was outside the bounds of the array."
 
+[<Proxy(typeof<System.InvalidCastException>)>]
+[<Name "InvalidCastException">]
+type private InvalidCastExceptionProxy(message: string) =
+    inherit exn(message)
+
+    new () = InvalidCastExceptionProxy "Invalid cast"
+
 [<Proxy(typeof<System.OperationCanceledException>)>]
 [<Name "OperationCanceledException">]
 type private OperationCanceledExceptionProxy(message: string, inner: exn, ct: CT) =

@@ -37,6 +37,28 @@ let Tests =
 
     TestCategory "DateTime" {
 
+        Test "StringBuilder" {
+            let sb = System.Text.StringBuilder()
+            let res = 
+                sb
+                    .Append("test")
+                    .Append("append")
+                    .AppendLine("newline")
+                    .AppendLine("newline2")
+                    .ToString()
+            equal (res.Split([|'\n'|])[0]) "testappendnewline"
+            equal (res.Split([|'\n'|])[1]) "newline2"
+        }
+
+        Test "Convert" {
+            equalMsg true (System.Convert.ToBoolean("true")) ""
+            equal true (System.Convert.ToBoolean(1))
+            equal true (System.Convert.ToBoolean(1.))
+            equal false (System.Convert.ToBoolean("false"))
+            equal false (System.Convert.ToBoolean(0))
+            equal false (System.Convert.ToBoolean(0.))
+        }
+
         Test "Year" {
             equal d.Year 2010
         }
