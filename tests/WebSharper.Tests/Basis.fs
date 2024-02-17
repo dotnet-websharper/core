@@ -265,6 +265,10 @@ module LetMutableTest =
     let y =
         x <- 2
         x
+
+[<JavaScript>]
+type type' =
+    static member myFunction'<'t>(x: 't) = x
         
 [<JavaScript>]
 let Tests =
@@ -741,5 +745,9 @@ let Tests =
             equal (JS.Verbatim $"1 + { 1 + 1 }") 3
             let x = 2
             equal (JS.Verbatim $"{x} * {x}") 4
+        }
+
+        Test "Type and function name escaping" {
+            equal (type'.myFunction' "hi") "hi"
         }
     }

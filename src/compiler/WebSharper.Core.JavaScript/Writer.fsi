@@ -21,6 +21,8 @@
 /// Provides a writer for JavaScript syntax.
 module WebSharper.Core.JavaScript.Writer
 
+val EscapeId : id: string -> string
+
 type CodeWriter =
     new : ?sources: (string * string)[] * ?offset: int -> CodeWriter 
     member GetMapFile : unit -> string option
