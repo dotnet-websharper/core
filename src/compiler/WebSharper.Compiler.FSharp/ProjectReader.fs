@@ -407,12 +407,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let memdef = sr.ReadMember(meth, cls)
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot (cls.IsFSharpModule && not meth.IsValCompiledAsMethod) isInstance def mdef
+                let expr, err = Stubs.GetMethodInline comp.AssemblyName annot mAnnot (cls.IsFSharpModule && not meth.IsValCompiledAsMethod) isInstance def mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
                 addMethod (Some (meth, memdef)) mAnnot mdef nrInline true None expr
             | Member.Constructor cdef ->
-                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
+                let expr = Stubs.GetConstructorInline comp.AssemblyName annot mAnnot def cdef
                 addConstructor (Some (meth, memdef)) mAnnot cdef nrInline true None expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"

@@ -370,6 +370,7 @@ type AttributeReader<'A>() =
         let mutable prot = None
         let mutable tstyp = None
         let mutable import = None
+        let mutable hasJsString = false
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -395,6 +396,9 @@ type AttributeReader<'A>() =
                 | A.Type n -> tstyp <- Some (TSType.Parse n)
                 | A.Import (e, f) -> import <- Some (e, f)
                 | A.OtherAttribute -> ()
+                | A.Inline (Some _, _) | A.Direct _ as ar ->
+                    hasJsString <- true
+                    attrArr.Add ar   
                 | ar -> attrArr.Add ar
             | _ ->
                 for attr in this.ReadExternal a do
@@ -404,6 +408,8 @@ type AttributeReader<'A>() =
                     | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
             js <- Some true
+        if Option.isNone js && not hasJsString && Option.isSome import then
+            stub <- true
         let isJavaScript, isStub =
             if parent.IsJavaScript then
                 match js, stub with
@@ -427,10 +433,10 @@ type AttributeReader<'A>() =
             jse <- true
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp, import
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp, import, hasJsString
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp, import = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp, import, _ = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             ProxyExtends = proxyExt
@@ -459,7 +465,7 @@ type AttributeReader<'A>() =
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs, _, import = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs, _, import, hasJsString = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -498,7 +504,8 @@ type AttributeReader<'A>() =
             Pure = isPure
             Warn = warning
             JavaScriptOptions = jsOptions
-            Import = import |> Option.orElse parent.Import
+            Import = 
+                import |> Option.orElseWith (fun () -> if hasJsString then parent.Import else None)
         }
    
     member this.GetParamAnnot (attrs: seq<'A>) =

@@ -27,7 +27,7 @@ let GetSimpleTypeName (tdef: TypeDefinition) =
     let n = tdef.Value.FullName.Split('.', '+') |> Array.last
     n.Split('`').[0]
 
-let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isModuleValue isInstance (tdef: TypeDefinition) (mdef: Method) =
+let GetMethodInline asmName (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isModuleValue isInstance (tdef: TypeDefinition) (mdef: Method) =
     let mutable error = None
     let mname, isGet, isSet =
         let mname = mdef.Value.MethodName
@@ -57,63 +57,63 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isModule
             let args = List.init l (fun i -> Hole (i + 1))
             Appl(ItemGet(Hole 0, item, NoSideEffect), args, NonPure, None)
     else
-        let getAddressAndName isProp =
-            let n = 
-                match mAnnot.Name with
-                | Some n -> n
-                | _ -> mname
-            let p = n.Split('.')
-            match p with
-            | [||] -> 
-                error <- Some "Empty string not allowed as name for member"
-                None
-            | [| n |] -> 
-                match tAnnot.Name with
-                | Some cn ->
-                    Some (cn.Split('.') |> List.ofArray, n)
-                | _ ->
-                    Some ([ GetSimpleTypeName tdef ], n)
+        let useAddress f =
+            match mAnnot.Import with
+            | Some i ->
+                Address.Import asmName i |> f
             | _ ->
-                let l = p.Length
-                Some (p.[ .. l - 2] |> List.ofArray, p.[l - 1])
-        let propAddressAndName() =
-            match getAddressAndName true with
-            | None ->
-                errorPlaceholder, errorPlaceholder
-            | Some (a, n) ->
-                Global a, Value (String n)
-        if isGet || isModuleValue then
-            let a, n = propAddressAndName()
-            ItemGet(a, n, NoSideEffect)
-        elif isSet then
-            let a, n = propAddressAndName()
-            ItemSet(a, n, Hole 0)
-        else 
-            let a =
-                match getAddressAndName false with
-                | None -> 
+                let n = 
+                    match mAnnot.Name with
+                    | Some n -> n
+                    | _ -> mname
+                let p = n.Split('.')
+                match p with
+                | [||] -> 
+                    error <- Some "Empty string not allowed as name for member"
                     errorPlaceholder
-                | Some (a, n) -> 
-                    Global (a @ [n]) 
-            let l = mdef.Value.Parameters.Length
-            let args = List.init l Hole
-            Appl(a, args, NonPure, Some l)
+                | [| n |] -> 
+                    match tAnnot.Import with
+                    | Some i ->
+                        (Address.Import asmName i).Sub(n) |> f
+                    | _ ->
+                        match tAnnot.Name with
+                        | Some cn ->
+                            Address.LibAddr ((cn.Split('.') |> List.ofArray) @ [ n ]) |> f
+                        | _ ->
+                            Address.LibAddr ([ GetSimpleTypeName tdef; n ]) |> f
+                | _ ->
+                    Address.LibAddr (p |> List.ofArray) |> f
+        if isGet || isModuleValue then
+            useAddress GlobalAccess            
+        elif isSet then
+            useAddress (fun a -> GlobalAccessSet(a, Hole 0))   
+        else 
+            useAddress (fun a ->
+                let l = mdef.Value.Parameters.Length
+                let args = List.init l Hole
+                Appl(GlobalAccess a, args, NonPure, Some l)            
+            )
     , error
 
-let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (tdef: TypeDefinition) (cdef: Constructor) =
-    let a =
-        match mAnnot.Name with
-        | Some a ->  a.Split('.') |> List.ofArray
-        | _ -> 
-            match tAnnot.Name with
-            | Some a -> a.Split('.') |> List.ofArray
-            | _ ->
-                [ GetSimpleTypeName tdef ]
-    match a with
-    | [] -> 
-        Object []
+let GetConstructorInline asmName (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (tdef: TypeDefinition) (cdef: Constructor) =
+    let l = cdef.Value.CtorParameters.Length
+    let args = List.init l Hole
+    match mAnnot.Import |> Option.orElse tAnnot.Import with
+    | Some i ->
+        let f = GlobalAccess (Address.Import asmName i)
+        New(f, [], args)           
     | _ ->
-        let l = cdef.Value.CtorParameters.Length
-        let args = List.init l Hole
-        let f = if a.IsEmpty then errorPlaceholder else Global a
-        New(f, [], args)
+        let a =
+            match mAnnot.Name with
+            | Some a -> a.Split('.') |> List.ofArray
+            | _ -> 
+                match tAnnot.Name with
+                | Some a -> a.Split('.') |> List.ofArray
+                | _ ->
+                    [ GetSimpleTypeName tdef ]
+        match a with
+        | [] -> 
+            Object []
+        | _ ->
+            let f = if a.IsEmpty then errorPlaceholder else Global a
+            New(f, [], args)

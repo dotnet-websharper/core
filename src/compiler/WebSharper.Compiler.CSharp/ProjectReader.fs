@@ -597,11 +597,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
+                let expr, err = Stubs.GetMethodInline comp.AssemblyName annot mAnnot false isInstance def mdef
                 err |> Option.iter error
                 addMethod (Some (meth, memdef)) mAnnot mdef nrInline true expr
             | Member.Constructor cdef ->
-                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
+                let expr = Stubs.GetConstructorInline comp.AssemblyName annot mAnnot def cdef
                 //err |> Option.iter error
                 addConstructor (Some (meth, memdef)) mAnnot cdef nrInline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
