@@ -32,6 +32,10 @@ type TestImpl() =
     interface ITest with
         member this.Something x = x + 1
 
+type ITest2 =
+    abstract member Something: int -> int
+    abstract member Something: string -> string
+
 [<JavaScript>]
 let Tests =
     TestCategory "Stub Interfaces" {
@@ -39,5 +43,11 @@ let Tests =
             let o = TestImpl()
             equal ((o :> ITest).Something(3)) 4
             equal (o?Something(3)) 4
+        }
+
+        Test "Name collision ok" {
+            let o = TestImpl()
+            equal ((As<ITest2> o).Something(3)) 4
+            equal ((As<ITest2> o).Something("1")) "11"
         }
     }

@@ -13,6 +13,7 @@
     <Compile Include="Main.fs" />
     <EmbeddedResource Include="sayHi.js" />
     <None Include="paket.references" />
+    <Content Include="wsconfig.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
