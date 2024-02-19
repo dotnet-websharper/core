@@ -127,10 +127,15 @@ let private transformInterface (sr: CodeReader.SymbolReader) stubInterfaces pare
         )
         |> List.ofSeq
 
-    let isRemote =
-        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+    let isNotWSInterface =
+        intfMethods |> List.exists (
+            function 
+            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _) })
+            | (_, { Import = Some _ }) -> true
+            | _ -> false
+        )
 
-    if isRemote then None else
+    if isNotWSInterface then None else
 
     let hasExplicitJS =
         annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
@@ -224,7 +229,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) stubInterfaces (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) stubInterfaces isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -402,7 +407,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
         match mAnnot.Kind with
-        | Some A.MemberKind.Stub when not isThisInterface ->
+        | Some A.MemberKind.Stub when not isThisInterface || isNotWSInterface ->
             hasStubMember <- true
             let memdef = sr.ReadMember(meth, cls)
             match memdef with
@@ -424,6 +429,29 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 if not isInstance then failwith "Abstract method should not be static" 
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Abstract true None Undefined
             | _ -> failwith "Member kind not expected for astract method"
+        | Some (A.MemberKind.Inline (js, ta, dollarVars)) when isNotWSInterface ->
+            let pars = Seq.concat meth.CurriedParameterGroups |> List.ofSeq
+            let vars =
+                match pars with 
+                | [ u ] when CodeReader.isUnit u.Type -> []
+                | _ ->
+                    pars
+                    |> List.map (fun p ->
+                        Id.New(?name = p.Name, mut = false)
+                    ) 
+            let thisVar = Id.New(name = "$this", mut = false)
+            try 
+                let nr = N.Inline ta
+                let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals (Some thisVar) vars mAnnot.Pure (mAnnot.Import |> Option.map comp.JSImport) dollarVars comp.AssemblyName js
+                let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
+                List.iter warn parsed.Warnings
+                let memdef = sr.ReadMember(meth, cls)
+                match memdef with
+                | Member.Method (isInstance, mdef) ->
+                    addMethod (Some (meth, memdef)) mAnnot mdef nr true None parsed.Expr
+                | _ -> error "Interface member should be a method"
+            with e ->
+                error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
         | Some (A.MemberKind.Remote rp) ->
             let memdef = sr.ReadMember meth
             match memdef with
@@ -953,10 +981,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     comp.AddQuotedMethod(td.Entity, m.Entity)
                 )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface stubInterfaces false recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
-            transformInterface sr stubInterfaces annot i |> Option.iter comp.AddInterface
-            transformClass sc comp ac sr classAnnots isInterface stubInterfaces recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
+            let intf = transformInterface sr stubInterfaces annot i 
+            intf |> Option.iter comp.AddInterface
+            transformClass sc comp ac sr classAnnots isInterface stubInterfaces (Option.isNone intf) recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1709,10 +1738,11 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces recMembers c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces false recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
-                transformInterface sr config.StubInterfaces rootTypeAnnot i |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces recMembers i [||] |> Option.iter comp.AddClass
+                let intf = transformInterface sr config.StubInterfaces rootTypeAnnot i 
+                intf |> Option.iter comp.AddInterface
+                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces (Option.isNone intf) recMembers i [||] |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 

@@ -36,6 +36,10 @@ type ITest2 =
     abstract member Something: int -> int
     abstract member Something: string -> string
 
+type ITest3 =
+    [<Inline "$0 + $1">]
+    abstract member Something: int -> int
+
 [<JavaScript>]
 let Tests =
     TestCategory "Stub Interfaces" {
@@ -49,5 +53,10 @@ let Tests =
             let o = TestImpl()
             equal ((As<ITest2> o).Something(3)) 4
             equal ((As<ITest2> o).Something("1")) "11"
+        }
+
+        Test "Interface with inline" {
+            let o = 1
+            equal ((As<ITest3> 1).Something(3)) 4
         }
     }
