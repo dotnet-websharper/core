@@ -34,6 +34,34 @@ type GlobalMacro() =
                 Address = [c.Method.Entity.Value.MethodName]
             } |> Core.MacroOk
 
+type TestMacro() =
+    inherit Core.Macro()
+
+    override this.TranslateCall(c) =
+        let arg = "console.log($1, $2)"
+        let parts,matches =
+            let regex = System.Text.RegularExpressions.Regex("\$\d+")
+            regex.Split(arg),regex.Matches(arg)
+
+        let v =
+            let enumerator = matches.GetEnumerator()
+            [
+                while enumerator.MoveNext() do
+                    let i = (enumerator.Current :?> System.Text.RegularExpressions.Match).Value.Trim([|'$'|]) |> int
+                    if i = 0 && c.This.IsSome then
+                        yield c.This.Value
+                    elif c.This.IsSome then
+                        yield c.Arguments[i-1]
+                    else
+                        yield c.Arguments[i]
+            ]
+        Core.AST.Expression.Verbatim(parts |> List.ofArray, v, false)
+        |> Core.MacroOk
+
+type ILogger =
+    [<Macro(typeof<TestMacro>)>]
+    abstract log : string * obj -> unit
+
 type ITest =
     abstract member Something: int -> int
 
@@ -93,5 +121,11 @@ let Tests =
             let myUrl = url "https://google.com#custom-hash"
             equal (myUrl.hash) "#custom-hash"
             equal (myUrl.toJSON()) "https://google.com/#custom-hash"
+        }
+
+        Test "Macro usage" {
+            let x = As<ILogger> null
+            x.log("logtype", 15)
+            equal 1 1
         }
     }

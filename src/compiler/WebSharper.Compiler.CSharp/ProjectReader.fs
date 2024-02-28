@@ -152,7 +152,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         not (List.isEmpty annot.Macros) ||
         intfMethods |> List.exists (
             function 
-            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _ | AttributeReader.MemberKind.Generated _) })
+            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _) })
             | (_, { Import = Some _ }) 
             | (_, { Macros = _ :: _ }) -> true
             | _ -> false

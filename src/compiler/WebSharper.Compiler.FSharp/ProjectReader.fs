@@ -132,7 +132,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) (classAnnots: Dicti
         not (List.isEmpty annot.Macros) ||
         intfMethods |> List.exists (
             function 
-            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _ | AttributeReader.MemberKind.Generated _) })
+            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _) })
             | (_, { Import = Some _ }) 
             | (_, { Macros = _ :: _ }) -> true
             | _ -> false
@@ -453,6 +453,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | _ -> error "Interface member should be a method"
             with e ->
                 error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
+        | Some A.MemberKind.NoFallback when isNotWSInterface ->
+            let memdef = sr.ReadMember(meth, cls)
+            match memdef with
+            | Member.Method (isInstance, mdef) ->
+                addMethod (Some (meth, memdef)) mAnnot mdef N.NoFallback true None Undefined
+            | _ -> error "Interface member should be a method"
         | Some (A.MemberKind.Remote rp) ->
             let memdef = sr.ReadMember meth
             match memdef with
