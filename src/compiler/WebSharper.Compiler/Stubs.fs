@@ -51,10 +51,21 @@ let GetMethodInline asmName (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) 
         elif isSet then
             if List.length mdef.Value.Parameters <> 1 then
                 error <- Some "Stub property cannot take arguments"
-            ItemSet(Hole 0, item, Hole 1)    
-        else 
-            let l = mdef.Value.Parameters.Length
-            let args = List.init l (fun i -> Hole (i + 1))
+            let arg =
+                if mdef.Value.Parameters.Head.TypeDefinition = WebSharper.Core.AST.Definitions.FSharpOption then
+                    Expression.Conditional(Hole 1, ItemGet(Hole 1, Expression.Value <| Literal.String "$0", Purity.Pure), Expression.Undefined)
+                else
+                    Hole 1
+            ItemSet(Hole 0, item, arg)
+        else
+            let args =
+                List.mapi (fun (i: int) (arg : Type) ->
+                    match arg with
+                    | Type.ConcreteType ct when ct.Entity = WebSharper.Core.AST.Definitions.FSharpOption ->
+                        Expression.Conditional(Hole (i+1), ItemGet(Hole (i+1), Expression.Value <| Literal.String "$0", Purity.Pure), Expression.Undefined)
+                    | _ ->
+                        Hole (i+1)
+                ) mdef.Value.Parameters
             Appl(ItemGet(Hole 0, item, NoSideEffect), args, NonPure, None)
     else
         let useAddress f =
@@ -90,14 +101,28 @@ let GetMethodInline asmName (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) 
         else 
             useAddress (fun a ->
                 let l = mdef.Value.Parameters.Length
-                let args = List.init l Hole
+                let args =
+                    List.mapi (fun (i: int) (arg : Type) ->
+                        match arg with
+                        | Type.ConcreteType ct when ct.Entity = WebSharper.Core.AST.Definitions.FSharpOption ->
+                            Expression.Conditional(Hole i, ItemGet(Hole i, Expression.Value <| Literal.String "$0", Purity.Pure), Expression.Undefined)
+                        | _ ->
+                            Hole i
+                    ) mdef.Value.Parameters
                 Appl(GlobalAccess a, args, NonPure, Some l)            
             )
     , error
 
 let GetConstructorInline asmName (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (tdef: TypeDefinition) (cdef: Constructor) =
-    let l = cdef.Value.CtorParameters.Length
-    let args = List.init l Hole
+    let argTypes = cdef.Value.CtorParameters
+    let args =
+        List.mapi (fun (i: int) (arg : Type) ->
+            match arg with
+            | Type.ConcreteType ct when ct.Entity = WebSharper.Core.AST.Definitions.FSharpOption ->
+                Expression.Conditional(Hole i, ItemGet(Hole i, Expression.Value <| Literal.String "$0", Purity.Pure), Expression.Undefined)
+            | _ ->
+                Hole i
+        ) argTypes
     match mAnnot.Import |> Option.orElse tAnnot.Import with
     | Some i ->
         let f = GlobalAccess (Address.Import asmName i)

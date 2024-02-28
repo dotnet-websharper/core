@@ -58,12 +58,12 @@ type ITest3 =
 
     abstract member NotInlined: x:int -> int
 
-type MyConsole =
-    abstract log : string -> unit
-    abstract member error : string -> unit
+type MyURL =
+    abstract hash : string
+    abstract toJSON : unit -> string
 
-[<Macro(typeof<GlobalMacro>)>]
-let console : MyConsole = As<MyConsole> null
+[<Inline "new URL($url)">]
+let url(url: string) = X<MyURL>
 
 [<JavaScript>]
 let Tests =
@@ -90,8 +90,8 @@ let Tests =
         }
 
         Test "External implementation stub interfaces" {
-            console.log("hello")
-            console.error("hola")
-            equal 1 1
+            let myUrl = url "https://google.com#custom-hash"
+            equal (myUrl.hash) "#custom-hash"
+            equal (myUrl.toJSON()) "https://google.com/#custom-hash"
         }
     }
