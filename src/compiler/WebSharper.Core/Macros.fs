@@ -1722,6 +1722,15 @@ type ImportJS() =
                     MacroNeedsResolvedTypeArg (NonGenericType Definitions.String)
                 else
                     MacroError "JS.ImportAll argument must be constant string"
+        | "ImportFile" ->
+            match c.Arguments with
+            | [I.Value (String from)] ->
+                c.Compilation.AddJSImportSideEffect (from) |> MacroOk
+            | _ -> 
+                if c.IsInline then
+                    MacroNeedsResolvedTypeArg (NonGenericType Definitions.String)
+                else
+                    MacroError "JS.ImportFile argument must be constant string"
         | _ ->
             failwith "Unrecognized method using ImportJS"
 

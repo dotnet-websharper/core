@@ -47,7 +47,7 @@ type QuotationCompiler (meta : M.Info) =
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
-            let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes)
+            let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes, t.IsInterface)
             let thisDef = Reflection.ReadTypeDefinition(t) 
             let def =
                 match annot.ProxyOf with
@@ -162,7 +162,7 @@ type QuotationCompiler (meta : M.Info) =
                         match memdef with
                         | Member.Method (isInstance, mdef) ->
                             hasStubMember <- true
-                            let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
+                            let expr, err = Stubs.GetMethodInline comp.AssemblyName annot mAnnot false isInstance def mdef
                             err |> Option.iter error
                             addMethod nrInline true expr
                         | _ -> failwith "Member kind not expected for astract method"
@@ -254,7 +254,7 @@ type QuotationCompiler (meta : M.Info) =
                     | Some kind ->
                     match kind with
                     | A.MemberKind.Stub ->
-                        let expr = Stubs.GetConstructorInline annot mAnnot def cdef
+                        let expr = Stubs.GetConstructorInline comp.AssemblyName annot mAnnot def cdef
                         addConstructor nrInline true expr
                     | A.MemberKind.NoFallback ->
                         addConstructor N.NoFallback true Undefined

@@ -5,6 +5,7 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\ProxyProjectTest\NoNamespace.fs" />
     <Compile Include="..\ProxyProjectTest\Library.fs" />
     <None Include="paket.references" />
     <Content Include="wsconfig.json" />

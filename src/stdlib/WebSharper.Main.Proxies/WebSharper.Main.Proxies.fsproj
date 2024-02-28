@@ -83,6 +83,8 @@
     <Compile Include="../WebSharper.Main.Proxies/ValueOption.fs" />
     <Compile Include="../WebSharper.Main.Proxies/ValueOptionModule.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Primitives.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Convert.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/StringBuilder.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

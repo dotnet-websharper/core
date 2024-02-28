@@ -27,6 +27,11 @@ open WebSharper.Testing
 [<JavaScript>]
 let mA, mB = 1, 2
 
+[<Import "./sayHi.js">]
+type MyClassNoStub() =
+    member this.sayHiInst(user: string) = X<string>
+    static member sayHiStatic(user: string) = X<string>
+
 [<Stub; Import "./sayHi.js">]
 type MyClassStub() =
     member this.sayHiInst(user: string) = X<string>
@@ -38,6 +43,9 @@ type MyClassInline [<Inline "new $import()">] () =
     member this.sayHiInst(user: string) = X<string>
     [<Inline "$import.sayHiStatic($user)">]
     static member sayHiStatic(user: string) = X<string>
+
+[<Import ("sayHi", "./sayHi.js")>]
+let sayHiFunc (str: string) = X<string> 
 
 [<JavaScript>]
 module JSXTest =
@@ -84,13 +92,19 @@ let Tests =
             equal (sayHi "World") "Hello, World!"
         }
 
-        //Test "JS.ImportDynamic" {
-        //    let! sayHiModule = JS.ImportDynamic("./sayHi.js") |> Promise.AsAsync
-        //    let sayHi = As<string -> string>(sayHiModule?sayHi)
-        //    equal (sayHi "World") "Hello, World!"
-        //}
+        Test "JS.ImportDynamic" {
+            let! sayHiModule = JS.ImportDynamic("../WebSharper.Module.Tests/sayHi.js") |> Promise.AsAsync
+            let sayHi = As<string -> string>(sayHiModule?sayHi)
+            equal (sayHi "World") "Hello, World!"
+        }
 
-        Skip "Import attribute with Stub" {
+        Test "Import attribute without Stub" {
+            equal (MyClassNoStub.sayHiStatic "World") "Hello, World!"
+            let c = MyClassNoStub() 
+            equal (c.sayHiInst "World") "Hello, World!"
+        }
+
+        Test "Import attribute with Stub" {
             equal (MyClassStub.sayHiStatic "World") "Hello, World!"
             let c = MyClassStub() 
             equal (c.sayHiInst "World") "Hello, World!"
@@ -100,6 +114,10 @@ let Tests =
             equal (MyClassInline.sayHiStatic "World") "Hello, World!"
             let c = MyClassInline() 
             equal (c.sayHiInst "World") "Hello, World!"
+        }
+
+        Test "Import attribute on function" {
+            equal (sayHiFunc "World") "Hello, World!"
         }
 
         Test "WIG Import" {

@@ -795,9 +795,11 @@ module Resolve =
         //    getFullAddress addr Member 
                      
     let rec getRenamed name (s: HashSet<string>) =
+        let name = JavaScript.Writer.EscapeId name
         if s.Add name then name else getRenamed (newName name) s
 
     let rec getRenamedWithKind name kind (s: HashSet<string * MemberKind>) =
+        let name = JavaScript.Writer.EscapeId name
         let hasConflict = 
             match kind with
             | MemberKind.Simple ->
@@ -814,6 +816,7 @@ module Resolve =
             name
 
     let rec getRenamedInstanceMemberForClass name kind c =
+        let name = JavaScript.Writer.EscapeId name
         let rec isNameOk (c: Class) =
             let hasConflict = 
                 let s = c.InstanceMembers
@@ -838,6 +841,7 @@ module Resolve =
             getRenamedInstanceMemberForClass (newName name) kind c
 
     let rec getRenamedStaticMemberForClass name kind c =
+        let name = JavaScript.Writer.EscapeId name
         let hasConflict = 
             let s = c.StaticMembers
             match kind with
@@ -855,6 +859,7 @@ module Resolve =
             getRenamedStaticMemberForClass (newName name) kind c
 
     let rec getRenamedFunctionForClass name c =
+        let name = JavaScript.Writer.EscapeId name
         if not (c.Functions.Contains name) then
             addFunctionToClass c name |> ignore
             name
@@ -862,6 +867,7 @@ module Resolve =
             getRenamedFunctionForClass (newName name) c
        
     let rec getRenamedInDict name v (s: Dictionary<string, _>) =
+        let name = JavaScript.Writer.EscapeId name
         if not (s.ContainsKey name) then
             s.Add(name, v) 
             name

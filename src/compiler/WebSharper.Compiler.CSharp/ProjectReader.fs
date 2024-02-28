@@ -60,7 +60,7 @@ let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceS
                 let pos = CodeReader.getSourcePosOfSyntaxReference r
                 let fileName = System.IO.Path.GetFileName pos.FileName 
                 a |> annotForTypeOrFile fileName
-            ) (sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes()))
+            ) (sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes(), t.TypeKind = TypeKind.Interface))
             |> annotForTypeOrFile thisDef.Value.FullName
         //let thisTypeInfo =
         //    match t.TypeKind with
@@ -129,8 +129,8 @@ let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReade
         }
     ) |> List.ofSeq
 
-let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
-    if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None else
+let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
+    if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None, false else
     let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
@@ -146,10 +146,19 @@ let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.Typ
         )
         |> List.ofSeq
 
-    let isRemote =
-        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+    let isNotWSInterface =
+        annot.IsStub ||
+        Option.isSome annot.Import ||
+        not (List.isEmpty annot.Macros) ||
+        intfMethods |> List.exists (
+            function 
+            | (_, { Kind = Some (AttributeReader.MemberKind.Remote _ | AttributeReader.MemberKind.Inline _) })
+            | (_, { Import = Some _ }) 
+            | (_, { Macros = _ :: _ }) -> true
+            | _ -> false
+        )
 
-    if isRemote then None else
+    if isNotWSInterface then None, true else
 
     let hasExplicitJS =
         annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
@@ -170,9 +179,8 @@ let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.Typ
             NotResolvedMethods = List.ofSeq methods 
             Generics = getConstraints intf.TypeParameters sr
             Type = annot.Type
-            IsStub = stubInterfaces || annot.IsStub
         }
-    )
+    ), false
 
 let initDef =
     Hashed {
@@ -260,7 +268,7 @@ let baseCtor (t: Concrete<TypeDefinition>) c this a =
 
 let private nrInline = N.Inline false
 
-let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (thisDef: TypeDefinition) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
+let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (thisDef: TypeDefinition) isNotWSInterface (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     let isInterface = cls.TypeKind = TypeKind.Interface
     let isClass = cls.TypeKind = TypeKind.Class
@@ -275,6 +283,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             a |> annotForTypeOrFile fileName
         ) annot
         |> annotForTypeOrFile thisDef.Value.FullName
+    let annot =
+        if isNotWSInterface then
+            { annot with
+                IsStub = true   
+            }
+        else
+            annot
 
     if isResourceType sr cls then
         if comp.HasGraph then
@@ -597,11 +612,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
+                let expr, err = Stubs.GetMethodInline comp.AssemblyName annot mAnnot false isInstance def mdef
                 err |> Option.iter error
                 addMethod (Some (meth, memdef)) mAnnot mdef nrInline true expr
             | Member.Constructor cdef ->
-                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
+                let expr = Stubs.GetConstructorInline comp.AssemblyName annot mAnnot def cdef
                 //err |> Option.iter error
                 addConstructor (Some (meth, memdef)) mAnnot cdef nrInline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
@@ -1170,7 +1185,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline (js, ta, dollarVars) ->
                     checkNotAbstract() 
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
+                        let thisVar = if getKind() = N.Static then None else Some (Id.NewThis())
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar (getVars()) mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.Inline ta) true parsed.Expr
                     with e ->
@@ -1180,7 +1196,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addMethod (Some (meth, memdef)) mAnnot mdef nrInline true (Value c)                        
                 | A.MemberKind.Direct (js, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) dollarVars comp.AssemblyName js
+                        let thisVar = if getKind() = N.Static then None else Some (Id.NewThis())
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar (getVars()) dollarVars comp.AssemblyName js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) true parsed.Expr
                     with e ->
@@ -1437,6 +1454,9 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
         | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
         | _ -> ()
 
+    if config.StubInterfaces then
+        asmAnnot <- { asmAnnot with StubInterfaces = true } 
+
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyName <- assembly.Name
@@ -1521,10 +1541,11 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     for TypeWithAnnotation(t, d, a) in allTypes do
         match t.TypeKind with
         | TypeKind.Interface ->
-            transformInterface sr config.StubInterfaces a t |> Option.iter comp.AddInterface
-            transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
+            let intf, isNotWSInterface = transformInterface sr a t 
+            intf |> Option.iter comp.AddInterface
+            transformClass rcomp sr comp d isNotWSInterface a t |> Option.iter comp.AddClass
         | TypeKind.Struct | TypeKind.Class ->
-            transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
+            transformClass rcomp sr comp d false a t |> Option.iter comp.AddClass
         | _ -> ()
     
     comp.Resolve()

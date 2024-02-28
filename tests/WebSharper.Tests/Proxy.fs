@@ -45,13 +45,13 @@ let Tests =
 
     TestCategory "Custom proxy" {
 
-        Test "StringBuilder" {
-            let sb = System.Text.StringBuilder()
-            isTrueMsg (sb?append !==. JS.Undefined) "[<Name>] attribute on proxy method"
-            sb.Append("foo") |> ignore
-            sb.Append("bar") |> ignore
-            equal (sb.ToString()) "foobar"
-        }
+        //Test "StringBuilder" {
+        //    let sb = System.Text.StringBuilder()
+        //    isTrueMsg (sb?append !==. JS.Undefined) "[<Name>] attribute on proxy method"
+        //    sb.Append("foo") |> ignore
+        //    sb.Append("bar") |> ignore
+        //    equal (sb.ToString()) "foobar"
+        //}
 
         Test "Interface with JavaScript false" {
             isTrue ((IIsClientClass() :> IIsClient).IsClient())

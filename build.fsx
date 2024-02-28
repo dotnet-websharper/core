@@ -137,6 +137,11 @@ Target.create "Prepare" <| fun _ ->
             WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
         }
 
+    Npm.install <| fun o -> 
+        { o with 
+            WorkingDirectory = "./tests/Web/"
+        }
+
 let targets =
     MakeTargets {
         WSTargets.Default (fun () -> computedVersion) with

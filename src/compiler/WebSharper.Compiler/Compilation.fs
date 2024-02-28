@@ -413,6 +413,9 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddJSImport(export, from) = 
             this.AddJSImport(export, from)
 
+        member this.AddJSImportSideEffect(from) =
+            this.AddJSImportSideEffect(from)
+
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -1206,6 +1209,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddJSImport(export: string option, from: string) =
         GlobalAccess (this.JSImport(export, from))
 
+    member this.AddJSImportSideEffect(from: string) =
+        Expression.SideeffectingImport (this.JSImport(None, from))
+
     member this.GetMethodNameAndKind (m: Method) =
         let mname = m.Value.MethodName 
         if mname.StartsWith("get_") && m.Value.Parameters.IsEmpty then
@@ -1311,12 +1317,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match n with
                 | None ->
                     let mname, k = this.GetMethodNameAndKind(m)
-                    let rename =
-                        if nr.IsStub then
-                            mname
-                        else
-                            intfName + mname
-                    let n = Resolve.getRenamedWithKind (rename) k allNames
+                    let n = Resolve.getRenamedWithKind (intfName + mname) k allNames
                     resMethods.Add(m, (n, k, c))
                 | _ -> ()
 
@@ -1421,6 +1422,32 @@ type Compilation(meta: Info, ?hasGraph) =
             HashSet [ "toString"; "Equals"; "GetHashCode" ]
 
         let typesWithSingleConstructor = HashSet()
+        let classHasPrototype = Dictionary()
+        classHasPrototype.Add(Definitions.Exception, true)
+        let rec doesClassHavePrototype typ =
+            match classHasPrototype.TryFind(typ) with
+            | Some res -> res
+            | None ->
+                let res =
+                    match classes.TryFind typ with
+                    | Some (a, _, Some c) ->
+                        match a.Module with
+                        | DotNetType _ -> c.HasWSPrototype
+                        | _ -> true
+                    | _ ->
+                        match notResolvedClasses.TryFind typ with
+                        | Some cls ->
+                            let baseCls = 
+                                cls.BaseClass |> Option.bind (fun b ->
+                                    let be = this.FindProxied b.Entity
+                                    if classes.ContainsKey be || notResolvedClasses.ContainsKey be then Some { b with Entity = be } else None
+                                )
+                            baseCls |> Option.forall (fun bc -> doesClassHavePrototype bc.Entity) && 
+                            hasWSPrototype cls.Kind baseCls cls.Members
+                        | _ -> 
+                            true
+                classHasPrototype.Add(typ, res)
+                res
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -1473,7 +1500,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ -> false
                     )
                 )
-            let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
+            let hasWSPrototype = doesClassHavePrototype typ
             let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
                 match classes.TryFind typ with
