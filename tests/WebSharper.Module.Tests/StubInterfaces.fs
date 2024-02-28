@@ -36,9 +36,18 @@ type ITest2 =
     abstract member Something: int -> int
     abstract member Something: string -> string
 
+[<JavaScript>]
+type NonInlinedTest() =
+    member this.NotInlined x = x + 1
+
 type ITest3 =
     [<Inline "$0 + $1">]
     abstract member Something: int -> int
+
+    [<Inline "$this + $x">]
+    abstract member Something2: x:int -> int
+
+    abstract member NotInlined: x:int -> int
 
 [<JavaScript>]
 let Tests =
@@ -56,7 +65,10 @@ let Tests =
         }
 
         Test "Interface with inline" {
-            let o = 1
             equal ((As<ITest3> 1).Something(3)) 4
+            equal ((As<ITest3> 1).Something2(3)) 4
+            let n = NonInlinedTest()
+            equal (n.NotInlined(3)) 4 // ensure member is not DCE-d
+            equal ((As<ITest3> n).NotInlined(3)) 4
         }
     }

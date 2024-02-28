@@ -207,6 +207,19 @@ namespace WebSharper.CSharp.Tests
             Equal(((ITestDefaultImpl)o2).Bar(), 2);
         }
 
+        interface ITestIntfInline
+        {
+            [Inline("$0 + $1")]
+            int Foo(int x);
+        }
+
+        [Test("C# interface with inline")]
+        public void InterfaceWithInline()
+        {
+            var o = 40;
+            Equal(JavaScript.Pervasives.As<ITestIntfInline>(o).Foo(2), 42);
+        }
+
         struct StructTest
         {
             public readonly int X;
