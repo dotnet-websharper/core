@@ -24,13 +24,22 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
+type GlobalMacro() =
+    inherit Core.Macro()
+
+    override this.TranslateCall(c) =
+        Core.AST.Expression.GlobalAccess
+            {
+                Module = Core.AST.Module.StandardLibrary
+                Address = [c.Method.Entity.Value.MethodName]
+            } |> Core.MacroOk
+
 type ITest =
     abstract member Something: int -> int
 
 [<JavaScript>]
 type TestImpl() =
-    interface ITest with
-        member this.Something x = x + 1
+    member this.Something x = x + 1
 
 type ITest2 =
     abstract member Something: int -> int
@@ -49,12 +58,20 @@ type ITest3 =
 
     abstract member NotInlined: x:int -> int
 
+type MyConsole =
+    abstract log : string -> unit
+    abstract member error : string -> unit
+
+[<Macro(typeof<GlobalMacro>)>]
+let console : MyConsole = As<MyConsole> null
+
 [<JavaScript>]
 let Tests =
     TestCategory "Stub Interfaces" {
         Test "Config setting" {
             let o = TestImpl()
-            equal ((o :> ITest).Something(3)) 4
+            equal (o.Something(3)) 4 // ensure member is not DCE-d
+            equal ((As<ITest> o).Something(3)) 4
             equal (o?Something(3)) 4
         }
 
@@ -70,5 +87,11 @@ let Tests =
             let n = NonInlinedTest()
             equal (n.NotInlined(3)) 4 // ensure member is not DCE-d
             equal ((As<ITest3> n).NotInlined(3)) 4
+        }
+
+        Test "External implementation stub interfaces" {
+            console.log("hello")
+            console.error("hola")
+            equal 1 1
         }
     }

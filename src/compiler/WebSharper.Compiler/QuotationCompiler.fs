@@ -47,7 +47,7 @@ type QuotationCompiler (meta : M.Info) =
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
-            let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes)
+            let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes, t.IsInterface)
             let thisDef = Reflection.ReadTypeDefinition(t) 
             let def =
                 match annot.ProxyOf with

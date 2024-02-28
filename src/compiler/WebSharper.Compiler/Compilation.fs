@@ -1300,11 +1300,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match n with
                 | None ->
                     let mname, k = this.GetMethodNameAndKind(m)
-                    let n = 
-                        if nr.IsStub then
-                            mname
-                        else
-                            Resolve.getRenamedWithKind (intfName + mname) k allNames
+                    let n = Resolve.getRenamedWithKind (intfName + mname) k allNames
                     resMethods.Add(m, (n, k, c))
                 | _ -> ()
 

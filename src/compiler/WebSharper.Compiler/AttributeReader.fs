@@ -78,6 +78,7 @@ type TypeAnnotation =
         RemotingProvider : option<TypeDefinition * option<obj>>
         JavaScriptTypesAndFiles : list<string>
         JavaScriptExportTypesAndFiles : list<string>
+        StubInterfaces : bool
         Type : option<TSType>
         Import : option<option<string> * string>
     }
@@ -100,6 +101,7 @@ type TypeAnnotation =
             RemotingProvider = None
             JavaScriptTypesAndFiles = []
             JavaScriptExportTypesAndFiles = []
+            StubInterfaces = false
             Type = None
             Import = None
         }
@@ -180,6 +182,7 @@ type AssemblyAnnotation =
         IsJavaScriptExport : bool
         JavaScriptTypesAndFiles : list<string>
         JavaScriptExportTypesFilesAndAssemblies : list<string>
+        StubInterfaces : bool
     }
 
     member this.RootTypeAnnot =
@@ -189,6 +192,7 @@ type AssemblyAnnotation =
             IsJavaScriptExport = this.IsJavaScriptExport
             JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
             JavaScriptExportTypesAndFiles = this.JavaScriptExportTypesFilesAndAssemblies
+            StubInterfaces = this.StubInterfaces
         }
 
 /// Contains information from all WebSharper-specific attributes for a type parameter
@@ -435,7 +439,15 @@ type AttributeReader<'A>() =
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
         attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp, import, hasJsString
 
-    member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
+    member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>, isInterface) =
+        let parent =
+            if isInterface && parent.StubInterfaces then
+                { parent with 
+                    IsJavaScript = false 
+                    IsStub = true
+                }
+            else
+                parent
         let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp, import, _ = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
@@ -460,6 +472,7 @@ type AttributeReader<'A>() =
             JavaScriptExportTypesAndFiles =
                 (attrArr |> Seq.choose (function A.JavaScriptExport e -> e | _ -> None) |> List.ofSeq) 
                 @ parent.JavaScriptExportTypesAndFiles
+            StubInterfaces = parent.StubInterfaces
             Type = tstyp
             Import = import
         }
@@ -556,6 +569,7 @@ type AttributeReader<'A>() =
             IsJavaScriptExport = isJavaScriptExport
             JavaScriptTypesAndFiles = jsTypesAndFiles |> List.ofSeq
             JavaScriptExportTypesFilesAndAssemblies = jsExportTypesAndFiles |> List.ofSeq
+            StubInterfaces = false
         }        
 
     member this.GetTypeParamAnnot (attrs: seq<'A>) =
@@ -598,7 +612,7 @@ let reflectCustomType (typ : TypeDefinition) =
             M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))
         elif FST.IsRecord(t, Reflection.AllMethodsFlags) then
             
-            let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
+            let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData(), false)
         
             FST.GetRecordFields(t, Reflection.AllMethodsFlags)
             |> Seq.map (fun f ->
@@ -618,7 +632,7 @@ let reflectCustomType (typ : TypeDefinition) =
             )
             |> List.ofSeq |> M.FSharpRecordInfo
         elif FST.IsUnion(t, Reflection.AllMethodsFlags) then
-            let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
+            let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData(), false)
             let usesNull = 
                 t.GetCustomAttributesData()
                 |> Seq.exists (fun a ->

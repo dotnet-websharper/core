@@ -79,7 +79,7 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
 let rec private collectTypeAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) (members: seq<SourceMemberOrEntity>) =
     let thisDef = sr.ReadTypeDefinition cls
     let annot =
-        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
+        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes, cls.IsInterface)
     d.Add(cls, (thisDef, annot))
     t.Add(thisDef, cls)
     for m in members do
@@ -104,26 +104,18 @@ let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeRea
         }
     ) |> List.ofSeq
 
-let private transformInterface (sr: CodeReader.SymbolReader) stubInterfaces parentAnnot (intf: FSharpEntity) =
-    let annot =
-       sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
+let private transformInterface (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (intf: FSharpEntity) =
+    let thisDef, annot = classAnnots.[intf]
     if annot.IsForcedNotJavaScript then None, false else
     let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d
-        | _ -> sr.ReadTypeDefinition intf
+        | _ -> thisDef
 
     let tparams =
         intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
-    let annot =
-        if stubInterfaces && not annot.IsJavaScript then
-            { annot with
-                IsStub = true   
-            }
-        else
-            annot
     let intfMethods = 
         intf.MembersFunctionsAndValues
         |> Seq.map (fun m ->
@@ -135,6 +127,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) stubInterfaces pare
         |> List.ofSeq
 
     let isNotWSInterface =
+        annot.IsStub ||
         Option.isSome annot.Import ||
         not (List.isEmpty annot.Macros) ||
         intfMethods |> List.exists (
@@ -170,7 +163,6 @@ let private transformInterface (sr: CodeReader.SymbolReader) stubInterfaces pare
             NotResolvedMethods = List.ofSeq methods
             Generics = getConstraints intf.GenericParameters sr tparams
             Type = annot.Type
-            IsStub = annot.IsStub
         }
     ), false
 
@@ -239,7 +231,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) stubInterfaces isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -392,15 +384,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddJavaScriptExport (ExportNode (ConstructorNode (def, cdef)))
         clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mem mAnnot kind compiled curriedArgs expr)))
 
-    let annotations = Dictionary ()
-    let annot =
-        if isNotWSInterface && not annot.IsJavaScript && not isInterfaceProxy then
-            { annot with
-                IsStub = true   
-            }
-        else
-            annot
-        
+    let annotations = Dictionary ()        
     let rec getAnnot x : A.MemberAnnotation =
         let mem = sr.ReadMember(x, cls)
         match annotations.TryFind mem with
@@ -998,11 +982,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     comp.AddQuotedMethod(td.Entity, m.Entity)
                 )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots isInterface stubInterfaces false recMembers ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface false recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
-            let intf, isNotWSInterface = transformInterface sr stubInterfaces annot i 
+            let intf, isNotWSInterface = transformInterface sr classAnnots i 
             intf |> Option.iter comp.AddInterface
-            transformClass sc comp ac sr classAnnots isInterface stubInterfaces isNotWSInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface isNotWSInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1028,7 +1012,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 NotResolvedMethods = List.ofArray methods 
                 Generics = getConstraints cls.GenericParameters sr clsTparams
                 Type = annot.Type
-                IsStub = annot.IsStub
             }
         comp.AddInterface(def, intf)
 
@@ -1437,6 +1420,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
         | _ -> ()
 
+    if config.StubInterfaces then
+        asmAnnot <- { asmAnnot with StubInterfaces = true } 
+
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyRequires <- asmAnnot.Requires
@@ -1593,7 +1579,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 let underlyingType = Reflection.ReadTypeDefinition (sampleValue.GetType())
                 CustomTypeInfo.EnumInfo underlyingType
             else if entity.IsFSharpRecord then
-                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes, false) 
                 entity.FSharpFields |> Seq.choose (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     match fAnnot.Kind with
@@ -1612,7 +1598,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 )
                 |> List.ofSeq |> function [] -> CustomTypeInfo.NotCustomType | l -> FSharpRecordInfo l
             else if entity.IsFSharpUnion then
-                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes)
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes, false)
                 let usesNull =
                     entity.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
                     && entity.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
@@ -1755,11 +1741,11 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces false recMembers c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface false recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
-                let intf, isNotWSInterface = transformInterface sr config.StubInterfaces rootTypeAnnot i 
+                let intf, isNotWSInterface = transformInterface sr classAnnotations i 
                 intf |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations isInterface config.StubInterfaces isNotWSInterface recMembers i [||] |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface isNotWSInterface recMembers i [||] |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 

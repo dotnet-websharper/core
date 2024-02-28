@@ -60,7 +60,7 @@ let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceS
                 let pos = CodeReader.getSourcePosOfSyntaxReference r
                 let fileName = System.IO.Path.GetFileName pos.FileName 
                 a |> annotForTypeOrFile fileName
-            ) (sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes()))
+            ) (sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes(), t.TypeKind = TypeKind.Interface))
             |> annotForTypeOrFile thisDef.Value.FullName
         //let thisTypeInfo =
         //    match t.TypeKind with
@@ -129,20 +129,13 @@ let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReade
         }
     ) |> List.ofSeq
 
-let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
+let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None, false else
     let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 
         | _ -> sr.ReadNamedTypeDefinition intf
-    let annot =
-        if stubInterfaces && not annot.IsJavaScript then
-            { annot with
-                IsStub = true   
-            }
-        else
-            annot
     let intfMethods =
         intf.GetMembers().OfType<IMethodSymbol>()
         |> Seq.map (fun m ->
@@ -154,6 +147,7 @@ let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.Typ
         |> List.ofSeq
 
     let isNotWSInterface =
+        annot.IsStub ||
         Option.isSome annot.Import ||
         not (List.isEmpty annot.Macros) ||
         intfMethods |> List.exists (
@@ -185,7 +179,6 @@ let private transformInterface (sr: R.SymbolReader) stubInterfaces (annot: A.Typ
             NotResolvedMethods = List.ofSeq methods 
             Generics = getConstraints intf.TypeParameters sr
             Type = annot.Type
-            IsStub = annot.IsStub
         }
     ), false
 
@@ -291,7 +284,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         ) annot
         |> annotForTypeOrFile thisDef.Value.FullName
     let annot =
-        if isNotWSInterface && not annot.IsJavaScript then
+        if isNotWSInterface then
             { annot with
                 IsStub = true   
             }
@@ -1461,6 +1454,9 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
         | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
         | _ -> ()
 
+    if config.StubInterfaces then
+        asmAnnot <- { asmAnnot with StubInterfaces = true } 
+
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyName <- assembly.Name
@@ -1545,7 +1541,7 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     for TypeWithAnnotation(t, d, a) in allTypes do
         match t.TypeKind with
         | TypeKind.Interface ->
-            let intf, isNotWSInterface = transformInterface sr config.StubInterfaces a t 
+            let intf, isNotWSInterface = transformInterface sr a t 
             intf |> Option.iter comp.AddInterface
             transformClass rcomp sr comp d isNotWSInterface a t |> Option.iter comp.AddClass
         | TypeKind.Struct | TypeKind.Class ->
