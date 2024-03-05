@@ -488,7 +488,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
-    if isThisInterface && clsMembers.Count = 0 then None else
+    if isThisInterface && not isNotWSInterface && clsMembers.Count = 0 then None else
 
     let fsharpSpecificNonException =
         cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsValueType
