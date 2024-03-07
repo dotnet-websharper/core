@@ -480,7 +480,6 @@ let EraseAssemblyContents (assembly : Assembly) =
     asm.CustomAttributes.Clear()
     asm.EntryPoint <- null
     asm.Modules.Clear()
-    asm.MainModule.Resources.Clear()
     asm.MainModule.Types.Clear()
     for a in attrs do
         match a.AttributeType.Namespace with
