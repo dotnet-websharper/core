@@ -58,9 +58,23 @@ type TestMacro() =
         Core.AST.Expression.Verbatim(parts |> List.ofArray, v, false)
         |> Core.MacroOk
 
+type MacroOnType() =
+    inherit WebSharper.Core.Macro()
+
+    override this.TranslateCall(c) =
+        Core.AST.Expression.GlobalAccess
+            {
+                Module = Core.AST.Module.StandardLibrary
+                Address = [c.Method.Entity.Value.MethodName]
+            } |> Core.MacroOk
+
+
 type ILogger =
     [<Macro(typeof<TestMacro>)>]
     abstract log : string * obj -> unit
+
+type [<Macro(typeof<MacroOnType>)>] MyStub =
+    abstract log : string -> unit
 
 type ITest =
     abstract member Something: int -> int
@@ -126,6 +140,8 @@ let Tests =
         Test "Macro usage" {
             let x = As<ILogger> null
             x.log("logtype", 15)
+            let x = As<MyStub> null
+            x.log("logtype")
             equal 1 1
         }
     }
