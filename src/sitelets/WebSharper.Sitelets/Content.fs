@@ -612,7 +612,8 @@ type Content<'Endpoint> with
         let page =
             match Bundle with
             | None -> page 
-            | Some b -> { page with Body = page.Body |> Content.Bundle b }
+            | Some b -> 
+                { page with Body = Seq.append (Seq.singleton (Web.BundleNode(b) :> Web.INode)) page.Body }
         Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return page }))
         |> async.Return
 

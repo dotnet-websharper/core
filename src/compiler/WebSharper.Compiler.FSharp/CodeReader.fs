@@ -1333,13 +1333,16 @@ let contentType =
 type Test =
     static member Opt (?x : string) = x
 
+exception BundleFail of message: string with
+    override this.ToString() = this.message
+
 let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list) =
-    if typ = contentModule && m.Value.MethodName = "Bundle`2" then
+    if typ = contentModule && m.Value.MethodName.StartsWith "Bundle" then
         match arguments[0] with
         | P.Const (value, _) ->
             [ string value ]
-        | _ ->
-            failwith "Content.Bundle argument must be constant string" 
+        | a ->
+            raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
     elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const value ]) when c.Name = "Some" ->
@@ -1347,19 +1350,23 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
         | P.NewUnionCase (_, c, _) when c.Name = "None" ->
             []
         | _ ->
-            failwith "Content.Page Bundle argument must be constant string" 
+            raise <| BundleFail "Content.Page Bundle argument must be constant string" 
     else
         []
 
 let rec isWebControlType (cls: FSharpEntity) =
-    match cls.FullName with
-    | "WebSharper.Web.FSharpInlineControl"
-    | "WebSharper.Web.InlineControl" ->
+    match cls.TryFullName with
+    | Some "WebSharper.Web.FSharpInlineControl"
+    | Some "WebSharper.Web.InlineControl" ->
         false
     | _ ->
         match cls.BaseType with
         | Some bCls ->
-            bCls.TypeDefinition.QualifiedName.Split([|','|]).[0]  = "WebSharper.Web.Control" || isWebControlType bCls.TypeDefinition
+            match bCls.TypeDefinition.TryFullName with
+            | Some "WebSharper.Web.Control" -> 
+                true
+            | _ -> 
+                isWebControlType bCls.TypeDefinition
         | _ -> false
 
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
@@ -1375,7 +1382,6 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 let pars = mem.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
                 indexes |> Array.iter (fun i ->
                     let arg = arguments[i]
-                    let p = pars[i]
                     let e, withValue =
                         match arg with
                         | P.Quote e -> Some e, false
@@ -1409,7 +1415,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 Parameters = argTypes
                                 ReturnType = retTy
                             }
-                        let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
+                        let argNames = [ for (v, _, _) in env.FreeVars -> v.LogicalName ]
                         let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], None, e)
                         // emptying FreeVars so that env can be reused for reading multiple quotation arguments
                         env.FreeVars.Clear()
@@ -1470,17 +1476,20 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             let typArgs = typeList |> List.map (env.SymbolReader.ReadType env.TParams)
                             let pos = expr.Range.AsSourcePos
                             env.Compilation.AddTypeNeedingDeserialization(GenericType typ typArgs, pos, bundleScope)
-                            
-                            //bundleScope
-                            
                             default'()    
                         else
                             default'()
                 | _ -> default'()
             | _ -> default'()
-        with _ -> 
+        with 
+        | BundleFail _ ->
+            reraise()
+        | _ -> 
             // some TP-s can create code that FCS fails to expose, ignore that
             // see https://github.com/dotnet-websharper/core/issues/904
             ()
-    scan [] expr
+    try
+        scan [] expr
+    with BundleFail m ->
+        failwith m
     quotations :> _ seq
