@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <!-- The following has an extra .. because it's only used in single-target mode -->
     <WebSharperBundleOutputDir>..\..\..\tests\WebSharper.SPA.Tests\Content</WebSharperBundleOutputDir>
     <Tests>True</Tests>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="File1.fs" />
