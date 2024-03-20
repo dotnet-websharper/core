@@ -4,6 +4,7 @@
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
     <Tests>True</Tests>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Dictionary.fs" />

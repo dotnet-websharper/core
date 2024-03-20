@@ -3,6 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <Tests>True</Tests>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="JSBindings.fs" />
