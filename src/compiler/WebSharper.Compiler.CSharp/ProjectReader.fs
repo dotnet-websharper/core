@@ -235,13 +235,6 @@ let rec private isIRequiresResources (sr: R.SymbolReader) (c: INamedTypeSymbol) 
         i.Name = "IRequiresResources"
     )
 
-let rec private isWebControlType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
-    match c.BaseType with
-    | null -> false
-    | bCls ->
-        let typ = sr.ReadNamedTypeDefinition bCls
-        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls
-
 let delegateTy, delRemove =
     match <@ System.Delegate.Remove(null, null) @> with
     | FSharp.Quotations.Patterns.Call (_, mi, _) ->
@@ -1386,11 +1379,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     //    addMethod None pAnnot setter.Entity N.Inline false body
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
-
-    if not cls.IsAbstract && not isInterface && isWebControlType sr cls then
-        let sourcePos =
-            CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences[0]
-        comp.AddTypeNeedingDeserialization(NonGenericType def, sourcePos, []) |> ignore
 
     if isStruct then
         comp.AddCustomType(def, StructInfo)

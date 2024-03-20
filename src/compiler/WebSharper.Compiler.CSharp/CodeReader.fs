@@ -2759,6 +2759,19 @@ type RoslynTransformer(env: Environment) =
 
 open System.Linq
 
+let rec private isWebControlType (sr: SymbolReader) (c: INamedTypeSymbol) =
+    let typ = sr.ReadNamedTypeDefinition c
+    match typ.Value.FullName with
+    | "WebSharper.Web.FSharpInlineControl"
+    | "WebSharper.Web.InlineControl" ->
+        false
+    | _ ->
+        match c.BaseType with
+        | null -> false
+        | bCls ->
+            let bTyp = sr.ReadNamedTypeDefinition bCls
+            bTyp.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls
+
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
 let scanExpression (env: Environment) (node: SyntaxNode) =
 
@@ -2835,11 +2848,16 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
             let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
 
             if not (isNull symbol) then
-                let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
-                let ctor = env.SymbolReader.ReadConstructor symbol
-                //failwithf "Found ObjectCreationExpression: %s" typ.Value.FullName
-                match env.Compilation.TryLookupQuotedConstArgMethod(typ, ctor) with
-                | Some indexes ->
-                    checkQuotedArgs indexes n.ArgumentList
-                | _ -> ()        
+                if isWebControlType env.SymbolReader symbol.ContainingType then
+                    let typ = env.SymbolReader.ReadType symbol.ContainingType
+                    let pos = getSourcePos n
+                    env.Compilation.AddWebControl(typ, pos, []) // TODO C# bundles
+                else
+                    let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
+                    let ctor = env.SymbolReader.ReadConstructor symbol
+                    //failwithf "Found ObjectCreationExpression: %s" typ.Value.FullName
+                    match env.Compilation.TryLookupQuotedConstArgMethod(typ, ctor) with
+                    | Some indexes ->
+                        checkQuotedArgs indexes n.ArgumentList
+                    | _ -> ()        
         | _ -> ()

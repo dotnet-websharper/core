@@ -1194,6 +1194,14 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddTypeNeedingDeserialization (t, pos, bundles) =
         typesNeedingDeserialization.Add(t, pos, bundles)    
     
+    member this.AddWebControl (t, pos, bundles) =
+        this.AddTypeNeedingDeserialization(t, pos, bundles)    
+        match webControls.TryFind(t) with
+        | Some b ->
+            webControls[t] <- List.distinct (bundles @ b)
+        | _ ->
+            webControls[t] <- bundles
+
     member this.TypesNeedingDeserialization = 
         typesNeedingDeserialization 
         |> Seq.groupBy (fun (t, _, _) -> t) 

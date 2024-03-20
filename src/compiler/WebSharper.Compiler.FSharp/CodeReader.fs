@@ -1475,7 +1475,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         if isWebControlType e then
                             let typArgs = typeList |> List.map (env.SymbolReader.ReadType env.TParams)
                             let pos = expr.Range.AsSourcePos
-                            env.Compilation.AddTypeNeedingDeserialization(GenericType typ typArgs, pos, bundleScope)
+                            env.Compilation.AddWebControl(GenericType typ typArgs, pos, bundleScope)
                             default'()    
                         else
                             default'()

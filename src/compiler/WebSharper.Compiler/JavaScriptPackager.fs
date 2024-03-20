@@ -1459,6 +1459,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     else
                         yield M.MethodNode (td, m)    
             }
+            |> graph.GetDependencies
          
         let trimmed = trimMetadata runtimeMeta nodes 
 

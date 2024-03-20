@@ -199,6 +199,7 @@ module SampleSite =
             let bt = Client.ButtonText("click me!")
             return! Content.Page(
                 Title = t.Title,
+                Bundle = "samplehome",
                 Body = [
                     yield! t.Login
                     yield! t.Menu

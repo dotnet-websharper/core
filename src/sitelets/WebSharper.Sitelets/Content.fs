@@ -111,6 +111,7 @@ module Content =
             let requiredBundles =
                 requiresAndCode
                 |> Seq.choose (function ClientBundle n -> Some n | _ -> None)
+                |> Seq.distinct
                 |> Array.ofSeq
 
             let allImports =
@@ -132,18 +133,27 @@ module Content =
                     | _ ->
                         Seq.empty
                 
-                requiresAndCode |> Seq.collect importsOf
+                requiresAndCode
+                |> Seq.collect importsOf
+                |> Array.ofSeq
 
             let bundleName = 
                 match requiredBundles with
                 | [||] ->
-                    if ctx.Metadata.PreBundle.Count > 0 then
+                    if ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
                         Some "all"
                     else
                         None
-
-                | [| b |] -> Some b
-                | _ -> Some "all"
+                | _ ->
+                    requiredBundles
+                    |> Seq.tryFind (fun b ->
+                        match ctx.Metadata.PreBundle.TryFind b with
+                        | Some bundle ->
+                            allImports |> Seq.forall bundle.ContainsKey
+                        | _ ->
+                            false
+                    )
+                    |> Option.orElse (if allImports.Length > 0 then Some "all" else None)
 
             let bundle =
                 bundleName
