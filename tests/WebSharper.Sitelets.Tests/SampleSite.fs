@@ -199,6 +199,7 @@ module SampleSite =
             let bt = Client.ButtonText("click me!")
             return! Content.Page(
                 Title = t.Title,
+                Bundle = "samplehome",
                 Body = [
                     yield! t.Login
                     yield! t.Menu
@@ -238,22 +239,23 @@ module SampleSite =
         /// The home page.
         let HomePage =
             Template "Home" <| fun ctx ->
-                [
-                    Elt("h1", Text "Welcome to our site!")
-                    "Let us know how we can contact you" => ctx.Link Action.Contact
-                    Elt("div", Web.InlineControl (Client.Elt "b" [|Client.Text "It's working baby"|] ))
-                    Elt("div",
-                        Text """This should say 'Checking "attribute" encoding':""",
-                        Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
-                    )
-                    Elt("div",
-                        Web.InlineControl
-                            ( Client.Elt "i" [|
-                                Client.Text "On the "
-                                Client.Elt "b" [|Client.Text "client side"|]
-                                Client.Text " too!"
-                            |] ))
-                ]
+                Content.Bundle "samplehome"
+                    [
+                        Elt("h1", Text "Welcome to our site!")
+                        "Let us know how we can contact you" => ctx.Link Action.Contact
+                        Elt("div", Web.InlineControl (Client.Elt "b" [|Client.Text "It's working baby"|] ))
+                        Elt("div",
+                            Text """This should say 'Checking "attribute" encoding':""",
+                            Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
+                        )
+                        Elt("div",
+                            Web.InlineControl
+                                ( Client.Elt "i" [|
+                                    Client.Text "On the "
+                                    Client.Elt "b" [|Client.Text "client side"|]
+                                    Client.Text " too!"
+                                |] ))
+                    ]
 
         /// A page to collect contact information.
         let ContactPage =

@@ -383,18 +383,19 @@ namespace WebSharper.DllBrowser
                 Contents.Add(new QuotationModel(x.Key, x.Value));
             }
             Contents.Add(new QuotatedMethodsModel(metadata));
+            Contents.Add(new WebControlsModel(metadata));
         }
     }
     public class QuotationModel : TreeLeafNodeModel
     {
         private SourcePos Key;
-        private Tuple<Hashed<TypeDefinitionInfo>, Hashed<Core.AST.MethodInfo>, FSharpList<string>> Value;
+        private QuotationInfo Value;
         public override string Name => Key.ToString();
         public override string GetDetails()
         {
-            return $"{Value.Item1.Value.FullName}.{Value.Item2.Value.MethodName}({string.Join(", ", Value.Item3)})";
+            return $"{Value.TypeDefinition.Value.FullName}.{Value.Method.Value.MethodName}({string.Join(", ", Value.Arguments)}) in bundles: {string.Join(", ", Value.PreBundles)}";
         }
-        public QuotationModel(SourcePos key, Tuple<Hashed<TypeDefinitionInfo>, Hashed<Core.AST.MethodInfo>, FSharpList<string>> value)
+        public QuotationModel(SourcePos key, QuotationInfo value)
         {
             Key = key;
             Value = value;
@@ -409,11 +410,29 @@ namespace WebSharper.DllBrowser
             var sb = new StringBuilder();
             foreach (var qm in Metadata.QuotedMethods)
             {
-                sb.AppendLine(qm.Item1.Value.FullName + "." + qm.Item2.Value.MethodName);
+                sb.AppendLine($"{qm.Key.Item1.Value.FullName}.{qm.Key.Item2.Value.MethodName} in bundles: {string.Join(", ", qm.Value)}");
             }
             return sb.ToString();
         }
         public QuotatedMethodsModel(Info metadata)
+        {
+            Metadata = metadata;
+        }
+    }
+    public class WebControlsModel : TreeLeafNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "Web.Controls";
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var qm in Metadata.WebControls)
+            {
+                sb.AppendLine($"{qm.Key.AssemblyQualifiedName} in bundles: {string.Join(", ", qm.Value)}");
+            }
+            return sb.ToString();
+        }
+        public WebControlsModel(Info metadata)
         {
             Metadata = metadata;
         }

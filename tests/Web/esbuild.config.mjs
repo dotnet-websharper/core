@@ -1,13 +1,20 @@
-﻿import { build } from 'esbuild'
+﻿import { readdirSync } from 'fs'
+import { build } from 'esbuild'
 
-var options =
-{
-  entryPoints: ['./wwwroot/Scripts/WebSharper/Web/root.js'],
-  bundle: true,
-  minify: true,
-  format: 'iife',
-  outfile: 'wwwroot/Scripts/WebSharper/bundle.js',
-  globalName: 'wsbundle'
-};
+const files = readdirSync('./wwwroot/Scripts/WebSharper/Web/');
 
-build(options);
+files.forEach(file => {
+  if (file.endsWith('.js')) {
+    var options =
+    {
+      entryPoints: ['./wwwroot/Scripts/WebSharper/Web/' + file],
+      bundle: true,
+      minify: true,
+      format: 'iife',
+      outfile: 'wwwroot/Scripts/WebSharper/' + file,
+      globalName: 'wsbundle'
+    };
+
+    build(options);
+  }
+});

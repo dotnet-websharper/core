@@ -52,7 +52,7 @@ module NotResolved =
         | Inline of assertReturnType: bool
         | InlineImplementation of TypeDefinition
         | NoFallback
-        | Quotation of SourcePos * string list
+        | Quotation of SourcePos * string list * string list
         | MissingImplementation of TypeDefinition
 
     type NotResolvedMethod =

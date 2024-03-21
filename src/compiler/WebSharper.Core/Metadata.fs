@@ -364,6 +364,14 @@ type ExtraBundle =
     member this.MinifiedFileName =
         this.AssemblyName + "." + this.BundleName + ".min.js"
 
+type QuotationInfo =
+    {
+        TypeDefinition : TypeDefinition
+        Method : Method
+        Arguments : list<string>
+        PreBundles : list<string>
+    }
+
 type Info =
     {
         SiteletDefinition: option<TypeDefinition>
@@ -371,11 +379,12 @@ type Info =
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
         Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
-        Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
+        Quotations : IDictionary<SourcePos, QuotationInfo>
         ResourceHashes : IDictionary<string, int>
         ExtraBundles : Set<ExtraBundle>
-        PreBundle : IDictionary<Address, string>
-        QuotedMethods : (TypeDefinition * Method)[]
+        PreBundle : IDictionary<string, IDictionary<Address, string>>
+        QuotedMethods : IDictionary<TypeDefinition * Method, list<string>>
+        WebControls : IDictionary<Type, list<string>>
     }
 
     static member Empty =
@@ -389,7 +398,8 @@ type Info =
             ResourceHashes = Map.empty
             ExtraBundles = Set.empty
             PreBundle = Map.empty
-            QuotedMethods = [||]
+            QuotedMethods = Map.empty
+            WebControls = Map.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -492,7 +502,8 @@ type Info =
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
             PreBundle = Map.empty
-            QuotedMethods = metas |> Array.collect (fun m -> m.QuotedMethods)
+            QuotedMethods = Dict.unionAppend (metas |> Seq.map (fun m -> m.QuotedMethods))
+            WebControls = Dict.unionAppend (metas |> Seq.map (fun m -> m.WebControls))
         }
 
     member this.ClassInfo(td) =
@@ -652,7 +663,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "7.0-beta4"
+    let CurrentVersion = "7.0-beta5"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

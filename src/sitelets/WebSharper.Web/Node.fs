@@ -30,3 +30,13 @@ type INode =
     abstract member Write : Web.Context * HtmlTextWriter -> unit
 
     abstract member IsAttribute : bool
+
+type BundleNode(bundle: string) =
+    
+    interface INode with
+
+        member this.Requires (_, _, _) = Seq.singleton (ClientCode.ClientBundle bundle)
+
+        member this.Write (_, _) = ()
+
+        member this.IsAttribute = false

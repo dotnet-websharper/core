@@ -196,25 +196,29 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 |> Seq.append (Seq.singleton current)
                 |> M.Info.UnionWithoutDependencies
 
-            let bundleJs, addrMap =
+            let bundles =
                 if prebundle then
-                    let bundleCode, addrMap = JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
-                    let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
-                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                    Some js, Some trAddrMap
+                    JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
+                    |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
+                        let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
+                        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                        bname, js, trAddrMap
+                    )
+                    |> Array.ofSeq |> Some
                 else
-                    None, None
+                    None
             let updated =
                 {
                     trimmed with
                         Dependencies = 
                             graph.GetData() 
                         PreBundle = 
-                            match addrMap with
-                            | Some am -> am
+                            match bundles with
+                            | Some bundles ->
+                                bundles |> Seq.map (fun (bname, _, addrMap) -> bname, addrMap :> IDictionary<_,_>) |> dict
                             | _ -> Dictionary()
                 }
-            Some (updated, bundleJs)
+            Some (updated, bundles)
         | _ -> None
 
     let addMeta() =
@@ -264,8 +268,9 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
 
     match rMeta with
-    | Some (_, Some bundleJs) ->
-        addRes "root.js" (Some "") (Some (getBytes bundleJs))
+    | Some (_, Some bundles) ->
+        for bname, bundleJs, _ in bundles do
+            addRes (bname + ".js") (Some "") (Some (getBytes bundleJs))
     | _ -> ()
 
     if pkg.Length > 0 then
