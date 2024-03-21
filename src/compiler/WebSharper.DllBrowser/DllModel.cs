@@ -383,6 +383,7 @@ namespace WebSharper.DllBrowser
                 Contents.Add(new QuotationModel(x.Key, x.Value));
             }
             Contents.Add(new QuotatedMethodsModel(metadata));
+            Contents.Add(new WebControlsModel(metadata));
         }
     }
     public class QuotationModel : TreeLeafNodeModel
@@ -414,6 +415,24 @@ namespace WebSharper.DllBrowser
             return sb.ToString();
         }
         public QuotatedMethodsModel(Info metadata)
+        {
+            Metadata = metadata;
+        }
+    }
+    public class WebControlsModel : TreeLeafNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "Web.Controls";
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var qm in Metadata.WebControls)
+            {
+                sb.AppendLine($"{qm.Key.AssemblyQualifiedName} in bundles: {string.Join(", ", qm.Value)}");
+            }
+            return sb.ToString();
+        }
+        public WebControlsModel(Info metadata)
         {
             Metadata = metadata;
         }

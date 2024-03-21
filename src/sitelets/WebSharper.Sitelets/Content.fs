@@ -610,21 +610,26 @@ type Content<'Endpoint> with
         |> async.Return
 
     static member Page (?Body: #seq<#WebSharper.Web.INode>, ?Head:#seq<#WebSharper.Web.INode>, ?Title: string, ?Doctype: string, ?Bundle: string) : Async<Content<'Endpoint>> =
+        let body = match Body with None -> Seq.empty | Some x -> Seq.cast x
+        let bodyWithBundle = 
+            match Bundle with
+            | None -> body 
+            | Some b -> Seq.append (Seq.singleton (Web.BundleNode(b) :> Web.INode)) body
         Content.Page({
             Doctype = Some (match Doctype with Some d -> d | None -> "<!DOCTYPE html>")
             Title = Title
             Head = match Head with None -> Seq.empty | Some x -> Seq.cast x
-            Body = match Body with None -> Seq.empty | Some x -> Seq.cast x
+            Body = bodyWithBundle
             Renderer = Page.Default.Renderer
-        }, ?Bundle = Bundle)
+        })
 
     static member Page (page: Page, ?Bundle: string) : Async<Content<'Endpoint>> =
-        let page =
+        let pageWithBundle =
             match Bundle with
             | None -> page 
             | Some b -> 
                 { page with Body = Seq.append (Seq.singleton (Web.BundleNode(b) :> Web.INode)) page.Body }
-        Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return page }))
+        Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return pageWithBundle }))
         |> async.Return
 
     static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Endpoint>> =

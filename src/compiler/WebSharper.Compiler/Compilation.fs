@@ -105,7 +105,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
-    let typesNeedingDeserialization = ResizeArray<Type * SourcePos * list<string>>()
+    let typesNeedingDeserialization = Dictionary<Type, SourcePos * list<string>>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
@@ -1192,7 +1192,11 @@ type Compilation(meta: Info, ?hasGraph) =
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.AddTypeNeedingDeserialization (t, pos, bundles) =
-        typesNeedingDeserialization.Add(t, pos, bundles)    
+        match typesNeedingDeserialization.TryFind(t) with
+        | Some (p, b) ->
+            typesNeedingDeserialization[t] <- (p, List.distinct (bundles @ b))    
+        | _ ->
+            typesNeedingDeserialization[t] <- (pos, bundles) 
     
     member this.AddWebControl (t, pos, bundles) =
         this.AddTypeNeedingDeserialization(t, pos, bundles)    
@@ -1204,10 +1208,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.TypesNeedingDeserialization = 
         typesNeedingDeserialization 
-        |> Seq.groupBy (fun (t, _, _) -> t) 
-        |> Seq.map (fun (t, ts) -> 
-            let _, pos, _ = Seq.head ts
-            let bundleNames = ts |> Seq.collect (fun (_, _, bn) -> bn) |> List.ofSeq
+        |> Seq.map (fun (KeyValue(t, (pos, bundleNames))) -> 
             t, pos, bundleNames
         )
 

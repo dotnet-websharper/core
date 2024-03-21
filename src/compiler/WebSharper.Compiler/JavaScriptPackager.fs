@@ -1447,15 +1447,12 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
 
     for b in bundles do
         let nodes =
-            let mutable hasWebControl = false
             seq {
+                yield M.AbstractMethodNode (iControlBody, replaceInDom)
+                yield M.AbstractMethodNode (webControl, getBody)
                 for td, m in b.Value do
                     if m = getBody then
                         yield M.TypeNode td
-                        if not hasWebControl then
-                            yield M.AbstractMethodNode (iControlBody, replaceInDom)
-                            yield M.AbstractMethodNode (webControl, getBody)
-                            hasWebControl <- true
                     else
                         yield M.MethodNode (td, m)    
             }
