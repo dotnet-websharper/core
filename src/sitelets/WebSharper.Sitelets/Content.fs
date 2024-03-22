@@ -724,10 +724,16 @@ type CSharpContent =
             [<Optional>] Body: Web.INode,
             [<Optional>] Head: Web.INode,
             [<Optional>] Title: string,
-            [<Optional>] Doctype: string
+            [<Optional>] Doctype: string,
+            [<Optional>] Bundle: string
         ) =
+        let body = Option.map Seq.singleton (CSharpContent.Opt Body) 
+        let bodyWithBundle = 
+            match Bundle with
+            | null -> body 
+            | b -> Some (Seq.append (Seq.singleton (Web.BundleNode(b) :> Web.INode)) (Seq.concat (Option.toArray body)))
         Content.Page(
-            ?Body = Option.map Seq.singleton (CSharpContent.Opt Body),
+            ?Body = bodyWithBundle,
             ?Head = Option.map Seq.singleton (CSharpContent.Opt Head),
             ?Title = CSharpContent.Opt Title, ?Doctype = CSharpContent.Opt Doctype)
         |> CSharpContent.ToContent
@@ -735,6 +741,9 @@ type CSharpContent =
     static member Page (page: Page) =
         Content.Page(page)
         |> CSharpContent.ToContent
+
+    static member Bundle (name, contents: Web.INode) =
+        Web.BundleNode(name, contents) :> Web.INode
 
     static member Text (text: string, [<Optional>] Encoding: System.Text.Encoding) =
         Content.Text(text, ?encoding = CSharpContent.Opt Encoding)

@@ -2772,8 +2772,33 @@ let rec private isWebControlType (sr: SymbolReader) (c: INamedTypeSymbol) =
             let bTyp = sr.ReadNamedTypeDefinition bCls
             bTyp.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls
 
+let contentType =
+    TypeDefinition {
+        Assembly = "WebSharper.Sitelets"
+        FullName = "WebSharper.Sitelets.Content`1"
+    }
+
+exception BundleFail of message: string with
+    override this.ToString() = this.message
+
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
 let scanExpression (env: Environment) (node: SyntaxNode) =
+
+    let getBundleMethod (typ: TypeDefinition, m: Method, arguments: SeparatedSyntaxList<ArgumentSyntax>) =
+        if typ = contentType && m.Value.MethodName.StartsWith "Bundle" then
+            match env.SemanticModel.GetConstantValue(arguments[1]).Value with
+            | :? string as value when value <> null ->
+                [ value ]
+            | _ ->
+                raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
+        elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
+            match env.SemanticModel.GetConstantValue(Seq.last arguments).Value with
+            | :? string as value when value <> null ->
+                [ value ]
+            | _ ->
+                []
+        else
+            []
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
         let symbol =
@@ -2792,8 +2817,11 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
         let meth = Generic (env.SymbolReader.ReadMethod eSymbol) ma
         typ.Entity, meth.Entity
 
-    for n in node.DescendantNodes() do
-        
+    let rec scan bundleScope (node: SyntaxNode) =
+
+        let default'() =
+            Seq.iter (scan bundleScope) (node.ChildNodes())
+
         let checkQuotedArgs indexes (args: ArgumentListSyntax) =
             args.Arguments |> Seq.iteri (fun i a -> 
                 if indexes |> Array.contains i then
@@ -2804,17 +2832,17 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                             let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
                             if not (isNull esymbol) then
                                 let etyp, emeth = getTypeAndMethod esymbol
-                                env.Compilation.AddQuotedMethod(etyp, emeth, [])
+                                env.Compilation.AddQuotedMethod(etyp, emeth, bundleScope)
                             let pos = getSourcePos e
                             let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
                             for t in argTypes do
                                 if t.CanHaveDeserializer then
-                                    env.Compilation.AddTypeNeedingDeserialization(t, pos, [])
+                                    env.Compilation.AddTypeNeedingDeserialization(t, pos, bundleScope)
                         | :? IdentifierNameSyntax as e ->
                             let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IPropertySymbol
                             if not (isNull esymbol) then
                                 let etyp, emeth = getTypeAndMethod esymbol.GetMethod
-                                env.Compilation.AddQuotedMethod(etyp, emeth, [])
+                                env.Compilation.AddQuotedMethod(etyp, emeth, bundleScope)
                         | e -> 
                             failwithf "Unexpected form in Client-side LINQ lambda body: %s" (e.ToString())
 
@@ -2822,17 +2850,17 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         let esymbol = env.SemanticModel.GetSymbolInfo(e).Symbol :?> IMethodSymbol
                         if not (isNull esymbol) then
                             let etyp, emeth = getTypeAndMethod esymbol
-                            env.Compilation.AddQuotedMethod(etyp, emeth, [])
+                            env.Compilation.AddQuotedMethod(etyp, emeth, bundleScope)
                         let pos = getSourcePos e
                         let argTypes = esymbol.Parameters |> Seq.map (fun p -> env.SymbolReader.ReadType p.Type)
                         for t in argTypes do
                             if t.CanHaveDeserializer then
-                                env.Compilation.AddTypeNeedingDeserialization(t, pos, [])
+                                env.Compilation.AddTypeNeedingDeserialization(t, pos, bundleScope)
 
                     | e -> failwithf "Unexpected form in Client-side LINQ expression: %s" (e.ToString())
             )
         
-        match n with 
+        match node with 
         | :? InvocationExpressionSyntax as n ->
             let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
             
@@ -2843,7 +2871,13 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                 match env.Compilation.TryLookupQuotedArgMethod(typ, meth) with
                 | Some indexes ->
                     checkQuotedArgs indexes n.ArgumentList
-                | _ -> ()        
+                    default'()
+                | _ ->
+                    let newBundleScope = getBundleMethod (typ, meth, n.ArgumentList.Arguments)
+                    Seq.iter (scan (newBundleScope @ bundleScope)) (node.ChildNodes())
+             else 
+                default'()
+
         | :? ObjectCreationExpressionSyntax as n ->
             let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
 
@@ -2851,7 +2885,7 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                 if isWebControlType env.SymbolReader symbol.ContainingType then
                     let typ = env.SymbolReader.ReadType symbol.ContainingType
                     let pos = getSourcePos n
-                    env.Compilation.AddWebControl(typ, pos, []) // TODO C# bundles
+                    env.Compilation.AddWebControl(typ, pos, bundleScope)
                 else
                     let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
                     let ctor = env.SymbolReader.ReadConstructor symbol
@@ -2859,5 +2893,9 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                     match env.Compilation.TryLookupQuotedConstArgMethod(typ, ctor) with
                     | Some indexes ->
                         checkQuotedArgs indexes n.ArgumentList
-                    | _ -> ()        
-        | _ -> ()
+                    | _ -> ()      
+            default'()
+        | _ ->
+            default'()
+
+    scan [] node

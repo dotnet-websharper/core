@@ -1330,9 +1330,6 @@ let contentType =
         FullName = "WebSharper.Sitelets.FSharpContent"
     }
 
-type Test =
-    static member Opt (?x : string) = x
-
 exception BundleFail of message: string with
     override this.ToString() = this.message
 

@@ -958,6 +958,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | Member.Implementation (t, mdef) ->    
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
                     | _ -> ()
+                let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+                let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
+                let quotations = CodeReader.scanExpression env meth.LogicalName expr
+                quotations
+                |> Seq.iter (fun (pos, mdef, argNames, e, bundleScope) ->
+                    addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames, bundleScope)) false None e 
+                )
             let jsArgs =
                 meth.CurriedParameterGroups
                 |> Seq.concat
@@ -969,13 +976,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
                 | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
-            let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-            let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
-            let quotations = CodeReader.scanExpression env meth.LogicalName expr
-            quotations
-            |> Seq.iter (fun (pos, mdef, argNames, e, bundleScope) ->
-                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames, bundleScope)) false None e 
-            )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface false recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->

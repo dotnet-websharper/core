@@ -31,12 +31,27 @@ type INode =
 
     abstract member IsAttribute : bool
 
-type BundleNode(bundle: string) =
+type BundleNode(bundle: string, ?node: INode) =
     
     interface INode with
 
-        member this.Requires (_, _, _) = Seq.singleton (ClientCode.ClientBundle bundle)
+        member this.Requires (i, p, s) = 
+            match node with 
+            | Some n ->
+                Seq.append (Seq.singleton (ClientCode.ClientBundle bundle)) (n.Requires(i, p, s))
+            | _ ->
+                Seq.singleton (ClientCode.ClientBundle bundle)
 
-        member this.Write (_, _) = ()
+        member this.Write (c, w) =
+            match node with
+            | Some n ->
+                n.Write(c, w)
+            | _ ->
+                ()
 
-        member this.IsAttribute = false
+        member this.IsAttribute = 
+            match node with
+            | Some n ->
+                n.IsAttribute
+            | _ ->
+                false

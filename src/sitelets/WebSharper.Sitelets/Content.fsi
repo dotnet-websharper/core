@@ -178,6 +178,7 @@ module Content =
             -> ('EndPoint -> Async<Content<'OuterEndPoint>>)
             -> Async<Content<'OuterEndPoint>>
 
+    /// Sets bundle name to use.
     val Bundle : name: string -> contents: #seq<#WebSharper.Web.INode> -> seq<WebSharper.Web.INode>
 
     type RenderedResources =
@@ -228,12 +229,19 @@ type CSharpContent =
         * [<Optional>] Head: Web.INode
         * [<Optional>] Title: string
         * [<Optional>] Doctype: string
+        * [<Optional>] Bundle: string
         -> Task<CSharpContent>
 
     /// Creates an HTML content.
     static member Page
         : Page
         -> Task<CSharpContent>
+
+    /// Sets bundle name to use.
+    static member Bundle
+        : name: string 
+        * contents: Web.INode
+        -> Web.INode
 
     /// Creates a plain text content.
     static member Text
