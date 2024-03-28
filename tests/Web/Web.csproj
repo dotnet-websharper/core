@@ -37,7 +37,7 @@
   <Target Name="EnsureNodeModulesInstalled" BeforeTargets="Build">
     <Exec Command="npm install" />
   </Target>
-  <Target Name="RollupBundle" AfterTargets="WebSharperCompile">
+  <Target Name="ESBuildBundle" AfterTargets="WebSharperCompile">
     <Exec Command="node ./esbuild.config.mjs" />
   </Target>
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
