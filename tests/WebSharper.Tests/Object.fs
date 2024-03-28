@@ -137,6 +137,22 @@ type StructRecord =
 type StructRecord2 =
     { SR2 : int; SR2b : string }
 
+[<JavaScript; Struct>]
+type Position =
+    {
+        pos_fname: string
+        pos_lnum: int
+        pos_orig_lnum: int
+    }
+
+    member pos.Line = pos.pos_lnum
+
+    member pos.NextLine =
+        let pos = pos
+        { pos with
+            pos_lnum = pos.Line + 1
+        }
+
 [<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
 type U =
     | U0

@@ -28,8 +28,6 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
@@ -288,8 +286,6 @@ let wsRefs =
         "WebSharper.Collections"
         "WebSharper.Control"
         "WebSharper.Web"
-        "WebSharper.MathJS"
-        "WebSharper.MathJS.Extensions"
         "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
@@ -440,11 +436,14 @@ let translate isBundle source =
     
         //printfn "trimmedMeta: %A" trimmedMeta
 
-        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = 
+            WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg, _ =
+            pkg |> WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable
     
         //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
-        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg false
         printfn "%s" js
     
     else
@@ -457,7 +456,8 @@ let translate isBundle source =
         let jsFiles = 
             pkg 
             |> Array.map (fun (file, p) ->
-                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                let p, _ = p |> WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p false
                 file, js
             )
 
@@ -509,14 +509,22 @@ open WebSharper
 open WebSharper.JavaScript
 open System.Collections.Generic
 
-[<JavaScript>]
-module MyTest =
+[<JavaScript; Struct>]
+type Position =
+    {
+        pos_fname: string
+        pos_lnum: int
+        pos_orig_lnum: int
+    }
 
-    let Main() =
-        let f x y = x + y
-        let g() =
-            f 1 2 + f 2 3
-        g() + g()
+    member pos.Line = pos.pos_lnum
+
+    member pos.NextLine =
+        let pos = pos
+        { pos with
+            pos_lnum = pos.Line + 1
+        }
+
 """
 
 //translate """

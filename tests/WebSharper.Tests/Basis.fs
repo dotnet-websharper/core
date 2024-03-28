@@ -631,20 +631,19 @@ let Tests =
             )
         }
 
-        Skip "Anonymous records" {
-            //let x = IM.AnonRecord({| A = 42 |})
-            //equal x.B 42
-            //equal {| x with C = 3|} (New ["B" => 42; "C" => 3])
-            //let a, b = 
-            //    match IM.AnonRecordInUnion() with
-            //    | IM.AnonRecordTest r -> r.A, r.B
-            //equal a 3
-            //equal b "hi"
-            //equal {| A = 1; B = ValueNone; C = ValueSome 3 |} (New ["A" => 1; "C" => 3])
-            //equal {| A = 1; B = None; C = Some 3 |} (New ["A" => 1; "C" => 3])
-            //let s = struct {| A = 5 |}
-            //equal s.A 5
-            expect 0
+        Test "Anonymous records" {
+            let x = IM.AnonRecord({| A = 42 |})
+            equal x.B 42
+            equal {| x with C = 3|} (New ["B" => 42; "C" => 3])
+            let a, b = 
+                match IM.AnonRecordInUnion() with
+                | IM.AnonRecordTest r -> r.A, r.B
+            equal a 3
+            equal b "hi"
+            equal {| A = 1; B = ValueNone; C = ValueSome 3 |} (New ["A" => 1; "C" => 3])
+            equal {| A = 1; B = None; C = Some 3 |} (New ["A" => 1; "C" => 3])
+            let s = struct {| A = 5 |}
+            equal s.A 5
         }
 
         Test "Implicit yield" {
