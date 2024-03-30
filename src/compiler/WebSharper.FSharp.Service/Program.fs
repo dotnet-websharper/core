@@ -71,9 +71,12 @@ let startListening() =
                 .GetMethod()
                 .DeclaringType
         NLog.LogManager.GetLogger(callerType.Name)
+    nLogger.Trace "Trace level is on"
+    nLogger.Debug "Debug level is on"
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let checkerFactory() = checker
 
+    nLogger.Debug "Initializing memory cache"
     let memCache = MemoryCache.Default
     let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
         match r.LoadPath with
@@ -87,8 +90,10 @@ let startListening() =
                 let monitor = new HostFileChangeMonitor([| x |])
                 policy.ChangeMonitors.Add monitor
                 memCache.Set(x, result, policy)
+                nLogger.Trace(sprintf "Storing assembly: %s" x)
                 memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | Some x ->
+            nLogger.Trace(sprintf "Reading assembly: %s" x)
             memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | None ->
             // in-memory assembly may have no path. nLogger. 
@@ -146,14 +151,13 @@ let startListening() =
                             Async.RunSynchronously(asyncValue, cancellationToken = token)
                     }
 
-                let processCompileMessage (projectOption: string option) (wsConfig: WsConfig) warnSettings args = async {
-                    let nLogger = nLogger.WithProperty("wsdir", wsConfig.ProjectDir)
-                    nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
-                    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
+                let processCompileMessage (projectOption: string option) wsConfig warnSettings args = async {
                     nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let compilationResultForDebugOrRelease() =
-                        try
-                            Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+#if DEBUG
+                        Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+#else
+                        try Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
                         with 
                         | ArgumentError msg -> 
                             PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))
@@ -161,6 +165,7 @@ let startListening() =
                         | e -> 
                             PrintGlobalError logger (sprintf "Global error: %A" e)
                             1
+#endif
                     let returnValue = compilationResultForDebugOrRelease()
                     match projectOption with
                     | Some project ->
@@ -264,12 +269,17 @@ let startListening() =
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
                 let! _ = readingMessages serverPipe handleMessage
+                nLogger.Debug "Client has disconnected"
                 serverPipe.Close()
             with
             | ex ->
                 nLogger.Error(ex, "Error in handleMessage loop")
             }
 
+    let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
+    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
     // start listening. When Client connects, spawn a message processor and start another listen
     let rec pipeListener token = async {
         let serverPipe = new NamedPipeServerStream( 
@@ -280,11 +290,13 @@ let startListening() =
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
+        nLogger.Debug(sprintf "Client connected on %s pipeName" pipeName)
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }
 
     let tokenSource = new CancellationTokenSource()
+    nLogger.Debug(sprintf "Server listening started on %s pipeName" pipeName)
     Async.Start (pipeListener tokenSource.Token)
     locker.WaitOne() |> ignore
 

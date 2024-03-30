@@ -18,6 +18,7 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.Tools
+open Fake.JavaScript
 open System
 open System.Text.RegularExpressions
 open Fake.IO.Globbing.Operators
@@ -643,8 +644,6 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
-let computedVersion = ComputeVersion (Some baseVersion)
-
 let publish rids (mode: WSFake.BuildMode) =
     let publishExe (mode: WSFake.BuildMode) fw input output explicitlyCopyFsCore =
         for rid in rids do
@@ -709,7 +708,6 @@ Target.create "Prepare" <| fun _ ->
             yield File.ReadAllText(inFile)
             yield sprintf "    let [<Literal>] FcsVersion = \"%s\"" fcsVersion
             yield sprintf "    let [<Literal>] RoslynVersion = \"%s\"" roslynVersion
-            yield sprintf "    let [<Literal>] WSVersion = \"%s\"" computedVersion.AsString
         ]
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
@@ -749,26 +747,6 @@ let targets = WSFake.MakeTargets {
                 WSFake.BuildAction.Projects ["WebSharper.sln"]
             ]
 }
-let targets =
-    MakeTargets {
-        WSTargets.Default (fun () -> computedVersion) with
-            HasDefaultBuild = false
-            BuildAction =
-                BuildAction.Multiple [
-                    BuildAction.Projects ["WebSharper.Compiler.sln"]
-                    //BuildAction.Custom (publish [ Some "win-x64" ])
-                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
-                    BuildAction.Projects ["WebSharper.sln"]
-                ]
-            Attributes =
-                [
-                    AssemblyInfo.Company "IntelliFactory"
-                    AssemblyInfo.Copyright "(c) IntelliFactory 2023"
-                    
-                    AssemblyInfo.Description "https://github.com/dotnet-websharper/core"
-                    AssemblyInfo.Product "WebSharper"
-                ]
-    }
 
 targets.AddPrebuild "Prepare"
 
@@ -778,8 +756,7 @@ Target.create "Build" <| fun o ->
     ]
     |> WSFake.build o (WSFake.buildModeFromFlag o) 
 
-"WS-Restore"
-    ==> "Prepare"
+"Prepare"
     ==> "Build"
 
 Target.create "Publish" <| fun o ->
@@ -865,7 +842,6 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 
     use webTestsProc = new Process()
     webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net8.0\Web.exe"
-    webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
