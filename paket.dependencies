@@ -36,7 +36,7 @@ group includes
     framework: net8.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref 2.1.0
-    nuget FSharp.Core ~> 8.0.0
+    nuget FSharp.Core
 
 group fcs
     framework: net8.0, netstandard2.0
@@ -45,9 +45,9 @@ group fcs
     nuget System.Runtime.Caching ~> 8.0.0
     nuget System.Configuration.ConfigurationManager ~> 8.0.0
     nuget System.Collections.Immutable ~> 8.0.0
-    nuget NLog ~> 4.7.10
+    nuget NLog
     nuget FSharp.Compiler.Service
-    nuget FSharp.Core 8.0.200
+    nuget FSharp.Core
 
 group test
     source https://api.nuget.org/v3/index.json
@@ -57,12 +57,12 @@ group nunit
     framework: net6.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
-    nuget NUnit ~> 3.13.2
-    nuget NUnit3TestAdapter ~> 4.0.0
-    nuget Microsoft.NET.Test.Sdk ~> 16.10.0
-    nuget FSUnit ~> 4.0.4
-    nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.NUnit ~> 1.1.0
-    nuget Microsoft.VisualStudio.Composition ~> 17.1.20
+    nuget NUnit
+    nuget NUnit3TestAdapter
+    nuget Microsoft.NET.Test.Sdk
+    nuget FSUnit
+    nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.NUnit
+    nuget Microsoft.VisualStudio.Composition
     nuget FSharp.Core
     nuget System.Runtime.Loader 4.3.0
 
