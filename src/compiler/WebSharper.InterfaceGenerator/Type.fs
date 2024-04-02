@@ -408,7 +408,8 @@ module Type =
                         // other parameters, create a single parameter overload
                         match x.Parameters, x.ParamArray with
                         | [], Some (GenericType _ | SystemType SysObj as pa) ->
-                            for p in norm pa do
+                            let normpa = norm pa
+                            for p in normpa do
                                 yield {
                                     This = this
                                     ReturnType = returnType
@@ -423,19 +424,36 @@ module Type =
                                     Parameters = []
                                 }
                                 |> FunctionType
-                        | _ -> 
-                        for paramArray in normo x.ParamArray do
-                            let parameters =
-                                norms (List.map snd x.Parameters)
-                            for p in parameters do
+                            if List.length normpa > 1 then
                                 yield {
                                     This = this
                                     ReturnType = returnType
-                                    ParamArray = paramArray
-                                    Parameters =
-                                        (x.Parameters, p)
-                                        ||> List.map2 (fun (x, _) y -> (x, y))
-                                        |> normArgs
+                                    ParamArray = None
+                                    Parameters = []
+                                }
+                                |> FunctionType
+                        | _ -> 
+                            let normopa = normo x.ParamArray
+                            for paramArray in normopa do
+                                let parameters =
+                                    norms (List.map snd x.Parameters)
+                                for p in parameters do
+                                    yield {
+                                        This = this
+                                        ReturnType = returnType
+                                        ParamArray = paramArray
+                                        Parameters =
+                                            (x.Parameters, p)
+                                            ||> List.map2 (fun (x, _) y -> (x, y))
+                                            |> normArgs
+                                    }
+                                    |> FunctionType
+                            if List.length normopa > 1 then
+                                yield {
+                                    This = this
+                                    ReturnType = returnType
+                                    ParamArray = None
+                                    Parameters = []
                                 }
                                 |> FunctionType
                 ]
