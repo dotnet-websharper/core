@@ -1549,6 +1549,15 @@ module Elements =
     open Canvas
     open AudioVideoCommon
 
+    let Style =
+        Class "Style"
+        |+> Instance [
+            "getProperty" => T<string> ^-> T<string>
+            |> WithInline "$0[$1]"
+            "setProperty" => T<string> * T<string> ^-> T<unit>
+            |> WithInline "$0[$1] = $2"
+        ]
+
     let HTMLElement =
         Class "HTMLElement"
         |=> Inherits Dom.Interfaces.Element
@@ -1564,6 +1573,8 @@ module Elements =
             "click" => T<unit> ^-> T<unit>
             "focus" => T<unit> ^-> T<unit>
             "blur" => T<unit> ^-> T<unit>
+
+            "style" =? Style
 
             "accessKey" =@ T<string>
             "accessKeyLabel" =? T<string>
@@ -3673,6 +3684,7 @@ module Definition =
                 Geometry.DOMPointReadOnly
                 Geometry.DOMPoint
 
+                Elements.Style
                 Elements.HTMLElement
                 Elements.CanvasElement
                 Elements.OldCanvasElement

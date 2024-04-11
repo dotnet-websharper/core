@@ -102,6 +102,11 @@ type JavaScriptExtensions =
     [<Extension; Inline "$0">]
     static member ToJS(x: double) = X<Number>
 
+[<Extension>]
+type DomElementExtensions =
+    [<Extension>]
+    static member inline AsHTMLElement(t: Dom.Element) = t |> As<HTMLElement>
+
 [<AutoOpen>]
 module Extensions =
     open WebSharper
