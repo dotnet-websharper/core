@@ -30,6 +30,7 @@ namespace WebSharper.MSBuild.FSharp
     public sealed class WebSharperTask : ToolTask
     {
         public ITaskItem[] FscCommandLineArgs { get; set; } = new ITaskItem[] { };
+        public string Configuration { get; set; } = "";
         public string MSBuildProjectFullPath { get; set; }
         public string WebProjectOutputDir { get; set; }
         public string WebSharperConfigFile { get; set; }
@@ -70,6 +71,7 @@ namespace WebSharper.MSBuild.FSharp
 
                 WriteIfSet(w, "--ws:", WebSharperProject);
 
+                WriteIfSet(w, "--configuration:", Configuration);
                 WriteIfSet(w, "--project:", MSBuildProjectFullPath);
 
                 WriteIfSet(w, "--wsoutput:", WebProjectOutputDir);

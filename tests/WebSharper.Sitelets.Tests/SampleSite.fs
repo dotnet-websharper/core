@@ -199,7 +199,9 @@ module SampleSite =
             let bt = Client.ButtonText("click me!")
             return! Content.Page(
                 Title = t.Title,
+#if RELEASE
                 Bundle = "samplehome",
+#endif
                 Body = [
                     yield! t.Login
                     yield! t.Menu
@@ -239,7 +241,9 @@ module SampleSite =
         /// The home page.
         let HomePage =
             Template "Home" <| fun ctx ->
+#if RELEASE
                 Content.Bundle "samplehome"
+#endif
                     [
                         Elt("h1", Text "Welcome to our site!")
                         "Let us know how we can contact you" => ctx.Link Action.Contact

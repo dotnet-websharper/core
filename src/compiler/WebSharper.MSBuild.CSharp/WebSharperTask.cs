@@ -95,6 +95,8 @@ namespace WebSharper.MSBuild.CSharp
 
                 WriteIfSet(w, "--ws:", WebSharperProject);
 
+                WriteIfSet(w, "--configuration:", Configuration);
+
                 WriteIfSet(w, "--project:", MSBuildProjectFullPath);
 
                 WriteIfSet(w, "/keyfile:", KeyOriginatorFile);

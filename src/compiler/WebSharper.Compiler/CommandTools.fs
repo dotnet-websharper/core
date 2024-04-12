@@ -85,7 +85,8 @@ type WsConfig =
         References : string[] 
         Resources : (string * string option)[]
         KeyFile : string option
-        CompilerArgs : string[]        
+        CompilerArgs : string[]  
+        Configuration : string
         ProjectFile : string
         Documentation : string option
         PrintJS : bool
@@ -127,6 +128,7 @@ type WsConfig =
             Resources = [||]
             KeyFile = None
             CompilerArgs = [||]
+            Configuration = null
             ProjectFile = null
             Documentation = None
             PrintJS = false
@@ -162,14 +164,25 @@ type WsConfig =
         | "movetotop" -> Some true
         | _ -> argError "Invalid value for AnalyzeClosures, value must be true or movetotop."
     
-    member this.AddJson(jsonString, fileName) =
+    member this.AddJson(jsonString, fileName, configuration) =
         let json =
             try Json.Parse jsonString 
             with _ -> argError (sprintf "Failed to parse %s, not a valid json." fileName)
         let settings = 
             match json with
             | Json.Object values -> 
-                values |> List.filter (fun (k, v) -> v <> Json.Null)
+                let defValues = values |> List.filter (fun (k, v) -> v <> Json.Null)
+                let configOverrides = 
+                    defValues |> List.tryPick (
+                        function
+                        | v, Json.Object o when 
+                            System.String.Equals(v, configuration, StringComparison.InvariantCultureIgnoreCase) 
+                            || System.String.Equals(v, "config-" + configuration, StringComparison.InvariantCultureIgnoreCase) ->
+                            Some o
+                        | _ -> None
+                    )
+                    |> Option.defaultValue []
+                defValues @ configOverrides
             | _ -> argError (sprintf "Failed to parse %s, not a json object." fileName)
         let getString k v =
             match v with
@@ -290,7 +303,8 @@ type WsConfig =
                 res <- { res with RuntimeMetadata = runtimeMetadata }
             | "prebundle" ->
                 res <- { res with PreBundle = res.PreBundle || getBool k v }
-            | "$schema" -> ()
+            | "$schema" | "debug" | "release" -> ()
+            | c when c.StartsWith("config-") -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         if res.ProjectType <> Some ProjectType.Bundle && res.ProjectType <> Some ProjectType.BundleOnly then
             if res.JSOutputPath |> Option.map (fun x -> x.EndsWith(".js")) |> Option.defaultValue false then
@@ -586,6 +600,8 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--printjs" v -> Some { wsArgs with PrintJS = v }
     | StartsWith "--wsoutput:" o ->
         Some { wsArgs with OutputDir = Some o }
+    | StartsWith "--configuration:" c ->
+        Some { wsArgs with Configuration = c }
     | StartsWith "--project:" p ->
         Some { wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
     | StartsWith "--jsoutput:" f ->
@@ -604,7 +620,7 @@ let RecognizeWebSharperArg a wsArgs =
     | StartsWith "--scriptbaseurl" u -> Some { wsArgs with ScriptBaseUrl = Some u }
     | StartsWith "--wsconfig:" c ->
         if File.Exists c then
-            Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c))
+            Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c, wsArgs.Configuration))
         else 
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
     | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }

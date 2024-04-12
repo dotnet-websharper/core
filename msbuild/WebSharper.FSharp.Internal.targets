@@ -48,6 +48,7 @@
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask
       FscCommandLineArgs="@(FscCommandLineArgs)"
+      Configuration="$(Configuration)"
       MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperConfigFile="$(WebSharperConfigFile)"
