@@ -1324,6 +1324,12 @@ let contentModule =
         FullName = "WebSharper.Sitelets.ContentModule"
     }
 
+let uiContentType =
+    TypeDefinition {
+        Assembly = "WebSharper.UI"
+        FullName = "WebSharper.UI.Server.Content"
+    }
+
 let contentType =
     TypeDefinition {
         Assembly = "WebSharper.Sitelets"
@@ -1340,7 +1346,7 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
             [ string value ]
         | a ->
             raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
-    elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
+    elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const (value, _) ]) when c.Name = "Some" ->
             [ string value ]

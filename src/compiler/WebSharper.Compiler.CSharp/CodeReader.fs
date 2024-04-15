@@ -2778,6 +2778,12 @@ let contentType =
         FullName = "WebSharper.Sitelets.Content`1"
     }
 
+let uiContentType =
+    TypeDefinition {
+        Assembly = "WebSharper.UI"
+        FullName = "WebSharper.UI.Server.Content"
+    }
+
 exception BundleFail of message: string with
     override this.ToString() = this.message
 
@@ -2791,7 +2797,7 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                 [ value ]
             | _ ->
                 raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
-        elif typ = contentType && m.Value.MethodName.StartsWith "Page" then
+        elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
             match env.SemanticModel.GetConstantValue(Seq.last arguments).Value with
             | :? string as value when value <> null ->
                 [ value ]
