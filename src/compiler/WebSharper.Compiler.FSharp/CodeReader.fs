@@ -1460,8 +1460,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             match getBundleMethod (typ, m, arguments) with
                             | Ok scope -> scope
                             | Error err ->
-                                let pos = expr.Range.AsSourcePos
-                                env.Compilation.AddError(Some pos, SourceError err)    
+                                if env.Compilation.AssemblyName <> "WebSharper.UI" then // allow Content.Page redirect in WS.UI
+                                    let pos = expr.Range.AsSourcePos
+                                    env.Compilation.AddError(Some pos, SourceError err)    
                                 []
                         List.iter (scan (newBundleScope @ bundleScope)) expr.ImmediateSubExpressions
                 | _ -> default'()
