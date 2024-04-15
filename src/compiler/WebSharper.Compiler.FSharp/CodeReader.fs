@@ -1346,7 +1346,7 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
             [ string value ]
         | a ->
             raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
-    elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
+    elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" && (let al = arguments.Length in al = 2 || al = 5) then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const (value, _) ]) when c.Name = "Some" ->
             [ string value ]
