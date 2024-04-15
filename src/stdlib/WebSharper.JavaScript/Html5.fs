@@ -364,8 +364,17 @@ module Media =
             "applyConstraints" => !?MediaTrackConstraints?constraints ^-> EcmaPromise.[T<unit>]
 
             "onended" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnEnded instead"
+            "onended" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnEnded"
             "onmute" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnMute instead"
+            "onmute" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnMute"
             "onunmute" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnUnmute instead"
+            "onunmute" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnUnmute"
         ]
 
     let MediaStream =
@@ -389,9 +398,21 @@ module Media =
             "removeTrack" => MediaStreamTrack ^-> T<unit>
 
             "onaddtrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnAddTrack instead"
+            "onaddtrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnAddTrack"
             "onremovetrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnRemoveTrack instead"
+            "onremovetrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnRemoveTrack"
             "onactive" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnActive instead"
+            "onactive" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnActive"
             "oninactive" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnInactive instead"
+            "oninactive" =@ MediaStreamTrackEvent ^-> T<unit>
+            |> WithSourceName "OnInactive"
         ]
 
     let MediaDeviceKind =
@@ -424,6 +445,9 @@ module Media =
         |+> Instance [
             "enumerateDevices" => T<unit> ^-> EcmaPromise.[!|MediaDeviceInfo]
             "ondevicechange" => Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnDeviceChange instead"
+            "ondevicechange" => Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnDeviceChange"
         ]
 
     let CanvasCaptureMediaStreamTrack =
@@ -1082,7 +1106,13 @@ module AudioVideoCommon =
             "getCueAsHTML" => (T<unit>) ^-> T<obj> // FIXME DocumentFragment
 
             "onenter" => T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnEnter instead"
+            "onenter" => T<unit> ^-> T<unit>
+            |> WithSourceName "OnEnter"
             "onexit" => T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnExit instead"
+            "onexit" => T<unit> ^-> T<unit>
+            |> WithSourceName "OnExit"
 
         ]
 
@@ -1108,7 +1138,13 @@ module AudioVideoCommon =
             "readyState" =? T<int>
 
             "onload" => T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnLoad instead"
+            "onload" => T<unit> ^-> T<unit>
+            |> WithSourceName "OnLoad"
             "onerror" => T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnError instead"
+            "onerror" => T<unit> ^-> T<unit>
+            |> WithSourceName "OnError"
 
             "OFF" =? T<int>
             "HIDDEN" =? T<int>
@@ -1120,6 +1156,9 @@ module AudioVideoCommon =
             "activeCues" =? TimedTrackCueList
 
             "oncuechange" => T<int> ^-> T<int>
+            |> ObsoleteWithMessage "Use OnCueChange instead"
+            "oncuechange" => T<int> ^-> T<int>
+            |> WithSourceName "OnCueChange"
         ] |> ignore
 
     let MutableTimedTrack = 
@@ -1137,6 +1176,17 @@ module AudioVideoCommon =
             "auto"
         ]
 
+[<AutoOpen>]
+module Helpers =
+    let (=!@) (n: string) sign : CodeModel.IClassMember list =
+        let lowercase = n.ToLower()
+        [
+            lowercase =@ sign
+            |> ObsoleteWithMessage (sprintf "Use %s instead" n)
+            lowercase =@ sign
+            |> WithSourceName n
+        ]
+
 module EventHandlers =
     
     let private eh = Dom.Interfaces.Event ^-> T<unit>
@@ -1149,75 +1199,75 @@ module EventHandlers =
 
     let GlobalEventHandlers =
         Instance [
-            "onabort" =@ eh
-            "onauxclick" =@ eh
-            "onblur" =@ eh
-            "oncancel" =@ eh
-            "oncanplay" =@ eh
-            "oncanplaythrough" =@ eh
-            "onchange" =@ eh
-            "onclick" =@ eh
-            "onclose" =@ eh
-            "oncontextmenu" =@ eh
-            "oncuechange" =@ eh
-            "ondblclick" =@ eh
-            "ondrag" =@ eh
-            "ondragend" =@ eh
-            "ondragenter" =@ eh
-            "ondragexit" =@ eh
-            "ondragleave" =@ eh
-            "ondragover" =@ eh
-            "ondragstart" =@ eh
-            "ondrop" =@ eh
-            "ondurationchange" =@ eh
-            "onemptied" =@ eh
-            "onended" =@ eh
-            "onerror" =@ eh
-            "onfocus" =@ eh
-            "oninput" =@ eh
-            "oninvalid" =@ eh
-            "onkeydown" =@ eh
-            "onkeypress" =@ eh
-            "onkeyup" =@ eh
-            "onload" =@ eh
-            "onloadeddata" =@ eh
-            "onloadedmetadata" =@ eh
-            "onloadend" =@ eh
-            "onloadstart" =@ eh
-            "onmousedown" =@ eh
-            "onmouseenter" =@ eh
-            "onmouseleave" =@ eh
-            "onmousemove" =@ eh
-            "onmouseout" =@ eh
-            "onmouseover" =@ eh
-            "onmouseup" =@ eh
-            "onwheel" =@ eh
-            "onpause" =@ eh
-            "onplay" =@ eh
-            "onplaying" =@ eh
-            "onprogress" =@ eh
-            "onratechange" =@ eh
-            "onreset" =@ eh
-            "onresize" =@ eh
-            "onscroll" =@ eh
-            "onseeked" =@ eh
-            "onseeking" =@ eh
-            "onselect" =@ eh
-            "onshow" =@ eh
-            "onstalled" =@ eh
-            "onsubmit" =@ eh
-            "onsuspend" =@ eh
-            "ontimeupdate" =@ eh
-            "ontoggle" =@ eh
-            "onvolumechange" =@ eh
-            "onwaiting" =@ eh
+            yield! "OnAbort" =!@ eh
+            yield! "OnAuxClick" =!@ eh
+            yield! "OnBlur" =!@ eh
+            yield! "OnCancel" =!@ eh
+            yield! "OnCanPlay" =!@ eh
+            yield! "OnCanPlayThrough" =!@ eh
+            yield! "OnChange" =!@ eh
+            yield! "OnClick" =!@ eh
+            yield! "OnClose" =!@ eh
+            yield! "OnContextMenu" =!@ eh
+            yield! "OnCueChange" =!@ eh
+            yield! "OnDblClick" =!@ eh
+            yield! "OnDrag" =!@ eh
+            yield! "OnDragEnd" =!@ eh
+            yield! "OnDragEnter" =!@ eh
+            yield! "OnDragExit" =!@ eh
+            yield! "OnDragLeave" =!@ eh
+            yield! "OnDragOver" =!@ eh
+            yield! "OnDragStart" =!@ eh
+            yield! "OnDrop" =!@ eh
+            yield! "OnDurationChange" =!@ eh
+            yield! "OnEmptied" =!@ eh
+            yield! "OnEnded" =!@ eh
+            yield! "OnError" =!@ eh
+            yield! "OnFocus" =!@ eh
+            yield! "OnInput" =!@ eh
+            yield! "OnInvalid" =!@ eh
+            yield! "OnKeyDown" =!@ eh
+            yield! "OnKeyPress" =!@ eh
+            yield! "OnKeyUp" =!@ eh
+            yield! "OnLoad" =!@ eh
+            yield! "OnLoadedData" =!@ eh
+            yield! "OnLoadedMetadata" =!@ eh
+            yield! "OnLoadend" =!@ eh
+            yield! "OnLoadstart" =!@ eh
+            yield! "OnMouseDown" =!@ eh
+            yield! "OnMouseEnter" =!@ eh
+            yield! "OnMouseLeave" =!@ eh
+            yield! "OnMouseMove" =!@ eh
+            yield! "OnMouseOut" =!@ eh
+            yield! "OnMouseOver" =!@ eh
+            yield! "OnMouseUp" =!@ eh
+            yield! "OnWheel" =!@ eh
+            yield! "OnPause" =!@ eh
+            yield! "OnPlay" =!@ eh
+            yield! "OnPlaying" =!@ eh
+            yield! "OnProgress" =!@ eh
+            yield! "OnRateChange" =!@ eh
+            yield! "OnReset" =!@ eh
+            yield! "OnResize" =!@ eh
+            yield! "OnScroll" =!@ eh
+            yield! "OnSeeked" =!@ eh
+            yield! "OnSeeking" =!@ eh
+            yield! "OnSelect" =!@ eh
+            yield! "OnShow" =!@ eh
+            yield! "OnStalled" =!@ eh
+            yield! "OnSubmit" =!@ eh
+            yield! "OnSuspend" =!@ eh
+            yield! "OnTimeUpdate" =!@ eh
+            yield! "OnToggle" =!@ eh
+            yield! "OnVolumeChange" =!@ eh
+            yield! "OnWaiting" =!@ eh
         ]
 
     let DocumentAndElementEventHandlers =
         Instance [
-            "oncopy" =@ eh
-            "oncut" =@ eh
-            "onpaste" =@ eh
+            yield! "OnCopy" =!@ eh
+            yield! "OnCut" =!@ eh
+            yield! "OnPaste" =!@ eh
         ]
 
 module Streamable =
@@ -1510,11 +1560,29 @@ module File =
                 "result" =? t
                 "error" =? T<exn>
                 "onloadstart" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnLoadStart instead"
+                "onloadstart" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnLoadStart"
                 "onprogress" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnProgress instead"
+                "onprogress" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnProgress"
                 "onload" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnLoad instead"
+                "onload" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnLoad"
                 "onabort" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnAbort instead"
+                "onabort" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnAbort"
                 "onerror" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnError instead"
+                "onerror" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnError"
                 "onloadend" =@ ProgressEvent ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnLoadEnd instead"
+                "onloadend" =@ ProgressEvent ^-> T<unit>
+                |> WithSourceName "OnLoadEnd"
                 "readAsArrayBuffer " => Blob ^-> T<unit>
                 "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
                 "readAsDataURL" => Blob ^-> T<unit>
@@ -2247,13 +2315,13 @@ module Fetch =
         Class "XMLHttpRequestEventTarget"
         |=> Inherits Dom.Interfaces.EventTarget
         |+> Instance [
-            "onloadstart" =@ EH
-            "onprogress" =@ EH
-            "onabort" =@ EH
-            "onerror" =@ EH
-            "onload" =@ EH
-            "ontimeout" =@ EH
-            "onloadend" =@ EH
+            yield! "OnLoadStart" =!@ EH
+            yield! "OnProgress" =!@ EH
+            yield! "OnAbort" =!@ EH
+            yield! "OnError" =!@ EH
+            yield! "OnLoad" =!@ EH
+            yield! "OnTimeout" =!@ EH
+            yield! "OnLoadEnd" =!@ EH
         ]
 
     let XMLHttpRequestUpload =
@@ -2274,7 +2342,7 @@ module Fetch =
             "DONE" =? T<int>
         ]
         |+> Instance [
-            "onreadystatechange" =@ EH
+            yield! "OnReadyStateChange" =!@ EH
             "readyState" =? T<int>
 
             // request
@@ -2587,7 +2655,7 @@ module General =
             "postMessage" => T<obj> * Type.ArrayOf(MessagePort) ^-> T<unit>
             "start" => T<unit> ^-> T<unit>
             "close" => T<unit> ^-> T<unit>
-            "onmessage" =@ MessageEvent ^-> T<unit>
+            yield! "OnMessage" =!@ MessageEvent ^-> T<unit>
         ]
         |> ignore
 
@@ -2605,6 +2673,10 @@ module General =
             "matches" =? T<bool>
             "media" =? T<string>
             "onchange" => Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnChange instead"
+            "onchange" => Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnChange"
+
         ]
 
     let CSSSD =
@@ -2746,88 +2818,86 @@ module General =
 
             "customElements" =? CustomElementsRegistry
 
-            "onabort" =@ f
-            "onauxclick" =@ f
-            "onafterprint" =@ f
-            "onbeforeprint" =@ f
-            "onbeforeunload" =@ f
-            "onblur" =@ f
-            "oncanplay" =@ f
-            "oncancel" =@ f
-            "oncanplaythrough" =@ f
-            "onchange" =@ f
-            "onclick" =@ f
-            "oncontextmenu" =@ f
-
-            "oncuechange" =@ f
-
-            "ondblclick" =@ f
-            "ondrag" =@ f
-            "ondragend" =@ f
-            "ondragexit" =@ f
-            "ondragenter" =@ f
-            "ondragleave" =@ f
-            "ondragover" =@ f
-            "ondragstart" =@ f
-            "ondrop" =@ f
-            "ondurationchange" =@ f
-            "onemptied" =@ f
-            "onended" =@ f
-            "onerror" =@ f
-            "onfocus" =@ f
+            yield! "OnAbort" =!@ f
+            yield! "OnAuxClick" =!@ f
+            yield! "OnAfterPrint" =!@ f
+            yield! "OnBeforePrint" =!@ f
+            yield! "OnBeforeUnload" =!@ f
+            yield! "OnBlur" =!@ f
+            yield! "OnCanPlay" =!@ f
+            yield! "OnCancel" =!@ f
+            yield! "OnCanPlayThrough" =!@ f
+            yield! "OnChange" =!@ f
+            yield! "OnClick" =!@ f
+            yield! "OnContextMenu" =!@ f
+            yield! "OnCueChange" =!@ f
+            yield! "OnDblClick" =!@ f
+            yield! "OnDrag" =!@ f
+            yield! "OnDragEnd" =!@ f
+            yield! "OnDragExit" =!@ f
+            yield! "OnDragEnter" =!@ f
+            yield! "OnDragLeave" =!@ f
+            yield! "OnDragOver" =!@ f
+            yield! "OnDragStart" =!@ f
+            yield! "OnDrop" =!@ f
+            yield! "OnDurationChange" =!@ f
+            yield! "OnEmptied" =!@ f
+            yield! "OnEnded" =!@ f
+            yield! "OnError" =!@ f
+            yield! "OnFocus" =!@ f
             "onformchange" =@ f |> Obsolete
             "onforminput" =@ f |> Obsolete
-            "onhashchange" =@ f
-            "oninput" =@ f
-            "oninvalid" =@ f
-            "onkeydown" =@ f
-            "onkeypress" =@ f
-            "onkeyup" =@ f
-            "onload" =@ f
-            "onloadeddata" =@ f
-            "onloadedmetadata" =@ f
-            "onloadstart" =@ f
-            "onloadend" =@ f
-            "onmessage" =@ f
-            "onmousedown" =@ f
-            "onmousemove" =@ f
-            "onmouseout" =@ f
-            "onmouseover" =@ f
-            "onmouseup" =@ f
-            "onmouseenter" =@ f
-            "onmouseleave" =@ f
-            "onmousewheel" =@ f
-            "onoffline" =@ f
-            "ononline" =@ f
-            "onpause" =@ f
-            "onplay" =@ f
-            "onplaying" =@ f
-            "onpagehide" =@ f
-            "onpageshow" =@ f
-            "onpopstate" =@ f
-            "onprogress" =@ f
-            "onratechange" =@ f
-            "onreadystatechange" =@ f
-            "onredo" =@ f
-            "onrejectionhandled" =@ f
-            "onreset" =@ f
-            "onresize" =@ f
-            "onscroll" =@ f
-            "onseeked" =@ f
-            "onseeking" =@ f
-            "onselect" =@ f
-            "onshow" =@ f
-            "onstalled" =@ f
-            "onstorage" =@ WebStorage.StorageEvent ^-> T<unit>
-            "onsubmit" =@ f
-            "onsuspend" =@ f
-            "ontimeupdate" =@ f
-            "ontoggle" =@ f
-            "onundo" =@ f
-            "onunhandledrejection" =@ f
-            "onunload" =@ f
-            "onvolumechange" =@ f
-            "onwaiting" =@ f
+            yield! "OnHashChange" =!@ f
+            yield! "OnInput" =!@ f
+            yield! "OnInvalid" =!@ f
+            yield! "OnKeyDown" =!@ f
+            yield! "OnKeyPress" =!@ f
+            yield! "OnKeyUp" =!@ f
+            yield! "OnLoad" =!@ f
+            yield! "OnLoadedData" =!@ f
+            yield! "OnLoadedMetadata" =!@ f
+            yield! "OnLoadStart" =!@ f
+            yield! "OnLoadEnd" =!@ f
+            yield! "OnMessage" =!@ f
+            yield! "OnMouseDown" =!@ f
+            yield! "OnMouseMove" =!@ f
+            yield! "OnMouseOut" =!@ f
+            yield! "OnMouseOver" =!@ f
+            yield! "OnMouseUp" =!@ f
+            yield! "OnMouseEnter" =!@ f
+            yield! "OnMouseLeave" =!@ f
+            yield! "OnMouseWheel" =!@ f
+            yield! "OnOffline" =!@ f
+            yield! "OnOnline" =!@ f
+            yield! "OnPause" =!@ f
+            yield! "OnPlay" =!@ f
+            yield! "OnPlaying" =!@ f
+            yield! "OnPageHide" =!@ f
+            yield! "OnPageShow" =!@ f
+            yield! "OnPopState" =!@ f
+            yield! "OnProgress" =!@ f
+            yield! "OnRateChange" =!@ f
+            yield! "OnReadyStateChange" =!@ f
+            yield! "OnRedo" =!@ f
+            yield! "OnRejectionHandled" =!@ f
+            yield! "OnReset" =!@ f
+            yield! "OnResize" =!@ f
+            yield! "OnScroll" =!@ f
+            yield! "OnSeeked" =!@ f
+            yield! "OnSeeking" =!@ f
+            yield! "OnSelect" =!@ f
+            yield! "OnShow" =!@ f
+            yield! "OnStalled" =!@ f
+            yield! "OnStorage" =!@ WebStorage.StorageEvent ^-> T<unit>
+            yield! "OnSubmit" =!@ f
+            yield! "OnSuspend" =!@ f
+            yield! "OnTimeUpdate" =!@ f
+            yield! "OnToggle" =!@ f
+            yield! "OnUndo" =!@ f
+            yield! "OnUnhandledRejection" =!@ f
+            yield! "OnUnload" =!@ f
+            yield! "OnVolumeChange" =!@ f
+            yield! "OnWaiting" =!@ f
 
             "NaN" =? T<double> |> WithGetterInline "NaN"
             "Infinity" =? T<double> |> WithGetterInline "Infinity"
@@ -2899,9 +2969,21 @@ module WebWorkers =
             "self" =? TSelf
             "location" =? WorkerLocation
             "onerror" =? General.ErrorEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnError instead"
+            "onerror" =? General.ErrorEvent ^-> T<unit>
+            |> WithSourceName "OnError"
             "onoffline" =? Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnOffline instead"
+            "onoffline" =? Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnOffline"
             "ononline" =? Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnOnline instead"
+            "ononline" =? Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnOnline"
             "onlanguagechange" =? Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnLanguageChange instead"
+            "onlanguagechange" =? Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnLanguageChange"
             "importScripts" => !+T<string> ^-> T<unit>
         ]
 
@@ -2910,7 +2992,13 @@ module WebWorkers =
         |=> Inherits WorkerGlobalScope
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnMesssage instead"
+            "onmessage"  =@ General.MessageEvent ^-> T<unit>
+            |> WithSourceName "OnMesssage"
             "onmessageerror" =@ General.MessageEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnMessageError instead"
+            "onmessageerror" =@ General.MessageEvent ^-> T<unit>
+            |> WithSourceName "OnMessageError"
             "close" => T<unit> ^-> T<unit>
             "postMessage" => !?T<obj>?message * !?T<obj[]>?transferList ^-> T<unit>
         ]
@@ -2922,6 +3010,9 @@ module WebWorkers =
             "name" =? T<string>
             "applicationCache" =? AppCache.ApplicationCache
             "onconnect" =@ Dom.Interfaces.Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnConnect instead"
+            "onconnect" =@ Dom.Interfaces.Event ^-> T<unit>
+            |> WithSourceName "OnConnect"
             "close" => T<unit> ^-> T<unit>
         ]
 
@@ -2929,6 +3020,9 @@ module WebWorkers =
         Interface "AbstractWorker"
         |+> [
             "onerror" =@ General.ErrorEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnError instead"
+            "onerror" =@ General.ErrorEvent ^-> T<unit>
+            |> WithSourceName "OnError"
         ]
 
     let Worker =
@@ -2953,7 +3047,13 @@ module WebWorkers =
         ]
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnMessage instead"
+            "onmessage" =@ General.MessageEvent ^-> T<unit>
+            |> WithSourceName "OnMessage"
             "onmessageerror" =@ General.MessageEvent ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnMessageError instead"
+            "onmessageerror" =@ General.MessageEvent ^-> T<unit>
+            |> WithSourceName "OnMessageError"
             "postMessage" => !?T<obj>?message * !?T<obj[]>?transferList ^-> T<unit>
             "terminate" => T<unit> ^-> T<unit>
         ]
@@ -3557,15 +3657,15 @@ module WebSockets =
             [
                 "readyState" =? ReadyState
                 "bufferedAmount" =? T<int>
-                "onopen" =@ T<unit->unit>
-                "onclose" =@ T<unit->unit>
-                "onerror" =@ T<unit->unit>
+                yield! "OnOpen" =!@ T<unit->unit>
+                yield! "OnClose" =!@ T<unit->unit>
+                yield! "OnError" =!@ T<unit->unit>
                 "extensions" =? T<string>
                 "protocol" =? T<string>
                 "close" => T<unit->unit>
                 "close" => T<int> ^-> T<unit>
                 "close" => T<int> * T<string> ^-> T<unit>
-                "onmessage" =@ (General.MessageEvent ^-> T<unit>)
+                yield! "OnMessage" =!@ (General.MessageEvent ^-> T<unit>)
                 "binaryType" =@ T<string>
                 "send" => T<string->unit>
                 "send" => TypedArrays.ArrayBuffer ^-> T<unit>
@@ -3606,9 +3706,9 @@ module EventSource =
             "withCredentials" =? T<bool>
 
             // Event handlers
-            "onerror" =@ General.ErrorEvent ^-> T<unit>
-            "onmessage" =@ General.MessageEvent ^-> T<unit>
-            "onopen" =@ Dom.Interfaces.Event ^-> T<unit>
+            yield! "OnError" =!@ General.ErrorEvent ^-> T<unit>
+            yield! "OnMessage" =!@ General.MessageEvent ^-> T<unit>
+            yield! "OnOpen" =!@ Dom.Interfaces.Event ^-> T<unit>
 
             // Methods
             "close" => T<unit> ^-> T<unit>

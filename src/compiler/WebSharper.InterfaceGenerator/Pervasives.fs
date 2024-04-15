@@ -151,7 +151,7 @@ module Pervasives =
                             | _ -> Seq.empty     
                         all i             
                     )
-                    |> Seq.groupBy (fun m -> m.Name, m.Type)
+                    |> Seq.groupBy (fun m -> m.SourceName |> Option.defaultValue m.Name, m.Type)
                     |> Seq.map (fun (_, overrides) ->
                         let m = Seq.head overrides   
                         m.Kind <- CodeModel.Implementation
@@ -174,7 +174,7 @@ module Pervasives =
                             | _ -> Seq.empty     
                         all i             
                     )
-                    |> Seq.groupBy (fun (p) -> p.Name, p.Type)
+                    |> Seq.groupBy (fun (p) -> p.SourceName |> Option.defaultValue p.Name, p.Type)
                     |> Seq.map (fun (_, overrides) ->
                         let p = Seq.head overrides   
                         p.IsOverride <- true

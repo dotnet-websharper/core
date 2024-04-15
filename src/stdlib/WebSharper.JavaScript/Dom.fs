@@ -209,6 +209,9 @@ module Interfaces =
             "reason" =? T<obj>
             "throwIfAborted" => T<unit> ^-> T<unit>
             "onabort" =@ !?(Event ^-> T<unit>)
+            |> ObsoleteWithMessage "Use OnAbort instead"
+            "onabort" =@ !?(Event ^-> T<unit>)
+            |> WithSourceName "OnAbort"
         ]
 
     let EventListenerOptions =
@@ -489,6 +492,9 @@ module Interfaces =
             "replaceWith" => !+(Element + Text) ^-> T<unit>
 
             "onslotchange" => Event ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnSlotChange instead"
+            "onslotchange" =@ !?(Event ^-> T<unit>)
+            |> WithSourceName "OnSlotChange"
         ]
 
     let HTMLTemplateEvent =
@@ -608,8 +614,17 @@ module Interfaces =
             "finished" =? WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
             "id" =@ T<string>
             "oncancel" =@ T<unit> ^-> T<unit>
-            "onfinish" =@ T<unit> ^-> T<unit> 
+            |> ObsoleteWithMessage "Use OnCancel instead"
+            "oncancel" =@ !?(Event ^-> T<unit>)
+            |> WithSourceName "OnCancel"
+            "onfinish" =@ T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnFinish instead"
+            "onfinish" =@ !?(Event ^-> T<unit>)
+            |> WithSourceName "OnFinish"
             "onremove" =@ T<unit> ^-> T<unit>
+            |> ObsoleteWithMessage "Use OnRemove instead"
+            "onremove" =@ !?(Event ^-> T<unit>)
+            |> WithSourceName "OnRemove"
             "pending" =? T<bool>
             "playbackRate" =@ T<double>
             "playState" =? AnimationPlayState.Type
@@ -675,7 +690,13 @@ module Interfaces =
 
                 // FullScreen API
                 "onfullscreenchange" =@ T<unit> ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnFullscreenChange instead"
+                "onfullscreenchange" =@ !?(Event ^-> T<unit>)
+                |> WithSourceName "OnFullscreenChange"
                 "onfullscreenerror" =@ T<unit> ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnFullscreenError instead"
+                "onfullscreenerror" =@ !?(Event ^-> T<unit>)
+                |> WithSourceName "OnFullscreenError"
 
                 "requestFullScreen" => !?FullscreenOptions?options ^-> WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
                 // FullScreen API
@@ -1531,7 +1552,13 @@ module Interfaces =
 
                 // Event handlers
                 "onvisibilitychange" => T<unit> ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnVisibilityChange instead"
+                "onvisibilitychange" =@ !?(Event ^-> T<unit>)
+                |> WithSourceName "OnVisibilityChange"
                 "onreadystatechange" => T<unit> ^-> T<unit>
+                |> ObsoleteWithMessage "Use OnReadyStateChange instead"
+                "onreadystatechange" =@ !?(Event ^-> T<unit>)
+                |> WithSourceName "OnReadyStateChange"
 
                 "getAnimations" => T<unit> ^-> !|Animation
             ]
