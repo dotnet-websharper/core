@@ -1336,26 +1336,23 @@ let contentType =
         FullName = "WebSharper.Sitelets.FSharpContent"
     }
 
-exception BundleFail of message: string with
-    override this.ToString() = this.message
-
 let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list) =
     if typ = contentModule && m.Value.MethodName.StartsWith "Bundle" then
         match arguments[0] with
         | P.Const (value, _) ->
-            [ string value ]
+            Ok [ string value ]
         | a ->
-            raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
+            Error $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
     elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" && (let al = arguments.Length in al = 2 || al = 5) then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const (value, _) ]) when c.Name = "Some" ->
-            [ string value ]
+            Ok [ string value ]
         | P.NewUnionCase (_, c, _) when c.Name = "None" ->
-            []
+            Ok []
         | _ ->
-            raise <| BundleFail "Content.Page Bundle argument must be constant string" 
+            Error "Content.Page Bundle argument must be constant string" 
     else
-        []
+        Ok []
 
 let rec isWebControlType (cls: FSharpEntity) =
     match cls.TryFullName with
@@ -1459,7 +1456,13 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         )
                         storeExprTranslation meth indexes arguments
                     | _ -> 
-                        let newBundleScope = getBundleMethod (typ, m, arguments)
+                        let newBundleScope = 
+                            match getBundleMethod (typ, m, arguments) with
+                            | Ok scope -> scope
+                            | Error err ->
+                                let pos = expr.Range.AsSourcePos
+                                env.Compilation.AddError(Some pos, SourceError err)    
+                                []
                         List.iter (scan (newBundleScope @ bundleScope)) expr.ImmediateSubExpressions
                 | _ -> default'()
             | P.NewObject(ctor, typeList, arguments) ->
@@ -1485,14 +1488,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 | _ -> default'()
             | _ -> default'()
         with 
-        | BundleFail _ ->
-            reraise()
         | _ -> 
             // some TP-s can create code that FCS fails to expose, ignore that
             // see https://github.com/dotnet-websharper/core/issues/904
             ()
-    try
-        scan [] expr
-    with BundleFail m ->
-        failwith m
+    scan [] expr
     quotations :> _ seq

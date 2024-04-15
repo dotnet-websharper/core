@@ -2784,9 +2784,6 @@ let uiContentType =
         FullName = "WebSharper.UI.Server.Content"
     }
 
-exception BundleFail of message: string with
-    override this.ToString() = this.message
-
 // Searches for calls within server-side code to method with JavaScript-enabled parameters.
 let scanExpression (env: Environment) (node: SyntaxNode) =
 
@@ -2794,17 +2791,17 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
         if typ = contentType && m.Value.MethodName.StartsWith "Bundle" then
             match env.SemanticModel.GetConstantValue(arguments[1]).Value with
             | :? string as value when value <> null ->
-                [ value ]
+                Ok [ value ]
             | _ ->
-                raise <| BundleFail $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
+                Error $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
         elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
             match env.SemanticModel.GetConstantValue(Seq.last arguments).Value with
             | :? string as value when value <> null ->
-                [ value ]
+                Ok [ value ]
             | _ ->
-                []
+                Ok []
         else
-            []
+            Ok []
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
         let symbol =
@@ -2879,7 +2876,13 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                     checkQuotedArgs indexes n.ArgumentList
                     default'()
                 | _ ->
-                    let newBundleScope = getBundleMethod (typ, meth, n.ArgumentList.Arguments)
+                    let newBundleScope = 
+                        match getBundleMethod (typ, meth, n.ArgumentList.Arguments) with
+                        | Ok scope -> scope
+                        | Error err ->
+                            let pos = getSourcePos n
+                            env.Compilation.AddError(Some pos, WebSharper.Compiler.SourceError err)    
+                            []
                     Seq.iter (scan (newBundleScope @ bundleScope)) (node.ChildNodes())
              else 
                 default'()
