@@ -1258,7 +1258,6 @@ module EventHandlers =
             yield! "OnSubmit" =!@ eh
             yield! "OnSuspend" =!@ eh
             yield! "OnTimeUpdate" =!@ eh
-            yield! "OnToggle" =!@ eh
             yield! "OnVolumeChange" =!@ eh
             yield! "OnWaiting" =!@ eh
         ]
@@ -2892,7 +2891,6 @@ module General =
             yield! "OnSubmit" =!@ f
             yield! "OnSuspend" =!@ f
             yield! "OnTimeUpdate" =!@ f
-            yield! "OnToggle" =!@ f
             yield! "OnUndo" =!@ f
             yield! "OnUnhandledRejection" =!@ f
             yield! "OnUnload" =!@ f
