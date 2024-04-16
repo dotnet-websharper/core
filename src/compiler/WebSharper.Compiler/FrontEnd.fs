@@ -135,7 +135,10 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
     let pkg = 
-        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
+        if prebundle then
+            [||]
+        else
+            JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
     logger.TimedStage "Packaging assembly"
     
