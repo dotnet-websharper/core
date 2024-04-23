@@ -140,7 +140,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         else
             JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
-    logger.TimedStage "Packaging assembly"
+    if not prebundle then
+        logger.TimedStage "Packaging assembly"
     
     let mapPkg f pkg =
         pkg |> Array.map (fun (n, p) -> n, p |> List.map f)    
@@ -199,12 +200,17 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 |> Seq.append (Seq.singleton current)
                 |> M.Info.UnionWithoutDependencies
 
+            let deps = graph.GetData() 
+
+            logger.TimedStage "Computing metadata"
+
             let bundles =
                 if prebundle then
                     JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
                     |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
                         let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
                         let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                        logger.TimedStage (sprintf "Writing prebundle %s.js" bname)
                         bname, js, trAddrMap
                     )
                     |> Array.ofSeq |> Some
@@ -214,7 +220,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 {
                     trimmed with
                         Dependencies = 
-                            graph.GetData() 
+                            deps
                         PreBundle = 
                             match bundles with
                             | Some bundles ->
