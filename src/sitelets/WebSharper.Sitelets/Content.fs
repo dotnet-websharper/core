@@ -274,6 +274,60 @@ module Content =
         else    
             None, None
 
+    open Microsoft.FSharp.Quotations
+    open WebSharper.Web.ClientSideInternals
+
+    let compile (meta: M.Info) (json: J.Provider) (q: Expr) applyCode =
+        let reqs = ResizeArray<M.Node>()
+        let rec compile' (q: Expr) : option<ClientCode> =
+            match getLocation q with
+            | Some p ->
+                match meta.Quotations.TryGetValue(p) with
+                | false, _ ->
+                    None
+                | true, quot ->
+                    let fail() =
+                        failwithf "Error in Handler: Couldn't find JavaScript address for method %s.%s" quot.TypeDefinition.Value.FullName quot.Method.Value.MethodName
+                    match meta.Classes.TryGetValue quot.TypeDefinition with
+                    | true, (clAddr, _, Some c) ->
+                        let argIndices = Map (quot.Arguments |> List.mapi (fun i x -> x, i))
+                        let args = Array.zeroCreate<ClientCode> quot.Arguments.Length
+                        reqs.Add(M.MethodNode (quot.TypeDefinition, quot.Method))
+                        reqs.Add(M.TypeNode quot.TypeDefinition)
+                        let setArg (name: string) (value: obj) =
+                            let i = argIndices[name]
+                            if obj.ReferenceEquals(args[i], null) then
+                                args[i] <-
+                                    match value with
+                                    | :? Expr as q ->
+                                        compile' q |> Option.get
+                                    | value ->
+                                        let typ = value.GetType()
+                                        reqs.Add(M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition typ))
+                                        Web.Control.EncodeClientObject(meta, json, value)
+                        findArgs Set.empty setArg q
+                        let addr =
+                            match c.Methods.TryGetValue quot.Method with
+                            | true, m ->
+                                match m.CompiledForm with
+                                | M.CompiledMember.Static (name, false, AST.MemberKind.Simple) -> 
+                                    clAddr.Static(name)
+                                | M.CompiledMember.GlobalFunc (addr, false) -> 
+                                    addr
+                                | M.CompiledMember.Func (name, false) -> 
+                                    clAddr.Func(name)
+                                | _ -> fail()
+                            | _ -> fail()
+                        //let funcall = String.concat "." (List.rev addr)
+                        let code = ClientApply(ClientImport addr, args)
+                        Some code
+                    | _ -> fail()
+            | None -> None
+        compile' q
+        |> Option.map (fun s ->
+            applyCode s :: (reqs |> Seq.map ClientRequire |> List.ofSeq) :> seq<_>
+        )
+
     type RenderedResources =
         {
             Scripts : string
@@ -570,7 +624,10 @@ module Content =
     let Bundle name (contents: #seq<#WebSharper.Web.INode>) =
         Seq.append
             (Seq.singleton (Web.BundleNode(name) :> Web.INode))
-            (Seq.cast contents)    
+            (Seq.cast contents)  
+                   
+    let BundleScope (name: string) (contents: 'A) =
+        contents
 
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
@@ -582,6 +639,10 @@ type ContextExtensions =
     [<System.Runtime.CompilerServices.Extension>]
     static member GetResourcesAndScripts(this, controls) =
         Content.getResourcesAndScripts this controls
+
+open Microsoft.FSharp.Quotations.Patterns
+module R = WebSharper.Core.AST.Reflection
+module M = WebSharper.Core.Metadata
 
 type Content<'Endpoint> with
 
@@ -663,6 +724,78 @@ type Content<'Endpoint> with
                         task {
                             use inp = fi.OpenRead()
                             do! inp.CopyToAsync(out, 16 * 1024)
+                        }
+                    )
+                }
+            else
+                failwith "Cannot serve file from outside the application's root folder"
+        |> async.Return
+
+    static member PageFromFile (path: string, [<JavaScript; ReflectedDefinition>] init: Quotations.Expr<unit -> unit>) : Async<Content<'Endpoint>> =
+        Content.CustomContent <| fun ctx ->
+            if Path.IsPathRooted path then
+                failwith "Cannot serve file from outside the application's root folder"
+            let rootFolder = DirectoryInfo(ctx.RootFolder).FullName
+            let path =
+                if path.StartsWith "~/" || path.StartsWith @"~\" then
+                    Path.Combine(rootFolder, path.[2..])
+                else
+                    Path.Combine(rootFolder, path)
+            let bundleName = Path.GetFileNameWithoutExtension(path)
+            let fi = System.IO.FileInfo(path)
+            if fi.FullName.StartsWith rootFolder then
+                {
+                    Status = Http.Status.Ok
+                    Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
+                    WriteBody = Http.WriteBodyAsync(fun out ->
+                        task {
+                            use inp = new StreamReader(path)
+                            let! contents = inp.ReadToEndAsync()                            
+                            use scriptsW = new StringWriter()
+                            use tw = new HtmlTextWriter(scriptsW, " ")
+                            let applyCode code =
+                                ClientApply(code, [])
+                            let reqs = 
+                                match Content.compile ctx.Metadata ctx.Json init applyCode with
+                                | Some b -> b 
+                                | _ ->
+                                    let m =
+                                        match init with
+                                        | Lambda (x1, Call(None, m, [Var x2])) when x1 = x2 -> m
+                                        | _ -> failwithf "Invalid handler function: %A" init
+                                    let loc = WebSharper.Web.ClientSideInternals.getLocation' init
+                                    let meth = R.ReadMethod m
+                                    let declType = R.ReadTypeDefinition m.DeclaringType
+                                    let reqs = [M.MethodNode (declType, meth); M.TypeNode declType]
+                                    let fail() =
+                                        failwithf "Error in Handler%s: Couldn't find JavaScript address for method %s.%s"
+                                            loc declType.Value.FullName meth.Value.MethodName
+                                    let code =
+                                        match ctx.Metadata.Classes.TryGetValue declType with
+                                        | true, (clAddr, _, Some c) ->
+                                            let addr =
+                                                match c.Methods.TryGetValue meth with
+                                                | true, info ->
+                                                    match info.CompiledForm with
+                                                    | M.CompiledMember.Static (name, false, Core.AST.MemberKind.Simple) ->
+                                                        clAddr.Sub(name)
+                                                    | M.CompiledMember.GlobalFunc (addr, false) ->
+                                                        addr
+                                                    | M.CompiledMember.Func (name, false) ->
+                                                        clAddr.Func(name)
+                                                    | _ -> fail()
+                                                | _ -> fail()
+                                            applyCode (ClientImport addr)
+                                        | _ -> fail()
+                                    code :: (reqs |> List.map ClientRequire) :> seq<_>
+                            let body = [ Web.BundleNode(bundleName, reqs = reqs) ]
+                            let activation, bundleNames = Content.writeResources ctx body (fun _ -> tw)
+                            if Option.isSome activation then
+                                tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+                            let resp = contents.Replace("""<script ws-replace="scripts"></script>""", scriptsW.ToString())
+                            use w = new StreamWriter(out, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+                            do! w.WriteAsync(resp)
+                            do! w.FlushAsync()
                         }
                     )
                 }

@@ -1342,7 +1342,13 @@ let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list)
         | P.Const (value, _) ->
             Ok [ string value ]
         | a ->
-            Error $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %A{a}"   
+            Error "Content.Bundle argument must be constant string"   
+    elif typ = contentType && m.Value.MethodName.StartsWith "PageFromFile" then
+        match arguments[0] with
+        | P.Const (path, _) ->
+            Ok [ System.IO.Path.GetFileNameWithoutExtension (string path) ]
+        | a ->
+            Error "Content.PageFromFile path argument must be constant string"   
     elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" && arguments.Length > 1 then
         match arguments |> List.last with
         | P.NewUnionCase (_, c, [ P.Const (value, _) ]) when c.Name = "Some" ->
@@ -1378,7 +1384,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
         let default'() =
             List.iter (scan bundleScope) expr.ImmediateSubExpressions
         try
-            let storeExprTranslation (mem: FSharpMemberOrFunctionOrValue) (indexes: int[]) (arguments: FSharpExpr list) =
+            let storeExprTranslation bundleScope (mem: FSharpMemberOrFunctionOrValue) (indexes: int[]) (arguments: FSharpExpr list) =
                 let pars = mem.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
                 indexes |> Array.iter (fun i ->
                     let arg = arguments[i]
@@ -1447,6 +1453,15 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
                 match env.SymbolReader.ReadMember(meth) with
                 | Member.Method(_, m) ->
+                    let newBundleScope = 
+                        match getBundleMethod (typ, m, arguments) with
+                        | Ok scope -> scope
+                        | Error err ->
+                            if env.Compilation.AssemblyName <> "WebSharper.UI" then // allow Content.Page redirect in WS.UI
+                                let pos = expr.Range.AsSourcePos
+                                env.Compilation.AddError(Some pos, SourceError err)    
+                            []
+                    let bundleScope = newBundleScope @ bundleScope
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
                     | Some indexes ->
                         Option.iter (scan bundleScope) this
@@ -1454,17 +1469,9 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             if indexes |> Array.contains i |> not then
                                 scan bundleScope a
                         )
-                        storeExprTranslation meth indexes arguments
+                        storeExprTranslation bundleScope meth indexes arguments
                     | _ -> 
-                        let newBundleScope = 
-                            match getBundleMethod (typ, m, arguments) with
-                            | Ok scope -> scope
-                            | Error err ->
-                                if env.Compilation.AssemblyName <> "WebSharper.UI" then // allow Content.Page redirect in WS.UI
-                                    let pos = expr.Range.AsSourcePos
-                                    env.Compilation.AddError(Some pos, SourceError err)    
-                                []
-                        List.iter (scan (newBundleScope @ bundleScope)) expr.ImmediateSubExpressions
+                        List.iter (scan bundleScope) expr.ImmediateSubExpressions
                 | _ -> default'()
             | P.NewObject(ctor, typeList, arguments) ->
                 let e = getDeclaringEntity ctor
@@ -1477,7 +1484,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             if indexes |> Array.contains i |> not then
                                 scan bundleScope a
                         )
-                        storeExprTranslation ctor indexes arguments
+                        storeExprTranslation bundleScope ctor indexes arguments
                     | _ -> 
                         if isWebControlType e then
                             let typArgs = typeList |> List.map (env.SymbolReader.ReadType env.TParams)
@@ -1489,7 +1496,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 | _ -> default'()
             | _ -> default'()
         with 
-        | _ -> 
+        | e when e.Message.Contains "IL call" -> 
             // some TP-s can create code that FCS fails to expose, ignore that
             // see https://github.com/dotnet-websharper/core/issues/904
             ()

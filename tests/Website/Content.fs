@@ -37,6 +37,7 @@ type FullAction =
     | CSharpSiteletsTests of obj
     | PerformanceTests of PerformanceTests.Action
     | DateTimeFormatTest of DateTimeFormatInfer.EndPoint
+    | SPATest
 
 let HomePage (ctx: Context<_>) =
     Content.Page(
@@ -66,6 +67,12 @@ let HomePage (ctx: Context<_>) =
                     Elt("a",
                         Attr("href", ctx.Link (CSharpSiteletsTests WebSharper.CSharp.Sitelets.Tests.SiteletTest.JohnDoe)),
                         Text "C# Sitelets test minisite - John Doe"
+                    )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link SPATest),
+                        Text "Content.PageFromFile test"
                     )
                 ),
                 Elt("li",
@@ -138,6 +145,7 @@ let MainSite runServerTests ctx = function
 
 let Main runServerTests =
     System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- new System.Globalization.CultureInfo("en-US")
+    let fromServer = "Content.PageFromFile server init"
     Sitelet.Sum [
         Sitelet.InferPartialInUnion <@ FullAction.Site @> (MainSite runServerTests)
         Sitelet.Shift "sitelet-tests" <|
@@ -149,4 +157,6 @@ let Main runServerTests =
             Sitelet.EmbedInUnion <@ FullAction.PerformanceTests @> PerformanceTests.Site
         Sitelet.Shift "datetimeformat-test" <|
             Sitelet.EmbedInUnion <@ FullAction.DateTimeFormatTest @> DateTimeFormatInfer.Site
+        Sitelet.Content "spatest" FullAction.SPATest <| fun ctx ->
+            Content.PageFromFile("spatest.html", fun () -> Client.InitSPA fromServer)
     ]

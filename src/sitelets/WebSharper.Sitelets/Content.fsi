@@ -63,6 +63,9 @@ type Content<'Endpoint> =
     /// Creates a content that serves a file from disk.
     static member File : path: string * ?AllowOutsideRootFolder: bool * ?ContentType: string -> Async<Content<'Endpoint>>
 
+    /// Creates an HTML from a file, embedding a startup action.
+    static member PageFromFile : path: string * [<JavaScript; ReflectedDefinition>] init: Quotations.Expr<unit -> unit> -> Async<Content<'Endpoint>>
+
     /// Creates a content from an object to be handled same as ASP.NET MVC, accepts string, IActionResult and serializable objects.
     static member MvcResult : result: obj -> Async<Content<'Endpoint>>
 
@@ -180,6 +183,9 @@ module Content =
 
     /// Sets bundle name to use.
     val Bundle : name: string -> contents: #seq<#WebSharper.Web.INode> -> seq<WebSharper.Web.INode>
+
+    /// Sets bundle name to use for any expression scope.
+    val BundleScope : name: string -> contents: 'A -> 'A
 
     type RenderedResources =
         {

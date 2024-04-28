@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />
+    <Content Include="spatest.html" CopyToPublishDirectory="Always" />
     <None Include="wsconfig.json" />
   </ItemGroup>
   <ItemGroup>

@@ -36,3 +36,7 @@ let ClientSideTupleTest (x, y) =
             }
         }
     |]
+
+[<JavaScript>]
+let InitSPA(where: string) =
+    Console.Log($"Hello world from {where}!")

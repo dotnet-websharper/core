@@ -31,7 +31,7 @@ type INode =
 
     abstract member IsAttribute : bool
 
-type BundleNode(bundle: string, ?node: INode) =
+type BundleNode(bundle: string, ?node: INode, ?reqs: ClientCode seq) =
     
     interface INode with
 
@@ -40,7 +40,11 @@ type BundleNode(bundle: string, ?node: INode) =
             | Some n ->
                 Seq.append (Seq.singleton (ClientCode.ClientBundle bundle)) (n.Requires(i, p, s))
             | _ ->
-                Seq.singleton (ClientCode.ClientBundle bundle)
+                match reqs with
+                | Some r ->
+                    Seq.append (Seq.singleton (ClientCode.ClientBundle bundle)) r
+                | _ ->
+                    Seq.singleton (ClientCode.ClientBundle bundle)
 
         member this.Write (c, w) =
             match node with
