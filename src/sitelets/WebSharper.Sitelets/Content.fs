@@ -138,22 +138,24 @@ module Content =
                 |> Array.ofSeq
 
             let bundleName = 
-                match requiredBundles with
-                | [||] ->
-                    if ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
-                        Some "all"
-                    else
-                        None
-                | _ ->
-                    requiredBundles
-                    |> Seq.tryFind (fun b ->
-                        match ctx.Metadata.PreBundle.TryFind b with
-                        | Some bundle ->
-                            allImports |> Seq.forall bundle.ContainsKey
-                        | _ ->
-                            false
-                    )
-                    |> Option.orElse (if allImports.Length > 0 then Some "all" else None)
+                if ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
+                    match requiredBundles with
+                    | [||] ->
+                        if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
+                    | _ ->
+                        requiredBundles
+                        |> Seq.tryFind (fun b ->
+                            match ctx.Metadata.PreBundle.TryFind b with
+                            | Some bundle ->
+                                allImports |> Seq.forall bundle.ContainsKey
+                            | _ ->
+                                false
+                        )
+                        |> Option.orElse (
+                            if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
+                        )
+                else
+                    None
 
             let bundle =
                 bundleName
@@ -793,7 +795,7 @@ type Content<'Endpoint> with
                             if Option.isSome activation then
                                 tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
                             let resp = contents.Replace("""<script ws-replace="scripts"></script>""", scriptsW.ToString())
-                            use w = new StreamWriter(out, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+                            let w = new StreamWriter(out, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                             do! w.WriteAsync(resp)
                             do! w.FlushAsync()
                         }
