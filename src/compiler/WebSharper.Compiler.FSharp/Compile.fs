@@ -248,9 +248,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
                 let isLibrary = config.ProjectType = None 
 
-                let js, currentMeta, sources, res =
-                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary config.PreBundle
+                let isSitelet =
+                    match config.ProjectType with
+                    | Some Html ->
+                        true
+                    | Some Website
+                    | _ when Option.isSome config.OutputDir ->
+                        true
+                    | _ -> 
+                        false
 
+                let js, currentMeta, sources, res =
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary config.PreBundle isSitelet
                 match config.ProjectType with
                 | Some (Bundle | Website) ->
                     let wsRefs =

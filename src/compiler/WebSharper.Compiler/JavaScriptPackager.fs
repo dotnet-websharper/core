@@ -1378,16 +1378,82 @@ let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.C
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile(), isJSX
 
-let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
+let packageEntryPointReexport (runtimeMeta: M.Info) =
 
-    //let webControls =
-    //    runtimeMeta.Classes |> Seq.choose (fun (KeyValue(td, (_, _, cls))) ->
-    //        match cls with 
-    //        | Some cls when isWebControl cls ->
-    //            Some td
-    //        | _ -> None
-    //    )
-    //    |> Array.ofSeq
+    let allBundleContent = ResizeArray()
+    let addresses = ResizeArray()
+
+    for qi in runtimeMeta.Quotations.Values do
+        allBundleContent.Add(qi.TypeDefinition, Some qi.Method)
+    
+    for KeyValue((td, m), _) in runtimeMeta.QuotedMethods do
+        allBundleContent.Add(td, Some m)
+
+    for wc in runtimeMeta.WebControls do
+        allBundleContent.Add(wc.Key.TypeDefinition, None)
+
+    for td, m in allBundleContent do
+        match runtimeMeta.Classes.TryFind td with
+        | Some (addr, _, Some cls) ->
+            match m with 
+            | Some m ->
+                match cls.Methods.TryFind m with
+                | Some mi -> 
+                    match mi.CompiledForm with
+                    | M.Static (name, _, _) -> addresses.Add(addr)
+                    | M.Func (name, _) -> addresses.Add(addr.Func(name))
+                    | M.GlobalFunc (faddr, _) -> addresses.Add(faddr) 
+                    | _ -> ()
+                | _ -> ()
+            | _ ->
+                addresses.Add(addr)
+        | _ -> ()
+
+    let addressMap = Dictionary()
+
+    addressMap.Add("Runtime", Address.RuntimeAddr [ "default" ])
+
+    for a in Seq.distinct addresses do
+        addressMap |> Resolve.getRenamedInDict a.Address.Head a |> ignore
+
+    let revAddressMap = addressMap |> Dict.swap
+
+    let finalAddrMap = Dictionary()
+
+    let rootJs =
+        revAddressMap |> Seq.groupBy (fun kv -> kv.Key.Module)
+        |> Seq.map (fun (m, addrs) ->
+            let namedImports = ResizeArray()
+            for KeyValue(a, n) in addrs do
+                match a.Address |> List.rev |> List.head with
+                | "default" -> 
+                    let newName = 
+                        match m with
+                        | JavaScriptModule m -> 
+                            m.Name.Replace('.', '_').Replace('`', '_')
+                        | DotNetType m -> 
+                            (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                        | _ -> "default"
+                    let x = Id.New newName
+                    namedImports.Add("default", x)
+                    finalAddrMap.Add(a, x)
+                | i ->
+                    let x = Id.New n
+                    namedImports.Add(i, Id.New n)   
+                    finalAddrMap.Add(a, x)
+            let moduleName =
+                match m with
+                | JavaScriptModule m 
+                | DotNetType m -> 
+                    "../" + m.Assembly + "/" + m.Name + ".js"
+                | _ -> ""
+            ExportDecl (false, Import(None, None, List.ofSeq namedImports, moduleName))
+        )
+        |> List.ofSeq
+    
+    rootJs, finalAddrMap
+
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
 
     let all = ResizeArray()
     let bundles = Dictionary()

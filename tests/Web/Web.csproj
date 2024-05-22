@@ -38,9 +38,9 @@
   <Target Name="EnsureNodeModulesInstalled" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
     <Exec Command="npm install" />
   </Target>
-  <Target Name="RollupBundle" AfterTargets="WebSharperCompile" Condition=" '$(Configuration)' == 'Release' ">
+  <!--<Target Name="RollupBundle" AfterTargets="WebSharperCompile" Condition=" '$(Configuration)' == 'Release' ">
     <Exec Command="node ./esbuild.config.mjs" />
-  </Target>
+  </Target>-->
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

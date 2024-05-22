@@ -115,7 +115,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     Some ("", "")
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
     let assemblyName = a.Name.Name
     let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
@@ -214,6 +214,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                         bname, js, trAddrMap
                     )
                     |> Array.ofSeq |> Some
+                elif isSitelet then
+                    let rootJS, addrMap = JavaScriptPackager.packageEntryPointReexport meta
+                    let program, _, trAddrMap = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
+                    let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                    logger.TimedStage (sprintf "Writing reexports all.js")
+                    Some [|
+                        "all", js, trAddrMap    
+                    |]
                 else
                     None
             let updated =
@@ -382,16 +390,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle isSitelet
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources, res
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) isLibrary =
-    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw isLibrary
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
+    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw
