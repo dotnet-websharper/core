@@ -151,6 +151,13 @@ type CollectVariables(env: Environment) =
     override this.VisitAlias(a, _, _) =
         defineId env a |> ignore
 
+    override this.VisitExportDecl(_, s) =
+        match s with 
+        | Import(None, None, namedImports, _) ->
+            namedImports |> List.iter (snd >> defineId env >> ignore)
+        | _ ->
+            this.VisitStatement(s)
+    
     override this.VisitImport(d, f, n, m) =
         if m = "" then
             // global values used
@@ -549,6 +556,14 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             b |> Option.map (defineId env), 
             c |> List.map (fun (n, x) -> n, defineId env x),
             d)
+    | ExportDecl (a, Import(None, None, b, c)) ->
+        J.Export (a,
+            J.Import(
+                None, 
+                None, 
+                b |> List.map (fun (n, x) -> n, transformId env x),
+                c)
+        )
     | ExportDecl (a, b) ->
         J.Export (a, trS b)
     | Declare a ->

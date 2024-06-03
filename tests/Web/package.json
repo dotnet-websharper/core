@@ -4,5 +4,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.19.9"
+  },
+  "dependencies": {
+    "is-sorted": "^1.0.5"
   }
 }

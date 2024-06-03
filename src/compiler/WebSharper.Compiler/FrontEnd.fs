@@ -218,9 +218,10 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                     let rootJS, addrMap = JavaScriptPackager.packageEntryPointReexport meta
                     let program, _, trAddrMap = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
                     let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                    logger.TimedStage (sprintf "Writing reexports all.js")
+                    let trAddrMap = Dict.union [ trAddrMap; dict [ AST.Address.Global(), assemblyName ] ]
+                    logger.TimedStage (sprintf "Writing reexports root.js")
                     Some [|
-                        "all", js, trAddrMap    
+                        "root", js, trAddrMap    
                     |]
                 else
                     None

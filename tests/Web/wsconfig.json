@@ -4,8 +4,5 @@
   "outputDir": "wwwroot",
   "downloadResources": true,
   "runtimeMetadata": "full",
-  "preBundle": false,
-  "release": {
-    "preBundle": false
-  }
+  "preBundle": true
 }
