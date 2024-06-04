@@ -760,5 +760,6 @@ let transformProgramAndAddrMap output pref (addrMap: IDictionary<Address, Id>) s
     let env = Environment.New(pref, output)
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
-    let trAddrMap = addrMap |> Dict.map (fun id -> (transformId env id).Name)
-    (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value, trAddrMap
+    (statements |> List.map (transformStatement env) |> flattenJS), 
+    env.IsJSX.Value, 
+    (addrMap |> Dict.map (fun id -> (transformId env id).Name))

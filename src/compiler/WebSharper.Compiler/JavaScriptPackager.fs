@@ -1439,7 +1439,7 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
                     finalAddrMap.Add(a, x)
                 | i ->
                     let x = Id.New n
-                    namedImports.Add(i, Id.New n)   
+                    namedImports.Add(i, x)   
                     finalAddrMap.Add(a, x)
             let moduleName =
                 match m with
