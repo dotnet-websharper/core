@@ -1433,7 +1433,7 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
                             m.Name.Replace('.', '_').Replace('`', '_')
                         | DotNetType m -> 
                             (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
-                        | _ -> "default"
+                        | _ -> "x"
                     let x = Id.New newName
                     namedImports.Add("default", x)
                     finalAddrMap.Add(a, x)

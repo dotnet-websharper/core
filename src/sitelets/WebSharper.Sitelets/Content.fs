@@ -211,8 +211,17 @@ module Content =
                                             let i = "i" + string (imported.Count + 1)
                                             match f.Address |> List.rev with
                                             | [] -> failwith "empty address"
-                                            | _ :: r ->
-                                                let j = i :: r |> String.concat "."
+                                            | a :: r ->
+                                                let j = 
+                                                    match a with
+                                                    | "default" -> 
+                                                        match r with    
+                                                        | [] ->     
+                                                            i :: r |> String.concat "."
+                                                        | _ :: rr ->
+                                                            i :: rr |> String.concat "."
+                                                    | _ ->
+                                                        i :: r |> String.concat "."
                                                 imported.Add(f, j)
                                                 let asmName = bundle[AST.Address.Global()]
                                                 scriptsTw.WriteLine($"""import {{ {b} as {i} }} from "{url}{asmName}/root.js";""")
