@@ -24,6 +24,14 @@ type Startup () =
             app.UseDeveloperExceptionPage() |> ignore
 
         app.UseAuthentication()
+            .Use(fun context (next: RequestDelegate) ->
+                if context.Request.Path.StartsWithSegments("/Scripts") || context.Request.Path.StartsWithSegments("/@vite") then
+                    let proxyRequest = context.Request.Path.Value
+                    context.Response.Redirect($"http://localhost:5173{proxyRequest}")
+                    Task.CompletedTask
+                else
+                    next.Invoke(context)
+            )
             .UseStaticFiles()
             .UseWebSharper()
             .Run(fun context ->

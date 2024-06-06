@@ -47,6 +47,9 @@ type MyClassInline [<Inline "new $import()">] () =
 [<Import ("sayHi", "./sayHi.js")>]
 let sayHiFunc (str: string) = X<string> 
 
+[<Import "is-sorted">]
+let isSorted (array: 'T[]) = X<bool> 
+
 [<JavaScript>]
 module JSXTest =
     let html() =
@@ -125,5 +128,10 @@ let Tests =
             equal (WebSharper.InterfaceGenerator.Tests.WIGtest4.SayHiStatic "World") "Hello, World!"
             let c = WebSharper.InterfaceGenerator.Tests.WIGtest4()
             equal (c.SayHiInst "World") "Hello, World!"
+        }
+
+        Test "npm import" {
+            isTrue (isSorted([| 1; 2; 3 |]))
+            isFalse (isSorted([| 1; 3; 2 |]))
         }
     }

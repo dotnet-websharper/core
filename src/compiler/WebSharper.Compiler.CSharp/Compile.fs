@@ -133,8 +133,18 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
+            let isSitelet =
+                match config.ProjectType with
+                | Some Html ->
+                    true
+                | Some Website
+                | _ when Option.isSome config.OutputDir ->
+                    true
+                | _ -> 
+                    false
+
             let js, currentMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) config.PreBundle
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) config.PreBundle isSitelet
 
             match config.ProjectType with
             | Some (Bundle | Website) ->

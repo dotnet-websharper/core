@@ -137,8 +137,13 @@ module Content =
                 |> Seq.collect importsOf
                 |> Array.ofSeq
 
+            let hasRoot =
+                ctx.Metadata.PreBundle.Count = 1 && ctx.Metadata.PreBundle.ContainsKey("root")
+            
             let bundleName = 
-                if ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
+                if hasRoot then
+                    Some "root"
+                elif ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
                     match requiredBundles with
                     | [||] ->
                         if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
@@ -197,7 +202,32 @@ module Content =
                             | None -> None
                             | Some bundle ->
                                 match bundle.TryFind a with
-                                | Some b -> Some ("wsbundle." + b)
+                                | Some b -> 
+                                    if hasRoot then
+                                        match imported.TryGetValue(f) with   
+                                        | true, i ->
+                                            Some i
+                                        | _ ->
+                                            let i = "i" + string (imported.Count + 1)
+                                            match f.Address |> List.rev with
+                                            | [] -> failwith "empty address"
+                                            | a :: r ->
+                                                let j = 
+                                                    match a with
+                                                    | "default" -> 
+                                                        match r with    
+                                                        | [] ->     
+                                                            i :: r |> String.concat "."
+                                                        | _ :: rr ->
+                                                            i :: rr |> String.concat "."
+                                                    | _ ->
+                                                        i :: r |> String.concat "."
+                                                imported.Add(f, j)
+                                                let asmName = bundle[AST.Address.Global()]
+                                                scriptsTw.WriteLine($"""import {{ {b} as {i} }} from "{url}{asmName}/root.js";""")
+                                                Some j
+                                    else
+                                        Some ("wsbundle." + b)
                                 | None ->
                                     match a.Address with 
                                     | h :: t ->
@@ -272,7 +302,7 @@ module Content =
                         scriptsTw.WriteLine($"""{v}.$postinit("{i}");""")
                     | _ -> ()
 
-            Some activate, bundleName |> Option.map Array.singleton
+            Some activate, if hasRoot then None else bundleName |> Option.map Array.singleton 
         else    
             None, None
 

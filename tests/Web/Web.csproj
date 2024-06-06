@@ -35,10 +35,8 @@
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
     <ProjectReference Include="..\Website\Website.fsproj" />
   </ItemGroup>
-  <Target Name="EnsureNodeModulesInstalled" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Release' ">
+  <Target Name="RollupBundle" AfterTargets="WebSharperCompile">
     <Exec Command="npm install" />
-  </Target>
-  <Target Name="RollupBundle" AfterTargets="WebSharperCompile" Condition=" '$(Configuration)' == 'Release' ">
     <Exec Command="node ./esbuild.config.mjs" />
   </Target>
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
