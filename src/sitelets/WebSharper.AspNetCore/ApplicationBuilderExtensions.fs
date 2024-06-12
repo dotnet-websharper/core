@@ -20,6 +20,7 @@
 namespace WebSharper.AspNetCore
 
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Configuration
 #nowarn "44" // Internal calls to obsolete methods
 
 open System
@@ -84,3 +85,24 @@ type ApplicationBuilderExtensions =
             builder.UseRemoting(false) |> ignore
             if not (isNull build) then build.Invoke(builder)
         )
+
+    /// Use the WebSharper server side.
+    [<Extension>]
+    static member UseWebSharperScriptRedirect
+        (
+            this: IApplicationBuilder,
+            [<Optional>] redirectUrlRoot: string
+        ) =
+
+        let redirectUrlRoot =
+            if isNull redirectUrlRoot then 
+                let config = this.ApplicationServices.GetRequiredService<IConfiguration>().GetSection("websharper")
+                let fromConfig = config.Item("ScriptRedirectUrl")
+                if isNull fromConfig then
+                    "http://localhost:5173"
+                else
+                    fromConfig
+            else
+                redirectUrlRoot
+        this.Use(ScriptRedirect.Middleware redirectUrlRoot) |> ignore
+        this
