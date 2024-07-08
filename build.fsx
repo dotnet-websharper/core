@@ -10,6 +10,7 @@
 #r "nuget: Fake.DotNet.Paket"
 #r "nuget: Fake.JavaScript.Npm"
 #r "nuget: Paket.Core, 8.1.0-alpha004"
+#r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"
 
 
@@ -23,8 +24,12 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.JavaScript
 
-let execContext = Context.FakeExecutionContext.Create false "build.fsx" []
-Context.setExecutionContext (Context.RuntimeContext.Fake execContext)
+System.Environment.GetCommandLineArgs()
+|> Array.skip 2 // skip fsi.exe; build.fsx
+|> Array.toList
+|> Fake.Core.Context.FakeExecutionContext.Create false __SOURCE_FILE__
+|> Fake.Core.Context.RuntimeContext.Fake
+|> Fake.Core.Context.setExecutionContext
 
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 
