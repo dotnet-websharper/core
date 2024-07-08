@@ -314,4 +314,15 @@ let Tests =
             equal x 0
             equal !res 1
         }
+
+        Test "While!" {
+            let r = ref 0
+            let! x = 
+                async {
+                    while! async { return r.Value < 10 } do
+                        incr r  
+                    return r.Value
+                }
+            equal x 10 
+        }
     }

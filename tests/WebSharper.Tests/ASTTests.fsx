@@ -18,18 +18,20 @@
 //
 // $end{copyright}
 
-#r "nuget: FSharp.Compiler.Service"
-#r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
+
+#r "../../build/Release/FSharp/net8.0/FSharp.Core.dll"
+#r "../../build/Release/FSharp/net8.0/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.Pdb.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
+//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
+//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
@@ -288,8 +290,8 @@ let wsRefs =
         "WebSharper.Collections"
         "WebSharper.Control"
         "WebSharper.Web"
-        "WebSharper.MathJS"
-        "WebSharper.MathJS.Extensions"
+        //"WebSharper.MathJS"
+        //"WebSharper.MathJS.Extensions"
         "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
@@ -444,7 +446,9 @@ let translate isBundle source =
     
         //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
-        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        let trPkg, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable pkg
+
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trPkg false
         printfn "%s" js
     
     else
@@ -457,7 +461,8 @@ let translate isBundle source =
         let jsFiles = 
             pkg 
             |> Array.map (fun (file, p) ->
-                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                let trP, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable p
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trP false
                 file, js
             )
 
@@ -513,83 +518,5 @@ open System.Collections.Generic
 module MyTest =
 
     let Main() =
-        let f x y = x + y
-        let g() =
-            f 1 2 + f 2 3
-        g() + g()
+        "hello" |> _.Length
 """
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<JavaScript>]
-//let anonymousRecord() = 
-//    let r = {| A = 42 |}
-//    r.A
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<JavaScript>]
-//let stringInterpolation() = 
-//    //sprintf "x=%d %d" 5 6
-//    //$"x={(5, 5)}" 
-//    $"x=%d{5}" 
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
-//let testImport () = ()
-
-//[<JavaScript>]
-//let useImport() = 
-//    testImport ()
-//"""
-
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<Inline>]
-//let tailRecSingleInline n =
-//    let rec f n =
-//        if n > 0 then f (n - 1) else 0
-//    f n
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//module Bug923 =
-//    type V2<[<Measure>] 'u> =
-//        struct
-//            val x : float<'u>
-//            val y : float<'u>
-//            new (x, y) = {x=x; y=y}
-//        end
-
-//        static member (+) (a : V2<_>, b : V2<_>) = 
-//            V2 (a.x + b.x, a.y + b.y)
-
-//    [<JavaScript>]
-//    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
-
-//    """
-
-//getBody <@ JS.Document.Cookie <- X<_> @>
-//|> WebSharper.Core.AST.Debug.PrintExpression
-
-//let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata

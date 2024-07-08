@@ -42,6 +42,9 @@ type O [<Inline "{}">] () =
 type R = { [<OptionalField>] KO: int option }
 
 [<JavaScript>]
+type RR = { N: R; S: int }
+
+[<JavaScript>]
 type [<OptionalField>] R2 = { KO2: int option; K2 : int }
 
 /// non JS-annotated version of R
@@ -257,6 +260,24 @@ type ParseStateAbstract() =
 type ParseState() =
     interface IParseState with
         member _.RaiseError()  = raise <| System.Exception("asd")
+
+[<JavaScript; Interface>]
+type IDemoable =
+    abstract member Show: string -> unit
+    static member AutoFormat(a) = sprintf "%A" a
+
+[<JavaScript>]
+type AbcDU = A | B | C
+    with   
+        static let namesAndValues = 
+            dict [ 
+                "A", A 
+                "B", B
+                "C", C
+            ]
+
+        static member TryParse text = 
+            namesAndValues.TryGetValue text
 
 [<JavaScript>]
 let Tests =
@@ -612,4 +633,17 @@ let Tests =
             equal 1 1
         }
 
+        Test "Nested record field copy and update" {
+            let x = { N = { KO = Some 1 }; S = 10 }
+            equal { x with N.KO = Some 2 } { N = { KO = Some 2 }; S = 10 }
+        }
+
+        Test "Interface with static member" {
+            equal (IDemoable.AutoFormat 1) "1"
+        }
+
+        Test "Static let in unions" {
+            equal (AbcDU.TryParse "A") (true, A)
+            equal (AbcDU.TryParse "D" |> fst) false
+        }
     }

@@ -1463,20 +1463,19 @@ type Compilation(meta: Info, ?hasGraph) =
             if cls.ForceNoPrototype then
                 for mem in cls.Members do
                     match mem with
-                    | NotResolvedMember.Method (_, mi) when mi.Kind = NotResolvedMemberKind.Instance ->
+                    | NotResolvedMember.Method (m, mi) when mi.Kind = NotResolvedMemberKind.Instance ->
                         mi.Kind <- NotResolvedMemberKind.AsStatic         
-                        mi.Body <- 
-                            match mi.Body with
-                            | Function(args, thisVar, typ, b) ->
+                        match mi.Body with
+                        | Function(args, thisVar, typ, b) ->
+                            mi.Body <- 
                                 let thisVar = thisVar |> Option.defaultWith Id.NewThis
                                 Function (thisVar :: args, None, typ, b)
-                            | _ ->
-                                failwith "Unexpected: instance member not a function"
+                        | _ -> ()
                     | NotResolvedMember.Constructor (_, mi) when mi.Kind = NotResolvedMemberKind.Constructor ->
                         mi.Kind <- NotResolvedMemberKind.AsStatic  
-                        mi.Body <- 
-                            match mi.Body with
-                            | Function(args, thisVar, typ, b) ->
+                        match mi.Body with
+                        | Function(args, thisVar, typ, b) ->
+                            mi.Body <- 
                                 match thisVar with
                                 | Some t ->
                                     let body =
@@ -1484,8 +1483,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     Function (args, None, typ, body)
                                 | None -> 
                                     failwith "Unexpected: constructor not using 'this'"
-                            | _ ->
-                                failwith "Unexpected: instance member not a function"
+                        | _ -> ()
                     | _ -> ()
             let isInterfaceProxy =
                 cls.ForceNoPrototype && interfaces.ContainsKey typ

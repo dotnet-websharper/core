@@ -1699,7 +1699,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 let m = SourceMember(a, b, c)
                 match a.DeclaringEntity with
                 | Some e ->
-                    types[e].Add(m)
+                    match types.TryGetValue(e) with
+                    | true, t -> t.Add(m)
+                    | _ ->
+                        // interface might not have type generated for statics
+                        let ms = ResizeArray()
+                        ms.Add(m)
+                        parentMembers.Add (SourceEntity (e, ms))
+                        types.Add (e, ms)
                 | _ ->                            
                     let i = Id.New(a.LogicalName)
                     recMembers.Add(a, (i, c))
