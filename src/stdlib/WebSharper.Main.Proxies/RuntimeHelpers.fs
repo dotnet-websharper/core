@@ -56,6 +56,41 @@ let EnumerateUsing<'T1,'T2,'T3 when 'T1 :> System.IDisposable
             else
                 false
 
+[<Name "enumTryWith">]
+let EnumerateTryWith (s: seq<'T>) (f: exn -> int) (h: exn -> seq<'T>) : seq<'T> =
+    Enumerable.Of <| fun () ->
+        let mutable enum = null
+        let mutable orig = true
+        Enumerator.NewDisposing () (fun _ -> safeDispose enum) <| fun e ->
+            try 
+                if enum = null then
+                    enum <- Enumerator.Get s
+                if enum.MoveNext() then
+                    e.Current <- enum.Current
+                    true
+                else
+                    false
+            with err when orig && f err = 1 ->
+                orig <- false
+                safeDispose enum
+                enum <- Enumerator.Get (h err)
+                if enum.MoveNext() then
+                    e.Current <- enum.Current
+                    true
+                else
+                    false
+
+[<Name "enumFunc">]
+let EnumerateFromFunctions (c: unit -> 'T) (n: 'T -> bool) (v: 'T -> 'U) : seq<'U> =
+    Enumerable.Of <| fun () ->
+        let st = c()
+        Enumerator.New st <| fun e ->
+            if n st then
+                e.Current <- v st
+                true
+            else
+                false
+
 [<Name "enumWhile">]
 let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
     Enumerable.Of (fun () ->

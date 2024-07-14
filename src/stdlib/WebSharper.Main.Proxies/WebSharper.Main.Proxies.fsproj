@@ -4,7 +4,6 @@
     <WebSharperProject>Library</WebSharperProject>
     <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <DebugType>None</DebugType>
   </PropertyGroup>
   <ItemGroup>

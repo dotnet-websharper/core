@@ -44,7 +44,7 @@ type private N = NotResolvedMemberKind
 type private SourceMemberOrEntity =
     | SourceMember of FSMFV * list<list<FSMFV>> * FSharpExpr
     | SourceEntity of FSharpEntity * ResizeArray<SourceMemberOrEntity>
-    | SourceInterface of FSharpEntity 
+    | SourceInterface of FSharpEntity * ResizeArray<SourceMemberOrEntity>
     | InitAction of FSharpExpr
 
 let annotForTypeOrFile name (annot: A.TypeAnnotation) =
@@ -84,10 +84,9 @@ let rec private collectTypeAnnotations (d: Dictionary<FSharpEntity, TypeDefiniti
     t.Add(thisDef, cls)
     for m in members do
         match m with
-        | SourceEntity (ent, nmembers) ->
+        | SourceEntity (ent, nmembers) 
+        | SourceInterface (ent, nmembers) ->
             collectTypeAnnotations d t sr annot ent nmembers
-        | SourceInterface ent ->
-            collectTypeAnnotations d t sr annot ent Seq.empty
         | _ -> ()
 
 let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeReader.SymbolReader) tparams =
@@ -481,7 +480,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
-    if isThisInterface && not isNotWSInterface && clsMembers.Count = 0 then None else
+    if isThisInterface && not isNotWSInterface && clsMembers.Count = 0 && members.Count = 0 then None else
 
     let fsharpSpecificNonException =
         cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsValueType
@@ -978,10 +977,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots isInterface false recMembers ent nmembers |> Option.iter comp.AddClass   
-        | SourceInterface i ->
+        | SourceInterface (i, nmembers) ->
             let intf, isNotWSInterface = transformInterface sr classAnnots i 
             intf |> Option.iter comp.AddInterface
-            transformClass sc comp ac sr classAnnots isInterface isNotWSInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface isNotWSInterface recMembers i nmembers |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1684,7 +1683,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | FSIFD.Entity (a, b) ->
                 if not a.IsFSharpAbbreviation then
                     if a.IsInterface then
-                        parentMembers.Add (SourceInterface a)
+                        let ms = ResizeArray()
+                        parentMembers.Add (SourceInterface (a, ms))
+                        try
+                            types.Add (a, ms)
+                        with _ ->
+                            comp.AddError(Some (CodeReader.getRange a.DeclarationLocation), SourceError "Duplicate type definition")
+                        //b |> List.iter (getTypesWithMembers ms)
                     elif isILClass a then 
                         let ms = ResizeArray()
                         parentMembers.Add (SourceEntity (a, ms))
@@ -1699,14 +1704,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 let m = SourceMember(a, b, c)
                 match a.DeclaringEntity with
                 | Some e ->
-                    match types.TryGetValue(e) with
-                    | true, t -> t.Add(m)
-                    | _ ->
-                        // interface might not have type generated for statics
-                        let ms = ResizeArray()
-                        ms.Add(m)
-                        parentMembers.Add (SourceEntity (e, ms))
-                        types.Add (e, ms)
+                    types[e].Add(m)
                 | _ ->                            
                     let i = Id.New(a.LogicalName)
                     recMembers.Add(a, (i, c))
@@ -1721,8 +1719,8 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             match t with
             | SourceEntity (c, m) ->
                 collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
-            | SourceInterface i ->
-                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot i Seq.empty
+            | SourceInterface (i, m) ->
+                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot i m
             | _ -> ()
 
         // register all proxies for signature redirection
@@ -1737,10 +1735,10 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
                 transformClass sc comp argCurrying sr classAnnotations isInterface false recMembers c m |> Option.iter comp.AddClass
-            | SourceInterface i ->
+            | SourceInterface (i, m) ->
                 let intf, isNotWSInterface = transformInterface sr classAnnotations i 
                 intf |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations isInterface isNotWSInterface recMembers i [||] |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 
