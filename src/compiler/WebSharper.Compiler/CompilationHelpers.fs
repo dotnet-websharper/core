@@ -1052,7 +1052,6 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                         lastSpace <- false
                 res.ToString()
             eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
-            //failwithf "%s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
     for n in nodes do
         match n with
         | AbstractMethodNode (td, m) ->
@@ -1068,23 +1067,27 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
             let cls = getOrAddClassNeeded td
             c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor" td
         | ImplementationNode (td, i, m) ->
-            //try
-                //if td = Definitions.Obj then () else
-                let cls = getOrAddClassNeeded td
-                let clsImpl = meta.ClassInfo(td).Implementations
-                let k = i, m
-                if clsImpl.ContainsKey k then
-                    k |> moveToDict clsImpl cls.Implementations "implementation" td
-                else
-                    match getOrAddClass i with
-                    | Some icls ->
-                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" i
+            let cls = getOrAddClassNeeded td
+            let clsImpl = meta.ClassInfo(td).Implementations
+            let k = i, m
+            if clsImpl.ContainsKey k then
+                k |> moveToDict clsImpl cls.Implementations "implementation" td
+            else
+                match getOrAddClass i with
+                | Some icls ->
+                    match meta.Interfaces.TryGetValue(i) with
+                    | true, ii ->
+                        try
+                            let jsName, _, _ = ii.Methods[m]
+                            let mImpl = icls.Methods |> Seq.find (fun cm -> cm.Value.CompiledForm = Instance (jsName, MemberKind.Simple))
+                            mImpl.Key |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation" i
+                        with _ ->
+                            m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation" i
                     | _ ->
-                        // this will fail but report original error
-                        k |> moveToDict clsImpl cls.Implementations "implementation" td
-
-            //with _ ->
-            //    failwithf "implementation node not found %A" n
+                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" i
+                | _ ->
+                    // this will fail but report original error
+                    k |> moveToDict clsImpl cls.Implementations "implementation" td
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 
