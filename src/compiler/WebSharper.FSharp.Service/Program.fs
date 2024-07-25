@@ -23,7 +23,6 @@ open System
 open System.IO.Pipes
 open System.Threading
 open System.IO
-open System.Runtime.Serialization.Formatters.Binary
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
@@ -99,12 +98,11 @@ let startListening() =
     let send (serverPipe: NamedPipeServerStream) paramPrint str = async {
         let newMessage = paramPrint str
         nLogger.Trace(sprintf "Server sends: %s" newMessage)
-        let bf = new BinaryFormatter()
-        use ms = new MemoryStream()
-        bf.Serialize(ms, newMessage)
-        ms.Flush()
-        ms.Position <- 0L
-        do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
+        let options = System.Text.Json.JsonSerializerOptions()
+        options.Encoder <-System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        let res = System.Text.Json.JsonSerializer.Serialize(newMessage, options)
+        let bytes = System.Text.Encoding.UTF8.GetBytes res
+        serverPipe.Write(bytes, 0, bytes.Length)
         serverPipe.Flush()
     }
 
@@ -126,7 +124,6 @@ let startListening() =
             try
                 // read a message
                 let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
-
                 let send = send serverPipe
                 let sendFinished = sendFinished serverPipe
                 // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
@@ -247,7 +244,7 @@ let startListening() =
             try
                 let handleMessage (message: obj) = 
                     async {
-                        let message = message :?> ArgsType
+                        let message = System.Text.Json.JsonSerializer.Deserialize<ArgsType>(string message)
                         if message.args.Length = 1 && message.args.[0].StartsWith "compile:" then
                             let project = message.args.[0].Substring(8) 
                             match argsDict.TryGetValue project with
@@ -275,11 +272,12 @@ let startListening() =
         let serverPipe = new NamedPipeServerStream( 
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
-                          -1, // max number of server instances
-                          PipeTransmissionMode.Byte, // Transmissione Mode
+                          NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
+                          PipeTransmissionMode.Message, // Transmissione Mode
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
+        serverPipe.ReadMode <- PipeTransmissionMode.Message
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }
