@@ -11,6 +11,7 @@
 #r "nuget: Fake.JavaScript.Npm"
 #r "nuget: Paket.Core, 8.1.0-alpha004"
 #r "nuget: MSBuild.StructuredLogger"
+#r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"
 
 
