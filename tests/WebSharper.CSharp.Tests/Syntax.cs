@@ -294,6 +294,11 @@ namespace WebSharper.CSharp.Tests
             return ref x;
         }
 
+        public int InRefReadonly(ref readonly int x)
+        {
+            return x;
+        }
+
         public int f = 0;
 
         [Test]
@@ -304,6 +309,8 @@ namespace WebSharper.CSharp.Tests
             Equal(x, 1);
             int xr = InRefOut(x);
             Equal(xr, 1);
+            int irr = InRefReadonly(ref x);
+            Equal(irr, 1);
             OutOne(out var y);
             Equal(y, 1);
             OutOne(out int z);
@@ -442,6 +449,20 @@ namespace WebSharper.CSharp.Tests
             Equal($"My name is {lastName}. {firstName} {lastName}.", "My name is Bond. James Bond.");
 
             Equal($"align:{"x",2 + 3}", "align:    x");
+        }
+
+        [Test]
+        public void RawInterpolatedString()
+        {
+            string firstName = "James", lastName = "Bond";
+            Equal($"""
+                My name is {lastName}.
+                {firstName} {lastName}.
+            """, 
+                """
+                    My name is Bond.
+                    James Bond.
+                """);
         }
 
         const string _firstName = "James";
@@ -749,6 +770,19 @@ namespace WebSharper.CSharp.Tests
                 Equal(e.Message, "Argument failed validation: <1 == 2>");
                 throw;
             }
+        }
+
+        public delegate int LambdaWithDefault(int i = 1);
+
+        public int DefaultLambdaParameter(LambdaWithDefault f)
+        {
+            return f();
+        }
+
+        [Test("lambda with default parameter", TestKind.Skip)]
+        public void TestDefaultLambdaParameter()
+        {
+            Equal(DefaultLambdaParameter(x => x + 2), 3);
         }
     }
 

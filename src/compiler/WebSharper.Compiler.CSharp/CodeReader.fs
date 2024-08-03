@@ -537,6 +537,34 @@ module Definitions =
         ([] : list<Expression>),
         (id : Expression -> Expression)
 
+    let SeqModule =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Collections.SeqModule"
+        }
+
+    let SeqType =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Collections.Generic.IEnumerable`1"
+        }
+
+    let SeqIter =
+        Method {
+            MethodName = "Iterate"
+            Parameters = [ FSharpFuncType(TypeParameter 0, VoidType); GenericType SeqType [TypeParameter 0] ] 
+            ReturnType = VoidType
+            Generics = 1
+        }
+
+    let SeqLength =
+        Method {
+            MethodName = "Length"
+            Parameters = [ GenericType SeqType [TypeParameter 0] ] 
+            ReturnType = NonGenericType Definitions.Int
+            Generics = 1
+        }
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
         let l =
@@ -790,6 +818,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.RangeExpression                   x -> this.TransformRangeExpression x      
                 | ExpressionData.SwitchExpression                  x -> this.TransformSwitchExpression x      
                 | ExpressionData.WithExpression                    x -> this.TransformWithExpression x      
+                | ExpressionData.CollectionExpression              x -> this.TransformCollectionExpression x
             let conversion = env.SemanticModel.GetConversion(x.Node)
             if conversion.IsUserDefined then
                 let symbol = conversion.MethodSymbol
@@ -825,6 +854,7 @@ type RoslynTransformer(env: Environment) =
         | TypeData.TupleType           x -> TODO x //this.TransformTupleType x
         | TypeData.OmittedTypeArgument x -> TODO x //this.TransformOmittedTypeArgument x
         | TypeData.RefType             x -> TODO x //this.TransformRefType x
+        | TypeData.ScopedType          x -> TODO x //this.TransformScopedType x
 
     member this.TransformName (x: NameData) : Expression =
         match x with
@@ -1345,6 +1375,8 @@ type RoslynTransformer(env: Environment) =
                                 MutatingBinaryOperator.``>>=``
                             | AssignmentExpressionKind.CoalesceAssignmentExpression ->
                                 MutatingBinaryOperator.``??=``
+                            | AssignmentExpressionKind.UnsignedRightShiftAssignmentExpression ->
+                                MutatingBinaryOperator.``>>>=``
                         MutatingBinary(left, op, right) |> Some
                     | _ -> None
                 else None
@@ -2674,6 +2706,42 @@ type RoslynTransformer(env: Environment) =
         let pattern = x.Pattern |> this.TransformPattern
         fun v -> Unary(UnaryOperator.``!``, pattern v)
 
+    member this.TransformListPattern (x: ListPatternData) : _ =
+        let patterns = x.Patterns |> Seq.map this.TransformPattern |> List.ofSeq
+        let designation = x.Designation |> Option.map this.TransformVariableDesignation
+        let typ = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
+        
+        let getItem =
+            if typ.TypeKind = TypeKind.Array then
+                fun v i ->
+                    ItemGet(Var v, Value (Int i), Pure)
+            else
+                let itemMeth = 
+                    match typ.GetMembers("get_Item").OfType<IMethodSymbol>() |> Seq.tryHead with
+                    | Some m -> m |> sr.ReadMethod
+                    | None -> failwith "List patterns are only supported for types defining Item property"
+                let td = typ |> sr.ReadType
+                fun v i ->
+                    Call (Some (Var v), NonGeneric td.TypeDefinition, NonGeneric itemMeth, [ Value (Int i) ])
+        
+        fun v ->
+            let sliceIdx = x.Patterns |> Seq.tryFindIndex (function PatternData.SlicePattern _ -> true | _ -> false)
+            match sliceIdx with
+            | None ->
+                let length = List.length patterns
+                List.reduce (^&&) [
+                    Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]) ^== (Value (Int length))
+                    for i, p in Seq.indexed patterns do
+                        let e = Id.New(mut = false)
+                        Let (e, getItem v i, p e)
+                ]
+            | Some sliceIdx ->
+                Expression.Undefined // todo list pattern with slice
+
+    member this.TransformSlicePattern (x: SlicePatternData) : _ =
+        let pattern = x.Pattern |> Option.map this.TransformPattern
+        fun v -> Expression.Undefined
+
     member this.TransformPattern (x: PatternData) : _ =
         match x with
         | PatternData.DiscardPattern       x -> this.TransformDiscardPattern x
@@ -2686,6 +2754,8 @@ type RoslynTransformer(env: Environment) =
         | PatternData.TypePattern          x -> this.TransformTypePattern x
         | PatternData.BinaryPattern        x -> this.TransformBinaryPattern x
         | PatternData.UnaryPattern         x -> this.TransformUnaryPattern x
+        | PatternData.ListPattern          x -> this.TransformListPattern x
+        | PatternData.SlicePattern         x -> this.TransformSlicePattern x
 
     member this.TransformIsPatternExpression (x: IsPatternExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
@@ -2756,6 +2826,58 @@ type RoslynTransformer(env: Environment) =
         let o = Id.New()
         let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
         Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
+
+    member this.TransformExpressionElement (x: ExpressionElementData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        expression, false
+
+    member this.TransformSpreadElement (x: SpreadElementData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        expression, true
+
+    member this.TransformCollectionElement (x: CollectionElementData) : _ =
+        match x with
+        | CollectionElementData.ExpressionElement x -> this.TransformExpressionElement x
+        | CollectionElementData.SpreadElement     x -> this.TransformSpreadElement x
+
+    member this.TransformCollectionExpression (x: CollectionExpressionData) : _ =
+        let elements = x.Elements |> Seq.map this.TransformCollectionElement |> List.ofSeq
+        
+        let iocType = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
+        let coll = Id.New(mut = false)          
+        let x = Id.New(mut = false)
+
+        let iocTypOpt =
+            match iocType with
+            | :? INamedTypeSymbol as nt -> Some (sr.ReadNamedType nt)
+            | _ -> None
+
+        let emptyColl, addItem =
+            if iocType.TypeKind = TypeKind.Array then
+                NewArray [],
+                fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])
+            else
+                let addSymbol = 
+                    let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
+                    if addMethods.Length = 1 then
+                        addMethods.[0]
+                    else
+                        failwith "Collection initializer for collection expression only supported with a non-overloaded Add method"
+                let addM = addSymbol |> sr.ReadGenericMethod
+                Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
+                fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])
+
+        Let(coll, emptyColl,
+            Sequential [
+                for (e, isSpread) in elements do 
+                    if isSpread then
+                        Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter, 
+                            [ Lambda([x], None, addItem (Var x)); e ])
+                    else
+                        addItem e
+                Var coll
+            ]
+        )
 
 open System.Linq
 

@@ -339,11 +339,14 @@ let Last (s: seq<_>) =
 
 [<Name "length">]
 let Length (s: seq<_>) =
-    let mutable i = 0
-    use e = Enumerator.Get s
-    while e.MoveNext() do
-        i <- i + 1
-    i
+    if s :? System.Array || JS.TypeOf s = JS.String then
+        (As<string> s).Length        
+    else
+        let mutable i = 0
+        use e = Enumerator.Get s
+        while e.MoveNext() do
+            i <- i + 1
+        i
 
 [<Name "map">]
 let Map (f: 'T -> 'U) (s: seq<'T>) : seq<'U> =

@@ -58,5 +58,44 @@ namespace WebSharper.CSharp.Tests
             foreach (var i in s) l.Add(i);
             Equal(l.ToArray(), new[] { 1, 5 });
         }
+
+        [Test]
+        public void ListPattern()
+        {
+            Expect(3);
+            List<int> l = new() { 1, 2, 3 };
+            IsTrue(l is [1, 2, 3]);
+            if (l is [1, var two, 3])
+            {
+                Equal(two, 2);
+            }
+            IsFalse(l is [1, _, 4]);
+        }
+
+        [Test]
+        public void CollectionExpressions()
+        {
+            List<int> l = [1, 2, 3];
+            IsTrue(l is [1, 2, 3]);
+
+            List<int> l2 = [4, 5];
+            List<int> l3 = [.. l, .. l2, 6];
+            IsTrue(l3 is [1, 2, 3, 4, 5, 6]);
+
+            // with arrays
+            int[] a = [1, 2, 3];
+            IsTrue(a is [1, 2, 3]);
+
+            int[] a3 = [.. a, .. l2, 6];
+            IsTrue(a3 is [1, 2, 3, 4, 5, 6]);
+        }
+
+        [Test("list pattern with slice", TestKind.Skip)]
+        public void ListPatternWithSlice()
+        {
+            List<int> l = new() { 1, 2, 3 };
+            IsTrue(l is [.., 3]);
+            IsTrue(l is [1, 2, 3, ..]);
+        }
     }
 }

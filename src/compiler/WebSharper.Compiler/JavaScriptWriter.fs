@@ -701,7 +701,13 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let args, tr =
             match t with 
             | TSType.Function (_, ta, trest, tr) -> 
-                (p, ta) ||> List.map2 (fun a (t, _) -> defineId innerEnv a |> withType env t) 
+                p |> List.mapi (fun i a -> 
+                    let ia = defineId innerEnv a 
+                    if ta.Length > i then
+                        ia |> withType env (fst ta[i])
+                    else
+                        ia
+                ) 
                 , tr
             | _ ->
                 p |> List.map (defineId innerEnv)
@@ -719,12 +725,13 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let args =
             match t with 
             | TSType.New (ta, _) -> 
-                let ta =
-                    // TODO remove workaround
-                    if ta.Length < p.Length then
-                        ta @ (List.replicate (p.Length - ta.Length) TSType.Any)
-                    else ta
-                (p, ta) ||> List.map2 (fun (a, m) t -> defineId innerEnv a |> withType env t, m)
+                p |> List.mapi (fun i (a, m) -> 
+                    let ia = defineId innerEnv a 
+                    if ta.Length > i then
+                        ia |> withType env ta[i], m
+                    else
+                        ia, m
+                ) 
             | _ ->
                 p |> List.map (fun (a, m) -> defineId innerEnv a, m)
         let body = 

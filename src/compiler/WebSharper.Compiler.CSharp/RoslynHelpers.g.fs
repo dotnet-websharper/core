@@ -307,6 +307,7 @@ type [<RequireQualifiedAccess>] BinaryExpressionKind =
     | ModuloExpression            
     | LeftShiftExpression         
     | RightShiftExpression        
+    | UnsignedRightShiftExpression
     | LogicalOrExpression         
     | LogicalAndExpression        
     | BitwiseOrExpression         
@@ -331,6 +332,7 @@ with
         | SyntaxKind.ModuloExpression -> ModuloExpression
         | SyntaxKind.LeftShiftExpression -> LeftShiftExpression
         | SyntaxKind.RightShiftExpression -> RightShiftExpression
+        | SyntaxKind.UnsignedRightShiftExpression -> UnsignedRightShiftExpression
         | SyntaxKind.LogicalOrExpression -> LogicalOrExpression
         | SyntaxKind.LogicalAndExpression -> LogicalAndExpression
         | SyntaxKind.BitwiseOrExpression -> BitwiseOrExpression
@@ -348,27 +350,28 @@ with
         | _ -> failwithf "Unexpected BinaryExpressionKind kind: %O" k
 
 type [<RequireQualifiedAccess>] BinaryExpressionOperatorToken =
-    | PlusToken                  
-    | MinusToken                 
-    | AsteriskToken              
-    | SlashToken                 
-    | PercentToken               
-    | LessThanLessThanToken      
-    | GreaterThanGreaterThanToken
-    | BarBarToken                
-    | AmpersandAmpersandToken    
-    | BarToken                   
-    | AmpersandToken             
-    | CaretToken                 
-    | EqualsEqualsToken          
-    | ExclamationEqualsToken     
-    | LessThanToken              
-    | LessThanEqualsToken        
-    | GreaterThanToken           
-    | GreaterThanEqualsToken     
-    | IsKeyword                  
-    | AsKeyword                  
-    | QuestionQuestionToken      
+    | PlusToken                             
+    | MinusToken                            
+    | AsteriskToken                         
+    | SlashToken                            
+    | PercentToken                          
+    | LessThanLessThanToken                 
+    | GreaterThanGreaterThanToken           
+    | GreaterThanGreaterThanGreaterThanToken
+    | BarBarToken                           
+    | AmpersandAmpersandToken               
+    | BarToken                              
+    | AmpersandToken                        
+    | CaretToken                            
+    | EqualsEqualsToken                     
+    | ExclamationEqualsToken                
+    | LessThanToken                         
+    | LessThanEqualsToken                   
+    | GreaterThanToken                      
+    | GreaterThanEqualsToken                
+    | IsKeyword                             
+    | AsKeyword                             
+    | QuestionQuestionToken                 
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
@@ -379,6 +382,7 @@ with
         | SyntaxKind.PercentToken -> PercentToken
         | SyntaxKind.LessThanLessThanToken -> LessThanLessThanToken
         | SyntaxKind.GreaterThanGreaterThanToken -> GreaterThanGreaterThanToken
+        | SyntaxKind.GreaterThanGreaterThanGreaterThanToken -> GreaterThanGreaterThanGreaterThanToken
         | SyntaxKind.BarBarToken -> BarBarToken
         | SyntaxKind.AmpersandAmpersandToken -> AmpersandAmpersandToken
         | SyntaxKind.BarToken -> BarToken
@@ -396,18 +400,19 @@ with
         | k -> failwithf "Unexpected BinaryExpressionOperatorToken kind: %O" k
 
 type [<RequireQualifiedAccess>] AssignmentExpressionKind =
-    | SimpleAssignmentExpression     
-    | AddAssignmentExpression        
-    | SubtractAssignmentExpression   
-    | MultiplyAssignmentExpression   
-    | DivideAssignmentExpression     
-    | ModuloAssignmentExpression     
-    | AndAssignmentExpression        
-    | ExclusiveOrAssignmentExpression
-    | OrAssignmentExpression         
-    | LeftShiftAssignmentExpression  
-    | RightShiftAssignmentExpression 
-    | CoalesceAssignmentExpression   
+    | SimpleAssignmentExpression            
+    | AddAssignmentExpression               
+    | SubtractAssignmentExpression          
+    | MultiplyAssignmentExpression          
+    | DivideAssignmentExpression            
+    | ModuloAssignmentExpression            
+    | AndAssignmentExpression               
+    | ExclusiveOrAssignmentExpression       
+    | OrAssignmentExpression                
+    | LeftShiftAssignmentExpression         
+    | RightShiftAssignmentExpression        
+    | UnsignedRightShiftAssignmentExpression
+    | CoalesceAssignmentExpression          
 with
     static member FromKind(k: SyntaxKind) =
         match k with
@@ -422,22 +427,24 @@ with
         | SyntaxKind.OrAssignmentExpression -> OrAssignmentExpression
         | SyntaxKind.LeftShiftAssignmentExpression -> LeftShiftAssignmentExpression
         | SyntaxKind.RightShiftAssignmentExpression -> RightShiftAssignmentExpression
+        | SyntaxKind.UnsignedRightShiftAssignmentExpression -> UnsignedRightShiftAssignmentExpression
         | SyntaxKind.CoalesceAssignmentExpression -> CoalesceAssignmentExpression
         | _ -> failwithf "Unexpected AssignmentExpressionKind kind: %O" k
 
 type [<RequireQualifiedAccess>] AssignmentExpressionOperatorToken =
-    | EqualsToken                      
-    | PlusEqualsToken                  
-    | MinusEqualsToken                 
-    | AsteriskEqualsToken              
-    | SlashEqualsToken                 
-    | PercentEqualsToken               
-    | AmpersandEqualsToken             
-    | CaretEqualsToken                 
-    | BarEqualsToken                   
-    | LessThanLessThanEqualsToken      
-    | GreaterThanGreaterThanEqualsToken
-    | QuestionQuestionEqualsToken      
+    | EqualsToken                                 
+    | PlusEqualsToken                             
+    | MinusEqualsToken                            
+    | AsteriskEqualsToken                         
+    | SlashEqualsToken                            
+    | PercentEqualsToken                          
+    | AmpersandEqualsToken                        
+    | CaretEqualsToken                            
+    | BarEqualsToken                              
+    | LessThanLessThanEqualsToken                 
+    | GreaterThanGreaterThanEqualsToken           
+    | GreaterThanGreaterThanGreaterThanEqualsToken
+    | QuestionQuestionEqualsToken                 
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
@@ -452,24 +459,27 @@ with
         | SyntaxKind.BarEqualsToken -> BarEqualsToken
         | SyntaxKind.LessThanLessThanEqualsToken -> LessThanLessThanEqualsToken
         | SyntaxKind.GreaterThanGreaterThanEqualsToken -> GreaterThanGreaterThanEqualsToken
+        | SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken -> GreaterThanGreaterThanGreaterThanEqualsToken
         | SyntaxKind.QuestionQuestionEqualsToken -> QuestionQuestionEqualsToken
         | k -> failwithf "Unexpected AssignmentExpressionOperatorToken kind: %O" k
 
 type [<RequireQualifiedAccess>] LiteralExpressionKind =
-    | ArgListExpression         
-    | NumericLiteralExpression  
-    | StringLiteralExpression   
-    | CharacterLiteralExpression
-    | TrueLiteralExpression     
-    | FalseLiteralExpression    
-    | NullLiteralExpression     
-    | DefaultLiteralExpression  
+    | ArgListExpression          
+    | NumericLiteralExpression   
+    | StringLiteralExpression    
+    | Utf8StringLiteralExpression
+    | CharacterLiteralExpression 
+    | TrueLiteralExpression      
+    | FalseLiteralExpression     
+    | NullLiteralExpression      
+    | DefaultLiteralExpression   
 with
     static member FromKind(k: SyntaxKind) =
         match k with
         | SyntaxKind.ArgListExpression -> ArgListExpression
         | SyntaxKind.NumericLiteralExpression -> NumericLiteralExpression
         | SyntaxKind.StringLiteralExpression -> StringLiteralExpression
+        | SyntaxKind.Utf8StringLiteralExpression -> Utf8StringLiteralExpression
         | SyntaxKind.CharacterLiteralExpression -> CharacterLiteralExpression
         | SyntaxKind.TrueLiteralExpression -> TrueLiteralExpression
         | SyntaxKind.FalseLiteralExpression -> FalseLiteralExpression
@@ -478,20 +488,30 @@ with
         | _ -> failwithf "Unexpected LiteralExpressionKind kind: %O" k
 
 type [<RequireQualifiedAccess>] LiteralExpressionToken =
-    | ArgListKeyword       
-    | NumericLiteralToken   of string
-    | StringLiteralToken    of string
-    | CharacterLiteralToken of string
-    | TrueKeyword          
-    | FalseKeyword         
-    | NullKeyword          
-    | DefaultKeyword       
+    | ArgListKeyword                     
+    | NumericLiteralToken                 of string
+    | StringLiteralToken                  of string
+    | Utf8StringLiteralToken              of string
+    | MultiLineRawStringLiteralToken      of string
+    | Utf8MultiLineRawStringLiteralToken  of string
+    | SingleLineRawStringLiteralToken     of string
+    | Utf8SingleLineRawStringLiteralToken of string
+    | CharacterLiteralToken               of string
+    | TrueKeyword                        
+    | FalseKeyword                       
+    | NullKeyword                        
+    | DefaultKeyword                     
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
         | SyntaxKind.ArgListKeyword -> ArgListKeyword
         | SyntaxKind.NumericLiteralToken -> NumericLiteralToken t.Text
         | SyntaxKind.StringLiteralToken -> StringLiteralToken t.Text
+        | SyntaxKind.Utf8StringLiteralToken -> Utf8StringLiteralToken t.Text
+        | SyntaxKind.MultiLineRawStringLiteralToken -> MultiLineRawStringLiteralToken t.Text
+        | SyntaxKind.Utf8MultiLineRawStringLiteralToken -> Utf8MultiLineRawStringLiteralToken t.Text
+        | SyntaxKind.SingleLineRawStringLiteralToken -> SingleLineRawStringLiteralToken t.Text
+        | SyntaxKind.Utf8SingleLineRawStringLiteralToken -> Utf8SingleLineRawStringLiteralToken t.Text
         | SyntaxKind.CharacterLiteralToken -> CharacterLiteralToken t.Text
         | SyntaxKind.TrueKeyword -> TrueKeyword
         | SyntaxKind.FalseKeyword -> FalseKeyword
@@ -540,14 +560,28 @@ with
         | k -> failwithf "Unexpected OrderingAscendingOrDescendingKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] InterpolatedStringExpressionStringStartToken =
-    | InterpolatedStringStartToken        
-    | InterpolatedVerbatimStringStartToken
+    | InterpolatedStringStartToken             
+    | InterpolatedVerbatimStringStartToken     
+    | InterpolatedSingleLineRawStringStartToken
+    | InterpolatedMultiLineRawStringStartToken 
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
         | SyntaxKind.InterpolatedStringStartToken -> InterpolatedStringStartToken
         | SyntaxKind.InterpolatedVerbatimStringStartToken -> InterpolatedVerbatimStringStartToken
+        | SyntaxKind.InterpolatedSingleLineRawStringStartToken -> InterpolatedSingleLineRawStringStartToken
+        | SyntaxKind.InterpolatedMultiLineRawStringStartToken -> InterpolatedMultiLineRawStringStartToken
         | k -> failwithf "Unexpected InterpolatedStringExpressionStringStartToken kind: %O" k
+
+type [<RequireQualifiedAccess>] InterpolatedStringExpressionStringEndToken =
+    | InterpolatedStringEndToken   
+    | InterpolatedRawStringEndToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.InterpolatedStringEndToken -> InterpolatedStringEndToken
+        | SyntaxKind.InterpolatedRawStringEndToken -> InterpolatedRawStringEndToken
+        | k -> failwithf "Unexpected InterpolatedStringExpressionStringEndToken kind: %O" k
 
 type [<RequireQualifiedAccess>] FunctionPointerCallingConventionManagedOrUnmanagedKeyword =
     | ManagedKeyword  
@@ -580,29 +614,30 @@ with
         | k -> failwithf "Unexpected RecordDeclarationClassOrStructKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] OperatorDeclarationOperatorToken =
-    | PlusToken                  
-    | MinusToken                 
-    | ExclamationToken           
-    | TildeToken                 
-    | PlusPlusToken              
-    | MinusMinusToken            
-    | AsteriskToken              
-    | SlashToken                 
-    | PercentToken               
-    | LessThanLessThanToken      
-    | GreaterThanGreaterThanToken
-    | BarToken                   
-    | AmpersandToken             
-    | CaretToken                 
-    | EqualsEqualsToken          
-    | ExclamationEqualsToken     
-    | LessThanToken              
-    | LessThanEqualsToken        
-    | GreaterThanToken           
-    | GreaterThanEqualsToken     
-    | FalseKeyword               
-    | TrueKeyword                
-    | IsKeyword                  
+    | PlusToken                             
+    | MinusToken                            
+    | ExclamationToken                      
+    | TildeToken                            
+    | PlusPlusToken                         
+    | MinusMinusToken                       
+    | AsteriskToken                         
+    | SlashToken                            
+    | PercentToken                          
+    | LessThanLessThanToken                 
+    | GreaterThanGreaterThanToken           
+    | GreaterThanGreaterThanGreaterThanToken
+    | BarToken                              
+    | AmpersandToken                        
+    | CaretToken                            
+    | EqualsEqualsToken                     
+    | ExclamationEqualsToken                
+    | LessThanToken                         
+    | LessThanEqualsToken                   
+    | GreaterThanToken                      
+    | GreaterThanEqualsToken                
+    | FalseKeyword                          
+    | TrueKeyword                           
+    | IsKeyword                             
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
@@ -617,6 +652,7 @@ with
         | SyntaxKind.PercentToken -> PercentToken
         | SyntaxKind.LessThanLessThanToken -> LessThanLessThanToken
         | SyntaxKind.GreaterThanGreaterThanToken -> GreaterThanGreaterThanToken
+        | SyntaxKind.GreaterThanGreaterThanGreaterThanToken -> GreaterThanGreaterThanGreaterThanToken
         | SyntaxKind.BarToken -> BarToken
         | SyntaxKind.AmpersandToken -> AmpersandToken
         | SyntaxKind.CaretToken -> CaretToken
@@ -1070,6 +1106,17 @@ and UnaryPatternData(node: UnaryPatternSyntax) =
     member this.Pattern = node.Pattern |> PatternData.FromNode
     static member FromNode(n: UnaryPatternSyntax) = UnaryPatternData(n)
 
+and ListPatternData(node: ListPatternSyntax) =
+    member this.Node = node
+    member this.Patterns = node.Patterns |> Seq.map PatternData.FromNode
+    member this.Designation = node.Designation |> Option.ofObj |> Option.map VariableDesignationData.FromNode
+    static member FromNode(n: ListPatternSyntax) = ListPatternData(n)
+
+and SlicePatternData(node: SlicePatternSyntax) =
+    member this.Node = node
+    member this.Pattern = node.Pattern |> Option.ofObj |> Option.map PatternData.FromNode
+    static member FromNode(n: SlicePatternSyntax) = SlicePatternData(n)
+
 and [<RequireQualifiedAccess>] PatternData =
     | DiscardPattern       of DiscardPatternData
     | DeclarationPattern   of DeclarationPatternData
@@ -1081,6 +1128,8 @@ and [<RequireQualifiedAccess>] PatternData =
     | TypePattern          of TypePatternData
     | BinaryPattern        of BinaryPatternData
     | UnaryPattern         of UnaryPatternData
+    | ListPattern          of ListPatternData
+    | SlicePattern         of SlicePatternData
 with
     static member FromNode(n: PatternSyntax) =
         match n with
@@ -1094,6 +1143,8 @@ with
         | :? TypePatternSyntax as d -> TypePattern (TypePatternData.FromNode(d))
         | :? BinaryPatternSyntax as d -> BinaryPattern (BinaryPatternData.FromNode(d))
         | :? UnaryPatternSyntax as d -> UnaryPattern (UnaryPatternData.FromNode(d))
+        | :? ListPatternSyntax as d -> ListPattern (ListPatternData.FromNode(d))
+        | :? SlicePatternSyntax as d -> SlicePattern (SlicePatternData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of PatternSyntax"
     member this.Node =
         match this with
@@ -1107,6 +1158,8 @@ with
         | TypePattern d -> d.Node :> PatternSyntax
         | BinaryPattern d -> d.Node :> PatternSyntax
         | UnaryPattern d -> d.Node :> PatternSyntax
+        | ListPattern d -> d.Node :> PatternSyntax
+        | SlicePattern d -> d.Node :> PatternSyntax
 
 and WhenClauseData(node: WhenClauseSyntax) =
     member this.Node = node
@@ -1564,6 +1617,35 @@ and ImplicitStackAllocArrayCreationExpressionData(node: ImplicitStackAllocArrayC
     member this.Initializer = node.Initializer |> InitializerExpressionData.FromNode
     static member FromNode(n: ImplicitStackAllocArrayCreationExpressionSyntax) = ImplicitStackAllocArrayCreationExpressionData(n)
 
+and ExpressionElementData(node: ExpressionElementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: ExpressionElementSyntax) = ExpressionElementData(n)
+
+and SpreadElementData(node: SpreadElementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: SpreadElementSyntax) = SpreadElementData(n)
+
+and [<RequireQualifiedAccess>] CollectionElementData =
+    | ExpressionElement of ExpressionElementData
+    | SpreadElement     of SpreadElementData
+with
+    static member FromNode(n: CollectionElementSyntax) =
+        match n with
+        | :? ExpressionElementSyntax as d -> ExpressionElement (ExpressionElementData.FromNode(d))
+        | :? SpreadElementSyntax as d -> SpreadElement (SpreadElementData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of CollectionElementSyntax"
+    member this.Node =
+        match this with
+        | ExpressionElement d -> d.Node :> CollectionElementSyntax
+        | SpreadElement d -> d.Node :> CollectionElementSyntax
+
+and CollectionExpressionData(node: CollectionExpressionSyntax) =
+    member this.Node = node
+    member this.Elements = node.Elements |> Seq.map CollectionElementData.FromNode
+    static member FromNode(n: CollectionExpressionSyntax) = CollectionExpressionData(n)
+
 and FromClauseData(node: FromClauseSyntax) =
     member this.Node = node
     member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
@@ -1718,6 +1800,7 @@ and InterpolatedStringExpressionData(node: InterpolatedStringExpressionSyntax) =
     member this.Node = node
     member this.StringStartToken = node.StringStartToken |> InterpolatedStringExpressionStringStartToken.FromToken
     member this.Contents = node.Contents |> Seq.map InterpolatedStringContentData.FromNode
+    member this.StringEndToken = node.StringEndToken |> InterpolatedStringExpressionStringEndToken.FromToken
     static member FromNode(n: InterpolatedStringExpressionSyntax) = InterpolatedStringExpressionData(n)
 
 and IsPatternExpressionData(node: IsPatternExpressionSyntax) =
@@ -1783,6 +1866,7 @@ and [<RequireQualifiedAccess>] ExpressionData =
     | ImplicitArrayCreationExpression           of ImplicitArrayCreationExpressionData
     | StackAllocArrayCreationExpression         of StackAllocArrayCreationExpressionData
     | ImplicitStackAllocArrayCreationExpression of ImplicitStackAllocArrayCreationExpressionData
+    | CollectionExpression                      of CollectionExpressionData
     | QueryExpression                           of QueryExpressionData
     | OmittedArraySizeExpression                of OmittedArraySizeExpressionData
     | InterpolatedStringExpression              of InterpolatedStringExpressionData
@@ -1830,6 +1914,7 @@ with
         | :? ImplicitArrayCreationExpressionSyntax as d -> ImplicitArrayCreationExpression (ImplicitArrayCreationExpressionData.FromNode(d))
         | :? StackAllocArrayCreationExpressionSyntax as d -> StackAllocArrayCreationExpression (StackAllocArrayCreationExpressionData.FromNode(d))
         | :? ImplicitStackAllocArrayCreationExpressionSyntax as d -> ImplicitStackAllocArrayCreationExpression (ImplicitStackAllocArrayCreationExpressionData.FromNode(d))
+        | :? CollectionExpressionSyntax as d -> CollectionExpression (CollectionExpressionData.FromNode(d))
         | :? QueryExpressionSyntax as d -> QueryExpression (QueryExpressionData.FromNode(d))
         | :? OmittedArraySizeExpressionSyntax as d -> OmittedArraySizeExpression (OmittedArraySizeExpressionData.FromNode(d))
         | :? InterpolatedStringExpressionSyntax as d -> InterpolatedStringExpression (InterpolatedStringExpressionData.FromNode(d))
@@ -1877,6 +1962,7 @@ with
         | ImplicitArrayCreationExpression d -> d.Node :> ExpressionSyntax
         | StackAllocArrayCreationExpression d -> d.Node :> ExpressionSyntax
         | ImplicitStackAllocArrayCreationExpression d -> d.Node :> ExpressionSyntax
+        | CollectionExpression d -> d.Node :> ExpressionSyntax
         | QueryExpression d -> d.Node :> ExpressionSyntax
         | OmittedArraySizeExpression d -> d.Node :> ExpressionSyntax
         | InterpolatedStringExpression d -> d.Node :> ExpressionSyntax
@@ -1957,6 +2043,11 @@ and RefTypeData(node: RefTypeSyntax) =
     member this.Type = node.Type |> TypeData.FromNode
     static member FromNode(n: RefTypeSyntax) = RefTypeData(n)
 
+and ScopedTypeData(node: ScopedTypeSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    static member FromNode(n: ScopedTypeSyntax) = ScopedTypeData(n)
+
 and [<RequireQualifiedAccess>] TypeData =
     | Name                of NameData
     | PredefinedType      of PredefinedTypeData
@@ -1967,6 +2058,7 @@ and [<RequireQualifiedAccess>] TypeData =
     | TupleType           of TupleTypeData
     | OmittedTypeArgument of OmittedTypeArgumentData
     | RefType             of RefTypeData
+    | ScopedType          of ScopedTypeData
 with
     static member FromNode(n: TypeSyntax) =
         match n with
@@ -1979,6 +2071,7 @@ with
         | :? TupleTypeSyntax as d -> TupleType (TupleTypeData.FromNode(d))
         | :? OmittedTypeArgumentSyntax as d -> OmittedTypeArgument (OmittedTypeArgumentData.FromNode(d))
         | :? RefTypeSyntax as d -> RefType (RefTypeData.FromNode(d))
+        | :? ScopedTypeSyntax as d -> ScopedType (ScopedTypeData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of TypeSyntax"
     member this.Node =
         match this with
@@ -1991,6 +2084,7 @@ with
         | TupleType d -> d.Node :> TypeSyntax
         | OmittedTypeArgument d -> d.Node :> TypeSyntax
         | RefType d -> d.Node :> TypeSyntax
+        | ScopedType d -> d.Node :> TypeSyntax
 
 and TypeArgumentListData(node: TypeArgumentListSyntax) =
     member this.Node = node
@@ -2106,6 +2200,7 @@ and ClassDeclarationData(node: ClassDeclarationSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
+    member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
     member this.BaseList = node.BaseList |> Option.ofObj |> Option.map BaseListData.FromNode
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
     static member FromNode(n: ClassDeclarationSyntax) = ClassDeclarationData(n)
@@ -2114,6 +2209,7 @@ and StructDeclarationData(node: StructDeclarationSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
+    member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
     member this.BaseList = node.BaseList |> Option.ofObj |> Option.map BaseListData.FromNode
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
     static member FromNode(n: StructDeclarationSyntax) = StructDeclarationData(n)
@@ -2122,6 +2218,7 @@ and InterfaceDeclarationData(node: InterfaceDeclarationSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
+    member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
     member this.BaseList = node.BaseList |> Option.ofObj |> Option.map BaseListData.FromNode
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
     static member FromNode(n: InterfaceDeclarationSyntax) = InterfaceDeclarationData(n)
