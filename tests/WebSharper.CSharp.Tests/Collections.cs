@@ -90,12 +90,17 @@ namespace WebSharper.CSharp.Tests
             IsTrue(a3 is [1, 2, 3, 4, 5, 6]);
         }
 
-        [Test("list pattern with slice", TestKind.Skip)]
+        [Test]
         public void ListPatternWithSlice()
         {
             List<int> l = new() { 1, 2, 3 };
             IsTrue(l is [.., 3]);
             IsTrue(l is [1, 2, 3, ..]);
+
+            // with arrays
+            int[] a = new[] { 1, 2, 3 };
+            IsTrue(a is [.., 3]);
+            IsTrue(a is [1, 2, 3, ..]);
         }
     }
 }

@@ -2714,7 +2714,7 @@ type RoslynTransformer(env: Environment) =
         let getItem =
             if typ.TypeKind = TypeKind.Array then
                 fun v i ->
-                    ItemGet(Var v, Value (Int i), Pure)
+                    ItemGet(Var v, i, Pure)
             else
                 let itemMeth = 
                     match typ.GetMembers("get_Item").OfType<IMethodSymbol>() |> Seq.tryHead with
@@ -2722,21 +2722,32 @@ type RoslynTransformer(env: Environment) =
                     | None -> failwith "List patterns are only supported for types defining Item property"
                 let td = typ |> sr.ReadType
                 fun v i ->
-                    Call (Some (Var v), NonGeneric td.TypeDefinition, NonGeneric itemMeth, [ Value (Int i) ])
+                    Call (Some (Var v), NonGeneric td.TypeDefinition, NonGeneric itemMeth, [ i ])
         
         fun v ->
+            let length = List.length patterns
             let sliceIdx = x.Patterns |> Seq.tryFindIndex (function PatternData.SlicePattern _ -> true | _ -> false)
             match sliceIdx with
             | None ->
-                let length = List.length patterns
                 List.reduce (^&&) [
                     Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]) ^== (Value (Int length))
                     for i, p in Seq.indexed patterns do
                         let e = Id.New(mut = false)
-                        Let (e, getItem v i, p e)
+                        Let (e, getItem v (Value (Int i)), p e)
                 ]
             | Some sliceIdx ->
-                Expression.Undefined // todo list pattern with slice
+                let l = Id.New("_l", mut = false)
+                Let (l, Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]),
+                    List.reduce (^&&) [
+                        Var l ^>= (Value (Int (length - 1)))
+                        for i, p in Seq.indexed patterns do
+                            let e = Id.New(mut = false)
+                            if i < sliceIdx then
+                                Let (e, getItem v (Value (Int i)), p e)
+                            elif i > sliceIdx then
+                                Let (e, getItem v (Var l ^- (Value (Int (length - i)))), p e)
+                    ]
+                )
 
     member this.TransformSlicePattern (x: SlicePatternData) : _ =
         let pattern = x.Pattern |> Option.map this.TransformPattern
