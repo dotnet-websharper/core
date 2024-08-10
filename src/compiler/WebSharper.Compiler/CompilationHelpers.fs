@@ -1035,22 +1035,22 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         match getOrAddClass td with
         | Some cls -> cls
         | _ -> failwithf "Class not found during bundling: %s" td.Value.AssemblyQualifiedName
+    let toOneLine (s: string) =
+        let res = System.Text.StringBuilder()
+        let mutable lastSpace = false
+        for c in s do
+            if c = ' ' || c = '\r' || c = '\n' then
+                if not lastSpace then
+                    res.Append(' ') |> ignore
+                    lastSpace <- true
+            else
+                res.Append(c) |> ignore
+                lastSpace <- false
+        res.ToString()
     let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) kind (td: TypeDefinition) key =
         match fromDic.TryGetValue(key) with
         | true, value -> toDic.[key] <- value
         | false, _ ->
-            let toOneLine (s: string) =
-                let res = System.Text.StringBuilder()
-                let mutable lastSpace = false
-                for c in s do
-                    if c = ' ' || c = '\r' || c = '\n' then
-                        if not lastSpace then
-                            res.Append(' ') |> ignore
-                            lastSpace <- true
-                    else
-                        res.Append(c) |> ignore
-                        lastSpace <- false
-                res.ToString()
             eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
     for n in nodes do
         match n with
@@ -1077,14 +1077,16 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 | Some icls ->
                     match meta.Interfaces.TryGetValue(i) with
                     | true, ii ->
-                        try
-                            let jsName, _, _ = ii.Methods[m]
-                            let mImpl = icls.Methods |> Seq.find (fun cm -> cm.Value.CompiledForm = Instance (jsName, MemberKind.Simple))
-                            mImpl.Key |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation" i
-                        with _ ->
-                            m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation" i
+                        let jsName, _, _ = ii.Methods[m]
+                        match icls.Methods |> Seq.tryFind (fun cm -> cm.Value.CompiledForm = Instance (jsName, MemberKind.Simple)) with
+                        | Some mImpl ->
+                            mImpl.Key |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation based on JS name" td
+                        | _ ->
+                            if jsName <> "GetEnumerator" && jsName <> "GetEnumerator0" then
+                                ()
+                                //eprintfn "WebSharper warning: JS member not found for interface implementation %s on type %s" jsName (string td |> toOneLine)
                     | _ ->
-                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" i
+                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" td
                 | _ ->
                     // this will fail but report original error
                     k |> moveToDict clsImpl cls.Implementations "implementation" td

@@ -744,9 +744,11 @@ type RoslynTransformer(env: Environment) =
             else
                 Var env.Vars.[s]
         | :? IParameterSymbol as p -> 
-            match env.Parameters.[p] with
-            | v, false -> Var v
-            | v, true -> GetRef (Var v) 
+            match env.Parameters.TryGetValue p with
+            | true, (v, false) -> Var v
+            | true, (v, true) -> GetRef (Var v) 
+            | _ ->
+                FieldGet((getTarget()), sr.ReadNamedType p.ContainingType, "<" + p.Name + ">P")    
         | :? IRangeVariableSymbol as v ->
             match env.RangeVars.[v] with
             | v, None -> Var v
@@ -1516,10 +1518,10 @@ type RoslynTransformer(env: Environment) =
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
-    member this.TransformRecordDeclaration (x: RecordDeclarationData) : _ =
+    member this.TransformRecordDeclaration (parameterList: ParameterListData option) (baseList: BaseListData option) (members: MemberDeclarationData seq) : _ =
         //let attributeLists = x.AttributeLists |> Seq.map this.TransformAttributeList |> List.ofSeq
         //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
-        let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let parameterList = parameterList |> Option.map this.TransformParameterList
 
         match parameterList with
         | Some pl ->
@@ -1527,7 +1529,7 @@ type RoslynTransformer(env: Environment) =
                 env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         | None -> ()
 
-        let baseList = x.BaseList |> Option.map this.TransformBaseList
+        let baseList = baseList |> Option.map this.TransformBaseList
         //let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
         //let members = x.Members |> Seq.map this.TransformMemberDeclaration |> List.ofSeq
 
@@ -1547,7 +1549,7 @@ type RoslynTransformer(env: Environment) =
                 )   
 
         let otherFields =
-            x.Members |> Seq.collect (fun m ->
+            members |> Seq.collect (fun m ->
                 match m with
                 | MemberDeclarationData.BaseFieldDeclaration (BaseFieldDeclarationData.FieldDeclaration fDecl) ->
                     fDecl.Declaration.Variables |> Seq.map (fun v ->

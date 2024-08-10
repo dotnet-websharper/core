@@ -459,7 +459,7 @@ namespace WebSharper.CSharp.Tests
             public ClassWithPrimaryConstructor(int x, int y) : this(x + y) { }
         }
 
-        [Test("class with primary constructor", TestKind.Skip)]
+        [Test]
         public void ClassesWithPrimaryConstructor()
         {
             Equal(new ClassWithPrimaryConstructor(4).X, 4);
