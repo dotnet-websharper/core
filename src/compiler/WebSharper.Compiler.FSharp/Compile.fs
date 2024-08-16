@@ -419,8 +419,8 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
             warn := { !warn with WarnAsError = (!warn).WarnAsError + parseWarnCodeSet w }
         | StartsWith "--warnaserror-:" w ->
             warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
-        | StartsWith "--preferreduilang:" _ ->
-            () // not handled by FSC 16.0.2
+        | "--realsig+" | "--realsig-" ->
+            () // not handled by FSC 43.7.300
         | _ -> 
             fscArgs.Add a  
     wsArgs := 
