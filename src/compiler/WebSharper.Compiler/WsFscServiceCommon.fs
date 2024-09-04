@@ -1,7 +1,7 @@
 ﻿module WebSharper.Compiler.WsFscServiceCommon
 
 open System.IO.Pipes
-open System.Runtime.Serialization.Formatters.Binary
+open System.Text
 
 type ArgsType = {args: string array}
 
@@ -19,17 +19,36 @@ let hashPath (fullPath: string) =
 let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) = 
     let rec readingMessage() =
         async {
-            let bf = new BinaryFormatter()
             try
-                let deserializedMessage = bf.Deserialize(pipe)
-                let! finish = handleMessage deserializedMessage
-                match finish with
-                | Some _ -> return finish
-                | None -> return! readingMessage()
+                let readMessage () =
+                    async {
+                        let sb = new StringBuilder()
+                        let mutable buffer = Array.zeroCreate<byte> 5
+                        let bytesRead = pipe.Read(buffer, 0, buffer.Length)
+                        sb.Append(System.Text.Encoding.UTF8.GetString(buffer)) |> ignore
+                        buffer <- Array.zeroCreate<byte> 5
+                        while (not pipe.IsMessageComplete) do
+                            let bytesRead = pipe.Read(buffer, 0, buffer.Length)
+                            sb.Append(System.Text.Encoding.UTF8.GetString(buffer)) |> ignore
+                            buffer <- Array.zeroCreate<byte> 5
+                        let res = sb.ToString()
+                        return res.Replace("\x00", "")
+                    }
+                let! byteArr = readMessage ()
+                match byteArr with
+                | "" | null ->
+                    do! Async.Sleep 1000
+                    return! readingMessage()
+                | _ ->
+                    let deserializedMessage = System.Text.Json.JsonSerializer.Deserialize(byteArr)
+                    let! finish = handleMessage deserializedMessage
+                    match finish with
+                    | Some _ -> return finish
+                    | None -> return! readingMessage()
             with
-            | :? System.Runtime.Serialization.SerializationException ->
+            | :? System.Runtime.Serialization.SerializationException as ex->
                 return None
-            | _ ->
+            | ex ->
                 return! readingMessage()
         }
     readingMessage ()

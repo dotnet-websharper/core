@@ -19,6 +19,7 @@
 // $end{copyright}
 module WebSharper.FSharp.NamedPipeClient
 #nowarn "44"
+open System.Text
 
 open System.Diagnostics
 open System.IO.Pipes
@@ -103,14 +104,15 @@ let sendCompileCommand args =
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
-    let Write (ms: MemoryStream) =
+    let Write (ms: byte []) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let unexpectedFinishErrorCode = -12211
             let write = async {
                 let printResponse (message: obj) = 
                     async {
                         // messages on the service have n: e: or x: prefix for stdout stderr or error code kind of output
-                        match message :?> string with
+                        let jE = message :?> Json.JsonElement
+                        match jE.GetString() with
                         | StdOut n ->
                             printfn "%s" n
                             return None
@@ -124,8 +126,9 @@ let sendCompileCommand args =
                             nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
-                do! ms.CopyToAsync(clientPipe) |> Async.AwaitTask
+                clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
+                clientPipe.WaitForPipeDrain()
                 let! errorCode = readingMessages clientPipe printResponse
                 match errorCode with
                 | Some -12211 ->
@@ -149,18 +152,16 @@ let sendCompileCommand args =
             
  
 
-
-    let bf = new BinaryFormatter();
-    use ms = new MemoryStream()
-
     nLogger.Debug "WebSharper compilation arguments:"
     args |> Array.iter (fun x -> nLogger.Debug("    " + x))
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
-    bf.Serialize(ms, startCompileMessage);
-    ms.Flush();
-    ms.Position <- 0L
     clientPipe.Connect()
-    let returnCode = Write ms
+    clientPipe.ReadMode <- PipeTransmissionMode.Message
+    let options = System.Text.Json.JsonSerializerOptions()
+    options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
+    let bytes = System.Text.Encoding.UTF8.GetBytes res
+    let returnCode = Write bytes
     nLogger.Debug(sprintf "wsfscservice.exe compiled in %s with error code: %i" location returnCode)
     returnCode
