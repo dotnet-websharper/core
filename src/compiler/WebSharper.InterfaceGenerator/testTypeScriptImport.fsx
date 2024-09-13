@@ -143,10 +143,12 @@ iterStatements <| fun moduleName st ->
     | TSClassDeclaration (name, typars, mems, ext, impl) -> 
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
+            //printfn $"Initialized class {name}"
             getOrAddClass name |> ignore
     | TSInterfaceDeclaration (name, typars, mems, ext) ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
+            printfn $"Initialized interface {name}"
             getOrAddIntf name |> ignore
     | TSTypeAlias (name, typars, typ) ->
         let name = moduleName + name
@@ -221,22 +223,47 @@ let rec processType (typ: TSType) : Type.Type =
         (processParams pars) ^-> (processType ret) 
     | TSTypePredicate _ ->
         T<bool>
+    | TSTypeLiteral mems ->
+        let clsName = $"Object{hash mems}"
+        let cls =
+            match classDefinitions.TryGetValue(clsName) with
+            | true, cls -> cls
+            | false, _ ->
+                let cls = Class clsName
+                for mem in mems do
+                    match processMem mem with
+                    | Some (m, true) ->
+                        cls |+> Static [ m ] |> ignore
+                    | Some (m, false) ->
+                        cls |+> Instance [ m ] |> ignore
+                    | _ ->
+                        ()
+                classDefinitions.Add(clsName, cls)
+                cls
+        cls.Type
     | TSKeyOfType (TSSimpleType name) ->
-        let names =
-            match classDefinitions.TryGetValue(name) with
-            | true, v ->
-                Seq.append 
-                    (v.Methods |> Seq.map (fun m -> m.Name))
-                    (v.Properties |> Seq.map (fun p -> p.Name))
-            | _ -> 
-                match intfDefinitions.TryGetValue(name) with
-                | true, v -> 
-                    Seq.append 
-                        (v.Methods |> Seq.map (fun m -> m.Name))
-                        (v.Properties |> Seq.map (fun p -> p.Name))
-                | _ -> failwithf "Type not found %s" name
-        let cls = Pattern.EnumStrings name values
-        classDefinitions.Add(name, cls)
+        let clsName = "KeyOf" + name
+        let cls =
+            match classDefinitions.TryGetValue(clsName) with
+            | true, cls -> cls
+            | false, _ ->
+                let names =
+                    match classDefinitions.TryGetValue(name) with
+                    | true, v ->
+                        Seq.append 
+                            (v.Methods |> Seq.map (fun m -> m.Name))
+                            (v.Properties |> Seq.map (fun p -> p.Name))
+                    | _ -> 
+                        match intfDefinitions.TryGetValue(name) with
+                        | true, v -> 
+                            Seq.append 
+                                (v.Methods |> Seq.map (fun m -> m.Name))
+                                (v.Properties |> Seq.map (fun p -> p.Name))
+                        | _ -> failwithf "Type not found %s" name
+                let cls = Pattern.EnumStrings name names
+                classDefinitions.Add(clsName, cls)
+                cls
+        cls.Type
     | _ ->
         failwithf "processType fail %A" typ
 
@@ -255,7 +282,7 @@ and processParams (pars: TSParameter[]) =
         Variable  = None
     } : Type.Parameters
 
-let processMem mem =
+and processMem mem =
     try
         match mem with
         | TSMethod (name, st, pars, typars, typ) ->
@@ -280,8 +307,8 @@ while typeAliasDefCount > 0 do
             let tRes = processType typ
             typeAliases.Add(name, tRes)
             typeAliasDefs.Remove(name) |> ignore
-        with _ ->
-            ()
+        with e ->
+            printfn "%s" e.Message
     if typeAliasDefCount = typeAliasDefs.Count then
         failwithf "Unresolved types: %s" (typeAliasDefs.Keys |> String.concat ", ")
     else
@@ -307,12 +334,6 @@ iterStatements <| fun moduleName st ->
                         cls |+> Instance [ m ] |> ignore
                     | _ ->
                         ()
-                    //| TSProperty (name, typ)
-                    //| TSNew (pars, typ)
-                    //| TSCall (pars, typars, typ)
-                    //| TSGet (name, typ)
-                    //| TSSet (name, typ)
-                    //| TSIndex (pars, typ)
             with e ->
                 printfn "%s" e.Message
                 failwithf "class fail %s" name

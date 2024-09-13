@@ -242,23 +242,24 @@ function transformType(x: ts.TypeNode): TSType {
       Index: transformType(x.indexType),
       Type: transformType(x.objectType)
     }
-  if (ts.isTypeReferenceNode(x))
+  if (ts.isTypeReferenceNode(x)) {
+    let t = checker.getTypeAtLocation(x)
     if (x.typeArguments)
       return {
         Kind: 'typeref',
-        Type: x.typeName.getText(),
+        Type: checker.getFullyQualifiedName(t.getSymbol()),
         Arguments: x.typeArguments.map(transformType)
       }
     else {
-      let t: ts.Type = checker.getTypeAtLocation(x)
       if (t && t.flags & ts.TypeFlags.TypeParameter)
         return {
           Kind: 'typeparamref',
           Type: x.typeName.getText()
         }
       else
-        return simpleType(x.typeName.getText())
+        return simpleType(checker.getFullyQualifiedName(t.getSymbol()))
     }
+  }
   if (ts.isTypePredicateNode(x))
     return {
       Kind: 'predicate',
