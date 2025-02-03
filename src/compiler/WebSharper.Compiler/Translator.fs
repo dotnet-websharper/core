@@ -1545,6 +1545,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match case with 
             | "Undefined" -> this.TransformExpression expr ^=== Undefined
             | "Defined" -> this.TransformExpression expr ^!== Undefined
+            | "Item" -> Unary(UnaryOperator.``!``, Binary(this.TransformExpression expr, BinaryOperator.instanceof, Global [ "Array" ]))
+            | "Array" -> Binary(this.TransformExpression expr, BinaryOperator.instanceof, Global [ "Array" ])
             | _ ->
             let i = int case.[5] - 49 // int '1' is 49
             try
@@ -1625,6 +1627,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if erasedUnions.Contains typ.Entity then
             if typ.Entity.Value.FullName = "WebSharper.JavaScript.Optional`1" then
                 Conditional(this.TransformExpression expr ^=== Undefined, Value (Int 0), Value (Int 1))
+            elif typ.Entity.Value.FullName = "WebSharper.JavaScript.ItemOrArray`1" then  
+                Conditional(Binary(this.TransformExpression expr, BinaryOperator.instanceof, Global [ "Array" ]), Value (Int 1), Value (Int 0))
             else
                 let id = Id.New(mut = false)
                 let rec checkTypes i gen =
@@ -2076,6 +2080,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "WebSharper.JavaScript.Optional`1+Undefined" ->
                 TypeOf "undefined"
             | "WebSharper.JavaScript.Optional`1+Defined" ->
+                this.GetTypeCheckKind gs.Head
+            | "WebSharper.JavaScript.ItemOrArray`1" ->
+                Union [ this.GetTypeCheckKind gs.Head; InstanceOf (Address.Lib "Array") ]
+            | "WebSharper.JavaScript.ItemOrArray`1+Item" ->
+                TypeOf "undefined"
+            | "WebSharper.JavaScript.ItemOrArray`1+Array" ->
                 this.GetTypeCheckKind gs.Head
             | tN ->
                 if tN.StartsWith "WebSharper.JavaScript.Union`" then
