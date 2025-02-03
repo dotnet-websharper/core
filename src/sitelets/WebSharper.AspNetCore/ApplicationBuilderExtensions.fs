@@ -24,6 +24,7 @@ open Microsoft.Extensions.Configuration
 #nowarn "44" // Internal calls to obsolete methods
 
 open System
+open System.Diagnostics
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Reflection
@@ -91,7 +92,8 @@ type ApplicationBuilderExtensions =
     static member UseWebSharperScriptRedirect
         (
             this: IApplicationBuilder,
-            [<Optional>] redirectUrlRoot: string
+            [<Optional>] redirectUrlRoot: string,
+            [<Optional; DefaultParameterValue false>] startVite: bool
         ) =
 
         let redirectUrlRoot =
@@ -104,5 +106,16 @@ type ApplicationBuilderExtensions =
                     fromConfig
             else
                 redirectUrlRoot
+        if startVite then
+            let proc = 
+                new Process(
+                    StartInfo = new ProcessStartInfo(
+                        FileName = "npx",
+                        Arguments = $"vite --port {System.Uri(redirectUrlRoot).Port} --strictPort true",
+                        UseShellExecute = true
+                    )
+                )
+            printfn $"Starting vite on port {System.Uri(redirectUrlRoot).Port}"
+            proc.Start() |> ignore
         this.Use(ScriptRedirect.Middleware redirectUrlRoot) |> ignore
         this
