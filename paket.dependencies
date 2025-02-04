@@ -45,7 +45,7 @@ group fcs
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service 43.8.400
+    nuget FSharp.Compiler.Service ~> 43.8.400
 
 group test
     source https://api.nuget.org/v3/index.json

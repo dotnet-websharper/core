@@ -583,8 +583,8 @@ STORAGE: NONE
 RESTRICTION: || (== net8.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (43.8.400)
-      FSharp.Core (8.0.400)
+    FSharp.Compiler.Service (43.8.403)
+      FSharp.Core (8.0.403)
       System.Buffers (>= 4.5.1)
       System.Collections.Immutable (>= 8.0)
       System.Diagnostics.DiagnosticSource (>= 8.0)
@@ -592,7 +592,7 @@ NUGET
       System.Reflection.Emit (>= 4.7)
       System.Reflection.Metadata (>= 8.0)
       System.Runtime.CompilerServices.Unsafe (>= 6.0)
-    FSharp.Core (8.0.400)
+    FSharp.Core (8.0.403)
     NLog (4.7.15)
     System.Buffers (4.6)
     System.Collections.Immutable (9.0.1)
