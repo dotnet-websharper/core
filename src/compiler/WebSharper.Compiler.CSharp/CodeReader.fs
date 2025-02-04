@@ -2928,7 +2928,7 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
             | :? string as value when value <> null ->
                 Ok [ value ]
             | _ ->
-                Error $"Content.Bundle argument must be constant string"   
+                Error $"Content.Bundle's Bundle argument must be constant string"   
         elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
             let bundleArgument =
                 arguments |> Seq.tryFind (fun a -> 
@@ -2944,7 +2944,7 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                 | :? string as value when value <> null ->
                     Ok [ value ]
                 | _ ->
-                    Error $"Content.Page argument must be constant string"   
+                    Error $"Content.Page's Bundle argument must be constant string"   
             | _ ->
                 Ok []
         else
