@@ -2934,7 +2934,7 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                 arguments |> Seq.tryFind (fun a -> 
                     a.NameColon |> Option.ofObj |> Option.exists (fun nc ->
                         match env.SemanticModel.GetSymbolInfo(nc.Name).Symbol with
-                        | :? IParameterSymbol as symbol -> symbol.Ordinal = 4
+                        | :? IParameterSymbol as symbol -> symbol.Name = "Bundle"
                         | _ -> false
                     )
                 )
