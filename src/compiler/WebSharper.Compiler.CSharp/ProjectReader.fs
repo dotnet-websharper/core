@@ -307,14 +307,24 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | :? RecordDeclarationSyntax as rs -> Some rs
                 | _ -> None
             )
+        let clSyntax =
+            cls.DeclaringSyntaxReferences |> Seq.tryPick (fun x -> 
+                match x.SyntaxTree.GetRoot().FindNode(x.Span) with
+                | :? ClassDeclarationSyntax as cl when cl.ParameterList <> null -> Some cl
+                | _ -> None
+            )
         match recSyntax with
         | Some syntax ->
             let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
-            syntax    
-            |> RoslynHelpers.RecordDeclarationData.FromNode 
-            |> (csStatic model).TransformRecordDeclaration
-            |> Some
-        | None -> None
+            let rdd = RoslynHelpers.RecordDeclarationData.FromNode syntax
+            (csStatic model).TransformRecordDeclaration rdd.ParameterList rdd.BaseList rdd.Members |> Some
+        | None -> 
+            match clSyntax with
+            | Some syntax ->
+                let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
+                let cdd = RoslynHelpers.ClassDeclarationData.FromNode syntax
+                (csStatic model).TransformRecordDeclaration cdd.ParameterList cdd.BaseList cdd.Members |> Some
+            | None -> None
 
     let def, proxied =
         match annot.ProxyOf with
@@ -760,7 +770,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> RoslynHelpers.ConversionOperatorDeclarationData.FromNode 
                             |> (cs thisVar model).TransformConversionOperatorDeclaration
                             |> fixMethod
-                        | :? RecordDeclarationSyntax as syntax ->
+                        | :? RecordDeclarationSyntax
+                        | :? ClassDeclarationSyntax when Option.isSome recordInfo ->
                             let ri = recordInfo |> Option.get
                             let useGetter getter = Call(Some (Var thisVar), NonGeneric def, NonGeneric getter, [])
                             //let cString s = Value (String s) 
@@ -1308,33 +1319,76 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IFieldSymbol) do
         let f = f :?> IFieldSymbol
         if isStruct && not f.IsReadOnly then
-            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")
-        let backingForProp =
-            match f.AssociatedSymbol with
-            | :? IPropertySymbol as p -> Some p
-            | _ -> None
-        let attrs =
-            match backingForProp with
-            | Some p -> p.GetAttributes() 
-            | _ -> f.GetAttributes() 
-        let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
-        match mAnnot.Kind with
-        | Some k ->
-            let jsName =
-                match backingForProp with
-                | Some p -> mAnnot.Name |> Option.defaultValue p.Name |> Some
-                | None -> mAnnot.Name                       
+            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")      
+        //if not cls.IsRecord && recordInfo |> Option.isSome then
+        //    failwith $"IsImplicitlyDeclared={f.IsImplicitlyDeclared}, Name={f.Name}"
+        let isImplicitParameterField = 
+            f.IsImplicitlyDeclared && not cls.IsRecord && (recordInfo |> Option.exists (fun ri -> ri.PositionalFields |> List.exists (fun (pf, _) -> "<" + pf.Symbol.Name + ">P" = f.Name)))
+        if isImplicitParameterField then
+            let fname = f.Name.TrimStart('<').TrimEnd('P').TrimEnd('>')
+            let ftype = sr.ReadType f.Type
             let nr =
                 {
-                    StrongName = jsName
-                    IsStatic = f.IsStatic
-                    IsOptional = k = A.MemberKind.OptionalField 
-                    IsReadonly = f.IsReadOnly
-                    FieldType = sr.ReadType f.Type 
+                    StrongName = Some fname
+                    IsStatic = false
+                    IsOptional = false
+                    IsReadonly = false
+                    FieldType = ftype 
                     Order = i
                 }
-            clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
-        | _ -> ()
+            clsMembers.Add(NotResolvedMember.Field (f.Name, nr))
+            let setM =
+                Method {
+                    MethodName = "set_" + fname
+                    Parameters = [ ftype ]
+                    ReturnType = VoidType
+                    Generics = 0
+                }
+            let setNR =
+                {
+                    Kind = N.Inline false
+                    StrongName = None
+                    Generics = []
+                    Macros = []
+                    Generator = None
+                    Compiled = false 
+                    Pure = false
+                    Body = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
+                    Requires = []
+                    FuncArgs = None
+                    Args = []
+                    Warn = None
+                    JavaScriptOptions = JavaScriptOptions.None
+                }
+            clsMembers.Add(NotResolvedMember.Method (setM, setNR))
+        else
+            let backingForProp =
+                match f.AssociatedSymbol with
+                | :? IPropertySymbol as p -> Some p
+                | _ -> None
+            let attrs =
+                match backingForProp with
+                | Some p -> p.GetAttributes() 
+                | _ -> f.GetAttributes() 
+        
+            let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
+            match mAnnot.Kind with
+            | Some k ->
+                let jsName =
+                    match backingForProp with
+                    | Some p -> mAnnot.Name |> Option.defaultValue p.Name |> Some
+                    | None -> mAnnot.Name                       
+                let nr =
+                    {
+                        StrongName = jsName
+                        IsStatic = f.IsStatic
+                        IsOptional = k = A.MemberKind.OptionalField 
+                        IsReadonly = f.IsReadOnly
+                        FieldType = sr.ReadType f.Type 
+                        Order = i
+                    }
+                clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+            | _ -> ()
     
     for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IEventSymbol) do
         let f = f :?> IEventSymbol

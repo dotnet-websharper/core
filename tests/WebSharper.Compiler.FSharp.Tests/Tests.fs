@@ -29,13 +29,13 @@ let get6xfolder root =
 let ancAppRefRoot =
     Path.Combine(
         get6xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.AspNetCore.App.Ref")),
-        @"ref\net6.0"
+        @"ref\net8.0"
     )
         
 let ncAppRefRoot =
     Path.Combine(
         get6xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.NETCore.App.Ref")),
-        @"ref\net6.0"
+        @"ref\net8.0"
     )
 
 [<Test>]
@@ -115,7 +115,7 @@ let ``Compilation test`` () =
                     $@"..\..\build\{configuration}\netstandard2.0\WebSharper.MathJS.dll"
                     $@"..\..\build\{configuration}\netstandard2.0\WebSharper.MathJS.Extensions.dll"
                     $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Sitelets.dll"
-                    $@"..\..\build\{configuration}\Tests\net6.0\WebSharper.Sitelets.Tests.dll"
+                    $@"..\..\build\{configuration}\Tests\net8.0\WebSharper.Sitelets.Tests.dll"
                     $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Testing.dll"
                     $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Web.dll"
                 ]
@@ -129,7 +129,7 @@ let ``Compilation test`` () =
 
     let fileNames =
         [
-            Path.Combine(__SOURCE_DIRECTORY__, $@"obj\{configuration}\net6.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs")
+            Path.Combine(__SOURCE_DIRECTORY__, $@"obj\{configuration}\net8.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\..\msbuild\AssemblyInfo.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\example1.abc.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\Site.fs")

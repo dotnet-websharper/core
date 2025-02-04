@@ -65,6 +65,9 @@ type Bug1248 =
         let again = "Again"
         sprintf "%s=%O," text this.Text + $"{again}={this.Text}"
 
+[<Literal>]
+let LiteralTest = "%O World"
+
 [<JavaScript>]
 let Tests =
     TestCategory "Printf" {
@@ -141,6 +144,10 @@ let Tests =
             equal (sprintf "%O World" (Hi())) "Hello World"            
         }
 
+        Test "Literal format string" {
+            equal (sprintf LiteralTest (Hi())) "Hello World"            
+        }
+
         Test "Pretty-Print" {
             equal (sprintf "%A World" (Hi())) "Hello World"            
             equal (sprintf "%A" [| 3; 4 |]) "[|3; 4|]"            
@@ -194,5 +201,10 @@ let Tests =
         Test "String interpolation bug #1248" {
             let o = { Text = "hi" }
             equal (string o) "Text=hi,Again=hi"
+        }
+
+        Test "String interpolation multiple braces" {
+            let x = 5
+            equal $$"""x={{x}} {testing}""" "x=5 {testing}"
         }
     }

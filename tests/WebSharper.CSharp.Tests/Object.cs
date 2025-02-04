@@ -452,6 +452,19 @@ namespace WebSharper.CSharp.Tests
 
             public string G = _initializationOrder += "G";
         }
+
+        public class ClassWithPrimaryConstructor(int x)
+        {
+            public int X => x;
+            public ClassWithPrimaryConstructor(int x, int y) : this(x + y) { }
+        }
+
+        [Test]
+        public void ClassesWithPrimaryConstructor()
+        {
+            Equal(new ClassWithPrimaryConstructor(4).X, 4);
+            Equal(new ClassWithPrimaryConstructor(2, 3).X, 5);
+        }
     }
 
     [JavaScript]

@@ -207,6 +207,13 @@ module MutableModuleValues =
 //[<Inline "import('/modules/test.js')">]
 //let importInline = X<obj>
 
+[<Literal>]
+let ComputedLiteral = 1 + 2 
+
+[<Literal>]
+[<JavaScript>]
+let ComputedLiteralJS = 1 + 2 
+
 [<JavaScript>]
 module ApplicativeCE =
     // First, define a 'zip' function
@@ -749,5 +756,15 @@ let Tests =
 
         Test "Type and function name escaping" {
             equal (type'.myFunction' "hi") "hi"
+        }
+
+        Test "_.Property shorthand" {
+            let hl = "hello" |> _.Length
+            equal hl 5
+        }
+
+        Test "Computed literal" {
+            equal ComputedLiteral 3
+            equal ComputedLiteralJS 3
         }
     }

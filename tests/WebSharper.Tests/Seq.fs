@@ -54,6 +54,10 @@ let filterWithSeqConstraint f (s : 'T  when 'T :> _ seq) =
     Seq.filter f s
 
 [<JavaScript>]
+let filterWithSeqConstraintNew f (s : 'T & #seq<_>) =
+    Seq.filter f s
+
+[<JavaScript>]
 let Tests =
 
     TestCategory "Seq" {
@@ -225,6 +229,7 @@ let Tests =
             equal (Seq.filter ffalse xs |> Seq.length) 0
             equal (Seq.filter ftrue xs |> Seq.length) (Seq.length xs)
             equal (filterWithSeqConstraint f [ 1 .. 10 ] |> Seq.toArray) [| 1 .. 5 |]
+            equal (filterWithSeqConstraintNew f [ 1 .. 10 ] |> Seq.toArray) [| 1 .. 5 |]
         }
 
         Test "Seq.find" {
@@ -825,5 +830,18 @@ let Tests =
         Test "Seq.removeManyAt" {
             raises ([| 0 |] |> Seq.removeManyAt 2 2)
             equal ([| 0 .. 4 |] |> Seq.removeManyAt 2 2 |> Array.ofSeq) [|0; 1; 4|]
+        }
+
+        Test "Try-with within seq" {
+            let s =
+                seq {
+                    for x in [-1 .. 1] do
+                        try 
+                            if x = 0 then failwith "divide by zero"
+                            yield 1 / x
+                        with _ ->
+                            yield 0
+                }
+            equal (s |> Array.ofSeq) [| -1; 0; 1 |]
         }
     }

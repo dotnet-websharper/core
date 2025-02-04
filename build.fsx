@@ -1,4 +1,6 @@
-#if INTERACTIVE
+// #r "FSharp.Core, 6.0.3"
+#r "System.Xml.Linq"
+
 #r "nuget: FAKE.Core"
 #r "nuget: Fake.Core.Target"
 #r "nuget: Fake.IO.FileSystem"
@@ -7,31 +9,11 @@
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
 #r "nuget: Fake.JavaScript.Npm"
-#r "nuget: Paket.Core"
-#else
-#r "paket:
-nuget FSharp.Core 5.0.0
-nuget FAKE.Core
-nuget Fake.Core.Target
-nuget Fake.IO.FileSystem
-nuget Fake.Tools.Git
-nuget Fake.DotNet.Cli
-nuget Fake.DotNet.AssemblyInfoFile
-nuget Fake.DotNet.Paket
-nuget Fake.JavaScript.Npm
-nuget Paket.Core prerelease //"
-#endif
-
-#load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
-
-#r "System.Xml.Linq"
-
-#if INTERACTIVE
+#r "nuget: Paket.Core, 8.1.0-alpha004"
+#r "nuget: MSBuild.StructuredLogger"
+#r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"
-#else
-#r "paket:
-nuget NUglify //"
-#endif
+
 
 open System.IO
 open System.Diagnostics
@@ -42,10 +24,19 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.JavaScript
-open WebSharper.Fake
 
-let version = "7.0"
-let pre = Some "beta5"
+System.Environment.GetCommandLineArgs()
+|> Array.skip 2 // skip fsi.exe; build.fsx
+|> Array.toList
+|> Fake.Core.Context.FakeExecutionContext.Create false __SOURCE_FILE__
+|> Fake.Core.Context.RuntimeContext.Fake
+|> Fake.Core.Context.setExecutionContext
+
+#load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
+
+open WebSharper.Fake
+let version = "8.0"
+let pre = Some "beta1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -73,9 +64,9 @@ let publish rids (mode: BuildMode) =
                     fsharpCoreLib </> "FSharp.Core.dll" 
                 ] 
                 |> Shell.copy outputPath                
-    publishExe mode "net6.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-    publishExe mode "net6.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
-    publishExe mode "net6.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
@@ -252,7 +243,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net6.0\Web.exe"
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net8.0\Web.exe"
     webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false

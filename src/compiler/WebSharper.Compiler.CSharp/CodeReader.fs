@@ -537,6 +537,34 @@ module Definitions =
         ([] : list<Expression>),
         (id : Expression -> Expression)
 
+    let SeqModule =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Collections.SeqModule"
+        }
+
+    let SeqType =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Collections.Generic.IEnumerable`1"
+        }
+
+    let SeqIter =
+        Method {
+            MethodName = "Iterate"
+            Parameters = [ FSharpFuncType(TypeParameter 0, VoidType); GenericType SeqType [TypeParameter 0] ] 
+            ReturnType = VoidType
+            Generics = 1
+        }
+
+    let SeqLength =
+        Method {
+            MethodName = "Length"
+            Parameters = [ GenericType SeqType [TypeParameter 0] ] 
+            ReturnType = NonGenericType Definitions.Int
+            Generics = 1
+        }
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
         let l =
@@ -716,9 +744,11 @@ type RoslynTransformer(env: Environment) =
             else
                 Var env.Vars.[s]
         | :? IParameterSymbol as p -> 
-            match env.Parameters.[p] with
-            | v, false -> Var v
-            | v, true -> GetRef (Var v) 
+            match env.Parameters.TryGetValue p with
+            | true, (v, false) -> Var v
+            | true, (v, true) -> GetRef (Var v) 
+            | _ ->
+                FieldGet((getTarget()), sr.ReadNamedType p.ContainingType, "<" + p.Name + ">P")    
         | :? IRangeVariableSymbol as v ->
             match env.RangeVars.[v] with
             | v, None -> Var v
@@ -790,6 +820,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.RangeExpression                   x -> this.TransformRangeExpression x      
                 | ExpressionData.SwitchExpression                  x -> this.TransformSwitchExpression x      
                 | ExpressionData.WithExpression                    x -> this.TransformWithExpression x      
+                | ExpressionData.CollectionExpression              x -> this.TransformCollectionExpression x
             let conversion = env.SemanticModel.GetConversion(x.Node)
             if conversion.IsUserDefined then
                 let symbol = conversion.MethodSymbol
@@ -825,6 +856,7 @@ type RoslynTransformer(env: Environment) =
         | TypeData.TupleType           x -> TODO x //this.TransformTupleType x
         | TypeData.OmittedTypeArgument x -> TODO x //this.TransformOmittedTypeArgument x
         | TypeData.RefType             x -> TODO x //this.TransformRefType x
+        | TypeData.ScopedType          x -> TODO x //this.TransformScopedType x
 
     member this.TransformName (x: NameData) : Expression =
         match x with
@@ -1345,6 +1377,8 @@ type RoslynTransformer(env: Environment) =
                                 MutatingBinaryOperator.``>>=``
                             | AssignmentExpressionKind.CoalesceAssignmentExpression ->
                                 MutatingBinaryOperator.``??=``
+                            | AssignmentExpressionKind.UnsignedRightShiftAssignmentExpression ->
+                                MutatingBinaryOperator.``>>>=``
                         MutatingBinary(left, op, right) |> Some
                     | _ -> None
                 else None
@@ -1484,10 +1518,10 @@ type RoslynTransformer(env: Environment) =
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
-    member this.TransformRecordDeclaration (x: RecordDeclarationData) : _ =
+    member this.TransformRecordDeclaration (parameterList: ParameterListData option) (baseList: BaseListData option) (members: MemberDeclarationData seq) : _ =
         //let attributeLists = x.AttributeLists |> Seq.map this.TransformAttributeList |> List.ofSeq
         //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
-        let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let parameterList = parameterList |> Option.map this.TransformParameterList
 
         match parameterList with
         | Some pl ->
@@ -1495,7 +1529,7 @@ type RoslynTransformer(env: Environment) =
                 env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         | None -> ()
 
-        let baseList = x.BaseList |> Option.map this.TransformBaseList
+        let baseList = baseList |> Option.map this.TransformBaseList
         //let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
         //let members = x.Members |> Seq.map this.TransformMemberDeclaration |> List.ofSeq
 
@@ -1515,7 +1549,7 @@ type RoslynTransformer(env: Environment) =
                 )   
 
         let otherFields =
-            x.Members |> Seq.collect (fun m ->
+            members |> Seq.collect (fun m ->
                 match m with
                 | MemberDeclarationData.BaseFieldDeclaration (BaseFieldDeclarationData.FieldDeclaration fDecl) ->
                     fDecl.Declaration.Variables |> Seq.map (fun v ->
@@ -2674,6 +2708,53 @@ type RoslynTransformer(env: Environment) =
         let pattern = x.Pattern |> this.TransformPattern
         fun v -> Unary(UnaryOperator.``!``, pattern v)
 
+    member this.TransformListPattern (x: ListPatternData) : _ =
+        let patterns = x.Patterns |> Seq.map this.TransformPattern |> List.ofSeq
+        let designation = x.Designation |> Option.map this.TransformVariableDesignation
+        let typ = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
+        
+        let getItem =
+            if typ.TypeKind = TypeKind.Array then
+                fun v i ->
+                    ItemGet(Var v, i, Pure)
+            else
+                let itemMeth = 
+                    match typ.GetMembers("get_Item").OfType<IMethodSymbol>() |> Seq.tryHead with
+                    | Some m -> m |> sr.ReadMethod
+                    | None -> failwith "List patterns are only supported for types defining Item property"
+                let td = typ |> sr.ReadType
+                fun v i ->
+                    Call (Some (Var v), NonGeneric td.TypeDefinition, NonGeneric itemMeth, [ i ])
+        
+        fun v ->
+            let length = List.length patterns
+            let sliceIdx = x.Patterns |> Seq.tryFindIndex (function PatternData.SlicePattern _ -> true | _ -> false)
+            match sliceIdx with
+            | None ->
+                List.reduce (^&&) [
+                    Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]) ^== (Value (Int length))
+                    for i, p in Seq.indexed patterns do
+                        let e = Id.New(mut = false)
+                        Let (e, getItem v (Value (Int i)), p e)
+                ]
+            | Some sliceIdx ->
+                let l = Id.New("_l", mut = false)
+                Let (l, Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]),
+                    List.reduce (^&&) [
+                        Var l ^>= (Value (Int (length - 1)))
+                        for i, p in Seq.indexed patterns do
+                            let e = Id.New(mut = false)
+                            if i < sliceIdx then
+                                Let (e, getItem v (Value (Int i)), p e)
+                            elif i > sliceIdx then
+                                Let (e, getItem v (Var l ^- (Value (Int (length - i)))), p e)
+                    ]
+                )
+
+    member this.TransformSlicePattern (x: SlicePatternData) : _ =
+        let pattern = x.Pattern |> Option.map this.TransformPattern
+        fun v -> Expression.Undefined
+
     member this.TransformPattern (x: PatternData) : _ =
         match x with
         | PatternData.DiscardPattern       x -> this.TransformDiscardPattern x
@@ -2686,6 +2767,8 @@ type RoslynTransformer(env: Environment) =
         | PatternData.TypePattern          x -> this.TransformTypePattern x
         | PatternData.BinaryPattern        x -> this.TransformBinaryPattern x
         | PatternData.UnaryPattern         x -> this.TransformUnaryPattern x
+        | PatternData.ListPattern          x -> this.TransformListPattern x
+        | PatternData.SlicePattern         x -> this.TransformSlicePattern x
 
     member this.TransformIsPatternExpression (x: IsPatternExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
@@ -2757,6 +2840,58 @@ type RoslynTransformer(env: Environment) =
         let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
         Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
 
+    member this.TransformExpressionElement (x: ExpressionElementData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        expression, false
+
+    member this.TransformSpreadElement (x: SpreadElementData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        expression, true
+
+    member this.TransformCollectionElement (x: CollectionElementData) : _ =
+        match x with
+        | CollectionElementData.ExpressionElement x -> this.TransformExpressionElement x
+        | CollectionElementData.SpreadElement     x -> this.TransformSpreadElement x
+
+    member this.TransformCollectionExpression (x: CollectionExpressionData) : _ =
+        let elements = x.Elements |> Seq.map this.TransformCollectionElement |> List.ofSeq
+        
+        let iocType = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
+        let coll = Id.New(mut = false)          
+        let x = Id.New(mut = false)
+
+        let iocTypOpt =
+            match iocType with
+            | :? INamedTypeSymbol as nt -> Some (sr.ReadNamedType nt)
+            | _ -> None
+
+        let emptyColl, addItem =
+            if iocType.TypeKind = TypeKind.Array then
+                NewArray [],
+                fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])
+            else
+                let addSymbol = 
+                    let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
+                    if addMethods.Length = 1 then
+                        addMethods.[0]
+                    else
+                        failwith "Collection initializer for collection expression only supported with a non-overloaded Add method"
+                let addM = addSymbol |> sr.ReadGenericMethod
+                Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
+                fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])
+
+        Let(coll, emptyColl,
+            Sequential [
+                for (e, isSpread) in elements do 
+                    if isSpread then
+                        Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter, 
+                            [ Lambda([x], None, addItem (Var x)); e ])
+                    else
+                        addItem e
+                Var coll
+            ]
+        )
+
 open System.Linq
 
 let rec private isWebControlType (sr: SymbolReader) (c: INamedTypeSymbol) =
@@ -2775,7 +2910,7 @@ let rec private isWebControlType (sr: SymbolReader) (c: INamedTypeSymbol) =
 let contentType =
     TypeDefinition {
         Assembly = "WebSharper.Sitelets"
-        FullName = "WebSharper.Sitelets.Content`1"
+        FullName = "WebSharper.Sitelets.Content"
     }
 
 let uiContentType =
@@ -2789,15 +2924,27 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
 
     let getBundleMethod (typ: TypeDefinition, m: Method, arguments: SeparatedSyntaxList<ArgumentSyntax>) =
         if typ = contentType && m.Value.MethodName.StartsWith "Bundle" then
-            match env.SemanticModel.GetConstantValue(arguments[1]).Value with
+            match env.SemanticModel.GetConstantValue(arguments[0].Expression).Value with
             | :? string as value when value <> null ->
                 Ok [ value ]
             | _ ->
-                Error $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
+                Error $"Content.Bundle's Bundle argument must be constant string"   
         elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
-            match env.SemanticModel.GetConstantValue(Seq.last arguments).Value with
-            | :? string as value when value <> null ->
-                Ok [ value ]
+            let bundleArgument =
+                arguments |> Seq.tryFind (fun a -> 
+                    a.NameColon |> Option.ofObj |> Option.exists (fun nc ->
+                        match env.SemanticModel.GetSymbolInfo(nc.Name).Symbol with
+                        | :? IParameterSymbol as symbol -> symbol.Name = "Bundle"
+                        | _ -> false
+                    )
+                )
+            match bundleArgument with 
+            | Some ba -> 
+                match env.SemanticModel.GetConstantValue(ba.Expression).Value with
+                | :? string as value when value <> null ->
+                    Ok [ value ]
+                | _ ->
+                    Error $"Content.Page's Bundle argument must be constant string"   
             | _ ->
                 Ok []
         else
