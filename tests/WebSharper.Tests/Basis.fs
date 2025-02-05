@@ -142,6 +142,9 @@ let (|NegativeStruct|_|) x = if x < 0 then ValueSome -x else ValueNone
 [<JavaScript>]
 let (|Negative|_|) x = if x < 0 then Some -x else None
 
+[<JavaScript>]
+let (|IsNegative|_|) x = x < 0
+
 type System.Int32 with
     [<JavaScript>]
     static member TryParseOpt(s: string) =
@@ -766,5 +769,14 @@ let Tests =
         Test "Computed literal" {
             equal ComputedLiteral 3
             equal ComputedLiteralJS 3
+        }
+
+        Test "Partial active patterns can return bool instead of unit option" {
+            let testIsNegativePattern x =
+                match x with
+                | IsNegative -> true
+                | _ -> false
+            isTrue (testIsNegativePattern -5)
+            isFalse (testIsNegativePattern 5)       
         }
     }

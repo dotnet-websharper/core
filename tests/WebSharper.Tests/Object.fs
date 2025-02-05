@@ -646,4 +646,18 @@ let Tests =
             equal (AbcDU.TryParse "A") (true, A)
             equal (AbcDU.TryParse "D" |> fst) false
         }
+
+        Test "Nullable reference types" {
+            let len (str: string | null) =
+                match str with
+                | null -> -1
+                | s -> s.Length
+            equal (len null) -1
+            equal (len "Hi") 2
+        }
+
+        Test "Discriminated union .Is* properties" {
+            isTrue ((UJ1 1).IsUJ1)
+            isFalse ((UJ1 1).IsUJ2)
+        }
     }
