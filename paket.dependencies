@@ -1,7 +1,7 @@
 references: strict
 redirects: on
 
-framework: net8.0, netstandard2.0
+framework: net9.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
@@ -33,13 +33,13 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net8.0, netstandard2.1
+    framework: net9.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref 2.1.0
     nuget FSharp.Core
 
 group fcs
-    framework: net8.0, netstandard2.0
+    framework: net9.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget System.Runtime.Caching ~> 6.0.0
@@ -52,7 +52,7 @@ group test
     nuget Chutzpah ~> 4.4.11
 
 group nunit
-    framework: net8.0, net472
+    framework: net9.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2
@@ -66,7 +66,7 @@ group nunit
 
 
 group giraffe
-    framework: net8.0
+    framework: net9.0
     source https://api.nuget.org/v3/index.json
     storage: none
 

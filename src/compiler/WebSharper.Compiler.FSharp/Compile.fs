@@ -96,9 +96,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let fixedArgs =
             config.CompilerArgs 
             |> Array.map (fun s -> 
-                s.Replace(@"net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                s.Replace(@"net9.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
-                    ).Replace(@"net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                    ).Replace(@"net9.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
                         @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)

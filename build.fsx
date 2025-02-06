@@ -64,9 +64,9 @@ let publish rids (mode: BuildMode) =
                     fsharpCoreLib </> "FSharp.Core.dll" 
                 ] 
                 |> Shell.copy outputPath                
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
-    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
+    publishExe mode "net9.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+    publishExe mode "net9.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
+    publishExe mode "net9.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
@@ -243,7 +243,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net8.0\Web.exe"
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net9.0\Web.exe"
     webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false
