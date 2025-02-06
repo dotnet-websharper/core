@@ -107,6 +107,7 @@ let startListening() =
         options.Encoder <-System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         let res = System.Text.Json.JsonSerializer.Serialize(newMessage, options)
         let bytes = System.Text.Encoding.UTF8.GetBytes res
+        serverPipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
         serverPipe.Write(bytes, 0, bytes.Length)
         serverPipe.Flush()
     }
@@ -280,12 +281,11 @@ let startListening() =
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
                           NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
-                          PipeTransmissionMode.Message, // Transmissione Mode
+                          PipeTransmissionMode.Byte, // using Byte for Linux support
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
-        nLogger.Debug(sprintf "Client connected on %s pipeName" pipeName)
-        serverPipe.ReadMode <- PipeTransmissionMode.Message
+        serverPipe.ReadMode <- PipeTransmissionMode.Byte
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }

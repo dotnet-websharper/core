@@ -126,6 +126,8 @@ let sendCompileCommand args =
                             nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
+                
+                clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
                 clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
                 clientPipe.WaitForPipeDrain()
@@ -157,7 +159,7 @@ let sendCompileCommand args =
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Message
+    clientPipe.ReadMode <- PipeTransmissionMode.Byte
     let options = System.Text.Json.JsonSerializerOptions()
     options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
