@@ -49,7 +49,6 @@ let (|Finish|_|) (str: string) =
     else
         None
 
-
 let sendCompileCommand args projectDir =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
@@ -114,6 +113,7 @@ let sendCompileCommand args projectDir =
                             return unrecognizedMessageErrorCode |> Some
                     }
                 
+                clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
                 clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
                 clientPipe.WaitForPipeDrain()
@@ -141,7 +141,7 @@ let sendCompileCommand args projectDir =
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Message
+    clientPipe.ReadMode <- PipeTransmissionMode.Byte
     let options = System.Text.Json.JsonSerializerOptions()
     options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)

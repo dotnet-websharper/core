@@ -17,23 +17,37 @@ let hashPath (fullPath: string) =
     |> string
 
 let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) = 
+    let readBytes (stream: Stream) (count: int) =
+       let buffer = Array.zeroCreate<byte> count
+       let rec readLoop offset remaining =
+           async {
+               if remaining = 0 then
+                   return buffer
+               else
+                   let! bytesRead = stream.ReadAsync(buffer, offset, remaining) |> Async.AwaitTask
+                   if bytesRead = 0 then
+                       return null
+                   else
+                       return! readLoop (offset + bytesRead) (remaining - bytesRead)
+            }
+       readLoop 0 count
     let rec readingMessage() =
         async {
             try
                 let readMessage () =
                     async {
-                        let sb = new StringBuilder()
-                        let mutable buffer = Array.zeroCreate<byte> 5
-                        let bytesRead = pipe.Read(buffer, 0, buffer.Length)
-                        sb.Append(System.Text.Encoding.UTF8.GetString(buffer)) |> ignore
-                        buffer <- Array.zeroCreate<byte> 5
-                        while (not pipe.IsMessageComplete) do
-                            let bytesRead = pipe.Read(buffer, 0, buffer.Length)
-                            sb.Append(System.Text.Encoding.UTF8.GetString(buffer)) |> ignore
-                            buffer <- Array.zeroCreate<byte> 5
-                        let res = sb.ToString()
-                        return res.Replace("\x00", "")
+                        let! lengthBuffer = readBytes pipe 4
+                        if isNull lengthBuffer then
+                            return null
+                        else
+                            let messageLength = System.BitConverter.ToInt32(lengthBuffer, 0)
+                            // Read the actual message based on the length
+                            let! messageBuffer = readBytes pipe messageLength
+                            // Convert the byte array to a string (assuming UTF-8 encoding)
+                            let message = Encoding.UTF8.GetString(messageBuffer)
+                            return message
                     }
+
                 let! byteArr = readMessage ()
                 match byteArr with
                 | "" | null ->
