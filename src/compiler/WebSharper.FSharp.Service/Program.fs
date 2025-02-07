@@ -23,6 +23,7 @@ open System
 open System.IO.Pipes
 open System.Threading
 open System.IO
+open System.Runtime.InteropServices
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
@@ -108,7 +109,12 @@ let startListening() =
     }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
 
     let sendFinished (serverPipe: NamedPipeServerStream) = sprintf "x: %i" |> send serverPipe
 
@@ -277,6 +283,11 @@ let startListening() =
                           PipeTransmissionMode.Byte, // using Byte for Linux support
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+
+        if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            System.IO.File.SetUnixFileMode(
+                pipeName, System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+        
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
         serverPipe.ReadMode <- PipeTransmissionMode.Byte
         Async.Start (handOverPipe serverPipe token, token)

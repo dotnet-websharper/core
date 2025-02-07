@@ -24,6 +24,7 @@ open System.Text
 
 open System.Diagnostics
 open System.IO.Pipes
+open System.Runtime.InteropServices
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
 
@@ -52,7 +53,12 @@ let (|Finish|_|) (str: string) =
 let sendCompileCommand args projectDir =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
     let exeName =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
             "wsfscservice.exe"
