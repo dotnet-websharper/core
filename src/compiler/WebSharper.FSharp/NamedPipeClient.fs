@@ -23,7 +23,7 @@ open System.Text
 
 open System.Diagnostics
 open System.IO.Pipes
-open System.Runtime.Serialization.Formatters.Binary
+open System.Runtime.InteropServices
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
 
@@ -60,9 +60,12 @@ let sendCompileCommand args =
         NLog.LogManager.GetLogger(callerType.Name)
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    nLogger.Debug(sprintf "location of wsfsc.exe and wsfscservice.exe: %s" location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
-    nLogger.Debug(sprintf "pipeName is : %s" pipeName)
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
     let exeName =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
             "wsfscservice.exe"

@@ -23,6 +23,7 @@ open System
 open System.IO.Pipes
 open System.Threading
 open System.IO
+open System.Runtime.InteropServices
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
@@ -111,6 +112,15 @@ let startListening() =
         serverPipe.Write(bytes, 0, bytes.Length)
         serverPipe.Flush()
     }
+
+    let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
+
     let sendFinished (serverPipe: NamedPipeServerStream) = sprintf "x: %i" |> send serverPipe
 
     // client starts the service without window. You have to shut down the service from Task Manager/ kill command.
@@ -284,6 +294,11 @@ let startListening() =
                           PipeTransmissionMode.Byte, // using Byte for Linux support
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+
+        if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            System.IO.File.SetUnixFileMode(
+                pipeName, System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+        
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
         serverPipe.ReadMode <- PipeTransmissionMode.Byte
         Async.Start (handOverPipe serverPipe token, token)
