@@ -167,7 +167,7 @@ module Server =
         |> async.Return
 
     [<Remote>]
-    let f12 (x: System.TimeSpan) min =
+    let f12 (x: System.TimeSpan) (min: float) =
         x.Add(System.TimeSpan.FromMinutes min)
         |> async.Return
 

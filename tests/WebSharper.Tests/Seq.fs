@@ -844,4 +844,8 @@ let Tests =
                 }
             equal (s |> Array.ofSeq) [| -1; 0; 1 |]
         }
+
+        Test "Empty-bodied computation expressions" {
+            equal (seq { } |> Seq.toArray) [||]
+        }
     }
