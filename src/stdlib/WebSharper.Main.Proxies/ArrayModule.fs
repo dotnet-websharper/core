@@ -806,3 +806,69 @@ let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
                 Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index+1..]
     else
         failwith "Incorrect index"
+
+[<Inline>]
+let RandomChoice (source: 'T[]) : 'T = 
+    ArrayRandomChoice source
+
+[<Inline>]
+let RandomChoiceBy (randomizer: unit -> float) (source: 'T[]) : 'T = 
+    ArrayRandomChoiceBy randomizer source
+
+[<Inline>]
+let RandomChoiceWith (random: System.Random) (source: 'T[]) : 'T = 
+    ArrayRandomChoiceBy random.NextDouble source
+
+[<Inline>]
+let RandomChoices (count: int) (source: 'T[]) : 'T[] = 
+    Array.init count (fun _ -> RandomChoice source)
+
+[<Inline>]
+let RandomChoicesBy (randomizer: unit -> float) (count: int) (source: 'T[]) : 'T[] = 
+    Array.init count (fun _ -> RandomChoiceBy randomizer source)
+
+[<Inline>]
+let RandomChoicesWith (random: System.Random) (count: int) (source: 'T[]) : 'T[] = 
+    Array.init count (fun _ -> RandomChoiceWith random source)
+
+[<Inline>]
+let RandomSample (count: int) (source: 'T[]) : 'T[] = 
+    ArrayRandomSample count source
+
+[<Inline>]
+let RandomSampleBy (randomizer: unit -> float) (count: int) (source: 'T[]) : 'T[] = 
+    ArrayRandomSampleBy randomizer count source
+
+[<Inline>]
+let RandomSampleWith (random: System.Random) (count: int) (source: 'T[]) : 'T[] = 
+    ArrayRandomSampleBy random.NextDouble count source
+    
+[<Inline>]
+let RandomShuffleInPlace (source: 'T[]) : unit = 
+    ArrayRandomShuffleInPlace source
+
+[<Inline>]
+let RandomShuffleInPlaceBy (randomizer: unit -> float) (source: 'T[]) : unit = 
+    ArrayRandomShuffleInPlaceBy randomizer source
+    
+[<Inline>]
+let RandomShuffleInPlaceWith (random: System.Random) (source: 'T[]) : unit = 
+    ArrayRandomShuffleInPlaceBy random.NextDouble source
+
+[<Inline>]
+let RandomShuffle (source: 'T[]) : 'T[] = 
+    let s = Array.copy source
+    ArrayRandomShuffleInPlace s
+    s
+
+[<Inline>]
+let RandomShuffleBy (randomizer: unit -> float) (source: 'T[]) : 'T[] = 
+    let s = Array.copy source
+    ArrayRandomShuffleInPlaceBy randomizer s
+    s
+    
+[<Inline>]
+let RandomShuffleWith (random: System.Random) (source: 'T[]) : 'T[] = 
+    let s = Array.copy source
+    ArrayRandomShuffleInPlaceBy random.NextDouble s
+    s

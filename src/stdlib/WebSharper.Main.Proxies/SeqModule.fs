@@ -1040,3 +1040,57 @@ let UpdateAt (index: int) (item: 'T) (arr: 'T seq): 'T seq =
                         )
     else
         failwith "Incorrect index"
+
+[<Inline>]
+let RandomChoice (source: 'T seq) : 'T = 
+    ArrayRandomChoice (Array.ofSeq source)
+
+[<Inline>]
+let RandomChoiceBy (randomizer: unit -> float) (source: 'T seq) : 'T = 
+    ArrayRandomChoiceBy randomizer (Array.ofSeq source)
+
+[<Inline>]
+let RandomChoiceWith (random: System.Random) (source: 'T seq) : 'T = 
+    ArrayRandomChoiceBy random.NextDouble (Array.ofSeq source)
+
+[<Inline>]
+let RandomChoices (count: int) (source: 'T seq) : 'T seq = 
+    Array.init count (fun _ -> RandomChoice source) |> Seq.ofArray
+
+[<Inline>]
+let RandomChoicesBy (randomizer: unit -> float) (count: int) (source: 'T seq) : 'T seq = 
+    Array.init count (fun _ -> RandomChoiceBy randomizer source) |> Seq.ofArray
+
+[<Inline>]
+let RandomChoicesWith (random: System.Random) (count: int) (source: 'T seq) : 'T seq = 
+    Array.init count (fun _ -> RandomChoiceWith random source) |> Seq.ofArray
+
+[<Inline>]
+let RandomSample (count: int) (source: 'T seq) : 'T seq = 
+    ArrayRandomSample count (Array.ofSeq source) |> Seq.ofArray
+
+[<Inline>]
+let RandomSampleBy (randomizer: unit -> float) (count: int) (source: 'T seq) : 'T seq = 
+    ArrayRandomSampleBy randomizer count (Array.ofSeq source) |> Seq.ofArray
+
+[<Inline>]
+let RandomSampleWith (random: System.Random) (count: int) (source: 'T seq) : 'T seq = 
+    ArrayRandomSampleBy random.NextDouble count (Array.ofSeq source) |> Seq.ofArray
+
+[<Inline>]
+let RandomShuffle (source: 'T seq) : 'T seq = 
+    let s = Array.ofSeq source
+    ArrayRandomShuffleInPlace s
+    Seq.ofArray s
+
+[<Inline>]
+let RandomShuffleBy (randomizer: unit -> float) (source: 'T seq) : 'T seq = 
+    let s = Array.ofSeq source
+    ArrayRandomShuffleInPlaceBy randomizer s
+    Seq.ofArray s
+    
+[<Inline>]
+let RandomShuffleWith (random: System.Random) (source: 'T seq) : 'T seq = 
+    let s = Array.ofSeq source
+    ArrayRandomShuffleInPlaceBy random.NextDouble s
+    Seq.ofArray s

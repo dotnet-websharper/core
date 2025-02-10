@@ -265,3 +265,59 @@ let ArrayTranspose (array:'T[][]) : 'T[][] =
         for j in 0..len-1 do
             result.[i].[j] <- array.[j].[i]
     As result
+
+[<Inline "Math.random()">]
+let MathRandom() = System.Random().NextDouble()
+
+[<Name "next">]
+let RandomizerNext (randomizer: unit -> float) (maxValue: int) = 
+    let value = randomizer()
+    if value < 0.0 || value >= 1.0 then
+        invalidArg "randomizer" ("Randomizer returned " + value.ToString() + ", should be in range [0.0, 1.0).")
+    int (value * float maxValue)
+
+[<Name "randomChoiceBy">]
+let ArrayRandomChoiceBy (randomizer: unit -> float) (source: 'T[]) = 
+    source[RandomizerNext randomizer source.Length]
+
+[<Name "randomChoice">]
+let ArrayRandomChoice (source: 'T[]) = 
+    ArrayRandomChoiceBy MathRandom source      
+
+[<Name "randomSampleBy">]
+let ArrayRandomSampleBy (randomizer: unit -> float) (count: int) (source: 'T[]) = 
+    let inputLength = source.Length
+    
+    if inputLength = 0 then
+        invalidArg "source" "Empty source."
+
+    if count > inputLength then
+        invalidArg "count" "Not enough elements."
+
+    let pool = Array.copy source
+
+    let result = Array.create count JS.Undefined
+
+    for i = 0 to count - 1 do
+        let j = RandomizerNext randomizer (inputLength - i)
+        result[i] <- pool[j]
+        pool[j] <- pool[inputLength - i - 1]
+
+    result
+
+[<Name "randomSample">]
+let ArrayRandomSample  (count: int) (source: 'T[]) = 
+    ArrayRandomSampleBy MathRandom count source      
+
+[<Name "randomShuffleInPlaceBy">]
+let ArrayRandomShuffleInPlaceBy (randomizer: unit -> float) (source: 'T[]) =     
+    for i = source.Length - 1 downto 0 do
+        let j = RandomizerNext randomizer i
+        let mutable si = source[i] // TODO why inlined without mutable, possible bug/regression
+        source[i] <- source[j]
+        source[j] <- si
+
+[<Name "randomShuffleInPlace">]
+let ArrayRandomShuffleInPlace (source: 'T[]) =     
+    ArrayRandomShuffleInPlaceBy MathRandom source
+
