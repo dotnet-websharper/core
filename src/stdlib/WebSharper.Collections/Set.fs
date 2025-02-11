@@ -35,6 +35,8 @@ type private FSharpSet<'T when 'T : comparison>
 
         new (s: seq<'T>) = new FSharpSet<'T>(T.OfSeq s)
 
+        new () = new FSharpSet<'T>(T.Empty)
+
         member this.add(x: Set<'T>) =
             Set.union (As this) x
 
@@ -112,3 +114,11 @@ type private FSharpSet<'T when 'T : comparison>
             member this.CopyTo(arr: 'T[], index: int) =
                 (Seq.toArray this).CopyTo(arr, index)
             member this.Remove(p) = failwith "Set values cannot be mutated."
+
+[<Proxy "System.ReadOnlySpan`1, netstandard">]
+type private ReadOnlySpanProxy<'T> = class end
+        
+[<Proxy "Microsoft.FSharp.Collections.FSharpSet, FSharp.Core">]
+type private SetProxy =
+    static member Create (items: ReadOnlySpanProxy<'T>) : 'T Set =
+        Set.ofArray (As items)   

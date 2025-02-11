@@ -22,8 +22,8 @@ module internal WebSharper.Compiler.CSharp.CodeReader
 
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
-open Microsoft.CodeAnalysis.CSharp.Syntax
- 
+open Microsoft.CodeAnalysis.CSharp.Syntax      
+
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler.CompilationHelpers
@@ -2858,39 +2858,75 @@ type RoslynTransformer(env: Environment) =
         
         let iocType = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
         let coll = Id.New(mut = false)          
-        let x = Id.New(mut = false)
+        let c = Id.New(mut = false)
 
         let iocTypOpt =
             match iocType with
             | :? INamedTypeSymbol as nt -> Some (sr.ReadNamedType nt)
             | _ -> None
 
-        let emptyColl, addItem =
+        let emptyColl, addItem, make =
             if iocType.TypeKind = TypeKind.Array then
                 NewArray [],
-                fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])
+                (fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])),
+                None
             else
-                let addSymbol = 
-                    let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
-                    if addMethods.Length = 1 then
-                        addMethods.[0]
-                    else
-                        failwith "Collection initializer for collection expression only supported with a non-overloaded Add method"
-                let addM = addSymbol |> sr.ReadGenericMethod
-                Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
-                fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])
+                let collBuilderAttr =
+                    iocType.GetAttributes() |> Seq.tryFind (fun a ->
+                        a.AttributeClass.Name = "CollectionBuilderAttribute"
+                    )
+                match collBuilderAttr with 
+                | Some cba ->
+                    let ct = cba.ConstructorArguments[0].Value :?> ITypeSymbol
+                    let creatorType = 
+                        match sr.ReadType ct with
+                        | ConcreteType ct -> ct
+                        | _ -> failwith "CollectionBuilder attribute is expected to specify a named type"
+                    let createMethodName = string cba.ConstructorArguments[1].Value
+                    let createSymbol = 
+                        let createMethods = ct.GetMembers(createMethodName).OfType<IMethodSymbol>() |> Array.ofSeq
+                        match createMethods.Length with
+                        | 1 ->
+                            createMethods[0]
+                        | 0 ->
+                            failwithf $"Create method not found for collection initializer via CollectionBuilder attributes. creatorType={creatorType} createMethodName={createMethodName}"
+                        | _ ->
+                            failwithf $"Collection initializer via CollectionBuilder attribute is only supported with a non-overloaded collection builder method. creatorType={creatorType} createMethodName={createMethodName}"
+                    let createM = createSymbol |> sr.ReadGenericMethod
+                    Undefined,
+                    (fun _ -> Undefined),
+                    Some (fun (elements : (Expression  * bool) list) -> Call(None, creatorType, createM, [ elements |> List.map fst |> NewArray ]))
 
-        Let(coll, emptyColl,
-            Sequential [
-                for (e, isSpread) in elements do 
-                    if isSpread then
-                        Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter, 
-                            [ Lambda([x], None, addItem (Var x)); e ])
-                    else
-                        addItem e
-                Var coll
-            ]
-        )
+                | None ->
+                    let addSymbol = 
+                        let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
+                        match addMethods.Length with
+                        | 1 ->
+                            addMethods[0]
+                        | 0 ->
+                            failwith "Add method not found for collection initializer"
+                        | _ ->
+                            failwith "Collection initializer is only supported with a non-overloaded Add method"
+                    let addM = addSymbol |> sr.ReadGenericMethod
+                    Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
+                    (fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])),
+                    None
+
+        match make with 
+        | Some make ->
+            make elements
+        | None ->
+            Let(coll, emptyColl,
+                Sequential [
+                    for (e, isSpread) in elements do 
+                        if isSpread then
+                            Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter, 
+                                [ Lambda([c], None, addItem (Var c)); e ])
+                        else
+                            addItem e
+                    Var coll
+                ]
+            )
 
 open System.Linq
 

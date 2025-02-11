@@ -72,3 +72,11 @@ type private ListProxy<'T> =
                 As this |> CollectionInternals.ListSkip i |> Seq.take (j - i + 1) |> List.ofSeq    
         with _ ->
             As List.empty
+
+[<Proxy "System.ReadOnlySpan`1, netstandard">]
+type private ReadOnlySpanProxy<'T> = class end
+
+[<Proxy "Microsoft.FSharp.Collections.FSharpList, FSharp.Core">]
+type private ListProxy =
+    static member Create (items: ReadOnlySpanProxy<'T>) : 'T list =
+        List.ofArray (As items)
