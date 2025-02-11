@@ -105,4 +105,13 @@ let Tests =
             isTrue (box (E3("a")) :? exn)
         }
 
+        Test "Print message #1402" {
+            let msg =
+                try
+                    failwithf "My %s message" "error"
+                with
+                | exn ->
+                    sprintf "%A" exn
+            equal msg "Error: My error message"
+        }
     }
