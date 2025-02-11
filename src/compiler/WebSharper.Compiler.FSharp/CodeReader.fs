@@ -169,7 +169,6 @@ type FixCtorTransformer(typ, btyp, thisVar, thisCtor) =
             :: I.FieldSet(Some (This thisVar), _, i, I.Value (Int 1))
             :: t ->
                 cgenFieldNames <- [ f; i ]
-                printfn "self identifier found"
                 Sequential (SubstituteVar(self, Var thisVar.Value).TransformExpression(this.TransformExpression(o)) :: t)  
         | h :: t -> Sequential (this.TransformExpression h :: t)
         | _ -> Undefined

@@ -2581,7 +2581,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _ -> None
                 )
                 |> Array.ofSeq
-            unchmod |> Array.iter (printfn "%A")
+
             let uchEqIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
             let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 
