@@ -258,6 +258,8 @@ namespace WebSharper.CSharp.Tests
             Equal(o.GetValueByPartialMethod(), 3);
             o.SetValueTo4();
             Equal(o.Value, 4);
+            o.Name = "John";
+            Equal(o.Name, "John");
         }
 
         class Renamings
@@ -491,6 +493,8 @@ namespace WebSharper.CSharp.Tests
         public int Field1 = 1;
 
         public int Value { get; set; }
+
+        public partial string Name { get; set; }
 
         partial void PartialMethod();
 
