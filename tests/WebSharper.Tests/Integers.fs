@@ -140,4 +140,8 @@ let Tests =
             equalMsg (UInt32.TryParse "4000000000") (true, 4000000000u) "4000000000"
             equalMsg (UInt32.TryParse("5000000000", ref 0u)) false "5000000000"
         }
+
+        Test "Bitwise not" {
+            equal (~~~1000) -1001
+        }
     }
