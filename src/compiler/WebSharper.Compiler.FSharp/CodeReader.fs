@@ -797,6 +797,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
             tr value
+        // a fix around struct record copying
+        | P.Let((id, P.AddressOf value, _), body) when id.IsCompilerGenerated && id.LogicalName = "inputRecord" ->
+            let i = namedId (Some env) false id
+            let trValue = tr value
+            let env = env.WithVar(i, id, LocalVar)
+            let inline tr x = transformExpression env x
+            Let (i, trValue, tr body)
         | P.Let((id, value, _), body) ->
             let i = namedId (Some env) false id
             let trValue = tr value
