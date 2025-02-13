@@ -28,21 +28,7 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open System.Linq.Expressions
 
-//module P = WebSharper.Core.JavaScript.Packager
-//module AST = WebSharper.Core.AST
 module Re = WebSharper.Core.Resources
-
-[<Literal>]
-let TYPES = "$TYPES"
-
-[<Literal>]
-let DATA = "$DATA"
-
-[<Literal>]
-let TYPE = "$T"
-
-[<Literal>]
-let VALUE = "$V"
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 
@@ -1951,9 +1937,16 @@ module PlainProviderInternals =
                             else
                                 fn, f :> System.Reflection.MemberInfo
                         )
-                for fn, f in fields do
-                    if not (d.ContainsKey fn) then
-                        d.Add(fn, TAttrs.GetName f)
+                if t.Name = "BaseClass" || t.Name = "DescendantClass" then
+                    ()
+                let fieldNames = HashSet()
+                for fn, f in fields do                    
+                    let rec addWithRename name =
+                        if fieldNames.Add(name) then
+                            d[fn] <- name
+                        else
+                            addWithRename (Naming.newName name)
+                    addWithRename (TAttrs.GetName f)
                 fun n ->
                     match d.TryGetValue n with
                     | true, n -> n

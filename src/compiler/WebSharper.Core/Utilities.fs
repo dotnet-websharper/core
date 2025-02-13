@@ -201,3 +201,13 @@ module Reflection =
         | None ->
             try System.Reflection.Assembly.Load(assemblyNameOrPath)  
             with e -> failwithf "Failed to load assembly %s: %O" assemblyNameOrPath e
+
+module Naming =
+    let newName (name: string) =
+        match name.LastIndexOf '_' with
+        | -1 -> name + "_1"
+        | i -> 
+            match System.Int32.TryParse (name.Substring(i + 1)) with
+            | true, n -> name.Substring(0, i) + "_" + string (n + 1)
+            | _ -> 
+                if name.EndsWith "_" then name + "1" else name + "_1"

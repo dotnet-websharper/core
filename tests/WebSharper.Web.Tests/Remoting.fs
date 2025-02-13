@@ -26,6 +26,13 @@ namespace WebSharper.Web.Tests
 open WebSharper
 open WebSharper.JavaScript
 
+// Should give a startup-time error "Duplicate remote method found: Server/f3"
+//module Alternate =
+//    module Server =
+//        [<Remote>]
+//        let f3 (x: int) =
+//            x + 2
+
 module Server =
     open System
 
@@ -57,13 +64,6 @@ module Server =
         | [<Constant 1436>] UInt
         | [<Constant true>] UBool
         | UNotConst
-
-    [<Prototype false>]
-    type NoProtoTypes =
-        {
-            [<CompiledName "$TYPES">]
-            Types: string[][]
-        }
 
     [<Remote>]
     let reset1 () =
@@ -330,10 +330,6 @@ module Server =
         let d = a.Pop()
         a.Push("test")
         async { return (d, a) }
-
-    [<Remote>]
-    let f25 () =
-        async { return { Types = [| [| "Serializing record with field $TYPES" |] |] } }
 
     [<Remote>]
     let f27 (xy: struct (int * int)) =
@@ -638,7 +634,7 @@ module Remoting =
                 equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
             }
 
-            Skip "Automatic field rename" {
+            Test "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
                 isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
             }
@@ -669,11 +665,6 @@ module Remoting =
                 equal x "world"
                 equal (s2.Pop()) "test"
                 equal (s2.Pop()) "Hello"
-            }
-
-            Skip "Record with field named $TYPES" {
-                let! x = Server.f25 ()
-                equal x.Types [| [| "Serializing record with field $TYPES" |] |]
             }
 
             Test "Struct" {
