@@ -1224,21 +1224,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Generated _ ->
                     addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) false (getBody false)
                 | A.MemberKind.AttributeConflict m -> error m
-                | A.MemberKind.Remote rp -> 
+                | A.MemberKind.Remote (rp, p) -> 
                     let remotingKind =
                         match mdef.Value.ReturnType with
                         | VoidType -> RemoteSend
                         | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                         | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                         | _ -> RemoteSync // TODO: warning
-                    let handle = 
-                        comp.GetRemoteHandle(
-                            def.Value.FullName + "." + mdef.Value.MethodName,
-                            mdef.Value.Parameters,
-                            mdef.Value.ReturnType
-                        )
+                    let path = comp.GetRemotePath(p, def, mdef.Value.MethodName)
                     let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp, None, None)) false Undefined
+                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, rp, None, None)) false Undefined
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])

@@ -33,21 +33,6 @@ type RemotingKind =
     | RemoteSend
     | RemoteSync
 
-type MethodHandle =
-    {
-        Assembly : string
-        Path : string
-        SignatureHash : int
-    }
-    member this.Pack() =
-        //this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
-        let p = this.Path.Split('.', '+')
-        match p[p.Length - 2 ..] with
-        | [| tn; mn |] ->
-            tn + "/" + mn
-        | _ ->
-            failwith "TypeName and MethodName not found for remote"
-
 [<RequireQualifiedAccess>]
 type ParameterObject =
     | Null
@@ -115,7 +100,7 @@ type CompiledMember =
     | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
-    | Remote of name:string * handle:MethodHandle * isRecordField: bool
+    | Remote of name:string * path:string * isRecordField: bool
 
 type CompiledField =
     | InstanceField of name:string
@@ -586,7 +571,7 @@ module internal Utilities =
         | Macro (_, _, Some f) -> f
         | _ -> m
 
-    type RemoteMethods = IDictionary<MethodHandle, TypeDefinition * Method>
+    type RemoteMethods = IDictionary<string, TypeDefinition * Method>
 
     let getRemoteMethods meta =
         let remotes = Dictionary()
@@ -594,8 +579,11 @@ module internal Utilities =
             c |> Option.iter (fun c ->
             for KeyValue(mDef, m) in c.Methods do
                 match ignoreMacro m.CompiledForm with
-                | Remote (_, handle, _) ->
-                    remotes.Add(handle, (cDef, mDef))
+                | Remote (_, path, _) ->
+                    try
+                        remotes.Add(path, (cDef, mDef))
+                    with _ ->
+                        failwithf "Duplicate remote method path found: %s" path
                 | _ -> ()
             )
         remotes :> RemoteMethods            
@@ -663,7 +651,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "7.0-beta5"
+    let CurrentVersion = "8.0-beta2"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

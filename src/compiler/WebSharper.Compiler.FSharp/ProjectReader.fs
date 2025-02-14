@@ -451,7 +451,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Member.Method (isInstance, mdef) ->
                 addMethod (Some (meth, memdef)) mAnnot mdef N.NoFallback true None Undefined
             | _ -> error "Interface member should be a method"
-        | Some (A.MemberKind.Remote rp) ->
+        | Some (A.MemberKind.Remote (rp, p)) ->
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
@@ -461,12 +461,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                     | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                     | _ -> RemoteSync
-                let handle = 
-                    comp.GetRemoteHandle(
-                        def.Value.FullName + "." + mdef.Value.MethodName,
-                        mdef.Value.Parameters,
-                        mdef.Value.ReturnType
-                    )
+                let path = comp.GetRemotePath(p, def, mdef.Value.MethodName)
                 let pars = Seq.concat meth.CurriedParameterGroups |> List.ofSeq
                 let vars =
                     match pars with 
@@ -476,7 +471,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         |> List.map (fun p ->
                             Id.New(?name = p.Name, mut = false)
                         ) 
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp, None, None)) false None Undefined
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, rp, None, None)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
@@ -1014,7 +1009,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let fTyp = sr.ReadType clsTparams f.FieldType
             let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
             match fAnnot.Kind with
-            | Some (A.MemberKind.Remote rp) ->
+            | Some (A.MemberKind.Remote (rp,  p)) ->
 
                 let args, returnType =
                     match fTyp with
@@ -1043,12 +1038,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
                     | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                     | _ -> RemoteSync
-                let handle = 
-                    comp.GetRemoteHandle(
-                        def.Value.FullName + "." + f.Name,
-                        [],
-                        VoidType
-                    )
+
+                let path = comp.GetRemotePath(p, def, f.Name)
                 let pars =
                     match args with
                     | [ VoidType ] -> []
@@ -1058,7 +1049,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     |> List.map (fun p ->
                         Id.New(?name = None, mut = false)
                     ) 
-                addMethod None fAnnot mdef (N.Remote(remotingKind, handle, vars, rp, Some returnType, Some pars)) false None Undefined
+                addMethod None fAnnot mdef (N.Remote(remotingKind, path, vars, rp, Some returnType, Some pars)) false None Undefined
             | _ -> ()
         )
 

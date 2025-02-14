@@ -26,12 +26,12 @@ namespace WebSharper.Web.Tests
 open WebSharper
 open WebSharper.JavaScript
 
-// Should give a startup-time error "Duplicate remote method found: Server/f3"
-//module Alternate =
-//    module Server =
-//        [<Remote>]
-//        let f3 (x: int) =
-//            x + 2
+module Alternate =
+    module Server =
+        // Without the alternate path, this should give a startup-time error "Duplicate remote method found: Server/f3"
+        [<Remote "Server/f3Alternate">]
+        let f3 (x: int) =
+            x + 2
 
 module Server =
     open System
@@ -513,6 +513,10 @@ module Remoting =
 
             Test "int -> int" {
                 equal (Server.f3 15) 16
+            }
+
+            Test "int -> int Alternate path" {
+                equal (Alternate.Server.f3 15) 17
             }
 
             Test "int -> Async<int>" {

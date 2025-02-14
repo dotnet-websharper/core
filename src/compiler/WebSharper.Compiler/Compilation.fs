@@ -183,12 +183,12 @@ type Compilation(meta: Info, ?hasGraph) =
         else
             name
     
-    member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
-        {
-            Assembly = this.AssemblyName
-            Path = path
-            SignatureHash = hash (args, ret)
-        }
+    member this.GetRemotePath(attrPath: option<string>, typ: TypeDefinition, name: string) =
+        attrPath |> Option.defaultWith (fun () -> 
+            let typShortName =
+                typ.Value.FullName.Split('.', '+') |> Array.last
+            typShortName + "/" + name
+        ) 
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
         if this.SingleNoJSErrors then
@@ -2083,7 +2083,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let body = 
                     match nr.Kind with
-                    | N.Remote (kind, handle, args, rh, rt, argTypes) ->
+                    | N.Remote (kind, path, args, rh, rt, argTypes) ->
 
                         let name, m =
                             match kind with
@@ -2176,7 +2176,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let callRP = 
                             Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, 
                             [ 
-                                Value (String (handle.Pack()))
+                                Value (String path)
                                 NewArray encodedArgs 
                             ]) 
                             |> decode
