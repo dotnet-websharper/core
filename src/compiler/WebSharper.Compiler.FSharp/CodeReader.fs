@@ -729,7 +729,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             tr value
         // a fix around struct record copying
         | P.Let((id, P.AddressOf value, _), body) when id.IsCompilerGenerated && id.LogicalName = "inputRecord" ->
-            let i = namedId (Some env) false id
+            let i = namedId id
             let trValue = tr value
             let env = env.WithVar(i, id, LocalVar)
             let inline tr x = transformExpression env x
