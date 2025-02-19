@@ -24,7 +24,7 @@ open System.Runtime.CompilerServices
 
 open WebSharper
 
-[<Extension; Sealed>]
+[<Sealed>]
 type JavaScriptExtensions =
     /// Treats this object as a JavaScript.Object
     [<Extension; Inline "$0">]
@@ -102,7 +102,6 @@ type JavaScriptExtensions =
     [<Extension; Inline "$0">]
     static member ToJS(x: double) = X<Number>
 
-[<Extension>]
 type DomElementExtensions =
     [<Extension>]
     static member inline AsHTMLElement(t: Dom.Element) = t |> As<HTMLElement>

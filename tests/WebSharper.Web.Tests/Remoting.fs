@@ -26,6 +26,13 @@ namespace WebSharper.Web.Tests
 open WebSharper
 open WebSharper.JavaScript
 
+module Alternate =
+    module Server =
+        // Without the alternate path, this should give a startup-time error "Duplicate remote method found: Server/f3"
+        [<Remote "Server/f3Alternate">]
+        let f3 (x: int) =
+            x + 2
+
 module Server =
     open System
 
@@ -57,13 +64,6 @@ module Server =
         | [<Constant 1436>] UInt
         | [<Constant true>] UBool
         | UNotConst
-
-    [<Prototype false>]
-    type NoProtoTypes =
-        {
-            [<CompiledName "$TYPES">]
-            Types: string[][]
-        }
 
     [<Remote>]
     let reset1 () =
@@ -332,10 +332,6 @@ module Server =
         async { return (d, a) }
 
     [<Remote>]
-    let f25 () =
-        async { return { Types = [| [| "Serializing record with field $TYPES" |] |] } }
-
-    [<Remote>]
     let f27 (xy: struct (int * int)) =
         let (struct (x, y)) = xy
         struct (x + 1, y + 1)
@@ -519,6 +515,10 @@ module Remoting =
                 equal (Server.f3 15) 16
             }
 
+            Test "int -> int Alternate path" {
+                equal (Alternate.Server.f3 15) 17
+            }
+
             Test "int -> Async<int>" {
                 let! x = Server.f4 8
                 equal x 9
@@ -638,7 +638,7 @@ module Remoting =
                 equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
             }
 
-            Skip "Automatic field rename" {
+            Test "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
                 isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
             }
@@ -669,11 +669,6 @@ module Remoting =
                 equal x "world"
                 equal (s2.Pop()) "test"
                 equal (s2.Pop()) "Hello"
-            }
-
-            Skip "Record with field named $TYPES" {
-                let! x = Server.f25 ()
-                equal x.Types [| [| "Serializing record with field $TYPES" |] |]
             }
 
             Test "Struct" {

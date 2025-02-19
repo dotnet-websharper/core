@@ -23,6 +23,7 @@ open System
 open System.IO.Pipes
 open System.Threading
 open System.IO
+open System.Runtime.InteropServices
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
@@ -102,12 +103,18 @@ let startListening() =
         options.Encoder <-System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         let res = System.Text.Json.JsonSerializer.Serialize(newMessage, options)
         let bytes = System.Text.Encoding.UTF8.GetBytes res
+        serverPipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
         serverPipe.Write(bytes, 0, bytes.Length)
         serverPipe.Flush()
     }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
 
     let sendFinished (serverPipe: NamedPipeServerStream) = sprintf "x: %i" |> send serverPipe
 
@@ -273,11 +280,16 @@ let startListening() =
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
                           NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
-                          PipeTransmissionMode.Message, // Transmissione Mode
+                          PipeTransmissionMode.Byte, // using Byte for Linux support
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+
+        if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            System.IO.File.SetUnixFileMode(
+                pipeName, System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+        
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
-        serverPipe.ReadMode <- PipeTransmissionMode.Message
+        serverPipe.ReadMode <- PipeTransmissionMode.Byte
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }

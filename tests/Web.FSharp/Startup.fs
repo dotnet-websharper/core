@@ -24,7 +24,7 @@ type Startup () =
             app.UseDeveloperExceptionPage() |> ignore
 
         app.UseAuthentication()
-            .UseWebSharperScriptRedirect()
+            .UseWebSharperScriptRedirect(startVite = true)
             .UseStaticFiles()
             .UseWebSharper()
             .Run(fun context ->

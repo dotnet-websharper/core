@@ -88,7 +88,8 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                 new WebSharper.Web.InlineControl(() => SayHello()),
                                 new WebSharper.Web.InlineControl(() => SayHello("ok")),
                                 new WebSharper.Web.InlineControl(() => Hello)
-                                )))
+                                ),
+                        Bundle: "csharptestshome"))
                 .With<Person>((ctx, person) =>
                     Content.Page(
                         Body:

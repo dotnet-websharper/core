@@ -3,7 +3,7 @@
   build: {
     rollupOptions: {
       input: [
-        "./Scripts/WebSharper/Web.FSharp/all.js"
+        "./Scripts/WebSharper/Web.FSharp/root.js"
       ]
     }
   }

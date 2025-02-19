@@ -30,6 +30,13 @@ open WebSharper.Testing
 type E3 [<JavaScript>] (message) =
     inherit exn(message)
 
+module Server =
+    [<Remote>]
+    let error() : Async<string> = 
+        async {
+            return failwith "Server error in remote method"
+        }
+
 [<JavaScript>]
 let Tests =
 
@@ -105,4 +112,26 @@ let Tests =
             isTrue (box (E3("a")) :? exn)
         }
 
+        Test "Print message #1402" {
+            let msg =
+                try
+                    failwithf "My %s message" "error"
+                with
+                | exn ->
+                    sprintf "%A" exn
+            equal msg "Error: My error message"
+        }
+
+        Test "Print message from server error #1402" {
+            let! msg =
+                async {
+                    try
+                        let! msg = Server.error()    
+                        return msg
+                    with
+                    | exn ->
+                        return sprintf "%A" exn
+                }
+            equal msg "Error: Response status is not 200: 500"
+        }
     }

@@ -68,6 +68,9 @@ type IntWithAdd(x) =
     static member (~-) (x: IntWithAdd) =
        IntWithAdd(-x.Value * 2)
 
+    static member (~~~) (x: IntWithAdd) =
+       IntWithAdd(~~~x.Value * 2)
+
     static member (|||) (x: IntWithAdd, y: IntWithAdd) =
        IntWithAdd((x.Value ||| y.Value) + 1)
 
@@ -290,6 +293,8 @@ let Tests =
             let u2 = IntWithAdd(6)
             equal (u1 ||| u2).Value ((5 ||| 6) + 1)
             equal (u1 |?| u2).Value ((5 ||| 6) + 2)
+            let u3 = IntWithAdd(1000)
+            equal (~~~u3).Value -2002
         }
 
         Test "custom shift op" {

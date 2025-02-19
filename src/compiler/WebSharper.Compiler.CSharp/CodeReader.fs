@@ -2910,7 +2910,7 @@ let rec private isWebControlType (sr: SymbolReader) (c: INamedTypeSymbol) =
 let contentType =
     TypeDefinition {
         Assembly = "WebSharper.Sitelets"
-        FullName = "WebSharper.Sitelets.Content`1"
+        FullName = "WebSharper.Sitelets.Content"
     }
 
 let uiContentType =
@@ -2924,15 +2924,27 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
 
     let getBundleMethod (typ: TypeDefinition, m: Method, arguments: SeparatedSyntaxList<ArgumentSyntax>) =
         if typ = contentType && m.Value.MethodName.StartsWith "Bundle" then
-            match env.SemanticModel.GetConstantValue(arguments[1]).Value with
+            match env.SemanticModel.GetConstantValue(arguments[0].Expression).Value with
             | :? string as value when value <> null ->
                 Ok [ value ]
             | _ ->
-                Error $"Content.Bundle argument must be constant string %s{m.Value.MethodName} %O{arguments[1]}"   
+                Error $"Content.Bundle's Bundle argument must be constant string"   
         elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
-            match env.SemanticModel.GetConstantValue(Seq.last arguments).Value with
-            | :? string as value when value <> null ->
-                Ok [ value ]
+            let bundleArgument =
+                arguments |> Seq.tryFind (fun a -> 
+                    a.NameColon |> Option.ofObj |> Option.exists (fun nc ->
+                        match env.SemanticModel.GetSymbolInfo(nc.Name).Symbol with
+                        | :? IParameterSymbol as symbol -> symbol.Name = "Bundle"
+                        | _ -> false
+                    )
+                )
+            match bundleArgument with 
+            | Some ba -> 
+                match env.SemanticModel.GetConstantValue(ba.Expression).Value with
+                | :? string as value when value <> null ->
+                    Ok [ value ]
+                | _ ->
+                    Error $"Content.Page's Bundle argument must be constant string"   
             | _ ->
                 Ok []
         else

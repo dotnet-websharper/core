@@ -7,7 +7,7 @@ strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 4.8.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 4.11.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Configuration.ConfigurationManager 4.7.0
@@ -45,7 +45,7 @@ group fcs
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service
+    nuget FSharp.Compiler.Service ~> 43.8.400
 
 group test
     source https://api.nuget.org/v3/index.json

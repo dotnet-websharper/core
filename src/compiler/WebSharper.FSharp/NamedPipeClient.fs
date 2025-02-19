@@ -24,6 +24,7 @@ open System.Text
 
 open System.Diagnostics
 open System.IO.Pipes
+open System.Runtime.InteropServices
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
 
@@ -49,11 +50,15 @@ let (|Finish|_|) (str: string) =
     else
         None
 
-
 let sendCompileCommand args projectDir =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
     let exeName =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
             "wsfscservice.exe"
@@ -114,6 +119,7 @@ let sendCompileCommand args projectDir =
                             return unrecognizedMessageErrorCode |> Some
                     }
                 
+                clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
                 clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
                 clientPipe.WaitForPipeDrain()
@@ -141,7 +147,7 @@ let sendCompileCommand args projectDir =
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Message
+    clientPipe.ReadMode <- PipeTransmissionMode.Byte
     let options = System.Text.Json.JsonSerializerOptions()
     options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)

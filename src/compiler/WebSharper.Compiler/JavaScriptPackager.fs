@@ -107,6 +107,26 @@ type ThisTransformer() =
             Var id
         | _ -> Var id
 
+type LazyClassTransformer(needsLazy) =
+    inherit Transformer()
+
+    override this.TransformLazyClass(withoutLazy, withLazy) = 
+        if needsLazy then
+            withLazy
+        else
+            withoutLazy
+
+    override this.TransformImport(defaultImport, fullImport, namedImports, fromModule) =
+        if needsLazy || fromModule <> "../WebSharper.Core.JavaScript/Runtime.js" then
+            Import(defaultImport, fullImport, namedImports, fromModule)
+        else
+            let namedImportsWithoutLazy =
+                namedImports |> List.filter (fun (n, _) -> n <> "Lazy")
+            if List.isEmpty namedImportsWithoutLazy && Option.isNone defaultImport then
+                Empty
+            else
+                Import(defaultImport, fullImport, namedImportsWithoutLazy, fromModule)
+
 type EntryPointStyle =
     | OnLoadIfExists
     | ForceOnLoad
@@ -123,6 +143,15 @@ type PackageContent =
             match this with
             | SingleType typ -> [| typ |]
             | Bundle (typs, _, _) -> typs
+
+type PackageTypeResults =
+    {
+        Statements: Statement list
+        BundleExports: Dictionary<Address, Id>
+        Imports: seq<AST.CodeResource>
+        BaseClass: option<TypeDefinition> 
+        HasStaticConstructor: bool
+    }
 
 let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
     let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
@@ -568,6 +597,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
+    let mutable baseClass: option<TypeDefinition> = None
+    let mutable hasStaticConstructor = false
+
     let packageClass (typ: TypeDefinition) (a: Address) (ct: M.CustomTypeInfo) (c: M.ClassInfo) =
         match classRes.TryGetValue typ with 
         | false, _ -> ()
@@ -900,7 +932,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
 
-        let baseType, isObjBase =
+        let baseType, bc, isObjBase =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
                 | Some _ as res -> 
@@ -908,8 +940,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | _ -> 
                     if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress false ba), c.BaseClass.Value.Entity = Definitions.Object
-            | _ -> None, false
+            | Some (ba, _, _) -> Some (getOrImportAddress false ba), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
+            | _ -> None, None, false
+
+        baseClass <- bc
 
         if constructors.Count > 0 then
             let index = Id.New("i", mut = false)
@@ -1128,15 +1162,32 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         //    if c.HasWSPrototype then
         //        packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
-        if output <> O.TypeScriptDeclaration then
-            match c.StaticConstructor with
-            | Some st -> 
-                members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
-            | _ -> ()
+        hasStaticConstructor <- 
+            if output <> O.TypeScriptDeclaration then
+                match c.StaticConstructor with
+                | Some st -> 
+                    members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
+                    true
+                | _ ->
+                    false
+            else
+                false
 
-        let packageLazyClass classExpr =
-            addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-            addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))                
+        let packageLazyClass classDecl classExpr =
+            if isSingleType then
+                let withoutLazy =
+                    classDecl
+                    |> bTr().TransformStatement 
+                    |> SubstituteVar(outerClassId, Var classId).TransformStatement
+                let withLazy =
+                    Block [
+                        VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
+                        exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))              
+                    ]
+                addStatement <| LazyClass(withoutLazy, withLazy)    
+            else
+                addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
+                addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))                
 
         let packageClass classDecl = 
             let trClassDecl =
@@ -1153,12 +1204,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let implements =
                 if output = O.JavaScript then [] else
                 c.Implements |> List.map (tsTypeOfConcrete gsArr)
-            let classDecl() = Class(classId, baseType, implements, List.ofSeq members, cgen)
+            let classDecl = Class(classId, baseType, implements, List.ofSeq members, cgen)
             match baseType with
             | Some b ->
-                let needsLazy = (not isSingleType || Option.isNone c.Type) && output <> O.TypeScriptDeclaration
+                let needsLazy = 
+                    output <> O.TypeScriptDeclaration
+                    && (not isSingleType || Option.isNone c.Type) 
+                    //&& needsLazyCallback |> Option.forall (fun c -> c imports.Keys baseClass)
                 if needsLazy then
-                    packageLazyClass <| fun i ->
+                    packageLazyClass classDecl <| fun i ->
                         if isObjBase then
                             classExpr i
                         else
@@ -1167,13 +1221,16 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                 classExpr i
                             ]
                 else
-                    packageClass <| classDecl()
+                    packageClass classDecl
             | None ->
-                let needsLazy = (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) && output <> O.TypeScriptDeclaration
+                let needsLazy = 
+                    output <> O.TypeScriptDeclaration 
+                    && (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) 
+                    //&& needsLazyCallback |> Option.forall (fun c -> c imports.Keys baseClass)
                 if needsLazy then
-                    packageLazyClass <| classExpr
+                    packageLazyClass classDecl classExpr
                 else
-                    packageClass <| classDecl()
+                    packageClass classDecl
 
     let packageInterface (typ: TypeDefinition) (i: M.InterfaceInfo) =
         match classRes.TryGetValue typ with 
@@ -1247,7 +1304,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | _ -> ()
         
     if statements.Count = 0 then 
-        [], bundleExports 
+        {
+            Statements = []
+            BundleExports = bundleExports 
+            Imports = Seq.empty
+            BaseClass = None
+            HasStaticConstructor = false
+        }
     else
         if jsUsed.Count > 0 then
             let namedImports = 
@@ -1291,17 +1354,91 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     else
                         "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
+        {
+            Statements = List.ofSeq (Seq.concat [ declarations; statements ])
+            BundleExports = bundleExports
+            Imports = imports.Keys
+            BaseClass = baseClass
+            HasStaticConstructor = hasStaticConstructor
+        }
 
+let makeFileName (typ: TypeDefinition) =
+    typ.Value.FullName.Replace('+', '.')
+
+let analyzeLazyClasses (pkgs: ResizeArray<string * TypeDefinition * PackageTypeResults>) =
+    
+    let pkgLookup = Dictionary()
+    pkgs |> Seq.iteri (fun i (fn, td, pkg) ->
+        let m = { Assembly = td.Value.Assembly; Name = makeFileName td }
+        pkgLookup.Add(m, i) 
+    )
+    
+    let pkgLookupByType = Dictionary()
+    pkgs |> Seq.iteri (fun i (fn, td, pkg) ->
+        pkgLookupByType.Add(td, i) 
+    )
+    
+    let pkgsToProcess =  HashSet()
+    pkgs |> Seq.iteri (fun i _ ->
+        pkgsToProcess.Add(i) |> ignore 
+    )
+
+    let neededLazy = HashSet()
+    let rec processPkg (i: int) =
+        pkgsToProcess.Remove(i) |> ignore
         
-        List.ofSeq (Seq.concat [ declarations; statements ]), bundleExports
+        let fn, td, pkg = pkgs.[i]
+        let baseNeedsLazy() =
+            match pkg.BaseClass with
+            | Some bc ->
+                match pkgLookupByType.TryGetValue bc with
+                | true, j -> 
+                    if pkgsToProcess.Contains j then
+                        processPkg j
+                    neededLazy.Contains j
+                | _ -> false
+            | _ -> false
+        let hasCircularDeps() =
+            let deps = HashSet()
+            let mutable circularDepFound = false
+            let rec visitImport imp =
+                match pkgLookup.TryGetValue imp with
+                | true, j ->
+                    if i = j then
+                        circularDepFound <- true
+                    else
+                        if deps.Add j then
+                            let _, _, pkgj = pkgs.[j]
+                            for imp in pkgj.Imports do
+                                if not circularDepFound then
+                                    visitImport imp
+                | _ -> ()
+            for imp in pkg.Imports do
+                if not circularDepFound then
+                    visitImport imp
+            circularDepFound
+        let needsLazy = pkg.HasStaticConstructor || baseNeedsLazy() || hasCircularDeps()
+        if needsLazy then
+            neededLazy.Add(i) |> ignore
+        let tr = LazyClassTransformer(needsLazy)
+        let trPkg =
+            { pkg with
+                Statements = pkg.Statements |> List.map tr.TransformStatement
+            }
+        pkgs.[i] <- fn, td, trPkg
+    while pkgsToProcess.Count > 0 do
+        let i = (pkgsToProcess |> Seq.head)
+        processPkg i
+
+
 
 let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p, _ = packageType output refMeta current asmName (SingleType typ)
-        if not (List.isEmpty p) then
-            pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
+        let pkg = packageType output refMeta current asmName (SingleType typ)
+        if not (List.isEmpty pkg.Statements) then
+            pkgs.Add(makeFileName typ, typ, pkg)
     for typ in current.Interfaces.Keys do
         classes.Remove(typ) |> ignore
         pkgTyp typ
@@ -1309,9 +1446,10 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = asmName; FullName = "$EntryPoint" }     
-        let p, _ = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
-        pkgs.Add("$EntryPoint", p)
-    pkgs.ToArray()
+        let pkg = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
+        pkgs.Add("$EntryPoint", epTyp, pkg)
+    analyzeLazyClasses pkgs
+    pkgs |> Seq.map (fun (fn, _, pkg) -> fn, pkg.Statements) |> Array.ofSeq
 
 let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let types =
@@ -1319,8 +1457,8 @@ let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint
         |> Seq.distinct
         |> Array.ofSeq
 
-    let p, _ = packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
-    p
+    let pkg = packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
+    pkg.Statements
 
 let getImportedModules (pkg: Statement list) =
     pkg
@@ -1543,7 +1681,8 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     s.Add(m) |> ignore
                     exportedTypes.Add(td, s)
 
-        results.Add(b.Key, packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)))
+        let pkg = packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
+        results.Add(b.Key, (pkg.Statements, pkg.BundleExports))
 
     results
     

@@ -213,6 +213,8 @@ type InternalProxyAttribute private () =
 type RemoteAttribute() =
     inherit A()
 
+    new (path: string) = RemoteAttribute()
+
 /// Annotates members with dependencies. The type passed to the constructor
 /// must implement Resources.IResourceDefinition and a default constructor.
 [<Sealed; U(T.Assembly|||T.Class|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct,
