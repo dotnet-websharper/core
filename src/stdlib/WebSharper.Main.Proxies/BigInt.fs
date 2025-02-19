@@ -45,6 +45,7 @@ module internal BigIntProxyHelpers =
         |> fun x -> "0b" + x
 
 [<Proxy(typeof<System.Numerics.BigInteger>)>]
+[<Type "BigInt">]
 [<Prototype(false)>]
 type private BigIntegerProxy =     
 
@@ -70,7 +71,17 @@ type private BigIntegerProxy =
     static member CtorProxy (v: byte[]) =
         let binString = BigIntProxyHelpers.ToBinaryStr v
         As<BigIntegerProxy> (WebSharper.JavaScript.BigInt binString)
+            
+    [<Inline "BigInt($s)"; Pure>]
+    static member Parse(s: string) = X<bigint>
 
+    [<Inline>]
+    static member TryParse(s: string, r: byref<bigint>) : bool =
+        try
+            r <- bigint.Parse s
+            true
+        with _ -> false
+    
     [<Inline "$n1 + $n2">]
     static member op_Addition(n1 : bigint, n2 : bigint) = X<bigint>
 
