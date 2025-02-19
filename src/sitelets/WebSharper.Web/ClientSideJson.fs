@@ -58,6 +58,11 @@ module Provider =
         fun () (x: System.DateTimeOffset) ->
             box (New [ "d" => x.DateTime.JS.ToISOString(); "o" => x?o ])
 
+    let EncodeBigInteger () =
+        ()
+        fun () (x: System.Numerics.BigInteger) ->
+            box (x.ToString())
+
     let EncodeList (encEl: unit -> 'T -> obj) : (unit -> list<'T> -> obj) =
         ()
         fun () (l: list<'T>) ->
@@ -186,6 +191,11 @@ module Provider =
                 System.DateTimeOffset(Date(x?d: string).Self, System.TimeSpan.FromMinutes x?o)
             else 
                 System.DateTimeOffset(Date(x :?> string).Self, System.TimeSpan.Zero)
+
+    let DecodeBigInteger() =
+        ()
+        fun () (x: obj) ->
+            bigint.Parse (As x)
 
     let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
         ()
@@ -484,6 +494,8 @@ module Macro =
                     ok (call "DateTime" [])
                 | C (T "System.DateTimeOffset", []) ->
                     ok (call "DateTimeOffset" [])
+                | C (T "System.Numerics.BigInteger", []) ->
+                    ok (call "BigInteger" [])
                 | C (td, args) ->                    
                     let defaultEnc() = 
                         //let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"

@@ -737,6 +737,13 @@ module ClientSideJson =
                 equalAsync (f o) o
             }
 
+            Test "BigInteger" {
+                let o = 10000000000000000000I
+                let f (r: System.Numerics.BigInteger) =
+                    echo "BigInteger" (Json.Serialize r) Json.Decode<System.Numerics.BigInteger>
+                equalAsync (f o) o
+            }
+
             Test "obj" {
                 equalMsgAsync (echoObj jsonBaseUri null) null "null"
                 property (fun (x: int) -> Do { equalMsgAsync (echoObj jsonBaseUri x) x "int" })

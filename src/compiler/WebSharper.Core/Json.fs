@@ -575,7 +575,15 @@ let serializers =
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
-    add encDecimal decDecimal d   
+    let encBigInt (d: bigint) =
+        String (d.ToString())
+    let decBigInt = function
+        | String d as x ->
+            match System.Numerics.BigInteger.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<bigint>)) 
+        | x -> raise (DecoderException(x, typeof<bigint>))
+    add encBigInt decBigInt d   
     d
 
 let tupleEncoder dE (i: FormatSettings) (ta: TAttrs) =
