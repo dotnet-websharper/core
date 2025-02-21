@@ -493,11 +493,11 @@ type private LinqProxy =
 
     [<Inline>]
     static member LongCount<'T>(this: seq<'T>) : int64 =
-        As(Enumerable.Count(this))
+        int64 (Enumerable.Count(this))
 
     [<Inline>]
     static member LongCount<'T>(this: seq<'T>, predicate: Func<'T, bool>) : int64 =
-        As(Enumerable.Count(this, predicate))
+        int64 (Enumerable.Count(this, predicate))
 
     [<Inline>]
     static member Max(this: seq<Nullable<int>>) : Nullable<int> =

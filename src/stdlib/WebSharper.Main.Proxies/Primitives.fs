@@ -41,6 +41,22 @@ type internal N =
         if ok then r <- As<'T> x
         ok
 
+    static member ParseBigInt<'T>(s: string, min: 'T, max: 'T, overflowMsg) =
+        let x = bigint.Parse s
+        if x !==. (x -. (x %. 1L)) then
+            raise (System.FormatException "Input string was not in a correct format.")
+        elif (x <. min) || (x >. max) then
+            raise (System.OverflowException overflowMsg)
+        else As<'T> x
+
+    static member TryParseBigInt<'T>(s: string, min: 'T, max: 'T, r: outref<'T>) =
+        match bigint.TryParse s with
+        | true, x ->
+            let ok = x ===. (x -. (x %. 1L)) && (x >=. min) && (x <=. max)
+            if ok then r <- As<'T> x
+            ok
+        | _ -> false
+
     static member ParseBool(s: string) =
         match s.ToLower() with
         | "true" -> true
@@ -126,26 +142,26 @@ type internal NUI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
 [<Name "Int64">]
-[<Type "number">]
+[<Type "BigInt">]
 type internal NI64 =
 
     static member Parse(s: string) : System.Int64 =
-        N.Parse(s, System.Int64.MinValue, System.Int64.MaxValue, "Value was either too large or too small for an Int64.")
+        N.ParseBigInt(s, System.Int64.MinValue, System.Int64.MaxValue, "Value was either too large or too small for an Int64.")
 
     static member TryParse(s: string, r: outref<System.Int64>) : bool =
-        N.TryParse(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
+        N.TryParseBigInt(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
-[<Type "number">]
+[<Type "BigInt">]
 type internal NUI64 =
 
     static member Parse(s: string) : System.UInt64 =
-        N.Parse(s, System.UInt64.MinValue, System.UInt64.MaxValue, "Value was either too large or too small for an UInt64.")
+        N.ParseBigInt(s, System.UInt64.MinValue, System.UInt64.MaxValue, "Value was either too large or too small for an UInt64.")
 
     static member TryParse(s: string, r: outref<System.UInt64>) : bool =
-        N.TryParse(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
+        N.TryParseBigInt(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]

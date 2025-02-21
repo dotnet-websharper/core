@@ -38,6 +38,7 @@ type Literal =
     | Decimal of Value:decimal
     | ByteArray of Value:byte[]
     | UInt16Array of Value:uint16[]
+    | JSNumber of Value: string
 
     static member (!~) a = Value a
 

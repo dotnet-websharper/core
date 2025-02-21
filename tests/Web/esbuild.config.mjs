@@ -9,7 +9,7 @@ files.forEach(file => {
     {
       entryPoints: ['./wwwroot/Scripts/WebSharper/Web/' + file],
       bundle: true,
-      minify: true,
+      minify: false,
       format: 'iife',
       outfile: 'wwwroot/Scripts/WebSharper/' + file,
       globalName: 'wsbundle'

@@ -29,7 +29,7 @@ type private TimeSpanProxy =
     [<Inline "0">]
     new () = {}
 
-    [<Inline "$ticks / 1E4">]
+    [<Inline "Number($ticks) / 1E4">]
     new (ticks: int64) = {}
 
     [<Inline "(($h * 60 + $m) * 60 + $s) * 1E3">]
@@ -82,7 +82,7 @@ type private TimeSpanProxy =
         with [<Inline "$this">] get () = X<float>
 
     member this.Ticks
-        with [<Inline "$this * 1E4">] get() = X<int64>
+        with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
 
     [<Inline "-$this">]
     member this.Negate() = X<TS>
@@ -112,7 +112,7 @@ type private TimeSpanProxy =
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<TS>
 
-    [<Inline "$ticks / 1E4">]
+    [<Inline "Number($ticks) / 1E4">]
     static member FromTicks(ticks: int64) = X<TS>
 
     static member Zero

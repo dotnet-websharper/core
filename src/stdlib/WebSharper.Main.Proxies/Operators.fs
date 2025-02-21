@@ -148,7 +148,13 @@ let ( ~- ) (x: 'T) = X<'T>
 [<Macro(typeof<M.Arith>)>]
 let ( ~~~ ) (x: 'T) = X<'T>
 
-[<Macro(typeof<M.Op>)>]
+[<Name "bigIntAbs">]
+let BigIntAbs (x: int64) =
+    match x with
+    | n when n < 0L -> -x
+    | _             -> x
+
+[<Macro(typeof<M.Abs>)>]
 [<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>
 
@@ -272,9 +278,12 @@ let ToInt32 (x: 'T) = X<int32>
 let toUInt (x: float) : int =
     (if x < 0. then Math.Ceil(x) else Math.Floor(x)) >>>. 0 |> As<int>
 
+[<Inline "4294967296">]
+let intRange = X<int>
+
 let toInt (x: float) : int =
     let u = toUInt x
-    if u >= As<int> 2147483648L then u - As<int> 4294967296L else u
+    if u > 2147483647 then u - As<int> intRange else u
 
 [<Inline "$x">]
 let ToEnum<'T> (x: int) = X<'T>
@@ -328,6 +337,13 @@ let Round (x: 'T) = X<'T>
 
 [<Inline "$x">]
 let CreateSequence (x: seq<'T>) = X<seq<'T>>
+
+[<Name "bigIntSign">]
+let BigIntSign (x: int64) =
+    match x with
+    | 0L            -> 0
+    | n when n < 0L -> -1
+    | _             -> 1
 
 [<Macro(typeof<M.Sign>); JavaScript>]
 let Sign<'T> (x: 'T) =

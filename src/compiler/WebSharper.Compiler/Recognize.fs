@@ -401,17 +401,10 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
     | S.Conditional (a, b, c) ->
         Conditional (trE a, trE b, trE c)
     | S.Constant a -> 
-        let rN n =
-            match System.Int64.FromString n with
-            | Some i -> Int64 i
-            | None ->
-                match System.Double.FromString n with
-                | Some i -> Double i
-                | None -> raise RecognitionError
         match a with
         | S.False -> Bool false
         | S.Null -> Null
-        | S.Number n -> rN n
+        | S.Number n -> JSNumber n
         | S.String x -> String x
         | S.True -> Bool true
         |> Value

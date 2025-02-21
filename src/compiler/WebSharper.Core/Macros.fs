@@ -110,11 +110,12 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
             else
                 x, y, id
         let resm =
-            if op = BinaryOperator.``/`` then
+            if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) &&
+                isIn bigIntegralTypes t then
+                    Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
+            elif op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
                 then (a ^/ b) ^>> !~(Int 0) |> MacroOk
-                elif isIn bigIntegralTypes t
-                then MathTrunc (a ^/ b) |> MacroOk
                 elif isIn scalarTypes t
                 then a ^/ b |> MacroOk
                 else traitCallOp c [a; b]
@@ -171,7 +172,10 @@ type Arith() =
             match c.Method.Generics with
             | t :: _ ->
                 if isIn scalarTypes t then
-                    Unary(op, a) |> MacroOk 
+                    if op = UnaryOperator.``+`` then
+                        a |> MacroOk
+                    else
+                        Unary(op, a) |> MacroOk 
                 else traitCallOp c c.Arguments
             | _ -> MacroError "Arith macro: expecting a type parameter"
         | [ a; b ] ->
@@ -500,7 +504,11 @@ type NumericMacro() =
         | UnaryOpName op ->
             checkCorrectType <| fun () ->
                 match c.Arguments with
-                | [x] -> Unary (op, x) |> MacroOk
+                | [x] -> 
+                    if op = UnaryOperator.``+`` then
+                        x |> MacroOk
+                    else
+                        Unary (op, x) |> MacroOk
                 | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
             checkCorrectType <| fun () ->
@@ -780,6 +788,59 @@ type Op() =
             | _ ->
                 MacroError (sprintf "Op macro error on method %s, type not supported: %O" me.MethodName t)
 
+module Definitions =
+    let opModule =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.Operators"
+        }
+
+    let bigIntAbsMeth =
+        Method {
+            MethodName = "BigIntAbs"
+            Parameters = [ NonGenericType Definitions.Int64 ]
+            ReturnType = NonGenericType Definitions.Int64
+            Generics = 0      
+        }    
+
+    let bigIntSignMeth =
+        Method {
+            MethodName = "BigIntSign"
+            Parameters = [ NonGenericType Definitions.Int64 ]
+            ReturnType = NonGenericType Definitions.Int
+            Generics = 0      
+        }
+
+[<Sealed>]
+type Abs() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let me = m.Entity.Value
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if bigIntegralTypes.Contains ct.Entity.Value.FullName then
+
+                    Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.bigIntAbsMeth, c.Arguments) |> MacroOk
+                elif scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let meth =
+                        Method {
+                            MethodName = me.MethodName
+                            Parameters = me.Parameters |> List.map (fun p -> p.SubstituteGenerics(Array.ofList m.Generics))
+                            ReturnType = me.ReturnType.SubstituteGenerics(Array.ofList m.Generics)
+                            Generics = 0      
+                        }
+                    TraitCall(None, [t], NonGeneric meth, c.Arguments) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Op macro error on method %s, type not supported: %O" me.MethodName t)
+
+
 [<Sealed>]
 type Sign() =
     inherit Macro()
@@ -792,7 +853,14 @@ type Sign() =
         else
             match t with
             | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
+                if bigIntegralTypes.Contains ct.Entity.Value.FullName then
+                    let opModule =
+                        TypeDefinition {
+                            Assembly = "FSharp.Core"
+                            FullName = "Microsoft.FSharp.Core.Operators"
+                        }
+                    Call(None, NonGeneric opModule, NonGeneric Definitions.bigIntSignMeth, c.Arguments) |> MacroOk
+                elif scalarTypes.Contains ct.Entity.Value.FullName then
                     MacroFallback
                 else
                     let signMeth =
