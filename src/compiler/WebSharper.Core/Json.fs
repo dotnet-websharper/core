@@ -575,6 +575,7 @@ let serializers =
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
+    add encDecimal decDecimal d   
     let encBigInt (d: bigint) =
         String (d.ToString())
     let decBigInt = function
