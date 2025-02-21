@@ -154,15 +154,16 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | Double v -> J.Number (string v) |> J.Constant
         | Int    v -> J.Number (string v) |> J.Constant
         | Int16  v -> J.Number (string v) |> J.Constant
-        | Int64  v -> J.Number (string v) |> J.Constant
+        | Int64  v -> J.Number (string v + "n") |> J.Constant
         | SByte  v -> J.Number (string v) |> J.Constant
         | Single v -> J.Number (string v) |> J.Constant
         | String v -> J.String v |> J.Constant
         | UInt16 v -> J.Number (string v) |> J.Constant
         | UInt32 v -> J.Number (string v) |> J.Constant
-        | UInt64 v -> J.Number (string v) |> J.Constant
+        | UInt64 v -> J.Number (string v + "n") |> J.Constant
         | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
+        | JSNumber s -> J.Number s |> J.Constant
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
     | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   

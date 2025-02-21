@@ -60,13 +60,13 @@ type private BigIntegerProxy =
     [<Inline "BigInt($v)">]
     new (v: uint32) = {}
 
-    [<Inline "BigInt(math.floor($v))">]
-    new (v: double) = {}
+    [<Inline "BigInt($v)"; Pure>]
+    new (v: float) = {}
 
-    [<Inline "BigInt(math.floor($v))">]
-    new (v: decimal) = {}
+    [<Inline "BigInt(0)"; Pure>]
+    new () = {}
 
-    [<Inline>]
+    [<Inline; Pure>]
     static member CtorProxy (v: byte[]) =
         let binString = BigIntProxyHelpers.ToBinaryStr v
         As<BigIntegerProxy> (WebSharper.JavaScript.BigInt binString)

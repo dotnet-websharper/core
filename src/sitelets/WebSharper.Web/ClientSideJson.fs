@@ -392,7 +392,6 @@ module Macro =
                             | "System.SByte"   | "System.Byte"
                             | "System.Int16"   | "System.UInt16"
                             | "System.Int32"   | "System.UInt32"
-                            | "System.Int64"   | "System.UInt64"
                             | "System.Single"  | "System.Double"
                             | "System.String"  | "System.Guid"
                             | "WebSharper.Core.Json+Encoded"), []) ->
@@ -437,6 +436,8 @@ module Macro =
                     ok (call "DateTime" [])
                 | C (T "System.DateTimeOffset", []) ->
                     ok (call "DateTimeOffset" [])
+                | C (T ("System.Numerics.BigInteger" | "System.Int64" | "System.UInt64"), []) ->
+                    ok (call "BigInteger" [])
                 | C (td, args) ->                    
                     let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]

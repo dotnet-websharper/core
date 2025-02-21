@@ -163,7 +163,7 @@ type private DateTimeProxy =
         with [<Inline; JavaScript>] get() = As<System.DayOfWeek>(Date(As<int> this).GetDay())
 
     member this.Ticks
-        with [<Inline "$this * 1E4">] get() = X<int64>
+        with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
 
     [<Inline "$this + $t">]
     member this.Add(t: TS) = X<D>

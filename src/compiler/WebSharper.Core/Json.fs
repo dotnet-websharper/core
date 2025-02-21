@@ -563,10 +563,8 @@ let serializers =
     addNumeric System.SByte.TryParse d
     addNumeric System.Int16.TryParse d
     addNumeric System.Int32.TryParse d
-    addNumeric System.Int64.TryParse d
     addNumeric System.UInt16.TryParse d
     addNumeric System.UInt32.TryParse d
-    addNumeric System.UInt64.TryParse d
     addNumeric tryParseSingle d
     addNumeric tryParseDouble d
     let encBool = function
@@ -621,6 +619,33 @@ let serializers =
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
+    let encBigInt (d: bigint) =
+        String (d.ToString())
+    let decBigInt = function
+        | String d as x ->
+            match System.Numerics.BigInteger.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<bigint>)) 
+        | x -> raise (DecoderException(x, typeof<bigint>))
+    add encBigInt decBigInt d   
+    let encInt64 (d: int64) =
+        String (d.ToString())
+    let decInt64 = function
+        | String d as x ->
+            match System.Int64.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<int64>)) 
+        | x -> raise (DecoderException(x, typeof<int64>))
+    add encInt64 decInt64 d   
+    let encUInt64 (d: uint64) =
+        String (d.ToString())
+    let decUInt64 = function
+        | String d as x ->
+            match System.UInt64.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<uint64>)) 
+        | x -> raise (DecoderException(x, typeof<uint64>))
+    add encUInt64 decUInt64 d   
     d
 
 let tupleEncoder dE (i: FormatSettings) (ta: TAttrs) =

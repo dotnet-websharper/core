@@ -72,7 +72,7 @@ type AddMacro() =
         | [a; b] ->
             match IgnoreExprSourcePos a, IgnoreExprSourcePos b with
             | Value (Int ai), Value (Int bi) ->
-                !~ (Int64 (int64 (ai + bi))) |> MacroOk
+                !~ (Int (ai + bi)) |> MacroOk
             | _ -> MacroFallback
         | _ -> MacroError "AddMacro error"
 

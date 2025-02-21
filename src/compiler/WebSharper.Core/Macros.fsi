@@ -64,6 +64,11 @@ type Op =
     inherit Macro
 
 [<Sealed>]
+type Abs =
+    new : unit -> Abs
+    inherit Macro
+
+[<Sealed>]
 type Sign =
     new : unit -> Sign
     inherit Macro
