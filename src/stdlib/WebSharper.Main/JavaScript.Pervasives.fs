@@ -119,7 +119,7 @@ let GetJS<'T> (x: obj) (items: seq<string>) =
     let mutable x = x
     for i in items do
         x <- x?(i)
-    As<'T> x    
+    As<'T> x
 
 /// Erases generic parameters inside this expression during WebSharper translation.
 /// You can get use this to translate `defaultof` inside a generic function.
@@ -156,67 +156,343 @@ module Optional =
 [<JavaScript>]
 module DateTime =
     open WebSharper.JavaScript
-    
-    [<Direct("return $str.replace(/(\w)\1*/g, $f)")>]
-    let replace str f = X<string>
 
     [<Inline "new Date($x)">]
     let asJSDate (x: System.DateTime) = X<Date>
 
-    let DateFormatter (date: System.DateTime) (f: string) =
-        let d = asJSDate date
-        let padLeft (minLength: int) (x: string) =
-            if x.Length < minLength then
-                String.replicate (minLength - x.Length) "0" + x
-            else
-                x
-        replace f (fun (m: obj) ->
-            let mString = m |> As<string>
-            match mString.Substring(0, 1) with
-            | "y" ->
-                match mString.Length with
-                | 1 -> d.GetFullYear() % 10 |> string 
-                | 2 -> d.GetFullYear() % 100 |> string |> padLeft 2
-                | 3 -> d.GetFullYear() % 1000 |> string |> padLeft 3
-                | 4 -> d.GetFullYear() |> string |> padLeft 4
-                | 5 -> d.GetFullYear() |> string |> padLeft 5
-                | _ -> mString
-            | "M" ->
-                match mString.Length with
-                | 1 -> d.GetMonth() + 1 |> string 
-                | 2 -> d.GetMonth() + 1 |> string |> padLeft 2
-                | _ -> mString
-            | "d" ->
-                match mString.Length with
-                | 1 -> d.GetMonth() + 1 |> string 
-                | 2 -> d.GetMonth() + 1 |> string |> padLeft 2
-                | _ -> mString
-            | "h" ->
-                let hours = d.GetHours()
-                match mString.Length with
-                | 1 -> (if hours > 12 then hours % 12 else hours) |> string 
-                | 2 -> (if hours > 12 then hours % 12 else hours) |> string |> padLeft 2
-                | _ -> mString
-            | "H" ->
-                let hours = d.GetHours()
-                match mString.Length with
-                | 1 -> hours |> string 
-                | 2 -> hours |> string |> padLeft 2
-                | _ -> mString
-            | "m" ->
-                match mString.Length with
-                | 1 -> d.GetMinutes() |> string 
-                | 2 -> d.GetMinutes() |> string |> padLeft 2
-                | _ -> mString
-            | "s" ->
-                match mString.Length with
-                | 1 -> d.GetSeconds() |> string 
-                | 2 -> d.GetSeconds() |> string |> padLeft 2
-                | _ -> mString
-            | "f" -> d.GetMilliseconds() |> string 
-            | _ -> mString
-        )
+    let private shortDays =
+        [
+            "Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"
+        ]
+
+    let private longDays =
+        [
+            "Sunday"; "Monday"; "Tuesday"; "Wednesday"; "Thursday"; "Friday"; "Saturday"
+        ]
+
+    let private shortMonths =
+        [
+            "Jan"; "Feb"; "Mar"; "Apr"; "May"; "Jun"; "Jul"; "Aug"; "Sep"; "Oct"; "Nov"; "Dec"
+        ]
+
+    let private longMonths =
+        [
+            "January"; "February"; "March"; "April"; "May"; "June"; "July"; "August"; "September"; "October"; "November"; "December"
+        ]
+
+    let private padLeft (minLength: int) (x: string) =
+        if x.Length < minLength then
+            String.replicate (minLength - x.Length) "0" + x
+        else
+            x
+
+    let private padRight (minLength: int) (x: string) =
+        if x.Length < minLength then
+            x + String.replicate (minLength - x.Length) "0"
+        else
+            x
+
+    let private dateOffsetString (d : Date) =
+        // Should this -60000.0 be applied by the caller instead?
+        let offset = d.GetTimezoneOffset() * -60000.0
+        let isMinus = offset < 0
+        let offset = abs offset
+        let hours = int (offset / 3600000.0) |> string |> padLeft 2
+        let minutes = int ((offset % 3600000.0) / 60000.0) |> string |> padLeft 2
+        let sign = if isMinus then "-" else "+"
         
+        sign + hours + ":" + minutes
+
+    let private parseRepeatToken(format : string) (pos : int) (patternChar : char) =
+        let mutable tokenLength = 0
+        let mutable internalPos = pos
+        while internalPos < format.Length && format.[internalPos] = patternChar do
+            internalPos <- internalPos + 1
+            tokenLength <- tokenLength + 1
+
+        tokenLength
+
+    let private parseNextChar (format: string) (pos: int) =
+        if pos >= format.Length - 1 then
+            None
+        else
+            format.[pos + 1] |> Some
+
+    let private parseQuotedString (format: string) (pos: int) =
+        let beginPos = pos
+        // Get the character used to quote the string
+        let quoteChar = format.[pos]
+
+        let mutable result = ""
+        let mutable foundQuote = false
+        let mutable pos = pos
+        let mutable earlyBreak = false
+
+        while (pos < format.Length && not earlyBreak) do
+            pos <- pos + 1
+            let currentChar = format.[pos]
+            if currentChar = quoteChar then
+                foundQuote <- true
+                earlyBreak <- true
+            elif currentChar = '\\' then
+                if pos < format.Length then
+                    pos <- pos + 1
+                    result <- result + string format.[pos]
+                else
+                    // This means that '\' is the last character in the string.
+                    failwith "Invalid string format"
+            else
+                result <- result + string currentChar
+
+        if not foundQuote then
+            // We could not find the matching quote
+            failwith $"Invalid string format could not find matching quote for {quoteChar}"
+
+        (result, pos - beginPos + 1)
+
+    let rec dateToStringWithCustomFormat (d : Date) (format : string) =
+        let mutable cursorPos = 0
+        let mutable tokenLength = 0
+        let mutable result = ""
+
+        let appendToResult (s: string) =
+            result <- result + s
+
+        while cursorPos < format.Length do
+            printfn "cursorPos: %d" cursorPos
+            let token = format.[cursorPos]
+
+            match token with
+            | 'd' ->
+                tokenLength <- parseRepeatToken format cursorPos 'd'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> d.GetDate() |> string |> appendToResult
+                | 2 -> d.GetDate() |> string |> padLeft 2 |> appendToResult
+                | 3 -> shortDays.[d.GetDay()] |> string |> appendToResult
+                | 4 | _ -> longDays.[d.GetDay()] |> string |> appendToResult
+            | 'f' ->
+                tokenLength <- parseRepeatToken format cursorPos 'f'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 | 2 | 3 ->
+                    let precision = 10.0 ** (3.0 - float tokenLength) |> int
+                    let ms = d.GetMilliseconds()
+                    (ms / precision) |> string |> padLeft tokenLength |> appendToResult
+                | 4 | 5 | 6 | 7 ->
+                    let ms = d.GetMilliseconds()
+                    ms |> string |> padRight tokenLength |> appendToResult
+                | _ -> failwith "Input string was not in a correct format."
+            | 'F' ->
+                tokenLength <- parseRepeatToken format cursorPos 'F'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 | 2 | 3 ->
+                    let precision = 10.0 ** (3.0 - float tokenLength) |> int 
+                    let value = d.GetMilliseconds() / precision
+                    if value <> 0 then
+                        value |> string |> padLeft tokenLength |> appendToResult
+                | 4 | 5 | 6 | 7 ->
+                    let value = d.GetMilliseconds()
+                    if value <> 0 then
+                        value |> string |> padLeft 3 |> appendToResult
+                | _ -> failwith "Input string was not in a correct format."
+            | 'g' ->
+                tokenLength <- parseRepeatToken format cursorPos 'g'
+                cursorPos <- cursorPos + tokenLength
+
+                // Behave like CultureInfo.InvariantCulture
+                "A.D." |> appendToResult
+            
+            | 'h' ->
+                tokenLength <- parseRepeatToken format cursorPos 'h'
+                cursorPos <- cursorPos + tokenLength
+
+                let hours = d.GetHours() % 12
+                
+                match tokenLength with
+                | 1 -> 
+                    if hours = 0 then
+                        "12" 
+                    else
+                        hours |> string
+                | 2 | _ -> 
+                    if hours = 0 then
+                        "12"
+                    else
+                        hours |> string |> padLeft 2
+                |> appendToResult
+
+            | 'H' ->
+                tokenLength <- parseRepeatToken format cursorPos 'H'
+                cursorPos <- cursorPos + tokenLength
+
+                let hours = d.GetHours()
+                match tokenLength with
+                | 1 -> hours |> string
+                | 2 | _ -> hours |> string |> padLeft 2
+                |> appendToResult
+
+            | 'K' -> 
+                tokenLength <- parseRepeatToken format cursorPos 'K'
+                cursorPos <- cursorPos + tokenLength
+
+                dateOffsetString d
+                |> String.replicate tokenLength
+                |> appendToResult
+                
+            | 'm' ->
+                tokenLength <- parseRepeatToken format cursorPos 'm'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> d.GetMinutes() |> string
+                | 2 | _ -> d.GetMinutes() |> string |> padLeft 2
+                |> appendToResult
+
+            | 'M' ->
+                tokenLength <- parseRepeatToken format cursorPos 'M'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> d.GetMonth() + 1 |> string
+                | 2 -> d.GetMonth() + 1 |> string |> padLeft 2
+                | 3 -> shortMonths.[d.GetMonth()] |> string
+                | 4 | _ -> longMonths.[d.GetMonth()] |> string
+                |> appendToResult
+
+            | 's' ->
+                tokenLength <- parseRepeatToken format cursorPos 's'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> d.GetSeconds() |> string
+                | 2 | _ -> d.GetSeconds() |> string |> padLeft 2
+                |> appendToResult
+
+            | 't' ->
+                tokenLength <- parseRepeatToken format cursorPos 't'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> if d.GetHours() < 12 then "A" else "P"
+                | 2 | _ -> if d.GetHours() < 12 then "AM" else "PM"
+                |> appendToResult
+
+            | 'y' ->
+                tokenLength <- parseRepeatToken format cursorPos 'y'
+                cursorPos <- cursorPos + tokenLength
+
+                match tokenLength with
+                | 1 -> d.GetFullYear() % 100 |> string
+                | 2 -> d.GetFullYear() % 100 |> string |> padLeft 2
+                | _ -> d.GetFullYear() |> string |> padLeft tokenLength
+                |> appendToResult
+            | 'z' ->        
+                tokenLength <- parseRepeatToken format cursorPos 'z'
+                cursorPos <- cursorPos + tokenLength
+
+                // WebSharper only support DateTimeKind.Local code to get the offset 
+                // should be adapted if more DateTimeKind are supported in the future
+                let utcOffsetText = dateOffsetString d
+
+                let sign = utcOffsetText.Substring(0, 1)
+                // Hours and minutes are always 2 digits (02, 13, etc.)
+                let hours = utcOffsetText.Substring(1, 2)
+                let minutes = utcOffsetText.Substring(4, 2)
+
+                match tokenLength with
+                | 1 -> 
+                    // Remove leading zero if present
+                    let nonLeadingZero = 
+                        if hours.StartsWith("0") then hours.Substring(1) else hours
+
+                    sign + nonLeadingZero
+                | 2 -> sign + hours
+                | _ -> sign + hours + ":" + minutes
+                |> appendToResult
+
+            | ':' -> 
+                cursorPos <- cursorPos + 1
+                ":" |> appendToResult
+            | '/' -> 
+                cursorPos <- cursorPos + 1
+                "/" |> appendToResult
+            | '\''
+            | '"' -> 
+                let quotedString, quotedStringLenght = parseQuotedString format cursorPos
+                cursorPos <- cursorPos + quotedStringLenght
+                quotedString |> appendToResult
+            | '%' ->
+                // Using a if statement make the code a bit more readable
+                // compared to using a match statement
+                let nextChar = parseNextChar format cursorPos
+                if nextChar.IsSome && nextChar.Value <> '%' then
+                    cursorPos <- cursorPos + 2
+                    dateToStringWithCustomFormat d (string nextChar.Value) |> appendToResult
+                else
+                    failwith "Invalid format string"
+            | '\\' ->
+                match parseNextChar format cursorPos with
+                | Some nextChar2 ->
+                    cursorPos <- cursorPos + 2
+                    string nextChar2 |> appendToResult
+                | None ->
+                    failwith "Invalid format string"
+            | _ ->
+                token |> string |> appendToResult
+                cursorPos <- cursorPos + 1
+
+        result            
+    
+
+    let DateFormatter (date: System.DateTime) (format: string) =
+        let d = asJSDate date
+
+        match format with 
+        | "D" -> 
+            (longDays.[d.GetDay()] |> string)
+            + ", "
+            + (d.GetDate() |> string |> padLeft 2)
+            + " "
+            + (longMonths.[d.GetMonth()] |> string)
+            + " "
+            + (d.GetFullYear() |> string)
+        | "d" -> 
+            (d.GetMonth() + 1 |> string |> padLeft 2)
+            + "/"
+            + (d.GetDate() |> string |> padLeft 2)
+            + "/"
+            + (d.GetFullYear() |> string)
+        | "T" ->
+            (d.GetHours() |> string |> padLeft 2)
+            + ":"
+            + (d.GetMinutes() |> string |> padLeft 2)
+            + ":"
+            + (d.GetSeconds() |> string |> padLeft 2)
+        | "t" ->
+            (d.GetHours() |> string |> padLeft 2)
+            + ":"
+            + (d.GetMinutes() |> string |> padLeft 2)
+        | "O" | "o" -> 
+            (d.GetFullYear() |> string)
+            + "-"
+            + ((d.GetMonth() + 1) |> string |> padLeft 2)
+            + "-"
+            + (d.GetDate() |> string |> padLeft 2)
+            + "T"
+            + (d.GetHours() |> string |> padLeft 2)
+            + ":"
+            + (d.GetMinutes() |> string |> padLeft 2)
+            + ":"
+            + (d.GetSeconds() |> string |> padLeft 2)
+            + "."
+            + (d.GetMilliseconds() |> string |> padLeft 3)
+            + dateOffsetString d
+        | _ -> dateToStringWithCustomFormat d format
 
 module Union =
 // {{ generated by genInterop.fsx, do not modify

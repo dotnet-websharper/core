@@ -209,6 +209,294 @@ let Tests =
             isTrue (DateTime.IsLeapYear 2020)
             isFalse (DateTime.IsLeapYear 2100)
         }
+
+        // ToString with custom format test is split in different parts
+        // otherwise the compilation hangs for ever (seems to be a bug)
+
+        Test "ToString with custom format works (Part #1)" {
+            equal (DateTime(2014, 7, 1, 16, 37, 1, 2).ToString("r d")) "r 1"
+            equal (DateTime(2014, 7, 13, 16, 37, 1, 2).ToString("r d")) "r 13"
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r dd")) "r 01"
+            equal (DateTime(2014, 7, 21, 16, 37, 0).ToString("r dd")) "r 21"
+
+            equal (DateTime(2014, 7, 7, 16, 37, 0).ToString("r ddd")) "r Mon"
+            equal (DateTime(2014, 7, 8, 16, 37, 0).ToString("r ddd")) "r Tue"
+            equal (DateTime(2014, 7, 9, 16, 37, 0).ToString("r ddd")) "r Wed"
+            equal (DateTime(2014, 7, 10, 16, 37, 0).ToString("r ddd")) "r Thu"
+            equal (DateTime(2014, 7, 11, 16, 37, 0).ToString("r ddd")) "r Fri"
+            equal (DateTime(2014, 7, 12, 16, 37, 0).ToString("r ddd")) "r Sat"
+            equal (DateTime(2014, 7, 13, 16, 37, 0).ToString("r ddd")) "r Sun"
+
+            equal (DateTime(2014, 7, 7, 16, 37, 0).ToString("r dddd")) "r Monday"
+            equal (DateTime(2014, 7, 8, 16, 37, 0).ToString("r dddd")) "r Tuesday"
+            equal (DateTime(2014, 7, 9, 16, 37, 0).ToString("r dddd")) "r Wednesday"
+            equal (DateTime(2014, 7, 10, 16, 37, 0).ToString("r dddd")) "r Thursday"
+            equal (DateTime(2014, 7, 11, 16, 37, 0).ToString("r dddd")) "r Friday"
+            equal (DateTime(2014, 7, 12, 16, 37, 0).ToString("r dddd")) "r Saturday"
+            equal (DateTime(2014, 7, 13, 16, 37, 0).ToString("r dddd")) "r Sunday"
+
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r f")) "r 6"
+            equal (DateTime.Parse("2009-06-15T13:45:30.05").ToString("r f")) "r 0"
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r ff")) "r 61"
+            equal (DateTime.Parse("2009-06-15T13:45:30.0050000").ToString("r ff")) "r 00"
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r fff")) "r 617"
+            equal (DateTime.Parse("2009-06-15T13:45:30.0005000").ToString("r fff")) "r 000"
+            // JavaScript Date only support precision to the millisecond so we fill with 0
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r ffff")) "r 6170"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r ffff")) "r 0000"
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r fffff")) "r 61700"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r fffff")) "r 00000"
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r ffffff")) "r 617000"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r ffffff")) "r 000000"
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r fffffff")) "r 6170000"
+        }
+        
+        Test "ToString with custom format works (Part #2)" {
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r F")) "r 6"
+            equal (DateTime.Parse("2009-06-15T13:45:30.05").ToString("r F")) "r "
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r FF")) "r 61"
+            equal (DateTime.Parse("2009-06-15T13:45:30.0050000").ToString("r FF")) "r "
+            equal (DateTime.Parse("2009-06-15T13:45:30.6175425").ToString("r FFF")) "r 617"
+            equal (DateTime.Parse("2009-06-15T13:45:30.0005000").ToString("r FFF")) "r "
+            // JavaScript Date only support precision to the millisecond so we fill with 0
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r FFFF")) "r 617"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r FFFF")) "r "
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r FFFFF")) "r 617"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r FFFFF")) "r "
+            equal (DateTime.Parse("2009-06-15T13:45:30.061").ToString("r FFFFFF")) "r 061"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r FFFFFF")) "r "
+            equal (DateTime.Parse("2009-06-15T13:45:30.617").ToString("r FFFFFFF")) "r 617"
+            equal (DateTime.Parse("2009-06-15T13:45:30.000").ToString("r FFFFFFF")) "r "
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r g")) "r A.D."
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r gg")) "r A.D."
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r gg ggggg")) "r A.D. A.D."
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r h")) "r 4"
+            equal (DateTime(2014, 7, 1, 4, 37, 0).ToString("r h")) "r 4"
+            // Test edge case where hour is 12
+            equal (DateTime(2014, 7, 1, 0, 0, 0).ToString("r h")) "r 12"
+            equal (DateTime(2014, 7, 1, 12, 0, 0).ToString("r h")) "r 12"
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r hh")) "r 04"
+            equal (DateTime(2014, 7, 1, 4, 37, 0).ToString("r hh")) "r 04"
+            // Test edge case where hour is 12
+            equal (DateTime(2014, 7, 1, 0, 0, 0).ToString("r hh")) "r 12"
+            equal (DateTime(2014, 7, 1, 12, 0, 0).ToString("r hh")) "r 12"
+
+            equal (DateTime(2014, 7, 1, 4, 37, 0).ToString("r H")) "r 4"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r H")) "r 16"
+
+            equal (DateTime(2014, 7, 1, 4, 37, 0).ToString("r HH")) "r 04"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r HH")) "r 16"
+                
+            // WebSharper dates are always in local time
+            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r K")) "r "
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r K")) "r Z"
+
+            // Timezone dependent (test is configured for Europe/Paris timezone)
+            // Commented below it the equivalent test for .NET
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r K")) "r +02:00"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r K")) "r +02:00"
+
+            // WebSharper dates are always in local time
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Unspecified).ToString("r K")) "r "
+
+            equal (DateTime(2014, 7, 1, 16, 3, 0).ToString("r m")) "r 3"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r m")) "r 37"
+
+            equal (DateTime(2014, 7, 1, 16, 3, 0).ToString("r mm")) "r 03"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r mm")) "r 37"
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r M")) "r 7"
+            equal (DateTime(2014, 11, 1, 16, 37, 0).ToString("r M")) "r 11"
+
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r MM")) "r 07"
+            equal (DateTime(2014, 11, 1, 16, 37, 0).ToString("r MM")) "r 11"
+        }
+
+        Test "ToString with custom format works (Part #3)" {
+            equal (DateTime(2014, 1, 1, 16, 37, 0).ToString("r MMM")) "r Jan"
+            equal (DateTime(2014, 2, 1, 16, 37, 0).ToString("r MMM")) "r Feb"
+            equal (DateTime(2014, 3, 1, 16, 37, 0).ToString("r MMM")) "r Mar"
+            equal (DateTime(2014, 4, 1, 16, 37, 0).ToString("r MMM")) "r Apr"
+            equal (DateTime(2014, 5, 1, 16, 37, 0).ToString("r MMM")) "r May"
+            equal (DateTime(2014, 6, 1, 16, 37, 0).ToString("r MMM")) "r Jun"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r MMM")) "r Jul"
+            equal (DateTime(2014, 8, 1, 16, 37, 0).ToString("r MMM")) "r Aug"
+            equal (DateTime(2014, 9, 1, 16, 37, 0).ToString("r MMM")) "r Sep"
+            equal (DateTime(2014, 10, 1, 16, 37, 0).ToString("r MMM")) "r Oct"
+            equal (DateTime(2014, 11, 1, 16, 37, 0).ToString("r MMM")) "r Nov"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMM")) "r Dec"
+
+            equal (DateTime(2014, 1, 1, 16, 37, 0).ToString("r MMMM")) "r January"
+            equal (DateTime(2014, 2, 1, 16, 37, 0).ToString("r MMMM")) "r February"
+            equal (DateTime(2014, 3, 1, 16, 37, 0).ToString("r MMMM")) "r March"
+            equal (DateTime(2014, 4, 1, 16, 37, 0).ToString("r MMMM")) "r April"
+            equal (DateTime(2014, 5, 1, 16, 37, 0).ToString("r MMMM")) "r May"
+            equal (DateTime(2014, 6, 1, 16, 37, 0).ToString("r MMMM")) "r June"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r MMMM")) "r July"
+            equal (DateTime(2014, 8, 1, 16, 37, 0).ToString("r MMMM")) "r August"
+            equal (DateTime(2014, 9, 1, 16, 37, 0).ToString("r MMMM")) "r September"
+            equal (DateTime(2014, 10, 1, 16, 37, 0).ToString("r MMMM")) "r October"
+            equal (DateTime(2014, 11, 1, 16, 37, 0).ToString("r MMMM")) "r November"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMMM")) "r December"
+        }
+
+        Test "ToString with custom format works (Part #4)" {
+            equal (DateTime(2014, 7, 1, 16, 37, 3).ToString("r s")) "r 3"
+            equal (DateTime(2014, 7, 1, 16, 37, 31).ToString("r s")) "r 31"
+
+            equal (DateTime(2014, 7, 1, 16, 37, 3).ToString("r ss")) "r 03"
+            equal (DateTime(2014, 7, 1, 16, 37, 31).ToString("r ss")) "r 31"
+
+            equal (DateTime(2014, 7, 1, 1, 37, 0).ToString("r t")) "r A"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r t")) "r P"
+            equal (DateTime(2014, 7, 1, 1, 37, 0).ToString("r tt")) "r AM"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r tt")) "r PM"
+
+            // WS has a bug when year is below 100 
+            // See: https://github.com/dotnet-websharper/core/issues/1433
+            // equal (DateTime(1,1,1).ToString("r y")) "r 1"
+            equal (DateTime(0900,1,1).ToString("r y")) "r 0"
+            equal (DateTime(1900,1,1).ToString("r y")) "r 0"
+            equal (DateTime(2009,1,1).ToString("r y")) "r 9"
+            equal (DateTime(2019,1,1).ToString("r y")) "r 19"
+
+            // WS has a bug when year is below 100 
+            // See: https://github.com/dotnet-websharper/core/issues/1433
+            // equal (DateTime(1,1,1).ToString("r yy")) "r 01"
+            equal (DateTime(0900,1,1).ToString("r yy")) "r 00"
+            equal (DateTime(1900,1,1).ToString("r yy")) "r 00"
+            equal (DateTime(2009,1,1).ToString("r yy")) "r 09"
+            equal (DateTime(2019,1,1).ToString("r yy")) "r 19"
+
+            // WS has a bug when year is below 100 
+            // See: https://github.com/dotnet-websharper/core/issues/1433
+            // equal (DateTime(1,1,1).ToString("r yyy")) "r 001"
+            equal (DateTime(0900,1,1).ToString("r yyy")) "r 900"
+            equal (DateTime(1900,1,1).ToString("r yyy")) "r 1900"
+            equal (DateTime(2009,1,1).ToString("r yyy")) "r 2009"
+            equal (DateTime(2019,1,1).ToString("r yyy")) "r 2019"
+
+            // WS has a bug when year is below 100 
+            // See: https://github.com/dotnet-websharper/core/issues/1433
+            // equal (DateTime(1,1,1).ToString("r yyyy")) "r 0001"
+            equal (DateTime(0900,1,1).ToString("r yyyy")) "r 0900"
+            equal (DateTime(1900,1,1).ToString("r yyyy")) "r 1900"
+            equal (DateTime(2009,1,1).ToString("r yyyy")) "r 2009"
+            equal (DateTime(2019,1,1).ToString("r yyyy")) "r 2019"
+
+            // WS has a bug when year is below 100 
+            // See: https://github.com/dotnet-websharper/core/issues/1433
+            // equal (DateTime(1,1,1).ToString("r yyyyy")) "r 00001"
+            equal (DateTime(0900,1,1).ToString("r yyyyy")) "r 00900"
+            equal (DateTime(1900,1,1).ToString("r yyyyy")) "r 01900"
+            equal (DateTime(2009,1,1).ToString("r yyyyy")) "r 02009"
+            equal (DateTime(2019,1,1).ToString("r yyyyy")) "r 02019"
+        }
+
+        Test "ToString with custom format works (Part #5)" {
+            // Timezone dependent (test is configured for Europe/Paris timezone)
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) "r +2"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z")) "r +2"
+ 
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zz")) "r +00"
+            // // Timezone dependent (test is configured for Europe/Paris timezone)
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) "r +02"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz")) "r +02"
+
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zzz")) "r +00:00"
+            // // Timezone dependent (test is configured for Europe/Paris timezone)
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) "r +02:00"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz")) "r +02:00"
+
+            // Time separator
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r :")) "r :"
+
+            // Date separator
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r /")) "r /"
+
+            // String quotation
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \"hh\" h")) "r hh 4"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r 'hh' h")) "r hh 4"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \'hh\'")) "r hh"
+
+            // Format character
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r %h")) "r 4"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r %hh")) "r 44"
+
+            // Escape character
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \zz")) "r z+2"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\zz")) "r z+2"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\\zz")) "r \+02"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\z\\z")) "r zz"
+
+            // Escape character with verbatim string
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \zz""")) "r z+2"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\zz""")) "r \+02"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\\zz""")) "r \z+2"
+        }
+
+        Test "ToString with custom format works (Part #6)" {
+            // The tests below are for testing the behaviour when going outside
+            // of the standard token ranges.
+            // For example, the known tokens range for 'H' are "H", "HH", so
+            // we want to test what happens when we do "HHH" or "HHHH" or "HHHHH"
+            // In general, the tests below check what happens when right outside of the known
+            // token ranges and in another exagerated case
+            
+            equal (DateTime(2014, 7, 13, 16, 37, 0).ToString("r dddd dddddd")) "r Sunday Sunday"
+
+            // Can't test ffffffffffffff because there don't seems to be a helpers
+            // for testing exception in WebSharper.Testing and using try ... with
+            // don't seems to b worth it
+
+            // Can't test FFFFFFFFFFFFFF because there don't seems to be a helpers
+            // for testing exception in WebSharper.Testing and using try ... with
+            // don't seems to b worth it
+
+            equal (DateTime(2014, 7, 1, 12, 0, 0).ToString("r hhh hhhhh")) "r 12 12"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r HHH HHHHHHHH")) "r 16 16"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r KK KKK")) "r +02:00+02:00 +02:00+02:00+02:00"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r mmm mmmm")) "r 37 37"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMMMM MMMMMMMMM")) "r December December"
+            equal (DateTime(2014, 7, 1, 16, 37, 31).ToString("r sss ssssss")) "r 31 31"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r ttt ttttttt")) "r PM PM"
+            equal (DateTime(2019,1,1).ToString("r yyyyyy yyyyyyyyyy")) "r 002019 0000002019"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz")) "r +02:00 +02:00"
+        }
+
+        Test "DateTime.ToString without separator works" {
+            equal (DateTime(2017, 9, 5).ToString("yyyyMM")) "201709"
+        }
+
+        Test "DateTime.ToString('O') works" {
+            // On .NET the result is "2014-09-11T16:37:02.0000000+02:00"
+            // but because of JavaScript date precission we remove some trailing zero
+            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("O")) "2014-09-11T16:37:02.000+02:00"
+            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("o")) "2014-09-11T16:37:02.000+02:00"
+        }
+
+        Test "DateTime.ToString('D') works" {
+            equal (DateTime(2014, 9, 1, 16, 37, 2).ToString("D")) "Monday, 01 September 2014"
+        }
+
+        Test "DateTime.ToString('d') works" {
+            equal (DateTime(2014, 9, 1, 16, 37, 2).ToString("d")) "09/01/2014"
+        }
+
+        Test "DateTime.ToString('T') works" {
+            equal (DateTime(2014, 9, 1, 6, 7, 2).ToString("T")) "06:07:02"
+        }
+
+        Test "DateTime.ToString('t') works" {
+            equal (DateTime(2014, 9, 1, 6, 7, 2).ToString("t")) "06:07"
+        }
+
     }
 
 [<JavaScript>]
