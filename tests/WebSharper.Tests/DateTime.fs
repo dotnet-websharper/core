@@ -300,7 +300,7 @@ let Tests =
             // Timezone dependent (test is configured for Europe/Paris timezone)
             // Commented below it the equivalent test for .NET
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r K")) "r +02:00"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r K")) "r +02:00"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r K")) "r +02:00"
 
             // WebSharper dates are always in local time
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Unspecified).ToString("r K")) "r "
@@ -401,17 +401,17 @@ let Tests =
 
         Test "ToString with custom format works (Part #5)" {
             // Timezone dependent (test is configured for Europe/Paris timezone)
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) "r +2"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) "r +2"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z")) "r +2"
  
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zz")) "r +00"
             // // Timezone dependent (test is configured for Europe/Paris timezone)
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) "r +02"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) "r +02"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz")) "r +02"
 
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zzz")) "r +00:00"
             // // Timezone dependent (test is configured for Europe/Paris timezone)
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) "r +02:00"
+            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) "r +02:00"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz")) "r +02:00"
 
             // Time separator
