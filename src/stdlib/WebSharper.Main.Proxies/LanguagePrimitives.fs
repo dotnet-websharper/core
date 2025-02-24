@@ -64,3 +64,9 @@ let inline DivideByInt< ^T when ^T : (static member DivideByInt : ^T * int -> ^T
 [<Inline>]
 let FastGenericComparer<'T>() = 
     { new System.Collections.Generic.IComparer<'T> with member _.Compare(a, b) = Unchecked.compare<'T> a b }
+
+[<Inline>]
+let inline EnumOfValue (value : 'T) : 'Enum when 'Enum : enum<'T> = As<'Enum> value
+
+[<Inline>]
+let inline EnumToValue (enum : 'Enum) : 'T when 'Enum : enum<'T> = As<'T> enum 
