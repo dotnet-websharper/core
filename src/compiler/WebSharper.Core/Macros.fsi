@@ -198,6 +198,11 @@ type DateString =
     inherit Macro
 
 [<Sealed>]
+type TimeSpanString =
+    new : unit -> TimeSpanString
+    inherit Macro
+
+[<Sealed>]
 type Tuple =
     new : unit -> Tuple
     inherit Macro

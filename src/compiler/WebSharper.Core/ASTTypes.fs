@@ -475,6 +475,12 @@ module Definitions =
             FullName = "System.DateTime"
         }
 
+    let TimeSpan =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.TimeSpan"
+        }
+
     let String =
         TypeDefinition {
             Assembly = "netstandard"

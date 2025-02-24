@@ -132,4 +132,8 @@ let Tests =
             equal (compare s1 s3) 0
         }
 
+        Test "ToString" {
+            equal (s.ToString()) "733.14:12:12.5450000"
+        }
+
     }

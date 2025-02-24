@@ -223,11 +223,11 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void TimeSpanTest()
         {
-            var t = TimeSpan.FromHours(1);
+            var t = System.TimeSpan.FromHours(1);
             IsTrue(t == +t);
             Equal((-t).Hours, -1);
             Equal((t + t).Hours, 2);
-            Equal(t - t, TimeSpan.Zero);
+            Equal(t - t, System.TimeSpan.Zero);
             IsTrue(t == +t);
             IsTrue(t != -t);
             IsTrue(t + t > t);
@@ -241,9 +241,9 @@ namespace WebSharper.CSharp.Tests
         {
             var d = new System.DateTime(2017, 11, 14);
             var d2 = new System.DateTime(2017, 11, 15);
-            var t = TimeSpan.FromHours(1);
+            var t = System.TimeSpan.FromHours(1);
             Equal((d2 - d).Days, 1);
-            IsTrue(d == d + TimeSpan.Zero);
+            IsTrue(d == d + System.TimeSpan.Zero);
             IsTrue(d != d2);
             IsTrue(d + t > d);
             IsTrue(d - t < d);

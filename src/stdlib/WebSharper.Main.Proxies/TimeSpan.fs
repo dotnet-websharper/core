@@ -153,3 +153,6 @@ type private TimeSpanProxy =
 
     [<Inline "$a <= $b">]
     static member op_LessThanOrEqual (a: TS, b: TS) = X<bool>
+
+    [<Macro(typeof<Core.Macros.TimeSpanString>)>]
+    member this.ToString(format: string) = X<TS>.ToString()
