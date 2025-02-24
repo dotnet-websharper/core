@@ -347,6 +347,8 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
         Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+    let toString expr =
+        Appl(Global ["String"], [expr], Pure, Some 1)
     let toIntegral (neg: uint32) (mask: uint32) expr =
         if mask = 4294967295u then
             if neg = 0u then
@@ -396,17 +398,19 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | CharType, DecimalType
         -> charCode expr |> toDecimal
     | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
-        -> Appl(Global ["String"], [expr], Pure, Some 1)
+        -> toString expr
     | (StringType | DecimalType | NonNumericType), ScalarType
         -> toNumber expr
-    | (StringType | DecimalType | NonNumericType), BigIntegralType
+    | (StringType | NonNumericType), BigIntegralType
         -> toBigInt expr
+    | DecimalType, BigIntegralType
+        -> toBigInt (toString expr)
     | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
         -> toNumber expr |> toIntegral neg mask
     | (SmallIntegralType _ | ScalarType), DecimalType
         -> toDecimal expr
     | BigIntegralType, DecimalType
-        -> toDecimal expr // TODO
+        -> toDecimal (toNumber expr) 
     | StringType, DecimalType
         -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
     | _ ->
