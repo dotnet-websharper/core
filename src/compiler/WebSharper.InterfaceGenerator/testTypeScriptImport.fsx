@@ -169,15 +169,15 @@ iterStatements <| fun moduleName st ->
                             None
                     )
                 let cls = Pattern.EnumStrings name values
-                printfn $"Initialized type alias {name} as classDefinition"
+                //printfn $"Initialized type alias {name} as classDefinition"
                 classDefinitions.Add(name, cls)
             | None ->
                 match typ with
                 | TSSimpleType n ->
-                    printfn $"Initialized type alias {name} as typeNameRedirect"
+                    //printfn $"Initialized type alias {name} as typeNameRedirect"
                     typeNameRedirects.Add(name, n)
                 | _ ->
-                    printfn $"Initialized type alias {name} as typeAliasDef"
+                    //printfn $"Initialized type alias {name} as typeAliasDef"
                     typeAliasDefs.Add(name, (typars, typ))
     | _ -> ()
 
@@ -220,22 +220,26 @@ and processType forAlias (typ: TSType) : Type.Type =
             | Some alias ->
                 nonNullCase |> Array.partition (
                     function 
-                    | TSTypeReference (rname, _) when rname = alias -> true
+                    //| TSTypeReference (rname, _) when rname = alias -> true
+                    | TSArrayType (TSSimpleType (rname)) when rname = alias -> true
                     | _ -> false
                 )
             | _ ->
                 [||], nonNullCase 
-        let notOpt =
-            nonRecCase |> Seq.map (processType None) |> Seq.reduce ( + )    
-        let withNull =
-            if Array.isEmpty nullCase then
-                notOpt
-            else
-                Type.OptionType notOpt
-        if Array.isEmpty nullCase then
-            withNull
+        if Array.isEmpty nonRecCase then
+            T<obj> // TODO
         else
-            Type.ItemOrArrayType withNull
+            let notOpt =
+                nonRecCase |> Seq.map (processType None) |> Seq.reduce ( + )    
+            let withNull =
+                if Array.isEmpty nullCase then
+                    notOpt
+                else
+                    Type.OptionType notOpt
+            if Array.isEmpty recCase then
+                withNull
+            else
+                Type.ItemOrArrayType withNull
     | TSArrayType typ ->
         !| (processType None typ)
     | TSTupleType typs ->
@@ -304,17 +308,17 @@ and processType forAlias (typ: TSType) : Type.Type =
     | TSIndexType (index, typ) ->
         T<string> // usually an index is a string   
     | TSLiteralType value ->
-        T<string> // TODO
+        T<obj> // TODO
     | TSConditionalType (check, extends, trueType, falseType) ->
-        T<string> // TODO
+        T<obj> // TODO
     | TSMappedType typ ->
-        T<string> // TODO
+        T<obj> // TODO
     | TSIntersectionType (typs) ->
-        T<string> // TODO
+        T<obj> // TODO
     | TSKeyOfType typ ->
-        T<string> // TODO
+        T<obj> // TODO
     | TSQueryType expr ->
-        T<string> // TODO
+        T<obj> // TODO
 
 and processParam (param: TSParameter) : Type.Parameter =
     match param.Type with
@@ -332,15 +336,16 @@ and processParams (pars: TSParameter[]) =
     } : Type.Parameters
 
 and processMem mem =
-    try
+    //try
         match mem with
         | TSMethod (name, st, pars, typars, typ) ->
+            printfn "Processing member %s" name
             let m = name => (processParams pars) ^-> (processType None typ) 
             Some (m, st |> Option.defaultValue false)
         | _ -> None
-    with e ->
-        printfn "%s" e.Message
-        failwithf "processMem fail %A" mem
+    //with e ->
+    //    printfn "%s" e.Message
+    //    failwithf "processMem fail %A" mem
     //| TSProperty (name, typ)
     //| TSNew (pars, typ)
     //| TSCall (pars, typars, typ)
@@ -353,6 +358,7 @@ let mutable typeAliasDefCount = typeAliasDefs.Count
 while typeAliasDefCount > 0 do
     let (KeyValue(name, (typars, typ))) = typeAliasDefs |> Seq.head
     try
+        printfn "Processing typeAlias %s" name
         let tRes = processType (Some name) typ
         typeAliases.Add(name, tRes)
         typeAliasDefs.Remove(name) |> ignore
@@ -369,6 +375,7 @@ iterStatements <| fun moduleName st ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
             try
+                printfn "Processing class %s" name
                 let cls = lookupClass name
                 match ext with
                 | Some (TSSimpleType b) ->
@@ -389,7 +396,8 @@ iterStatements <| fun moduleName st ->
     | TSInterfaceDeclaration (name, typars, mems, ext) ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
-            try
+            //try
+                printfn "Processing interface %s" name
                 let intf = lookupIntf name
                 for mem in mems do
                     match processMem mem with
@@ -397,9 +405,9 @@ iterStatements <| fun moduleName st ->
                         intf |+> [ m ] |> ignore
                     | _ ->
                         ()
-            with e ->
-                printfn "%s" e.Message
-                failwithf "interface fail %s" name
+            //with e ->
+            //    printfn "%s" e.Message
+            //    failwithf "interface fail %s" name
     | _ -> ()
  
 
