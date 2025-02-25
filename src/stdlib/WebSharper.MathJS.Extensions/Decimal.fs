@@ -103,7 +103,7 @@ type internal DecimalProxy =
     static member CtorProxy(v : int32) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
 
     [<Inline>]
-    static member CtorProxy(v : int64) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
+    static member CtorProxy(v : int64) : decimal = WSDecimalMath.Bignumber(MathNumber(v.ToString())) |> As<decimal>
 
     [<Inline>]
     static member CtorProxy(v : single) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
@@ -112,7 +112,7 @@ type internal DecimalProxy =
     static member CtorProxy(v : uint32) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
 
     [<Inline>]
-    static member CtorProxy(v : uint64) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
+    static member CtorProxy(v : uint64) : decimal = WSDecimalMath.Bignumber(MathNumber(v.ToString()) |> As<decimal>
 
     [<Inline>]
     static member internal Abs(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.Abs n
