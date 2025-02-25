@@ -47,13 +47,13 @@ module internal BigIntProxyHelpers =
 [<Prototype(false)>]
 type private BigIntegerProxy =     
 
-    [<Inline "BigInt($v)"; Pure>]
+    [<Inline "$v"; Pure>]
     new (v: int64) = {}
 
     [<Inline "BigInt($v)"; Pure>]
     new (v: int32) = {}
 
-    [<Inline "BigInt($v)"; Pure>]
+    [<Inline "$v"; Pure>]
     new (v: uint64) = {}
 
     [<Inline "BigInt($v)"; Pure>]
