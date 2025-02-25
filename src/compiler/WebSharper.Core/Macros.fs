@@ -112,7 +112,7 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
         let resm =
             if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) &&
                 isIn bigIntegralTypes t then
-                    Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
+                    Binary(a, op, Application(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
             elif op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
                 then (a ^/ b) ^>> !~(Int 0) |> MacroOk

@@ -319,7 +319,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     let toDecimal expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
     let toBigInt expr =
-        Appl(Global ["BigInt"], [expr], Pure, Some 1)
+        Application(Global ["BigInt"], [expr], Pure, Some 1)
     let charCode expr =
         Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
