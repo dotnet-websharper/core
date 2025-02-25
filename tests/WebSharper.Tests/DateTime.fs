@@ -497,6 +497,9 @@ let Tests =
             equal (DateTime(2014, 9, 1, 6, 7, 2).ToString("t")) "06:07"
         }
 
+        Test "#1433 DateTime when year < 100" {
+            equal (DateTime(1, 1, 1).ToString("D")) "Monday, 01 January 1"
+        }
     }
 
 [<JavaScript>]
