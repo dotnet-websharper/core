@@ -59,7 +59,7 @@ type private BigIntegerProxy =
     [<Inline "BigInt($v)"; Pure>]
     new (v: uint32) = {}
 
-    [<Inline "BigInt($v)"; Pure>]
+    [<Inline "BigInt(Math.trunc($v))"; Pure>]
     new (v: float) = {}
 
     [<Inline "BigInt(0)"; Pure>]
