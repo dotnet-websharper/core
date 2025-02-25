@@ -67,9 +67,11 @@ let Tests =
             let a = BI(1000)
 
             // not int
-            equal a (BI(1000.5))
+            equal (BI(1000.5)) a
+            equal (BI(1000L)) a
+            equal (BI(1000UL)) a
             // from byte arr
-            equal a (BI([|232uy; 3uy; 0uy; 0uy|]))
+            equal (BI([|232uy; 3uy; 0uy; 0uy|])) a
         }
 
         Test "FSharp bigint literals" {

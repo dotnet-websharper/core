@@ -48,7 +48,7 @@ let As<'T> (x: obj) = X<'T>
 [<Require(typeof<Resource>)>]
 let Parse (json: string) = X<obj>
 
-[<Inline "JSON.stringify($obj)">]
+[<Direct "JSON.stringify($obj, function(_, v){ return typeof v === 'bigint' ? v.toString() : v })">]
 [<Require(typeof<Resource>)>]
 let Stringify (obj: obj) = X<string>
 
@@ -85,6 +85,7 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
 type SpecialTypes =
     | List = 1
     | Decimal = 2
+    | BigInt = 3
 
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
@@ -99,6 +100,7 @@ let Activate<'T> (json: obj) : 'T =
                     match As<string[]> types.[i] with
                     | [| "WebSharper"; "List"; "T" |] -> box SpecialTypes.List
                     | [| "WebSharper"; "Decimal" |] -> box SpecialTypes.Decimal
+                    | [| "BigInt" |] -> box SpecialTypes.BigInt
                     | t -> lookup t
             json?("$DATA")
     let rec decode (x: obj) : obj =
@@ -116,6 +118,8 @@ let Activate<'T> (json: obj) : 'T =
                             box (List.ofArray (As<obj[]> o))
                         elif t ===. SpecialTypes.Decimal then
                             box (JS.Global?WebSharper?Decimal?CreateDecimalBits(o))
+                        elif t ===. SpecialTypes.BigInt then
+                            box (bigint.Parse ((As<string[]>o).[0]))
                         else
                             let r = JS.New types.[ti]
                             JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)

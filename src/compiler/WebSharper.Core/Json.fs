@@ -620,7 +620,10 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
     let encBigInt (d: bigint) =
-        EncodedString (d.ToString())
+        EncodedArrayInstance (
+            AST.Address [ "BigInt" ], 
+            [ EncodedString (d.ToString()) ]
+        )       
     let decBigInt = function
         | String d as x ->
             match System.Numerics.BigInteger.TryParse d with
@@ -629,7 +632,10 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<bigint>))
     add encBigInt decBigInt d   
     let encInt64 (d: int64) =
-        EncodedString (d.ToString())
+        EncodedArrayInstance (
+            AST.Address [ "BigInt" ], 
+            [ EncodedString (d.ToString()) ]
+        )       
     let decInt64 = function
         | String d as x ->
             match System.Int64.TryParse d with
@@ -638,7 +644,10 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<int64>))
     add encInt64 decInt64 d   
     let encUInt64 (d: uint64) =
-        EncodedString (d.ToString())
+        EncodedArrayInstance (
+            AST.Address [ "BigInt" ], 
+            [ EncodedString (d.ToString()) ]
+        )       
     let decUInt64 = function
         | String d as x ->
             match System.UInt64.TryParse d with

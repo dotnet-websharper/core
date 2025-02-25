@@ -154,6 +154,7 @@ type internal NI64 =
     static member Parse(s: string) : System.Int64 =
         N.ParseBigInt(s, System.Int64.MinValue, System.Int64.MaxValue, "Value was either too large or too small for an Int64.")
 
+    [<Name "WebSharper.Numeric.TryParseInt64">]
     static member TryParse(s: string, r: outref<System.Int64>) : bool =
         N.TryParseBigInt(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
 
@@ -166,6 +167,7 @@ type internal NUI64 =
     static member Parse(s: string) : System.UInt64 =
         N.ParseBigInt(s, System.UInt64.MinValue, System.UInt64.MaxValue, "Value was either too large or too small for an UInt64.")
 
+    [<Name "WebSharper.Numeric.TryParseUInt64">]
     static member TryParse(s: string, r: outref<System.UInt64>) : bool =
         N.TryParseBigInt(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
 

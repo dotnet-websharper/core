@@ -45,23 +45,22 @@ module internal BigIntProxyHelpers =
         |> fun x -> "0b" + x
 
 [<Proxy(typeof<System.Numerics.BigInteger>)>]
-[<Type "BigInt">]
 [<Prototype(false)>]
 type private BigIntegerProxy =     
 
-    [<Inline "BigInt($v)">]
+    [<Inline "$v">]
     new (v: int64) = {}
 
     [<Inline "BigInt($v)">]
     new (v: int32) = {}
 
-    [<Inline "BigInt($v)">]
+    [<Inline "$v">]
     new (v: uint64) = {}
 
     [<Inline "BigInt($v)">]
     new (v: uint32) = {}
 
-    [<Inline "BigInt($v)"; Pure>]
+    [<Inline "BigInt(Math.trunc($v))"; Pure>]
     new (v: float) = {}
 
     [<Inline "BigInt(0)"; Pure>]
