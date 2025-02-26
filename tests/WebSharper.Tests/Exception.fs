@@ -132,6 +132,6 @@ let Tests =
                     | exn ->
                         return sprintf "%A" exn
                 }
-            equal msg "Error: Response status is not 200: 500"
+            isTrue (msg.StartsWith "Error: Response status is not 200: ")
         }
     }

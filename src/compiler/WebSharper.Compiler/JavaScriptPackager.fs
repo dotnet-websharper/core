@@ -138,12 +138,6 @@ type PackageContent =
     | SingleType of TypeDefinition
     | Bundle of TypeDefinition [] * EntryPointStyle * Statement option
 
-    with 
-        member this.Types = 
-            match this with
-            | SingleType typ -> [| typ |]
-            | Bundle (typs, _, _) -> typs
-
 type PackageTypeResults =
     {
         Statements: Statement list
@@ -171,7 +165,37 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | SingleType _ -> true
         | Bundle _ -> false
 
-    for typ in content.Types do
+    let lazyClasses = HashSet()
+    let orderedTypes =
+        match content with
+        | SingleType typ -> [| typ |]
+        | Bundle (typs, _, _) ->
+            let all = HashSet(typs)
+            let ordered = ResizeArray()
+            let rec visit typ =
+                match current.Classes.TryFind(typ) with
+                | None 
+                | Some (_, _, None) -> ()
+                | Some (_, _, Some c) ->
+                    match c.BaseClass with
+                    | Some bc ->
+                        if all.Contains bc.Entity then
+                            visit bc.Entity
+                        if lazyClasses.Contains bc.Entity then
+                            lazyClasses.Add typ |> ignore
+                    | _ -> ()
+                    match c.StaticConstructor with
+                    | Some _ ->
+                        lazyClasses.Add typ |> ignore
+                    | _ -> ()
+                all.Remove typ |> ignore
+                ordered.Add typ
+            while all.Count > 0 do
+                let typ = Seq.head all
+                visit typ
+            ordered.ToArray()
+    
+    for typ in orderedTypes do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
         let outerClassId = Id.New "_c"
@@ -215,7 +239,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     classAddrs.Add (a, m, true)
                     false
                 | _ ->
-                    false   
+                    false
+        let localClassId =
+            if lazyClasses.Contains typ then
+                outerClassId
+            else
+                classId    
         if not isUnionCase then
             for (classAddr, classCodeRes, isMainAddr) in classAddrs do
                 if isMainAddr && output <> O.JavaScript && classAddr.Address <> [ "default" ] then
@@ -224,13 +253,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     addresses.Add(typeAddr, Var classId)
                 
                 if isMainAddr && not (addresses.ContainsKey classAddr) then
-                    addresses.Add(classAddr, Var outerClassId)
+                    addresses.Add(classAddr, Var localClassId)
                 currentScope.Add(classCodeRes) |> ignore
                 if isMainAddr && not (classRes.ContainsKey typ) then
-                    classRes.Add(typ, (classAddr, classId, outerClassId))
+                    classRes.Add(typ, (classAddr, classId, localClassId))
             if classAddrs.Count = 0 then
                 // not represented as JS class
-                classRes.Add(typ, (Address.Global(), classId, outerClassId))
+                classRes.Add(typ, (Address.Global(), classId, localClassId))
 
     let export isDefault statement =
         match content with
@@ -1209,8 +1238,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | Some b ->
                 let needsLazy = 
                     output <> O.TypeScriptDeclaration
-                    && (not isSingleType || Option.isNone c.Type) 
-                    //&& needsLazyCallback |> Option.forall (fun c -> c imports.Keys baseClass)
+                    //&& (not isSingleType || Option.isNone c.Type) 
+                    && (
+                        if isSingleType then 
+                            Option.isNone c.Type
+                        else
+                            lazyClasses.Contains typ
+                    ) 
                 if needsLazy then
                     packageLazyClass classDecl <| fun i ->
                         if isObjBase then
@@ -1225,8 +1259,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | None ->
                 let needsLazy = 
                     output <> O.TypeScriptDeclaration 
-                    && (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) 
-                    //&& needsLazyCallback |> Option.forall (fun c -> c imports.Keys baseClass)
+                    //&& (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) 
+                    && (
+                        if isSingleType then
+                            c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType
+                        else
+                            lazyClasses.Contains typ
+                    ) 
                 if needsLazy then
                     packageLazyClass classDecl classExpr
                 else
@@ -1281,9 +1320,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 Interface(classId, extends, imems, gen)
             )
 
-    for typ in content.Types do
+    for typ in orderedTypes do
         match current.Classes.TryFind(typ) with
-        | None -> ()
+        | None
         | Some (_, _, None) -> ()
         | Some (a, ct, Some c) ->
             packageClass typ a ct c
