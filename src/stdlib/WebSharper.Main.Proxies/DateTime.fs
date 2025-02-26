@@ -133,8 +133,8 @@ type private DateTimeProxy =
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
 
-    [<Macro(typeof<Core.Macros.DateString>)>]
-    member this.ToString(format: string) = Date(As<int> this).ToString()
+    [<Inline>]
+    member this.ToString(format: string) = DateTime.DateFormatter (As this) format
 
     member this.Date 
         with [<Inline; JavaScript>] get() : D = DateTimeHelpers.DatePortion(As this)
