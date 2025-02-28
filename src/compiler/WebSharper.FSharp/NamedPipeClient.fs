@@ -129,11 +129,12 @@ let sendCompileCommand args =
                             nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
-                
                 clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
                 clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
-                clientPipe.WaitForPipeDrain()
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+                    clientPipe.WaitForPipeDrain()
+                
                 let! errorCode = readingMessages clientPipe printResponse
                 match errorCode with
                 | Some -12211 ->
