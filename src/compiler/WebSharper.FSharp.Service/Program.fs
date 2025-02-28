@@ -153,7 +153,7 @@ let startListening() =
                 let processCompileMessage (projectOption: string option) (wsConfig: WsConfig) warnSettings args = async {
                     let nLogger = nLogger.WithProperty("wsdir", wsConfig.ProjectDir)
                     nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
-                    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
+                    nLogger.Debug(sprintf "pipename is: %s (server side)" pipeName)
                     nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let compilationResultForDebugOrRelease() =
                         try
@@ -162,7 +162,8 @@ let startListening() =
                         | ArgumentError msg -> 
                             PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))
                             1
-                        | e -> 
+                        | e ->
+                            nLogger.Debug(e.Message)
                             PrintGlobalError logger (sprintf "Global error: %A" e)
                             1
                     let returnValue = compilationResultForDebugOrRelease()
@@ -285,8 +286,9 @@ let startListening() =
                           ||| PipeOptions.Asynchronous)
 
         if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            let currentPermissions = System.IO.File.GetUnixFileMode pipeName
             System.IO.File.SetUnixFileMode(
-                pipeName, System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+                pipeName, currentPermissions ||| System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
         
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
         serverPipe.ReadMode <- PipeTransmissionMode.Byte
