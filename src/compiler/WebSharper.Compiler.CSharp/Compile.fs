@@ -109,14 +109,14 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         argError "" // exits without printing more errors
     else
 
-    let js, currentMeta, sources, extraBundles =
+    let js, currentMeta, runtimeMeta, sources, extraBundles =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
             let extraBundles = 
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
-            None, currentMeta, sources, extraBundles
+            None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
 
@@ -130,7 +130,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let runtimeMeta =
                 match config.ProjectType with
-                | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, metas)
+                | Some (Bundle | Website | Html | Service) -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
             let isSitelet =
@@ -143,11 +143,18 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | _ -> 
                     false
 
-            let js, currentMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) config.PreBundle isSitelet
+            let prebundle =
+                match config.ProjectType with
+                | Some Html ->
+                    true
+                | _ ->
+                    config.PreBundle
+
+            let js, currentMeta, rMeta, sources, res =
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) prebundle isSitelet
 
             match config.ProjectType with
-            | Some (Bundle | Website) ->
+            | Some (Bundle | Website | Html) ->
                 AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
 
@@ -165,7 +172,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             logger.TimedStage "Writing resources into assembly"
-            js, currentMeta, sources, extraBundles
+            js, currentMeta, rMeta |> Option.defaultValue currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some jss ->
@@ -201,6 +208,13 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         logger.TimedStage stageName
         if res = 1 then argError "" // exits without printing more errors    
 
+    let unpack() =
+        match ExecuteCommands.GetWebRoot config with
+        | Some webRoot ->
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult "Unpacking" false
+        | None ->
+            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         let currentJS =
@@ -211,23 +225,16 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | Some Html ->
         logger.Out "Start writing offline sitelet"
         logger.EnterContext()
-        let rm = comp.ToRuntimeMetadata()
-        let runtimeMeta = 
-            { rm with
-                Dependencies = 
-                    WebSharper.Core.DependencyGraph.Graph.FromData(
-                        metas |> Seq.map (fun m -> m.Dependencies)
-                        |> Seq.append [ rm.Dependencies ]
-                    ).GetData()
-            }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult "Finished writing offline sitelet" true
+        let htmlRes = ExecuteCommands.Html config runtimeMeta logger 
+        match htmlRes with
+        | C.Ok -> 
+            htmlRes |> handleCommandResult "Finished writing offline sitelet" true
+            unpack()
+        | _ ->
+            htmlRes |> handleCommandResult "Finished writing offline sitelet" true
     | Some Website
     | _ when Option.isSome config.OutputDir ->
-        match ExecuteCommands.GetWebRoot config with
-        | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult "Unpacking" false
-        | None ->
-            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+        unpack()
     | _ -> ()
 
 let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =

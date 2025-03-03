@@ -19,6 +19,7 @@
 // $end{copyright}
 namespace WebSharper.StaticHtml.Tests
 
+open WebSharper
 open WebSharper.Sitelets
 
 type WebsiteEntryPoint() =

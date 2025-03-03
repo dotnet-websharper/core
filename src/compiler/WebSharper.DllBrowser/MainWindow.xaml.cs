@@ -40,7 +40,8 @@ namespace WebSharper.DllBrowser
                 var loaded = await Task.Run(() =>
                 {
                     var asmRes = FrontEnd.ReadFullFromFile(path);
-                    return new DllModel(asmRes.Item1, asmRes.Item2?.Value);
+                    var runtimeRes = FrontEnd.ReadRuntimeFromFile(path);
+                    return new DllModel(asmRes.Item1, asmRes.Item2?.Value, runtimeRes.Item2?.Value);
                 });
                 lock (DllModels)
                 {

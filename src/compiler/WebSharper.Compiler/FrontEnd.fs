@@ -48,8 +48,28 @@ let TryReadFromAssembly options (a: Assembly) =
         m |> Result.map (M.ApplyMetadataOptions options)
     )
 
+let TryReadRuntimeFromAssembly options (a: Assembly) =
+    a.Raw.MainModule.Resources
+    |> Seq.tryPick (function
+        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_RUNTIME_METADATA -> Some r 
+        | _ -> None
+    )
+    |> Option.map (fun r ->
+        use s = r.GetResourceStream()
+        let m = 
+            try Ok (M.IO.Decode s)
+            with e -> Error (sprintf "Failed to deserialize runtime metadata for %s. Error: %s" a.FullName e.Message)
+        m |> Result.map (M.ApplyMetadataOptions options)
+    )
+
 let ReadFromAssembly options a =
     match TryReadFromAssembly options a with
+    | None -> None
+    | Some (Ok m) -> Some m
+    | Some (Error e) -> raise (exn e) 
+
+let ReadRuntimeFromAssembly options a =
+    match TryReadRuntimeFromAssembly options a with
     | None -> None
     | Some (Ok m) -> Some m
     | Some (Error e) -> raise (exn e) 
@@ -64,6 +84,13 @@ let ReadFullFromFile (path: string) =
     let loader = Loader.Create aR ignore
     let asm = loader.LoadFile(path, false)
     let meta = ReadFromAssembly M.FullMetadata asm
+    asm, meta
+
+let ReadRuntimeFromFile (path: string) =
+    let aR = AssemblyResolver.Create().SearchPaths([path])
+    let loader = Loader.Create aR ignore
+    let asm = loader.LoadFile(path, false)
+    let meta = ReadRuntimeFromAssembly M.FullMetadata asm
     asm, meta
 
 let GetJSLookup (r: Assembly list, readable) =
@@ -378,7 +405,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         )
 
         addMeta()
-        Some jss, currentPosFixed, sources, res.ToArray()
+        Some jss, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
     else
         // set current AssemblyNode to have no js
         current.Dependencies.Nodes |> Array.tryFindIndex (function
@@ -389,15 +416,15 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         )
 
         addMeta()
-        None, currentPosFixed, sources, res.ToArray()
+        None, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
 
 let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle isSitelet
+    let jsOpt, currentPosFixed, rMeta, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle isSitelet
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
-    jsOpt, currentPosFixed, sources, res
+    jsOpt, currentPosFixed, rMeta, sources, res
 
 let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
     ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet

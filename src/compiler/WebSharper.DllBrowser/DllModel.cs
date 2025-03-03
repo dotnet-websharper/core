@@ -61,10 +61,12 @@ namespace WebSharper.DllBrowser
     }
     public class DllModel : TreeGroupNodeModel
     {
+        private readonly bool _isRuntime;
         public Compiler.Assembly Assembly { get; init; }
         public override List<TreeNodeModel> Contents { get; } = new();
-        public DllModel(Compiler.Assembly assembly, Info? meta)
+        public DllModel(Compiler.Assembly assembly, Info? meta, Info? runtimeMeta = null, bool isRuntime = false)
         {
+            _isRuntime = isRuntime;
             Assembly = assembly;
             if (meta != null)
             {
@@ -72,11 +74,16 @@ namespace WebSharper.DllBrowser
                 Contents.Add(new GraphModel(meta.Dependencies));
                 Contents.Add(new MacroEntriesModel(meta));
                 Contents.Add(new QuotationsModel(meta));
+                Contents.Add(new PrebundlesModel(meta));
             }
             Contents.Add(new ResourcesModel(assembly));
+            if (runtimeMeta != null)
+            {
+                Contents.Add(new DllModel(assembly, runtimeMeta, isRuntime: true));
+            }
         }
 
-        public override string Name => Assembly.Name;
+        public override string Name => _isRuntime ? "Runtime" : Assembly.Name;
     }
 
     public class MetadataModel : TreeGroupNodeModel
@@ -437,4 +444,38 @@ namespace WebSharper.DllBrowser
             Metadata = metadata;
         }
     }
+    public class PrebundlesModel : TreeGroupNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "Prebundles";
+        public PrebundlesModel(Info metadata)
+        {
+            Metadata = metadata;
+            foreach (var x in metadata.PreBundle)
+            {
+                Contents.Add(new PrebundleModel(x.Key, x.Value));
+            }
+        }
+    }
+    public class PrebundleModel : TreeLeafNodeModel
+    {
+        private string Key;
+        private IDictionary<Address, string> Value;
+        public override string Name => Key;
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var v in Value)
+            {
+                sb.AppendLine(v.Key.ToString() + " -> " + v.Value);
+            }
+            return sb.ToString();
+        }
+        public PrebundleModel(string key, IDictionary<Address, string> value)
+        {
+            Key = key;
+            Value = value;
+        }
+   }
+
 }

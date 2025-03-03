@@ -5,7 +5,6 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
     <!--<WebSharperStandalone>True</WebSharperStandalone>-->
-    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>
   <ItemGroup>
     <None Include="vite.config.js" />
