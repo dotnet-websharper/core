@@ -641,7 +641,7 @@ module Macro =
                                 match uft with
                                 | ConcreteType { Entity = fTd } as ft ->
                                     match comp.GetCustomTypeInfo fTd with
-                                    | M.FSharpRecordInfo fRec -> Some (ft, fRec)
+                                    | M.FSharpRecordInfo fRec -> Some (ft.SubstituteGenerics(Array.ofList targs), fRec)
                                     | _ -> None
                                 | TypeParameter i -> inl (targs.[i])
                                 | _ -> None

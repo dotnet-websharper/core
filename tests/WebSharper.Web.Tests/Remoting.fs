@@ -65,6 +65,18 @@ module Server =
         | [<Constant true>] UBool
         | UNotConst
 
+    [<JavaScript>]
+    type LeadAndTrail<'a> = {
+        Lead: 'a
+        Trail: 'a
+    }
+
+    [<JavaScript>]
+    [<NamedUnionCases (nameof SingleOrTwin)>]
+    type SingleOrTwin<'a> =
+        | Single of 'a
+        | TwinLeadAndTrail of LeadAndTrail<'a>
+    
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -238,6 +250,20 @@ module Server =
     [<Remote>]
     let f19 (u: UnionWithConstants) (v: UnionWithConstants) =
         async { return (v, u) }
+
+    [<Remote>]
+    let bug1439 (x: SingleOrTwin<int>) (y: string) : Async<SingleOrTwin<int option * string option>> =
+        async {
+            return 
+                match x with
+                | Single x -> Single (Some x, Some y)
+                | TwinLeadAndTrail x -> 
+                    TwinLeadAndTrail { 
+                        Lead = (Some x.Lead, Some y)
+                        Trail = (Some x.Trail, None)
+                    }
+
+        }
 
     [<Remote>]
     let LoginAs (username: string) =
@@ -636,6 +662,10 @@ module Remoting =
             Test "Union with constants" {
                 equalAsync (Server.f19 Server.UString Server.UInt) (Server.UInt, Server.UString)
                 equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
+            }
+
+            Test "Bug #1439" {
+                equalAsync (Server.bug1439 (Server.Single 5) "hi") (Server.Single (Some 5, Some "hi"))
             }
 
             Test "Automatic field rename" {
