@@ -181,9 +181,10 @@ type QuotationCompiler (meta : M.Info) =
                             | _ -> M.RemoteSync
                         let path = comp.GetRemotePath(p, thisDef, mdef.Value.MethodName)
                         let vars = getVars()
+                        let sourcePos = getRange m
                         let nr =
                             {
-                                Kind = N.Remote (remotingKind, path, vars, rp, Some mdef.Value.ReturnType, None)
+                                Kind = N.Remote (remotingKind, path, vars, None, rp, Some mdef.Value.ReturnType, None)
                                 StrongName = mAnnot.Name
                                 Generics = []
                                 Macros = mAnnot.Macros

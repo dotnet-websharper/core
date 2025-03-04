@@ -1681,7 +1681,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     else
                         New (Some n)
                 | N.AsStatic -> Func (n, true)
-                | N.Remote (_, h, _, _, _, args) -> Remote(n, h, args.IsSome)
+                | N.Remote (_, h, _, _, _, _, args) -> Remote(n, h, args.IsSome)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 
@@ -2083,7 +2083,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let body = 
                     match nr.Kind with
-                    | N.Remote (kind, path, args, rh, rt, argTypes) ->
+                    | N.Remote (kind, path, args, sourcePos, rh, rt, argTypes) ->
 
                         let name, m =
                             match kind with
@@ -2180,7 +2180,11 @@ type Compilation(meta: Info, ?hasGraph) =
                                 NewArray encodedArgs 
                             ]) 
                             |> decode
-                        Function(args, None, None, Return callRP)
+                        let withSourcePos =
+                            match sourcePos with
+                            | Some sp -> ExprSourcePos(sp, callRP) 
+                            | None -> callRP
+                        Function(args, None, None, Return withSourcePos)
                     | _ ->
                         nr.Body
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr

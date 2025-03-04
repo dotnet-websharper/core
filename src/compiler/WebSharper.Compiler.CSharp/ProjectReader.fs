@@ -1233,7 +1233,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | _ -> RemoteSync // TODO: warning
                     let path = comp.GetRemotePath(p, def, mdef.Value.MethodName)
                     let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, rp, None, None)) false Undefined
+                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, sourcePos(), rp, None, None)) false Undefined
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])

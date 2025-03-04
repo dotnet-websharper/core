@@ -471,7 +471,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         |> List.map (fun p ->
                             Id.New(?name = p.Name, mut = false)
                         ) 
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, rp, None, None)) false None Undefined
+                let sourcePos = CodeReader.getRange meth.DeclarationLocation
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, Some sourcePos, rp, None, None)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
@@ -1049,7 +1050,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     |> List.map (fun p ->
                         Id.New(?name = None, mut = false)
                     ) 
-                addMethod None fAnnot mdef (N.Remote(remotingKind, path, vars, rp, Some returnType, Some pars)) false None Undefined
+                let sourcePos = CodeReader.getRange f.DeclarationLocation
+                addMethod None fAnnot mdef (N.Remote(remotingKind, path, vars, Some sourcePos, rp, Some returnType, Some pars)) false None Undefined
             | _ -> ()
         )
 
