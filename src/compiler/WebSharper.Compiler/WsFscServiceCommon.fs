@@ -16,7 +16,9 @@ let hashPath (fullPath: string) =
     ||> Array.fold (fun sb b -> sb.Append(b.ToString("x2")))
     |> string
 
-let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) = 
+exception PipeException of unit
+
+let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) (clientError: unit -> unit) = 
     let readBytes (stream: Stream) (count: int) =
        let buffer = Array.zeroCreate<byte> count
        let rec readLoop offset remaining =
@@ -47,7 +49,7 @@ let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) 
                             let message = Encoding.UTF8.GetString(messageBuffer)
                             return message
                     }
-
+                clientError ()
                 let! byteArr = readMessage ()
                 match byteArr with
                 | "" | null ->
@@ -61,6 +63,9 @@ let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) 
                     | None -> return! readingMessage()
             with
             | :? System.Runtime.Serialization.SerializationException as ex->
+                return None
+            | PipeException _ as ex ->
+                raise ex |> ignore
                 return None
             | ex ->
                 return! readingMessage()
