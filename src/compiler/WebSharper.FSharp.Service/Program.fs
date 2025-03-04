@@ -277,8 +277,7 @@ let startListening() =
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
-                let! _ = readingMessages serverPipe handleMessage
-                nLogger.Debug "Client has disconnected"
+                let! _ = readingMessages serverPipe handleMessage ignore
                 serverPipe.Close()
             with
             | ex ->
@@ -322,30 +321,44 @@ let startListening() =
 do ()
 
 [<EntryPoint>]
-let main _ =
-    // One service should serve all compilations in a folder. Protect it with a global Mutex.
-    let location = System.Reflection.Assembly.GetEntryAssembly().Location
-    let mutexName =
-        (location, "WsFscServiceMutex")
-        |> System.IO.Path.Combine
-        |> hashPath
-        |> fun x -> "Global\\" + x
-    let mutable mutex = null
-    let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
-    if mutexExists then
-        exit(1)
-    mutex <- new Mutex(false, mutexName)
-    mutex.WaitOne() |> ignore // should always instantly continue
-    System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+let main args =
+    let initialLogLocation = args[0]
     try
-        startListening()
-    // killing the task from Task Manager on Windows 10 will dispose the Mutex
-    finally 
+        // One service should serve all compilations in a folder. Protect it with a global Mutex.
+        let location = System.Reflection.Assembly.GetEntryAssembly().Location
+        let mutexName =
+            (location, "WsFscServiceMutex")
+            |> System.IO.Path.Combine
+            |> hashPath
+            |> fun x -> "Global\\" + x
+        let mutable mutex = null
+        let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
+        if mutexExists then
+            exit(1)
+        mutex <- new Mutex(false, mutexName)
+        mutex.WaitOne() |> ignore // should always instantly continue
+        System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
         try
-            mutex.ReleaseMutex()
-        finally
+            startListening()
             try
-                mutex.Close()
+                mutex.ReleaseMutex()
             finally
-                mutex.Dispose()
+                try
+                    mutex.Close()
+                finally
+                    mutex.Dispose()
+        // killing the task from Task Manager on Windows 10 will dispose the Mutex
+        with
+        | ex ->
+            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
+            try
+                mutex.ReleaseMutex()
+            finally
+                try
+                    mutex.Close()
+                finally
+                    mutex.Dispose()
+    with
+        | ex ->
+            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
     0 // exit code

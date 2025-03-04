@@ -19,6 +19,8 @@
 // $end{copyright}
 module WebSharper.FSharp.NamedPipeClient
 #nowarn "44"
+open WebSharper.Compiler
+
 open System.Text
 
 open System.Diagnostics
@@ -49,15 +51,9 @@ let (|Finish|_|) (str: string) =
     else
         None
 
+let retryErrorCode = -12212
 
-let sendCompileCommand args =
-    let nLogger = 
-        let callerType = 
-            System.Diagnostics.StackTrace(0, false)
-                .GetFrames().[0]
-                .GetMethod()
-                .DeclaringType
-        NLog.LogManager.GetLogger(callerType.Name)
+let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
@@ -94,6 +90,7 @@ let sendCompileCommand args =
                         "wsfscservice_start.cmd" else "wsfscservice_start.sh"
         let cmdFullPath = (location, cmdName) |> System.IO.Path.Combine
         let startInfo = ProcessStartInfo(cmdFullPath)
+        startInfo.Arguments <- Path.Combine(projectDir, "websharper.log")
         startInfo.CreateNoWindow <- true
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden
@@ -134,8 +131,12 @@ let sendCompileCommand args =
                 clientPipe.Flush()
                 if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
                     clientPipe.WaitForPipeDrain()
+
+                let clientError () =
+                    if clientPipe.IsConnected |> not then
+                        raise <| PipeException ()
                 
-                let! errorCode = readingMessages clientPipe printResponse
+                let! errorCode = readingMessages clientPipe printResponse clientError
                 match errorCode with
                 | Some -12211 ->
                     nLogger.Error(sprintf "Error while parsing project parameters (%i)" unexpectedFinishErrorCode)
@@ -148,6 +149,9 @@ let sendCompileCommand args =
             try
                 Async.RunSynchronously(write)
             with
+            | PipeException _ as ex ->
+                cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+                retryErrorCode
             | _ -> 
                 nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
                 unexpectedFinishErrorCode
@@ -162,12 +166,20 @@ let sendCompileCommand args =
     args |> Array.iter (fun x -> nLogger.Debug("    " + x))
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
-    clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Byte
-    let options = System.Text.Json.JsonSerializerOptions()
-    options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
-    let bytes = System.Text.Encoding.UTF8.GetBytes res
-    let returnCode = Write bytes
-    nLogger.Debug(sprintf "wsfscservice.exe compiled in %s with error code: %i" location returnCode)
-    returnCode
+    try
+        clientPipe.Connect(2000)
+        if clientPipe.IsConnected then
+            clientPipe.ReadMode <- PipeTransmissionMode.Byte
+            let options = System.Text.Json.JsonSerializerOptions()
+            options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
+            let bytes = System.Text.Encoding.UTF8.GetBytes res
+            let returnCode = Write bytes
+            returnCode
+        else
+            cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+            raise <| PipeException()
+    with
+    | :? System.TimeoutException ->
+        cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+        raise <| PipeException()

@@ -29,6 +29,7 @@ open WebSharper.Compiler.FSharp.Compile
 open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
+open WebSharper.Compiler.WsFscServiceCommon
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -94,5 +95,18 @@ let main(argv) =
             nLogger.Debug "Start compilation with wsfscservice"
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
-            let res = sendCompileCommand argv
-            res
+            try
+                let res = sendCompileCommand argv wsConfig.ProjectDir logger
+                res
+            with
+            | PipeException () ->
+                let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+                let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
+                try StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata
+                with 
+                | ArgumentError msg -> 
+                    PrintGlobalError logger msg
+                    1
+                | e -> 
+                    PrintGlobalError logger (sprintf "Global error: %A" e)
+                    1
