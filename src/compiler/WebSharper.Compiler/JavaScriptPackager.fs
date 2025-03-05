@@ -121,7 +121,7 @@ type LazyClassTransformer(needsLazy) =
             Import(defaultImport, fullImport, namedImports, fromModule)
         else
             let namedImportsWithoutLazy =
-                namedImports |> List.filter (fun (n, _) -> n <> "Lazy")
+                namedImports |> List.filter (fun (n, _) -> n <> "Lazy" && n <> "Force")
             if List.isEmpty namedImportsWithoutLazy && Option.isNone defaultImport then
                 Empty
             else
@@ -241,7 +241,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | _ ->
                     false
         let localClassId =
-            if lazyClasses.Contains typ then
+            if isSingleType || lazyClasses.Contains typ then
                 outerClassId
             else
                 classId    
@@ -1208,6 +1208,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     classDecl
                     |> bTr().TransformStatement 
                     |> SubstituteVar(outerClassId, Var classId).TransformStatement
+                    |> exportWithBundleSupport true typ None currentClassAddr outerClassId
                 let withLazy =
                     Block [
                         VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
@@ -1238,7 +1239,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | Some b ->
                 let needsLazy = 
                     output <> O.TypeScriptDeclaration
-                    //&& (not isSingleType || Option.isNone c.Type) 
                     && (
                         if isSingleType then 
                             Option.isNone c.Type
@@ -1259,7 +1259,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | None ->
                 let needsLazy = 
                     output <> O.TypeScriptDeclaration 
-                    //&& (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) 
                     && (
                         if isSingleType then
                             c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType
