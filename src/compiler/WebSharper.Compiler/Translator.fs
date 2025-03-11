@@ -941,7 +941,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | TypeParameter i 
         | StaticTypeParameter i ->
             this.Error(sprintf "Macro '%s' requires a resolved type argument for type parameter index %d. Mark the member with the Inline attribute." macroName i)
-        | LocalTypeParameter ->
+        | LocalTypeParameter _ ->
             this.Error(sprintf "Macro '%s' would use a local type parameter. Make the inner function non-generic or move it to module level and mark it with the Inline attribute" macroName)
         | _ -> 
             this.Error(sprintf "Macro '%s' erroneusly reported MacroNeedsResolvedTypeArg on not a type parameter." macroName)
@@ -1224,10 +1224,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let methods = comp.GetMethods ct.Entity
                     let getMethods pars ret =
                         methods |> Seq.choose (fun m ->
+                            let tcSig = FSharpFuncType (TupleType (pars, false), ret)
                             let mv = m.Value
                             if mv.MethodName = mName then
                                 let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
-                                let tcSig = FSharpFuncType (TupleType (pars, false), ret)
                                 if Type.IsGenericCompatible(mSig, tcSig) then
                                     Some m 
                                 else

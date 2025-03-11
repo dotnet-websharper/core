@@ -546,7 +546,7 @@ module Macro =
                     fail (name + ": Cannot de/serialize a byref value.")
                 | TSType _ ->
                     fail (name + ": Cannot de/serialize this type: unknown [<Type>].")
-                | LocalTypeParameter
+                | LocalTypeParameter _
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
                     generic t

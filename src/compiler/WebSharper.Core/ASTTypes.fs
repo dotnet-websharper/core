@@ -633,7 +633,7 @@ type Type =
     /// used for F# statically resolved type parameters
     | StaticTypeParameter of ordinal: int
     /// used for F# inner generics
-    | LocalTypeParameter
+    | LocalTypeParameter of name: string
     /// Translated type
     | TSType of tsType: TSType
 
@@ -651,14 +651,14 @@ type Type =
         | ByRefType t -> "byref<" + string t + ">"
         | VoidType -> "unit"
         | StaticTypeParameter i -> "^T" + string i
-        | LocalTypeParameter -> "'?"
+        | LocalTypeParameter i -> "'?" + string i
         | TSType ts -> "TS:" + string ts
 
     member this.IsParameter =
         match this with
         | TypeParameter _
         | StaticTypeParameter _
-        | LocalTypeParameter -> true
+        | LocalTypeParameter _ -> true
         | _ -> false
 
     member this.AssemblyQualifiedName =
@@ -694,7 +694,7 @@ type Type =
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
             | VoidType -> "Microsoft.FSharp.Core.Unit", "FSharp.Core"
-            | LocalTypeParameter -> "$?", ""
+            | LocalTypeParameter n -> "$?" + n, ""
             | TSType _ -> invalidOp "TypeScript type has no AssemblyQualifiedName"
         getNameAndAsm this |> combine
 
@@ -703,7 +703,7 @@ type Type =
             match ty with
             | ConcreteType t -> (t.Entity.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Replace("`", "_")
             | StaticTypeParameter _
-            | LocalTypeParameter 
+            | LocalTypeParameter _
             | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
             | ArrayType (t, i) -> "Array" + (if i = 0 then "" else string i + "D") + "_" + getName t
             | TupleType (ts, _)  -> "Tuple_" + (ts |> Seq.map getName |> String.concat "_")
@@ -717,7 +717,7 @@ type Type =
         match this with
         | ConcreteType t -> t.Entity 
         | StaticTypeParameter _
-        | LocalTypeParameter 
+        | LocalTypeParameter _
         | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
         | ArrayType _ -> Definitions.Array
         | TupleType (ts, isStruct)  -> Definitions.Tuple isStruct (List.length ts)
@@ -746,8 +746,24 @@ type Type =
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics(gs, ?staticOnly = staticOnly), r.SubstituteGenerics(gs, ?staticOnly = staticOnly))
         | ByRefType t -> ByRefType (t.SubstituteGenerics(gs, ?staticOnly = staticOnly))
         | VoidType -> this
-        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
+        | LocalTypeParameter _ -> ConcreteType { Entity = Definitions.Object; Generics = [] }
         | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenerics"
+
+    member this.SubstituteLocalGenerics (gs : list<string * Type>) =
+        match this with 
+        | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteLocalGenerics(gs)) }
+        | TypeParameter i -> TypeParameter i
+        | StaticTypeParameter i -> StaticTypeParameter i
+        | ArrayType (t, i) -> ArrayType (t.SubstituteLocalGenerics(gs), i)
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteLocalGenerics(gs)), v) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteLocalGenerics(gs), r.SubstituteLocalGenerics(gs))
+        | ByRefType t -> ByRefType (t.SubstituteLocalGenerics(gs))
+        | VoidType -> this
+        | LocalTypeParameter n -> 
+            match gs |> List.tryFind (fun (gn, _) -> gn = n) with
+            | Some (_, t) -> t
+            | None -> failwithf "Error during local generic substitution, type parameter %s" n
+        | TSType _ -> invalidOp "TypeScript type does not support SubstituteLocalGenerics"
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -759,7 +775,7 @@ type Type =
         | ByRefType t -> ByRefType (t.SubstituteGenericsToSame(o))
         | VoidType 
         | StaticTypeParameter _ 
-        | LocalTypeParameter -> this
+        | LocalTypeParameter _ -> this
         | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenericsToSame"
 
     member this.CanHaveDeserializer =
@@ -771,7 +787,7 @@ type Type =
                 t.Generics |> List.forall (fun p -> p.CanHaveDeserializer)
         | StaticTypeParameter _ 
         | TypeParameter _ 
-        | LocalTypeParameter
+        | LocalTypeParameter _
         | FSharpFuncType _ -> false
         | VoidType -> true
         | ArrayType (t, _) -> t.CanHaveDeserializer
@@ -799,7 +815,7 @@ type Type =
         | ByRefType t -> 5 ++ t.GetStableHash()
         | VoidType -> 6
         | StaticTypeParameter i -> 7 ++ i
-        | LocalTypeParameter -> 8
+        | LocalTypeParameter _ -> 8
         | TSType _ -> invalidOp "TypeScript type does not support GetStableHash"
 
     member this.Normalize() =
@@ -827,7 +843,7 @@ type Type =
         | TypeParameter _
         | VoidType 
         | StaticTypeParameter _ 
-        | LocalTypeParameter -> this
+        | LocalTypeParameter _ -> this
         | TSType _ -> invalidOp "TypeScript type does not support Normalize"
 
     member this.MapTypeDefinitions(mapping) =
@@ -844,7 +860,7 @@ type Type =
         | FSharpFuncType (a, r) -> FSharpFuncType (a.MapTypeDefinitions mapping, r.MapTypeDefinitions mapping)
         | ByRefType t -> ByRefType (t.MapTypeDefinitions mapping)
         | VoidType -> this
-        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
+        | LocalTypeParameter _ -> ConcreteType { Entity = Definitions.Object; Generics = [] }
         | TSType _ -> invalidOp "TypeScript type does not support MapTypeDefinitions"
 
     static member IsGenericCompatible(targetSig, usageSig) =
