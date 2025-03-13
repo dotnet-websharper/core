@@ -244,11 +244,6 @@ namespace WebSharper.DllBrowser
         {
             Assembly = assembly;
 
-            var f = assembly.ReadableJavaScript;
-            if (f != null)
-            {
-                Contents.Add(new SpecialFileModel("WebSharper.js", f.Value));
-            }
             foreach (var x in assembly.GetScripts(Core.JavaScript.Output.JavaScript))
             {
                 Contents.Add(new EmbeddedFileModel(x));

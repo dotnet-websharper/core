@@ -93,13 +93,6 @@ let ReadRuntimeFromFile (path: string) =
     let meta = ReadRuntimeFromAssembly M.FullMetadata asm
     asm, meta
 
-let GetJSLookup (r: Assembly list, readable) =
-    r |> List.choose (fun a ->
-        if readable then a.ReadableJavaScript else a.CompressedJavaScript
-        |> Option.map (fun js -> a.FullName, js)
-    )
-    |> dict
-
 let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     for r in Assembly.GetAllResources a do

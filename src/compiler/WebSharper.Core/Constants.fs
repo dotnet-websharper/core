@@ -29,24 +29,6 @@ module EmbeddedResources =
     [<Literal>]
     let EMBEDDED_RUNTIME_METADATA = "WebSharper.runtime.meta"
 
-    [<Literal>]
-    let EMBEDDED_JS = "WebSharper.js"
-
-    [<Literal>]
-    let EMBEDDED_MAP = "WebSharper.map"
-
-    [<Literal>]
-    let EMBEDDED_MINJS = "WebSharper.min.js"
-
-    [<Literal>]
-    let EMBEDDED_MINMAP = "WebSharper.min.map"
-
-    [<Literal>]
-    let EMBEDDED_TS = "WebSharper.ts"
-
-    [<Literal>]
-    let EMBEDDED_DTS = "WebSharper.d.ts"
-
 [<AutoOpen>]
 module RuntimeSettings =
     

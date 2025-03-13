@@ -90,16 +90,16 @@ module Bundling =
             |> Seq.append (Seq.singleton o.CurrentMeta.Dependencies)
             |> WebSharper.Core.DependencyGraph.Graph.FromData
 
-        let mapFileSources = 
-            if sourceMap then
-                o.RefAssemblies |> Seq.collect (fun a ->
-                    match a.MapFileForReadable with
-                    | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
-                    | _-> []
-                )  
-                |> Seq.append o.Sources
-                |> Array.ofSeq 
-            else [||]
+        //let mapFileSources = 
+        //    if sourceMap then
+        //        o.RefAssemblies |> Seq.collect (fun a ->
+        //            match a.MapFileForReadable with
+        //            | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
+        //            | _-> []
+        //        )  
+        //        |> Seq.append o.Sources
+        //        |> Array.ofSeq 
+        //    else [||]
 
         let mutable map = None
         let mutable minmap = None
@@ -236,7 +236,7 @@ module Bundling =
                     let getCodeWriter() =
                         if sourceMap then
                             WebSharper.Core.JavaScript.Writer.CodeWriter(
-                                sources = mapFileSources,
+                                //sources = mapFileSources,
                                 offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
