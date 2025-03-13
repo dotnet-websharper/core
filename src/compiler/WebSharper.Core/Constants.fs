@@ -73,3 +73,6 @@ module RuntimeSettings =
 
     [<Literal>]
     let RUNTIMESETTING_USEMINIFIEDSCRIPTS = "UseMinifiedScripts"
+
+    [<Literal>]
+    let RUNTIMESETTING_DEBUGSCRIPTREDIRECTURL = "DebugScriptRedirectUrl"

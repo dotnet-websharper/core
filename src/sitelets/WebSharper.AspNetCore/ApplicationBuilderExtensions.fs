@@ -30,6 +30,8 @@ open System.Runtime.InteropServices
 open System.Reflection
 open Microsoft.AspNetCore.Builder
 
+open WebSharper.Constants
+
 [<Extension>]
 type ApplicationBuilderExtensions =
 
@@ -99,7 +101,7 @@ type ApplicationBuilderExtensions =
         let redirectUrlRoot =
             if isNull redirectUrlRoot then 
                 let config = this.ApplicationServices.GetRequiredService<IConfiguration>().GetSection("websharper")
-                let fromConfig = config.Item("ScriptRedirectUrl")
+                let fromConfig = config.Item(RUNTIMESETTING_DEBUGSCRIPTREDIRECTURL)
                 if isNull fromConfig then
                     "http://localhost:5173"
                 else
