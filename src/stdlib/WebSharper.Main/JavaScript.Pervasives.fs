@@ -263,7 +263,6 @@ module DateTime =
             result <- result + s
 
         while cursorPos < format.Length do
-            printfn "cursorPos: %d" cursorPos
             let token = format.[cursorPos]
 
             match token with
