@@ -1422,7 +1422,7 @@ type Compilation(meta: Info, ?hasGraph) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
 
         let asmNodeIndex = 
-            if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true, false)) else 0
+            if hasGraph then graph.AddOrLookupNode(AssemblyNode this.AssemblyName) else 0
         if hasGraph then
             for req in this.AssemblyRequires do
                 graph.AddEdge(asmNodeIndex, resNode req)

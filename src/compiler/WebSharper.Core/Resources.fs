@@ -186,11 +186,8 @@ type RenderLocation =
 
 type Context =
     {
-        DebuggingEnabled : bool
         DefaultToHttp : bool
         ScriptBaseUrl : option<string>
-        //GetResourceHash : string * string -> int
-        GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
         WebRoot : string  

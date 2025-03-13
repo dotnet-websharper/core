@@ -290,7 +290,7 @@ type Node =
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition * option<ParameterObject>
-    | AssemblyNode of string * hasJs:bool * isModule:bool
+    | AssemblyNode of string
     | EntryPointNode 
     | ExtraBundleEntryPointNode of string * string
 
@@ -302,7 +302,7 @@ type Node =
         | AbstractMethodNode (td, m) -> sprintf "AbstractMethod %O.%O" td.Value m.Value
         | TypeNode td -> sprintf "Type %O" td.Value
         | ResourceNode (td, p) -> sprintf "Resource %O%s" td.Value (match p with None -> "" | Some p -> sprintf " (%A)" p)
-        | AssemblyNode (n, hasJs, isModule) -> sprintf "Assembly %s hasJs:%b isModule:%b" n hasJs isModule
+        | AssemblyNode n -> sprintf "Assembly %s" n
         | EntryPointNode -> "EntryPoint"
         | ExtraBundleEntryPointNode (a, n) -> sprintf "ExtraBundleEntryPoint %s %s" a n 
 
@@ -651,7 +651,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "8.0-rc"
+    let CurrentVersion = "8.0-rc2"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

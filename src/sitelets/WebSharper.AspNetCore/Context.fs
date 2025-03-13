@@ -206,15 +206,8 @@ let private makeResCtx (httpCtx: HttpContext) (options: WebSharperOptions) =
             None
         else
             options.Configuration.[x] |> Option.ofObj 
-    let isDebug =
-        match getSetting RUNTIMESETTING_USEMINIFIEDSCRIPTS with
-        | Some ums ->
-            match bool.TryParse(ums) with
-            | true, useMinifiedScripts -> not useMinifiedScripts
-            | _ -> true
-        | _ -> true
     appPath,
-    WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata isDebug getSetting
+    WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata getSetting
 
 let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T>) =
     let appPath, resCtx = makeResCtx httpCtx options

@@ -422,7 +422,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
 
     let inProgress = defaultArg inProgress []
-    let mutable currentNode = M.AssemblyNode ("", false, false) // placeholder
+    let mutable currentNode = M.AssemblyNode "" // placeholder
     let mutable currentIsInline = false
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None

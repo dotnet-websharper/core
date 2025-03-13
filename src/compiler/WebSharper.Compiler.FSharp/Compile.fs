@@ -175,11 +175,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             else
                 try
                     Some (
-                        wsRefs, metas,
-                        { 
-                            WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                                Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-                        }
+                        wsRefs, metas, WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
                     )
                 with e ->
                     refError <- true

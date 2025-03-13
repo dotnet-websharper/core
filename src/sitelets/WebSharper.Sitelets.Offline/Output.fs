@@ -210,11 +210,6 @@ let resourceContext (st: State) (level: int) : R.Context =
         let url = String.Format("{0}{1}/{2}", scriptsFolder, folder, file)
         R.RenderLink url
     {
-        DebuggingEnabled =
-            match st.Config.Options.Mode with
-            | H.Debug -> true
-            | H.Release -> false
-
         DefaultToHttp = true
 
         ScriptBaseUrl = Some scriptsFolder
@@ -226,10 +221,6 @@ let resourceContext (st: State) (level: int) : R.Context =
                 | _ -> None
             else  
                 fun _ -> None
-
-        GetAssemblyRendering = fun aN ->
-            //st.UseAssembly(aN)
-            scriptsFile aN (getAssemblyFileName st.Config.Options.Mode aN)
 
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty.Assembly.GetName()))

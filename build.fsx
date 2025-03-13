@@ -36,7 +36,7 @@ System.Environment.GetCommandLineArgs()
 
 open WebSharper.Fake
 let version = "8.0"
-let pre = Some "rc"
+let pre = Some "rc2"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x

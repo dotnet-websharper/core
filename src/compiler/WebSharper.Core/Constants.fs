@@ -72,7 +72,4 @@ module RuntimeSettings =
     let RUNTIMESETTING_USEDOWNLOADEDRESOURCES = "UseDownloadedResources"
 
     [<Literal>]
-    let RUNTIMESETTING_USEMINIFIEDSCRIPTS = "UseMinifiedScripts"
-
-    [<Literal>]
     let RUNTIMESETTING_DEBUGSCRIPTREDIRECTURL = "DebugScriptRedirectUrl"

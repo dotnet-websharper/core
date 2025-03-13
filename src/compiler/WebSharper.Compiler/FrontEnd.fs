@@ -301,14 +301,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         | _ -> ()
 
         logger.TimedStage "Serializing metadata"
-
-    let setAssemblyNode (i: M.Info) =
-        i.Dependencies.Nodes |> Array.tryFindIndex (function
-            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
-            | _ -> false
-        ) |> Option.iter (fun asmNodeIndex ->
-            i.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
-        )
     
     let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
 
@@ -396,25 +388,9 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .d.ts files"
 
-        // set current AssemblyNode to be a module
-        current.Dependencies.Nodes |> Array.tryFindIndex (function
-            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
-            | _ -> false
-        ) |> Option.iter (fun asmNodeIndex ->
-            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
-        )
-
         addMeta()
         Some jss, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
     else
-        // set current AssemblyNode to have no js
-        current.Dependencies.Nodes |> Array.tryFindIndex (function
-            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
-            | _ -> false
-        ) |> Option.iter (fun asmNodeIndex ->
-            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, false, false)
-        )
-
         addMeta()
         None, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
 
@@ -490,17 +466,8 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
         }
     let ctx : Resources.Context =
         {
-            DebuggingEnabled = ctx.DebuggingEnabled
             DefaultToHttp = ctx.DefaultToHttp
             ScriptBaseUrl = ctx.ScriptBaseUrl
-            GetAssemblyRendering = fun name ->
-                if name = nameOfSelf then
-                    selfJS
-                    |> makeJsUri (WebSharper.PathConventions.AssemblyId.Create name)
-                else
-                    match lookupAssemblyCode name with
-                    | Some x -> makeJsUri (WebSharper.PathConventions.AssemblyId.Create name) x
-                    | None -> Resources.Skip
             GetSetting = ctx.GetSetting
             GetWebResourceRendering = fun ty name ->
                 let (c, cT) = Utility.ReadWebResource ty name

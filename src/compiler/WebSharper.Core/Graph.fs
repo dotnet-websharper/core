@@ -30,31 +30,6 @@ open WebSharper.Core.Metadata
 
 module R = Resources 
 
-/// A resource class for including the compiled .js for an assembly in Sitelets
-[<Sealed>]
-type AssemblyResource(name, isModule) =
-    member this.Name = name
-    
-    interface R.IResource with
-        member this.Render ctx =
-            let r =
-                let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
-                match R.Rendering.TryGetCdn(ctx, name, filename) with
-                | Some r -> r
-                | None -> 
-                    ctx.GetAssemblyRendering name
-            ignore
-            //fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
-
-/// A resource class for including the compiled .js module for an type in Sitelets
-[<Sealed>]
-type ModuleResource(typ: TypeDefinition) =
-    interface R.IResource with
-        member this.Render ctx =
-            let r =
-                ctx.GetWebResourceRendering (Reflection.LoadTypeDefinition typ) (typ.Value.FullName + ".js")
-            fun writer -> r.Emit(writer R.Scripts, R.JsModule)
-
 /// The compilation-time mutable representation of a code dependency graph
 type Graph =
     {
@@ -85,22 +60,11 @@ type Graph =
 //            NewNodes = ResizeArray()
         }
 
-    static member NewWithDependencyAssemblies (data: seq<GraphData>) =            
+    static member New() =            
         let nodes = ResizeArray()
         let edges = ResizeArray() 
         let lookup = Dictionary()
         
-        for g in data do
-            for n in g.Nodes do
-                match n with
-                | AssemblyNode (_, true, _) ->
-                    if not (lookup.ContainsKey n) then
-                        let i = nodes.Count
-                        nodes.Add(n) 
-                        edges.Add(HashSet())  
-                        lookup.Add(n, i)
-                | _ -> ()
-
         {
             Nodes = nodes
             Edges = edges
@@ -291,10 +255,6 @@ type Graph =
         let activate i n =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
-                | AssemblyNode (name, true, isModule) ->
-                    AssemblyResource(name, isModule) :> R.IResource
-                | TypeNode typ ->
-                    ModuleResource(typ) :> R.IResource
                 | ResourceNode (t, p) ->
                     try
                         match p with
@@ -330,28 +290,17 @@ type Graph =
                 | _ -> failwith "not a resource node"
             )
 
-        let asmNodes, resNodes =
+        let resNodes =
             nodes 
             |> this.GetRequires metadata
             |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
-                | AssemblyNode (_, true, _) ->
-                    Some (true, (i, n))
                 | ResourceNode _ ->
                     Some (false, (i, n))
-                | TypeNode typ ->
-                    Some(true, (i, n))
                 | _ -> None
             )    
-            |> List.ofSeq
-            |> List.partition fst
-
-        let asmNodes = 
-            asmNodes
-            |> Seq.map snd
-            |> Seq.sortBy fst    
             |> List.ofSeq
 
         let resNodesOrdered = ResizeArray()
@@ -368,7 +317,6 @@ type Graph =
         [
             yield Resources.Runtime.Instance
             for i, n in resNodesOrdered -> activate i n
-            for i, n in asmNodes -> activate i n
         ]
    
      /// Gets the resource nodes of a set of already explored graph nodes.
@@ -376,7 +324,6 @@ type Graph =
      member this.GetResourcesOf (nodes : seq<Node>) =
         nodes |> Seq.filter (fun n ->
             match n with
-            | AssemblyNode (_, true, _)
             | ResourceNode _ ->
                 true
             | _ -> false

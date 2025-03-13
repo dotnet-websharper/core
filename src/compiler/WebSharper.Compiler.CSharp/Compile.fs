@@ -72,10 +72,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
         else 
             try
-                Some { 
-                    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                        Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-                }
+                Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas)
             with e ->
                 refError <- true
                 PrintGlobalError logger (sprintf "Error merging WebSharper metadata: %A" e)
