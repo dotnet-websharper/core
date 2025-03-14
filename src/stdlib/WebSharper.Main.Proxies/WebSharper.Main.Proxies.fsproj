@@ -85,6 +85,26 @@
     <Compile Include="../WebSharper.Main.Proxies/Primitives.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Convert.fs" />
     <Compile Include="../WebSharper.Main.Proxies/StringBuilder.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/BalancedTree.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Pair.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Map.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/MapModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Set.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/SetModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ReadOnlyCollection.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ResizeArray.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/LinkedList.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Linq.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Query.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Disposable.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Observer.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/HotStream.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Observable.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/ObservableModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/Event.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/FSharpEvent.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/EventModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/MailboxProcessor.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

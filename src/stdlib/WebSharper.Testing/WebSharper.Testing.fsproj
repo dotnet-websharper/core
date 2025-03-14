@@ -16,7 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
-    <ProjectReference Include="..\WebSharper.Collections\WebSharper.Collections.fsproj" />
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Main\WebSharper.Main.fsproj" />
   </ItemGroup>

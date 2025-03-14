@@ -27,10 +27,6 @@ files
     ../build/Release/netstandard2.0/WebSharper.Web.xml ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Main.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Main.xml ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Collections.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Collections.xml ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Control.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Control.xml ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JavaScript.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JavaScript.xml ==> lib/netstandard2.0
     ../docs ==> docs

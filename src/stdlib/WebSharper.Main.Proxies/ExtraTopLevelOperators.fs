@@ -21,6 +21,8 @@
 [<WebSharper.Proxy "Microsoft.FSharp.Core.ExtraTopLevelOperators, FSharp.Core">]
 module private WebSharper.ExtraTopLevelOperatorsProxy
 
+open System.Collections.Generic
+
 open WebSharper.JavaScript
 module M = WebSharper.Core.Macros
 
@@ -56,3 +58,22 @@ let SpliceExpression (e: Microsoft.FSharp.Quotations.Expr<'T>) =
 [<Inline; JavaScript>]
 let SpliceUntypedExpression<'T> (e: Microsoft.FSharp.Quotations.Expr) =
     As<'T> e
+
+[<Name("dict")>]
+let MakeDict (s : seq<('K * 'V)>) =
+    let d = Dictionary()
+    for a, b in s do
+        d.Add(a, b)
+    d
+
+[<Inline>]
+let CreateDictionary (s : seq<('K * 'V)>) : IDictionary<'K, 'V> =
+    MakeDict s 
+
+[<Inline>]
+let CreateReadOnlyDictionary (s : seq<('K * 'V)>) : IReadOnlyDictionary<'K, 'V> =
+    MakeDict s
+
+[<Inline>]
+let CreateSet (s : seq<('T)>) : Set<'T> =
+    Set s 
