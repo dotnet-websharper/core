@@ -597,7 +597,7 @@ module Definitions =
 
     let IRemotingProvider =
         TypeDefinition {
-            Assembly = "WebSharper.Main"
+            Assembly = "WebSharper.StdLib"
             FullName = "WebSharper.Remoting+IRemotingProvider"
         } 
 

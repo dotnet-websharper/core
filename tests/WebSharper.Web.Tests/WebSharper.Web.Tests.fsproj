@@ -19,7 +19,7 @@
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Interop.Tests\WebSharper.CSharp.Interop.Tests.csproj" />

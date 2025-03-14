@@ -97,7 +97,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\comp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.StdLib", "src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {7001E2B2-61F4-4770-BA7C-86F07F657678}
 	EndProjectSection
@@ -132,7 +132,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.StdLib.Proxies", "src\stdlib\WebSharper.StdLib.Proxies\WebSharper.StdLib.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.SPA.Tests", "tests\WebSharper.SPA.Tests\WebSharper.SPA.Tests.fsproj", "{10EFC79A-9592-4DB2-A033-D29B7C7C917E}"
 EndProject

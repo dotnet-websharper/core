@@ -150,13 +150,11 @@ Here is the detail of the project structure. The repository contains two solutio
   * Under `src/stdlib/`:
     * `WebSharper.JavaScript` contains the type definitions for the JavaScript standard libraries: EcmaScript types, DOM, HTML5 APIs, etc.
     * `WebSharper.JQuery` contains the type definitions for jQuery.
-    * `WebSharper.Main` contains the main WebSharper client-side libraries, such as the `JS` module, `Optional` and `Union` types, remoting client-side types, etc.
-    * `WebSharper.Main.Proxies` contains the standard library proxies, ie the client-side implementations for the a good part of the .NET standard library and FSharp.Core.  
-      This project is peculiar because it is not compiled directly; instead it is combined with `WebSharper.Main` to create the `WebSharper.Main` assembly. This assembly contains the .NET code of the `WebSharper.Main` project, but the embedded WebSharper files contain everything from `WebSharper.Main.Proxies`.
+    * `WebSharper.StdLib` contains the main WebSharper client-side libraries, such as the `JS` module, `Optional` and `Union` types, remoting client-side types, etc.
+    * `WebSharper.StdLib.Proxies` contains the standard library proxies, ie the client-side implementations for the a good part of the .NET standard library and FSharp.Core.  
+      This project is peculiar because it is not compiled directly; instead it is combined with `WebSharper.StdLib` to create the `WebSharper.StdLib` assembly. This assembly contains the .NET code of the `WebSharper.StdLib` project, but the embedded WebSharper files contain everything from `WebSharper.Main.Proxies`.
     * `WebSharper.MathJS` contains the type definitions for MathJS.
     * `WebSharper.MathJS.Extensions` contains the optional MathJS-based proxies for `decimal`, `bigint` and `Complex`.
-    * `WebSharper.Collections` contains proxies for some collection types such as F#'s `Set` and `Map`, as well as the LINQ methods.
-    * `WebSharper.Control` contains proxies for .NET events, observables and F# `MailboxProcessor`.
     * `WebSharper.Testing` contains the WebSharper client-side unit testing framework.
   * Under `src/sitelets/`:
     * `WebSharper.Web` contains the server-side remoting runtime as well as some client-side HTML types.
@@ -164,9 +162,9 @@ Here is the detail of the project structure. The repository contains two solutio
     * `WebSharper.Sitelets.Offline` contains the machinery for static Html project compilation.
   * Under `tests/`:
     * `WebSharper.Core.JavaScript.Tests` contains tests for JavaScript parsing and writing.
-    * `WebSharper.Tests` contains tests for `stdlib/WebSharper.Main`, `Main.Proxies` and `Control`.
+    * `WebSharper.Tests` contains tests for `stdlib/WebSharper.StdLib`, `StdLib.Proxies`.
     * `WebSharper.Html5.Tests` contains tests for HTML5 bindings in `stdlib/WebSharper.JavaScript`.
-    * `WebSharper.Collections.Tests` contains tests for `stdlib/WebSharper.Collections`.
+    * `WebSharper.Collections.Tests` contains tests for collection proxies.
     * `WebSharper.InterfaceGenerator.Tests` contains a test interface generator. This interface is then validated in `WebSharper.Tests`.
     * `WebSharper.Web.Tests` contains remoting, client-side routing and JSON tests.
     * `WebSharper.CSharp.Tests` contains C#-specific tests.

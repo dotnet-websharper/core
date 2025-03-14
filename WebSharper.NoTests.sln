@@ -61,16 +61,12 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\comp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.StdLib", "src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {7001E2B2-61F4-4770-BA7C-86F07F657678}
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections", "src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj", "{4EF94364-B50F-4906-AB91-77BCA8413D60}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Control", "src\stdlib\WebSharper.Control\WebSharper.Control.fsproj", "{666977BF-E022-4C8F-B53D-5D294D41010F}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Testing", "src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj", "{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}"
 EndProject
@@ -80,7 +76,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets", "src\
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.StdLib.Proxies", "src\stdlib\WebSharper.StdLib.Proxies\WebSharper.StdLib.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.AspNetCore", "src\sitelets\WebSharper.AspNetCore\WebSharper.AspNetCore.fsproj", "{6DB7E533-6A1B-4960-B3E2-04CF03FE9075}"
 EndProject
@@ -114,14 +110,6 @@ Global
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4EF94364-B50F-4906-AB91-77BCA8413D60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4EF94364-B50F-4906-AB91-77BCA8413D60}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4EF94364-B50F-4906-AB91-77BCA8413D60}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4EF94364-B50F-4906-AB91-77BCA8413D60}.Release|Any CPU.Build.0 = Release|Any CPU
-		{666977BF-E022-4C8F-B53D-5D294D41010F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{666977BF-E022-4C8F-B53D-5D294D41010F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{666977BF-E022-4C8F-B53D-5D294D41010F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{666977BF-E022-4C8F-B53D-5D294D41010F}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -160,8 +148,6 @@ Global
 		{A05B0B61-A2EF-4C88-B9A3-00E888777798} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{4EF94364-B50F-4906-AB91-77BCA8413D60} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{666977BF-E022-4C8F-B53D-5D294D41010F} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{D991329A-3AA3-4269-83AD-3597864855A0} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}

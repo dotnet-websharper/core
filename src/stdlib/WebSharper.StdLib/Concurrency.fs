@@ -21,7 +21,7 @@
 /// Implements concurrency primitives.
 module WebSharper.Concurrency
 
-// This function has an optimized client implementation in ../WebSharper.Main.Proxies/Concurrency.fs.
+// This function has an optimized client implementation in ../WebSharper.StdLib.Proxies/Concurrency.fs.
 // It is made public here so that libraries (such as UI) can call it directly.
 /// Schedule the given function to be run asynchronously.
 let Schedule (f: unit -> unit) : unit =

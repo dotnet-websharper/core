@@ -105,8 +105,7 @@ module HtmlCommand =
         // force load shared assemblies
         [|
             "WebSharper.JavaScript" 
-            "WebSharper.Main" 
-            "WebSharper.Collections"
+            "WebSharper.StdLib" 
             "WebSharper.Web"
             "WebSharper.Sitelets"
             "WebSharper.Core"

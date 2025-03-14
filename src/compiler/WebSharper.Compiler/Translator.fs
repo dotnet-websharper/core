@@ -349,7 +349,7 @@ type GenericInlineResolver (generics, tsGenerics) =
 
 let private wsEnumerableArray =
     NonGeneric <| TypeDefinition {
-        Assembly = "WebSharper.Main"
+        Assembly = "WebSharper.StdLib"
         FullName = "WebSharper.Enumerator+EnumerableArray`1"
     }
 
@@ -360,7 +360,7 @@ let private wsEnumerableArrayCtor =
 
 let private wsEnumerableString =
      NonGeneric <| TypeDefinition {
-        Assembly = "WebSharper.Main"
+        Assembly = "WebSharper.StdLib"
         FullName = "WebSharper.Enumerator+EnumerableString"
     }
 

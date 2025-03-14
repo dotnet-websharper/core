@@ -1654,7 +1654,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
 
     let iControlBody =
         TypeDefinition {
-            Assembly = "WebSharper.Main"
+            Assembly = "WebSharper.StdLib"
             FullName = "WebSharper.IControlBody"
         }
     let webControl =    

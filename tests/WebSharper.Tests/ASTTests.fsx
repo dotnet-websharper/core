@@ -29,11 +29,7 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
-//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
-//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
 
@@ -297,9 +293,7 @@ let wsRefs =
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
         "WebSharper.JavaScript"
-        "WebSharper.Main"
-        "WebSharper.Collections"
-        "WebSharper.Control"
+        "WebSharper.StdLib"
         "WebSharper.Web"
         //"WebSharper.MathJS"
         //"WebSharper.MathJS.Extensions"
@@ -344,11 +338,7 @@ let metas =
         WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
     )
 
-let metadata =
-    { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-    }
+let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
 
 metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 

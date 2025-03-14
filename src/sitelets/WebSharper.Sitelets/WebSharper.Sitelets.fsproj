@@ -33,7 +33,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
-    <ProjectReference Include="..\..\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />

@@ -76,7 +76,7 @@
     <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
   </ItemGroup>

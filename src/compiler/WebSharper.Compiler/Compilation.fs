@@ -35,38 +35,6 @@ type ExtraBundleData =
         IncludeJsExports: bool
     }
 
-//[<AutoOpen>]
-//module private WSDefinitions =
-//    let wsEnumeratorModule =
-//        TypeDefinition {
-//            Assembly = "WebSharper.Main"
-//            FullName = "WebSharper.Enumerator"
-//        } 
-
-//    let seq0Ty =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.IEnumerable"
-//        } 
-
-//    let seqTy =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.Generic.IEnumerable`1"
-//        } 
-
-//    let enum0Ty =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.IEnumerator"
-//        } 
-
-//    let enumTy =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.Generic.IEnumerator`1"
-//        }
-    
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
@@ -2016,7 +1984,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let defaultRemotingProvider =
             TypeDefinition {
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
                 FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
             }, ConstructorInfo.Default(), []
 
@@ -2505,7 +2473,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 ()
     
         // Add graph edges for Object methods redirections
-        if hasGraph && this.AssemblyName = "WebSharper.Main" then
+        if hasGraph && this.AssemblyName = "WebSharper.StdLib" then
             
             let equals =
                 Method {
@@ -2633,7 +2601,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> false
         let iControlBody =
             TypeDefinition {
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
                 FullName = "WebSharper.IControlBody"
             }
         let getBody =

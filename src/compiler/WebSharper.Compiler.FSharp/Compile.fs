@@ -84,12 +84,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     let mainProxiesFile() =
         "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
 
-    if thisName = "WebSharper.Main.Proxies" then
+    if thisName = "WebSharper.StdLib.Proxies" then
         let config =
             { config with
                 References =
                     config.References
-                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.Main.Proxies.dll"))
+                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.StdLib.Proxies.dll"))
             }
         let mainProxiesFile = mainProxiesFile()
         Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
@@ -113,7 +113,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let jsCompilerArgs =
         let ca =
-            if thisName = "WebSharper.Main" then
+            if thisName = "WebSharper.StdLib" then
                 logger.Out "Reading Proxies.args"
                 File.ReadAllLines(mainProxiesFile())
             else

@@ -352,7 +352,7 @@ module Macro =
         let mainJsonModule =
             TypeDefinition {
                 FullName = "WebSharper.Json"
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
             }
         let mJson (comp: M.ICompilation) f args =
             let m = comp.GetClassInfo(mainJsonModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)

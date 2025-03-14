@@ -429,7 +429,7 @@ type ContinuationTransformer(labels) =
 
 let enumeratorTy =
     TypeDefinition {
-        Assembly = "WebSharper.Main"
+        Assembly = "WebSharper.StdLib"
         FullName = "WebSharper.Enumerator+T`2"
     }
 

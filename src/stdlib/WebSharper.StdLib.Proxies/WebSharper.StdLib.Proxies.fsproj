@@ -1,0 +1,116 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <WebSharperProject>Library</WebSharperProject>
+    <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../WebSharper.StdLib/JavaScript.fs" />
+    <Compile Include="../WebSharper.StdLib/Pervasives.fs" />
+    <Compile Include="../WebSharper.StdLib/Promise.fs" />
+    <Compile Include="../WebSharper.StdLib/JavaScript.Pervasives.fs" />
+    <Compile Include="../WebSharper.StdLib/Json.fsi" />
+    <Compile Include="../WebSharper.StdLib/Json.fs" />
+    <Compile Include="../WebSharper.StdLib/Remoting.fs" />
+    <Compile Include="../WebSharper.StdLib/Resources.fs" />
+    <Compile Include="../WebSharper.StdLib/Html.fs" />
+    <Compile Include="../WebSharper.StdLib/JSObject.fs" />
+    <Compile Include="../WebSharper.StdLib/FSharpConvert.fs" />
+    <Compile Include="../WebSharper.StdLib/JavaScript.Extensions.fs" />
+    <Compile Include="../WebSharper.StdLib/Comparers.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Utils.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Concurrency.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Enumerator.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Enumerable.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Interop.fs" />
+    <None Include="../WebSharper.StdLib.Proxies/genInterop.fsx" />
+    <Compile Include="../WebSharper.StdLib.Proxies/CollectionInternals.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Object.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/IntrinsicFunctions.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Array.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ArrayModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Array2DModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Async.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/AsyncBuilder.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/BigInt.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Char.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Choice.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Console.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/CommonExtensions.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/DateTime.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Delegate.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Dictionary.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Enum.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Exception.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ExtraTopLevelOperators.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Func.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Guid.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/HashSet.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Interfaces.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Interlocked.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/IntrinsicOperators.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/KeyValuePair.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/LanguagePrimitives.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Lazy.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/LazyExtensions.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/List.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ListModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Math.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Nullable.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/NullableModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/NullableOperators.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Tuple.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Operators.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/OperatorIntrinsics.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Option.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/OptionModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Queue.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Printf.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Random.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Ref.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Result.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ResultModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/RuntimeHelpers.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/SeqModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Stack.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/String.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Task.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/TaskBuilder.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/TimeSpan.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Unchecked.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ValueOption.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ValueOptionModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Primitives.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Convert.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/StringBuilder.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/BalancedTree.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Pair.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Map.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/MapModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Set.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/SetModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ReadOnlyCollection.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ResizeArray.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/LinkedList.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Linq.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Query.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Disposable.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Observer.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/HotStream.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Observable.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/ObservableModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/Event.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/FSharpEvent.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/EventModule.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/MailboxProcessor.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>

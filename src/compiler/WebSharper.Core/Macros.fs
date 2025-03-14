@@ -93,7 +93,7 @@ let traitCallOp (c: MacroCall) (args: Expression list) =
 let utilsModule =
     TypeDefinition {
         FullName = "WebSharper.Utils"
-        Assembly = "WebSharper.Main"
+        Assembly = "WebSharper.StdLib"
     }
 let utils (comp: M.ICompilation) f args = 
     let m = comp.GetClassInfo(utilsModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
@@ -1566,7 +1566,7 @@ type EqualityComparer() =
             match isImplementing comp ct.Entity ieqTy with
             | Some isEquatable ->
                 let td : TypeDefinitionInfo =
-                    { Assembly = "WebSharper.Main"
+                    { Assembly = "WebSharper.StdLib"
                       FullName =
                         if isEquatable then
                             "WebSharper.Comparers.EquatableEqualityComparer`1"
@@ -1602,7 +1602,7 @@ type Comparer() =
             match isImplementing comp ct.Entity icmpTy with
             | Some isEquatable ->
                 let td : TypeDefinitionInfo =
-                    { Assembly = "WebSharper.Main"
+                    { Assembly = "WebSharper.StdLib"
                       FullName =
                         if isEquatable then
                             "WebSharper.Comparers.ComparableComparer`1"
