@@ -74,6 +74,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
 	ProjectSection(SolutionItems) = preProject
+		tools\WebSharper.AspNetCore.paket.template = tools\WebSharper.AspNetCore.paket.template
 		tools\WebSharper.Compiler.Common.paket.template = tools\WebSharper.Compiler.Common.paket.template
 		tools\WebSharper.Compiler.CSharp.paket.template = tools\WebSharper.Compiler.CSharp.paket.template
 		tools\WebSharper.Compiler.FSharp.paket.template = tools\WebSharper.Compiler.FSharp.paket.template

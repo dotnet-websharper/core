@@ -1,5 +1,6 @@
 Microsoft.AspNetCore.Mvc.Abstractions
 Microsoft.AspNetCore.Hosting.Abstractions
 Microsoft.AspNetCore.Authentication.Abstractions
+Microsoft.IO.RecyclableMemoryStream
 System.Configuration.ConfigurationManager
 System.Text.Json

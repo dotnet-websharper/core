@@ -517,26 +517,23 @@ let test =
     let i = { new IValue<int> with member this.Value = 4 }
     !!i
 
-
 translate false """
-namespace WebSharper.Tests
+module Samples
 
 open WebSharper
 open WebSharper.JavaScript
+open WebSharper.JavaScript
 open System.Collections.Generic
 
-[<JavaScript>]
-module Test =
-    type IValue<'T> =
-        abstract member Value : 'T with get
-    
-    let test() =
-        let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
-        let i = { new IValue<int> with member this.Value = 4 }
-        !!i
+[<JavaScript>]
+let SeqTest() =
+    seq { 1 .. 10 }
 
 """
+
+  
+
 
 //type Target() =
 //    member this.GetText(x: int) = string x

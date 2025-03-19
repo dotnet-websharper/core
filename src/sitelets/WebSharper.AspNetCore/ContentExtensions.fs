@@ -44,7 +44,7 @@ type ContentExtensions =
         task {
             let options = createDefaultOptions httpCtx.RequestServices
             let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
-            do! Sitelets.contentHelper httpCtx ctx (this.Box())
+            do! Sitelets.contentHelper Sitelets.SiteletsContentMemoryStreamManager.Value httpCtx ctx (this.Box())
         }
 
     /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>

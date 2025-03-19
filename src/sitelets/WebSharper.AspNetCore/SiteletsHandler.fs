@@ -30,6 +30,7 @@ open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.Extensions.Options
 open WebSharper.Sitelets
 open Microsoft.Extensions.Logging
+open Microsoft.IO
 
 let internal writeStatusCodeAndHeader (httpCtx: HttpContext) (rsp: Http.Response) =
     let httpResponse = httpCtx.Response
@@ -40,16 +41,16 @@ let internal writeStatusCodeAndHeader (httpCtx: HttpContext) (rsp: Http.Response
             |> Microsoft.Extensions.Primitives.StringValues
         httpResponse.Headers.Append(name, values)
 
-let rec internal mvcContentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
+let rec internal mvcContentHelper memStrManager (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
     task {
         match content with
         | :? string as stringContent ->
             httpCtx.Response.StatusCode <- StatusCodes.Status200OK
             do! httpCtx.Response.WriteAsync(stringContent)
         | :? Content<obj> as wsContent ->
-            return! contentHelper httpCtx context wsContent
+            return! contentHelper memStrManager httpCtx context wsContent
         | :? CSharpContent as wsCSharpContent ->
-            return! contentHelper httpCtx context wsCSharpContent.AsContent
+            return! contentHelper memStrManager httpCtx context wsCSharpContent.AsContent
         | :? IActionResult as actionResult ->
             let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
             do! actionResult.ExecuteResultAsync(actionCtx)
@@ -61,14 +62,14 @@ let rec internal mvcContentHelper (httpCtx: HttpContext) (context: Context<obj>)
                 let contentResult =
                     let resultGetter = contentType.GetProperty("Result")
                     resultGetter.GetMethod.Invoke(contentTask, [||])
-                return! mvcContentHelper httpCtx context contentResult
+                return! mvcContentHelper memStrManager httpCtx context contentResult
             else
                 httpCtx.Response.StatusCode <- StatusCodes.Status200OK
                 let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
                 do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value)
     }
 
-and internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: Content<obj>) : Task =
+and internal contentHelper (memStrManager: RecyclableMemoryStreamManager) (httpCtx: HttpContext) (context: Context<obj>) (content: Content<obj>) : Task =
     task {
         let! rsp = Content<obj>.ToResponse content context
         match rsp.WriteBody with
@@ -77,7 +78,7 @@ and internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (conte
         | Http.WriteBody write ->
             writeStatusCodeAndHeader httpCtx rsp
             // synchronous writes are not allowed to response stream, writing to memory stream first
-            let memStr = new MemoryStream()
+            use memStr = memStrManager.GetStream()
             write memStr
             memStr.Seek(0L, SeekOrigin.Begin) |> ignore
             do! memStr.CopyToAsync(httpCtx.Response.Body)
@@ -85,14 +86,18 @@ and internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (conte
             writeStatusCodeAndHeader httpCtx rsp
             do! write httpCtx.Response.Body
         | Http.MvcBody mvcObj ->
-            do! mvcContentHelper httpCtx context mvcObj
+            do! mvcContentHelper memStrManager httpCtx context mvcObj
     }
+
+let SiteletsContentMemoryStreamManager = lazy RecyclableMemoryStreamManager()
 
 let Middleware (options: WebSharperOptions) =
     match options.Sitelet with
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
+        let memStrManager = SiteletsContentMemoryStreamManager.Value
+        
         if options.Logger.IsEnabled(LogLevel.Debug) then
 
             let timedDebug (message: string) action =
@@ -117,7 +122,7 @@ let Middleware (options: WebSharperOptions) =
                    match r with
                    | Some endpoint ->
                         let content = timedDebug "Handling endpoint" (fun () -> sitelet.Controller.Handle endpoint)
-                        timedDebugAsync "Writing response" (fun () -> contentHelper httpCtx ctx content)
+                        timedDebugAsync "Writing response" (fun () -> contentHelper memStrManager httpCtx ctx content)
                    | None -> next.Invoke()
 
                 let routeWithoutBody =
@@ -144,7 +149,7 @@ let Middleware (options: WebSharperOptions) =
                    match r with
                    | Some endpoint ->
                        let content = sitelet.Controller.Handle endpoint
-                       contentHelper httpCtx ctx content
+                       contentHelper memStrManager httpCtx ctx content
                    | None -> next.Invoke()
 
                 let routeWithoutBody =
@@ -175,6 +180,7 @@ type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
 
 let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     let sitelet = sitelet.Box()
+    let memStrManager = SiteletsContentMemoryStreamManager.Value
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
             let options =
@@ -189,7 +195,7 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
                 | Some endpoint ->
                     let content = sitelet.Controller.Handle endpoint
                     task {
-                        do! contentHelper httpCtx ctx content
+                        do! contentHelper memStrManager httpCtx ctx content
                         return! next httpCtx
                     }
                 | None ->

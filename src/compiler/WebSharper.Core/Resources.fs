@@ -95,7 +95,7 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
 
     static member SelfClosingTagEnd = " />"
 
-    static member TagLeftChar = '>'
+    static member TagLeftChar = '<'
 
     static member TagRightChar = '>'
 

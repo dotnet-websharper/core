@@ -17,6 +17,7 @@ dependencies
         Microsoft.AspNetCore.Hosting.Abstractions >= LOCKEDVERSION
         Microsoft.AspNetCore.Authentication.Abstractions >= LOCKEDVERSION
         Microsoft.AspNetCore.Mvc.Abstractions >= LOCKEDVERSION
+        Microsoft.IO.RecyclableMemoryStream >= LOCKEDVERSION
 files
     ../build/Release/netstandard2.0/WebSharper.AspNetCore.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.AspNetCore.xml ==> lib/netstandard2.0

@@ -23,6 +23,8 @@ module WebSharper.Tests.Enum
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
+open System
+open System.Text.RegularExpressions
 
 type E =
     | A   = 0b001
@@ -46,6 +48,11 @@ let Tests =
             equal (int (E.A &&& E.B)) 0
             equal (E.A ||| E.B) E.AB
             equal (int (E.A ||| E.C)) 0b101
+        }
+
+        Test "Operators on built-in types" {
+             equal (StringComparison.Ordinal ||| StringComparison.CurrentCultureIgnoreCase) StringComparison.OrdinalIgnoreCase
+             equal (RegexOptions.IgnoreCase ||| RegexOptions.Multiline |> int) 3
         }
 
         Test "HasFlag" {
