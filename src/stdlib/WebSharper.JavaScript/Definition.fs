@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.JavaScript.Definition
+module internal WebSharper.JavaScript.Definition
 
 open WebSharper.InterfaceGenerator
 open WebSharper.JavaScript

@@ -1574,7 +1574,7 @@ module Interfaces =
                 |> ObsoleteWithMessage "Use JS.Document or JS.Window.Document instead."
             ]
 
-module Definition =
+module internal Definition =
     module E = Enumerations
     module I = Interfaces
 

@@ -25,7 +25,7 @@ open WebSharper.JavaScript
 open WebSharper.JavaScript.Ecma.Definition
 open WebSharper.JavaScript.Dom.Definition
 
-module Utils =
+module internal Utils =
     let RenamedEnumStrings n f l =
         List.map (fun x -> (f x, sprintf "'%s'" x)) l
         |> List.toSeq
@@ -36,13 +36,13 @@ module Utils =
         |> List.toSeq
         |> Pattern.EnumInlines n
 
-module Decl =
+module internal Decl =
     let HTMLCanvasElementClass = Class "HTMLCanvasElement"
     let HTMLImageElementClass = Class "HTMLImageElement"
     let HTMLVideoElementClass = Class "HTMLVideoElement"
     let SVGImageElementClass = Class "SVGImageElement"
 
-module TypedArrays =
+module internal TypedArrays =
 
 
     let ArrayBuffer =
@@ -54,7 +54,7 @@ module TypedArrays =
             ]
         |+> Static [ Constructor T<int> ]
 
-    module DataView =
+    module internal DataView =
 
         let private Getter<'T> name =
             name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
@@ -131,7 +131,7 @@ module TypedArrays =
     let Float32Array = MakeTypedArray "Float32Array" T<float32>
     let Float64Array = MakeTypedArray "Float64Array" T<double>
 
-module Media =
+module internal Media =
     let MediaStreamTrackContentHint =
         Pattern.EnumInlines "MediaStreamTrackContentHint"
             [
@@ -458,7 +458,7 @@ module Media =
             "requestFrame" => T<unit> ^-> T<unit>
         ]
 
-module Geometry =
+module internal Geometry =
     let DOMPointInit =
         Pattern.Config "DOMPointInit"
             {
@@ -664,7 +664,7 @@ module Geometry =
             "getBounds" => T<unit> ^-> DOMRect
         ]
 
-module Canvas =
+module internal Canvas =
     open Utils
 
     let GlobalCompositeOperation =
@@ -1055,7 +1055,7 @@ module Canvas =
     let OffScreenCanvas =
         Class "OffScreenCanvas"
 
-module AudioVideoCommon =
+module internal AudioVideoCommon =
     
     let TimeRanges = 
         Class "TimeRanges"
@@ -1177,7 +1177,7 @@ module AudioVideoCommon =
         ]
 
 [<AutoOpen>]
-module Helpers =
+module internal Helpers =
     let (=!@) (n: string) sign : CodeModel.IClassMember list =
         let lowercase = n.ToLower()
         [
@@ -1187,7 +1187,7 @@ module Helpers =
             |> WithSourceName n
         ]
 
-module EventHandlers =
+module internal EventHandlers =
     
     let private eh = Dom.Interfaces.Event ^-> T<unit>
 
@@ -1269,7 +1269,7 @@ module EventHandlers =
             yield! "OnPaste" =!@ eh
         ]
 
-module Streamable =
+module internal Streamable =
 
     let ReadableStream =
         Class "ReadableStream"
@@ -1483,7 +1483,7 @@ module Streamable =
             "getWriter" => T<unit> ^-> WritableStreamDefaultWriter
         ]
 
-module File =
+module internal File =
 
     let BlobPropertyBag =
         Pattern.Config "BlobPropertyBag" {
@@ -1612,7 +1612,7 @@ module File =
             ]
 
 
-module Elements =
+module internal Elements =
     open Canvas
     open AudioVideoCommon
 
@@ -2149,7 +2149,7 @@ module Elements =
             Constructor T<string> |> WithInline "new Audio($0)"
         ]
 
-module Geolocation =
+module internal Geolocation =
     
     let PositionOptions = 
         Pattern.Config "PositionOptions" {
@@ -2202,7 +2202,7 @@ module Geolocation =
             "clearWatch" => T<int> ^-> T<unit>
         ]
 
-module WebStorage =
+module internal WebStorage =
 
     let Storage =
         Class "Storage"
@@ -2225,7 +2225,7 @@ module WebStorage =
                 "url" =? T<string>
             ]
 
-module AppCache =
+module internal AppCache =
     let ApplicationCache =
         Class "ApplicationCache"
         // |=> Implements [T<EventTarget>]
@@ -2255,7 +2255,7 @@ module AppCache =
             //  Function onobsolete;
         ]
 
-module Fetch =
+module internal Fetch =
 
     let FormDataEntryValue = T<string> + File.File
 
@@ -2576,7 +2576,7 @@ module Fetch =
         ]
         |+> Body
 
-module General = 
+module internal General = 
     let BarProp =
         let BarProp = Class "BarProp"
         BarProp
@@ -2912,7 +2912,7 @@ module General =
         ]
         |> ignore
 
-module WebWorkers =
+module internal WebWorkers =
 
     let WorkerType =
         Pattern.EnumStrings "WorkerType" ["classic"; "module"]
@@ -3067,7 +3067,7 @@ module WebWorkers =
             "port" =? General.MessagePort
         ]
 
-module WebGL =
+module internal WebGL =
 
     let RenderingContext = Class "RenderingContext"
     let ContextAttributes = Class "ContextAttributes"
@@ -3639,7 +3639,7 @@ module WebGL =
                 "name" =? T<string>
             ]
 
-module WebSockets =
+module internal WebSockets =
 
     let ReadyState =
         Pattern.EnumInlines "WebSocketReadyState" [
@@ -3674,7 +3674,7 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
-module EventSource =
+module internal EventSource =
     
     let ReadyState =
         Pattern.EnumInlines "ReadyState" [
@@ -3712,7 +3712,7 @@ module EventSource =
             "close" => T<unit> ^-> T<unit>
         ]
 
-module Definition =
+module internal Definition =
 
     let Namespaces =
         [
