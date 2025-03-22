@@ -1129,6 +1129,11 @@ type Address =
     member this.Static n =
         { this with Address = [ n; "default" ] }
 
+    member this.Root =
+        match this.Address with
+        | [] -> this
+        | _ -> { this with Address = [ List.last this.Address ] }
+
 module internal Instances =
     let uniqueId name i = 
         {

@@ -1342,13 +1342,25 @@ let contentType =
         FullName = "WebSharper.Sitelets.FSharpContent"
     }
 
+let rec (|ConstList|_|) l =
+    match l with
+    | P.Const (value, _) :: ConstList rest -> Some (value :: rest)
+    | [] -> Some []
+    | _ -> None
+
 let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list) =
-    if typ = contentModule && m.Value.MethodName.StartsWith "Bundle" then
+    if typ = contentModule && (m.Value.MethodName = "Bundle" || m.Value.MethodName = "BundleScope") then
         match arguments[0] with
         | P.Const (value, _) ->
             Ok [ string value ]
         | a ->
-            Error "Content.Bundle argument must be constant string"   
+            Error $"Content.{m.Value.MethodName} Bundle argument must be constant string"   
+    elif typ = contentModule && m.Value.MethodName = "BundleScopes" then
+        match arguments[0] with
+        | P.NewArray (_, ConstList values) ->
+            Ok (values |> List.map string)
+        | a ->
+            Error "Content.BundleScopes Bundles argument must be constant array of strings"   
     elif typ = contentType && m.Value.MethodName.StartsWith "PageFromFile" then
         match arguments[0] with
         | P.Const (path, _) ->

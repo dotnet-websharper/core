@@ -2923,12 +2923,18 @@ let uiContentType =
 let scanExpression (env: Environment) (node: SyntaxNode) =
 
     let getBundleMethod (typ: TypeDefinition, m: Method, arguments: SeparatedSyntaxList<ArgumentSyntax>) =
-        if typ = contentType && m.Value.MethodName.StartsWith "Bundle" then
+        if typ = contentType && (m.Value.MethodName = "Bundle" || m.Value.MethodName = "BundleScope") then
             match env.SemanticModel.GetConstantValue(arguments[0].Expression).Value with
             | :? string as value when value <> null ->
                 Ok [ value ]
             | _ ->
-                Error $"Content.Bundle's Bundle argument must be constant string"   
+                Error $"Content.{m.Value.MethodName}'s Bundle argument must be constant string"   
+        elif typ = contentType && (m.Value.MethodName = "BundleScopes") then
+            match env.SemanticModel.GetConstantValue(arguments[0].Expression).Value with
+            | :? (string[]) as values when values <> null ->
+                Ok (List.ofArray values)
+            | _ ->
+                Error "Content.BundleScopes' Bundles argument must be constant array of strings"   
         elif (typ = contentType || typ = uiContentType) && m.Value.MethodName.StartsWith "Page" then
             let bundleArgument =
                 arguments |> Seq.tryFind (fun a -> 

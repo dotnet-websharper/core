@@ -133,7 +133,8 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                     yield Web.InlineControl ( WebSharper.Module.Tests.Main.RunTests() ) :> Web.Control
                 yield Web.InlineControl ( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests ) :> Web.Control
             ] : list<Web.Control>
-        )
+        ),
+        Bundle = "tests"
     )
 
 let MainSite runServerTests ctx = function

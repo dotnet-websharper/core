@@ -137,6 +137,13 @@ module Content =
                 |> Seq.collect importsOf
                 |> Array.ofSeq
 
+#if DEBUG
+            scriptsTw.WriteLine("<!--")
+            scriptsTw.WriteLine("imports needed:")
+            for i in allImports do
+                scriptsTw.WriteLine(i.ToString())
+#endif
+
             let hasRoot =
                 ctx.Metadata.PreBundle.Count = 1 && ctx.Metadata.PreBundle.ContainsKey("root")
             
@@ -144,6 +151,9 @@ module Content =
                 if hasRoot then
                     Some "root"
                 elif ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
+#if DEBUG
+                    scriptsTw.WriteLine($"bundles: %A{requiredBundles}")
+#endif
                     match requiredBundles with
                     | [||] ->
                         if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
@@ -152,7 +162,15 @@ module Content =
                         |> Seq.tryFind (fun b ->
                             match ctx.Metadata.PreBundle.TryFind b with
                             | Some bundle ->
-                                allImports |> Seq.forall bundle.ContainsKey
+                                if allImports |> Seq.forall (fun a -> bundle.ContainsKey a.Root) then
+                                    true
+                                else
+#if DEBUG
+                                    scriptsTw.WriteLine($"failed to use bundle {b}:")
+                                    for i in bundle.Keys do
+                                        scriptsTw.WriteLine(i.ToString())
+#endif
+                                    false
                             | _ ->
                                 false
                         )
@@ -161,6 +179,9 @@ module Content =
                         )
                 else
                     None
+#if DEBUG
+            scriptsTw.WriteLine("-->")
+#endif
 
             let bundle =
                 bundleName
@@ -661,6 +682,9 @@ module Content =
     let BundleScope (name: string) (contents: 'A) =
         contents
 
+    let BundleScopes (names: string[]) (contents: 'A) =
+        contents
+
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
 
@@ -857,7 +881,7 @@ module Internal =
         member t.Map (f: 'A -> 'B) =
             t.ContinueWith(fun (t: Task<'A>) -> f t.Result)
 
-[<CompiledName "Content"; Struct; Extension; NoEquality; NoComparison>]
+[<CompiledName "Content"; Struct; NoEquality; NoComparison>]
 type CSharpContent =
 
     val private c: Content<obj>
@@ -909,6 +933,12 @@ type CSharpContent =
 
     static member Bundle (name, contents: Web.INode) =
         Web.BundleNode(name, contents) :> Web.INode
+
+    static member BundleScope (name: string, contents: 'A) =
+        contents
+
+    static member BundleScopes (name: string[], contents: 'A) =
+        contents
 
     static member Text (text: string, [<Optional>] Encoding: System.Text.Encoding) =
         Content.Text(text, ?encoding = CSharpContent.Opt Encoding)
