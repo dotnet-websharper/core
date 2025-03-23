@@ -87,25 +87,34 @@ module Content =
             }
         
         // Resolve resources for the set of types and this assembly
-        // Some controls may depend on Requires called first and Encode second, do not break this
         let requiresAndCode =
             controls
             |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
             |> Array.ofSeq
-        if requiresAndCode.Length > 0 then
+        
+        let requires =  
+            requiresAndCode
+            |> Array.choose (function ClientRequire n -> Some n | _ -> None) 
+
+        if requires.Length > 0 then
 
             let resources =
-                let nodeSet =
-                    requiresAndCode
-                    |> Seq.choose (function ClientRequire n -> Some n | _ -> None) 
-                    |> Set
-                ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
+                ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(Set.ofArray requires, fun nodes ->
                     ctx.Dependencies.GetResources ctx.Metadata nodes
                 )
 
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
+
+        let toActivate = 
+            requiresAndCode
+            |> Seq.choose (function ClientBundle _ | ClientRequire _ -> None | n -> Some n)
+            |> Seq.indexed
+            |> Array.ofSeq
+
+        if toActivate.Length > 0 then
+            
             let scriptsTw = tw Core.Resources.Scripts
             
             let requiredBundles =
@@ -189,12 +198,6 @@ module Content =
                     ctx.Metadata.PreBundle[b]
                 )
             
-            let toActivate = 
-                requiresAndCode
-                |> Seq.choose (function ClientBundle _ | ClientRequire _ -> None | n -> Some n)
-                |> Seq.indexed
-                |> Array.ofSeq
-
             let activate (url: string) =
                 let imported = Dictionary<AST.Address, string>()
                 let elems = HashSet<string>()
