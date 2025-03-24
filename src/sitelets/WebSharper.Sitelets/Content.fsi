@@ -188,7 +188,7 @@ module Content =
     val BundleScope : name: string -> contents: 'A -> 'A
 
     /// Sets bundle names to use for any expression scope, compiler will check the expression of `contents` to create the bundles, `name` should be a file name without extension.
-    val BundleScopes : name: string[] -> contents: 'A -> 'A
+    val BundleScopes : names: string[] -> contents: 'A -> 'A
 
     type RenderedResources =
         {
@@ -260,7 +260,7 @@ type CSharpContent =
 
     /// Sets bundle names to use for any expression scope, compiler will check the expression of `contents` to create the bundles, `name` should be a file name without extension.
     static member BundleScopes
-        : name: string[] 
+        : names: string[] 
         * contents: 'A
         -> 'A
 

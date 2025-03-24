@@ -940,7 +940,7 @@ type CSharpContent =
     static member BundleScope (name: string, contents: 'A) =
         contents
 
-    static member BundleScopes (name: string[], contents: 'A) =
+    static member BundleScopes (names: string[], contents: 'A) =
         contents
 
     static member Text (text: string, [<Optional>] Encoding: System.Text.Encoding) =
