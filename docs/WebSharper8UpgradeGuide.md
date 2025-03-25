@@ -157,14 +157,13 @@ The WebSharper.UI C# templating now uses a source code generator. Some project f
 <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
 <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 ```
-This will make the compiler write out generated code to the disk. You may want to also add the `Generated` folder to your `.gitignore` file.
+This will make the compiler write out generated code to the disk. You may want to also add the `**/Generated/` folders or the `.g.cs` pattern to your `.gitignore` file.
 2. Change your template html files to have `AdditionalFiles` item type instead of `Content` or `None`.
-3. Now, during a compilation the generated files are appearing twice, we must exclude the files from the C# compilation, but pass them to WebSharper.
+3. Now, during a compilation the generated files are appearing twice, we must exclude the files from the C# compilation.
 You can do this by adding this to your project file:
 ```xml
   <ItemGroup>
-    <!-- Exclude the output of source generators from the C# compilation but pass to WebSharper -->
+    <!-- Exclude the earlier output of source generators from the C# compilation -->
     <Compile Remove="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />
-    <GeneratedSources Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" /> 
   </ItemGroup>
 ```
