@@ -59,7 +59,7 @@
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"
-      Sources="@(Compile)"
+      Sources="@(Compile);@(GeneratedSources)"
       OutputAssembly="@(IntermediateAssembly)"
       References="@(ReferencePath)"
       Configuration="$(Configuration)"

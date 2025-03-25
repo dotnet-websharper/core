@@ -4,7 +4,8 @@ The biggest change coming with WebSharper 8 is that it outputs module-based Java
 
 * configure `esbuild` to bundle the WebSharper 8 output,
 * make the code bundles smaller by separating them by page,
-* optionally add a debug mode using `vite`.
+* optionally add a debug mode using `vite`,
+* adapt to changes of C# templating.
 
 First, update all your WebSharper NuGet packages to 8.0 versions.
 
@@ -147,3 +148,23 @@ This will start `vite` in a separate process if not running yet when your websit
 
 3. Set a `"DebugScriptRedirectUrl": "http://localhost:1234"` within the `"websharper"` section of your `appsettings.json`.
 Change the 1234 port to something not colliding with other local ports generated for your solution to avoid conflicts.
+
+## C# templating
+
+The WebSharper.UI C# templating now uses a source code generator. Some project file changes are required to make it work.
+1. Add these to a `PropertyGroup` section of your project file:
+```xml
+<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+<CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+```
+This will make the compiler write out generated code to the disk. You may want to also add the `Generated` folder to your `.gitignore` file.
+2. Change your template html files to have `AdditionalFiles` item type instead of `Content` or `None`.
+3. Now, during a compilation the generated files are appearing twice, we must exclude the files from the C# compilation, but pass them to WebSharper.
+You can do this by adding this to your project file:
+```xml
+  <ItemGroup>
+    <!-- Exclude the output of source generators from the C# compilation but pass to WebSharper -->
+    <Compile Remove="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />
+    <GeneratedSources Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" /> 
+  </ItemGroup>
+```
