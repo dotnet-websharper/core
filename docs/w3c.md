@@ -16,7 +16,7 @@ This document lists all the W3C and related Web APIs that have been implemented 
 | File System API                 | [Repo](https://github.com/dotnet-websharper/FileSystemAPI)               | [Sample](https://dotnet-websharper.github.io/FileSystemAPI)               | 17 March 2025        |
 | Gamepad API                     | [Repo](https://github.com/dotnet-websharper/GamepadAPI)                  | [Sample](https://dotnet-websharper.github.io/GamepadAPI)                  | 14 February 2025     |
 | Houdini APIs                    | [Repo](https://github.com/dotnet-websharper/HoudiniAPI)                  | [Sample](https://dotnet-websharper.github.io/HoudiniAPI)                  | 15 March 2025        |
-| Intersection Observer API       | [Repo](https://github.com/dotnet-websharper/IntersectionObserverAPI)     | [Sample!](https://dotnet-websharper.github.io/IntersectionObserverAPI)    | 27 June 2024         |
+| Intersection Observer API       | [Repo](https://github.com/dotnet-websharper/IntersectionObserverAPI)     | [Sample](https://dotnet-websharper.github.io/IntersectionObserverAPI)     | 27 June 2024         |
 | Media Capabilities API          | [Repo](https://github.com/dotnet-websharper/MediaCapabilities)           | [Sample](https://dotnet-websharper.github.io/MediaCapabilities)           | 14 February 2025     |
 | Media Session API               | [Repo](https://github.com/dotnet-websharper/MediaSession)                | [Sample](https://dotnet-websharper.github.io/MediaSession)                | 23 January 2025      |
 | Network Information API         | [Repo](https://github.com/dotnet-websharper/NetworkInformationAPI)       | [Sample](https://dotnet-websharper.github.io/NetworkInformationAPI)       | 11 May 2020          |
@@ -29,7 +29,7 @@ This document lists all the W3C and related Web APIs that have been implemented 
 | Screen Wake Lock API            | [Repo](https://github.com/dotnet-websharper/ScreenWakeLockAPI)           | [Sample](https://dotnet-websharper.github.io/ScreenWakeLockAPI)           | 24 October 2024      |
 | Service Worker API              | [Repo](https://github.com/dotnet-websharper/ServiceWorker)               | [Sample](https://dotnet-websharper.github.io/ServiceWorker)               | 21 March 2025        |
 | Prioritized Task Scheduling API | [Repo](https://github.com/dotnet-websharper/TaskSchedulingAPI)           | [Sample](https://dotnet-websharper.github.io/TaskSchedulingAPI)           | 27 September 2024    |
-| Web Authentication API          | [Repo](https://github.com/dotnet-websharper/WebAuthentication)           | [Sample!](https://dotnet-websharper.github.io/WebAuthentication)          | 12 March 2025        |
+| Web Authentication API          | [Repo](https://github.com/dotnet-websharper/WebAuthentication)           | [Sample](https://dotnet-websharper.github.io/WebAuthentication)           | 12 March 2025        |
 | Web Bluetooth API               | [Repo](https://github.com/dotnet-websharper/WebBluetooth)                | [Sample](https://dotnet-websharper.github.io/WebBluetooth)                | 11 March 2025        |
 | WebCodecs API                   | [Repo](https://github.com/dotnet-websharper/WebCodecs)                   | [Sample](https://dotnet-websharper.github.io/WebCodecs)                   | 14 March 2025        |
 | Web Crypto API                  | [Repo](https://github.com/dotnet-websharper/WebCrypto)                   | [Sample](https://dotnet-websharper.github.io/WebCrypto)                   | 07 March 2025        |
