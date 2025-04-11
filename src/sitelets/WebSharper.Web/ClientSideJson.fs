@@ -58,6 +58,11 @@ module Provider =
         fun () (x: System.DateTimeOffset) ->
             box (New [ "d" => x.DateTime.JS.ToISOString(); "o" => x?o ])
 
+    let EncodeBigInteger () =
+        ()
+        fun () (x: System.Numerics.BigInteger) ->
+            box (x.ToString())
+
     let EncodeList (encEl: unit -> 'T -> obj) : (unit -> list<'T> -> obj) =
         ()
         fun () (l: list<'T>) ->
@@ -186,6 +191,11 @@ module Provider =
                 System.DateTimeOffset(Date(x?d: string).Self, System.TimeSpan.FromMinutes x?o)
             else 
                 System.DateTimeOffset(Date(x :?> string).Self, System.TimeSpan.Zero)
+
+    let DecodeBigInteger() =
+        ()
+        fun () (x: obj) ->
+            bigint.Parse (As x)
 
     let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
         ()
@@ -342,7 +352,7 @@ module Macro =
         let mainJsonModule =
             TypeDefinition {
                 FullName = "WebSharper.Json"
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
             }
         let mJson (comp: M.ICompilation) f args =
             let m = comp.GetClassInfo(mainJsonModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
@@ -433,7 +443,6 @@ module Macro =
                             | "System.SByte"   | "System.Byte"
                             | "System.Int16"   | "System.UInt16"
                             | "System.Int32"   | "System.UInt32"
-                            | "System.Int64"   | "System.UInt64"
                             | "System.Single"  | "System.Double"
                             | "System.String"  | "System.Guid"
                             | "WebSharper.Core.Json+Encoded"), []) ->
@@ -484,6 +493,8 @@ module Macro =
                     ok (call "DateTime" [])
                 | C (T "System.DateTimeOffset", []) ->
                     ok (call "DateTimeOffset" [])
+                | C (T ("System.Numerics.BigInteger" | "System.Int64" | "System.UInt64"), []) ->
+                    ok (call "BigInteger" [])
                 | C (td, args) ->                    
                     let defaultEnc() = 
                         //let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
@@ -535,7 +546,7 @@ module Macro =
                     fail (name + ": Cannot de/serialize a byref value.")
                 | TSType _ ->
                     fail (name + ": Cannot de/serialize this type: unknown [<Type>].")
-                | LocalTypeParameter
+                | LocalTypeParameter _
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
                     generic t
@@ -630,7 +641,7 @@ module Macro =
                                 match uft with
                                 | ConcreteType { Entity = fTd } as ft ->
                                     match comp.GetCustomTypeInfo fTd with
-                                    | M.FSharpRecordInfo fRec -> Some (ft, fRec)
+                                    | M.FSharpRecordInfo fRec -> Some (ft.SubstituteGenerics(Array.ofList targs), fRec)
                                     | _ -> None
                                 | TypeParameter i -> inl (targs.[i])
                                 | _ -> None

@@ -64,6 +64,11 @@ type Op =
     inherit Macro
 
 [<Sealed>]
+type Abs =
+    new : unit -> Abs
+    inherit Macro
+
+[<Sealed>]
 type Sign =
     new : unit -> Sign
     inherit Macro
@@ -185,11 +190,6 @@ type ImportJS =
 [<Sealed>]
 type StringFormat =
     new : unit -> StringFormat
-    inherit Macro
-
-[<Sealed>]
-type DateString =
-    new : unit -> DateString
     inherit Macro
 
 [<Sealed>]

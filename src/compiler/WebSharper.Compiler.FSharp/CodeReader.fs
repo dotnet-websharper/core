@@ -169,7 +169,6 @@ type FixCtorTransformer(typ, btyp, thisVar, thisCtor) =
             :: I.FieldSet(Some (This thisVar), _, i, I.Value (Int 1))
             :: t ->
                 cgenFieldNames <- [ f; i ]
-                printfn "self identifier found"
                 Sequential (SubstituteVar(self, Var thisVar.Value).TransformExpression(this.TransformExpression(o)) :: t)  
         | h :: t -> Sequential (this.TransformExpression h :: t)
         | _ -> Undefined
@@ -450,7 +449,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 | Some i -> 
                     if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
                 | _ ->
-                    LocalTypeParameter
+                    LocalTypeParameter t.GenericParameter.Name
         else
         let getFunc() =
             match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
@@ -478,7 +477,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         else
         // measure type parameters do not have a TypeDefinition
         // reusing LocalTypeParameter case as it is also fully erased
-        if not t.HasTypeDefinition then LocalTypeParameter else
+        if not t.HasTypeDefinition then LocalTypeParameter "" else
         let td = t.TypeDefinition
         if td.IsArrayType then
             ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.ArrayRank)
@@ -798,6 +797,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
             tr value
+        // a fix around struct record copying
+        | P.Let((id, P.AddressOf value, _), body) when id.IsCompilerGenerated && id.LogicalName = "inputRecord" ->
+            let i = namedId (Some env) false id
+            let trValue = tr value
+            let env = env.WithVar(i, id, LocalVar)
+            let inline tr x = transformExpression env x
+            Let (i, trValue, tr body)
         | P.Let((id, value, _), body) ->
             let i = namedId (Some env) false id
             let trValue = tr value
@@ -1336,13 +1342,25 @@ let contentType =
         FullName = "WebSharper.Sitelets.FSharpContent"
     }
 
+let rec (|ConstList|_|) l =
+    match l with
+    | P.Const (value, _) :: ConstList rest -> Some (value :: rest)
+    | [] -> Some []
+    | _ -> None
+
 let getBundleMethod (typ: TypeDefinition, m: Method, arguments: FSharpExpr list) =
-    if typ = contentModule && m.Value.MethodName.StartsWith "Bundle" then
+    if typ = contentModule && (m.Value.MethodName = "Bundle" || m.Value.MethodName = "BundleScope") then
         match arguments[0] with
         | P.Const (value, _) ->
             Ok [ string value ]
         | a ->
-            Error "Content.Bundle argument must be constant string"   
+            Error $"Content.{m.Value.MethodName} Bundle argument must be constant string"   
+    elif typ = contentModule && m.Value.MethodName = "BundleScopes" then
+        match arguments[0] with
+        | P.NewArray (_, ConstList values) ->
+            Ok (values |> List.map string)
+        | a ->
+            Error "Content.BundleScopes Bundles argument must be constant array of strings"   
     elif typ = contentType && m.Value.MethodName.StartsWith "PageFromFile" then
         match arguments[0] with
         | P.Const (path, _) ->

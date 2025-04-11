@@ -244,12 +244,12 @@ let erasedUnions =
 
 let smallIntegralTypeSizes =
     Map [
-        "System.Byte", (0L, 255L)
-        "System.SByte", (128L, 255L)
-        "System.UInt16", (0L, 65535L)
-        "System.Int16", (32768L, 65535L)
-        "System.UInt32", (0L, 4294967295L)
-        "System.Int32", (2147483648L, 4294967295L)
+        "System.Byte", (0u, 255u)
+        "System.SByte", (128u, 255u)
+        "System.UInt16", (0u, 65535u)
+        "System.Int16", (32768u, 65535u)
+        "System.UInt32", (0u, 4294967295u)
+        "System.Int32", (2147483648u, 4294967295u)
     ]
 
 let smallIntegralTypes =
@@ -281,7 +281,7 @@ let comparableTypes =
     ]
 
 type private NumericTypeKind =
-    | SmallIntegralType of int64 * int64
+    | SmallIntegralType of uint32 * uint32
     | BigIntegralType
     | ScalarType
     | DecimalType
@@ -333,28 +333,6 @@ let private toUIntMeth =
         Generics = 0      
     } |> NonGeneric
 
-//let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
-//    match fromTyp.Value.FullName, toTyp.Value.FullName with
-//    | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
-//    | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
-//    | ScalarType, ScalarType
-//    | CharType, (CharType | StringType)
-//    | StringType, StringType
-//        -> expr
-//    | ScalarType, SmallIntegralType
-//        -> expr ^>> !~(Int 0)
-//    | ScalarType, BigIntegralType
-//        -> MathTrunc expr
-//    | (SmallIntegralType | BigIntegralType | ScalarType), CharType
-//        -> Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
-//    | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
-//        -> Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [ Value (Int 0) ], Pure, None) 
-//    | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
-//        -> Appl(Global ["String"], [expr], Pure, Some 1)
-//    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
-//        -> Appl(Global ["Number"], [expr], Pure, Some 1)
-//    | _ -> expr
-
 let MathTrunc expr =
     Appl(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
 
@@ -363,53 +341,76 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Appl(Global ["Number"], [expr], Pure, Some 1)
     let toDecimal expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
+    let toBigInt expr =
+        Appl(Global ["BigInt"], [expr], Pure, Some 1)
     let charCode expr =
         Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
         Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
-    let toIntegral (neg: int64) (mask: int64) expr =
-        if mask = 4294967295L then
-            if neg = 0L then
+    let toString expr =
+        Appl(Global ["String"], [expr], Pure, Some 1)
+    let toIntegral (neg: uint32) (mask: uint32) expr =
+        if mask = 4294967295u then
+            if neg = 0u then
                 Call(None, opModule, toUIntMeth, [expr])
             else
                 Call(None, opModule, toIntMeth, [expr])
-        elif neg = 0L then
-            expr ^& !~(Int64 mask)   
+        elif neg = 0u then
+            expr ^& !~(UInt32 mask)   
         else
-            ((expr ^+ !~(Int64 neg)) ^& !~(Int64 mask)) ^- !~(Int64 neg) 
+            ((expr ^+ !~(UInt32 neg)) ^& !~(UInt32 mask)) ^- !~(UInt32 neg) 
+    let toIntegralFromBigInt (neg: uint32) (mask: uint32) expr =
+        if neg = 0u then
+            toNumber (expr ^& !~(UInt64 (uint64 mask)))   
+        else
+            toNumber (((expr ^+ !~(UInt64 (uint64 neg))) ^& !~(UInt64 (uint64 mask))) ^- !~(UInt64 (uint64 neg))) 
     match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
-    | SmallIntegralType _, (BigIntegralType | ScalarType)
-    | BigIntegralType, (BigIntegralType | ScalarType)
+    | SmallIntegralType _, ScalarType
+    | BigIntegralType, BigIntegralType
     | ScalarType, ScalarType
     | DecimalType, DecimalType
     | CharType, (CharType | StringType)
     | StringType, StringType
         -> expr
-    | (SmallIntegralType _ | BigIntegralType | ScalarType), SmallIntegralType (neg, mask)
+    | SmallIntegralType _, BigIntegralType -> 
+        toBigInt expr
+    | BigIntegralType, ScalarType ->
+        toNumber expr
+    | (SmallIntegralType _ | ScalarType), SmallIntegralType (neg, mask)
         -> expr |> toIntegral neg mask
+    | BigIntegralType, SmallIntegralType (neg, mask)
+        -> expr |> toIntegralFromBigInt neg mask
     | ScalarType, BigIntegralType
-        -> Appl(Global ["Math"; "trunc"], [expr], Pure, Some 1)
-    | (SmallIntegralType _ | BigIntegralType | ScalarType), CharType
+        -> toBigInt(Appl(Global ["Math"; "trunc"], [expr], Pure, Some 1))
+    | (SmallIntegralType _ | ScalarType), CharType
         -> fromCharCode expr
-    | DecimalType, CharType
+    | (BigIntegralType | DecimalType), CharType
         -> fromCharCode (toNumber expr)
-    | CharType, (BigIntegralType | ScalarType)
+    | CharType, ScalarType
         -> charCode expr
+    | CharType, BigIntegralType
+        -> toBigInt (charCode expr)
     | CharType, SmallIntegralType (neg, mask) -> 
-        if mask >= int64 System.Int32.MaxValue then
+        if mask >= uint32 System.Int32.MaxValue then
             charCode expr
         else
             charCode expr |> toIntegral neg mask
     | CharType, DecimalType
         -> charCode expr |> toDecimal
     | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
-        -> Appl(Global ["String"], [expr], Pure, Some 1)
-    | (StringType | DecimalType | NonNumericType), (BigIntegralType | ScalarType)
+        -> toString expr
+    | (StringType | DecimalType | NonNumericType), ScalarType
         -> toNumber expr
+    | (StringType | NonNumericType), BigIntegralType
+        -> toBigInt expr
+    | DecimalType, BigIntegralType
+        -> toBigInt (toString expr)
     | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
         -> toNumber expr |> toIntegral neg mask
-    | (SmallIntegralType _ | BigIntegralType | ScalarType), DecimalType
+    | (SmallIntegralType _ | ScalarType), DecimalType
         -> toDecimal expr
+    | BigIntegralType, DecimalType
+        -> toDecimal (toNumber expr) 
     | StringType, DecimalType
         -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
     | _ ->

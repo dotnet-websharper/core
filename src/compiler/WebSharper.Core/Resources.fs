@@ -186,11 +186,8 @@ type RenderLocation =
 
 type Context =
     {
-        DebuggingEnabled : bool
         DefaultToHttp : bool
         ScriptBaseUrl : option<string>
-        //GetResourceHash : string * string -> int
-        GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
         WebRoot : string  
@@ -270,48 +267,8 @@ type Rendering with
             | JsModule -> script dHttp html true url
         | Rendering.Skip -> ()
 
-    static member TryGetCdn(ctx: Context, assemblyName: string, filename: string) =
-        let shortName = 
-            if assemblyName.Contains "," then
-                assemblyName.Split(',').[0]
-            else
-                assemblyName
-        let cdnFormatOpt =
-            ctx.GetSetting (RUNTIMESETTING_CDNFORMAT_PREFIX + shortName) 
-            |> Option.orElseWith (fun () -> ctx.GetSetting (RUNTIMESETTING_OLD_CDNFORMAT_PREFIX + shortName))
-        match cdnFormatOpt with
-        | Some urlFormat -> Some urlFormat
-        | None ->
-            let isStdlib = AssemblyName(assemblyName).GetPublicKeyToken() = thisAssemblyToken
-            if isStdlib &&
-                (
-                    ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN 
-                    |> Option.orElseWith (fun () -> ctx.GetSetting RUNTIMESETTING_OLD_STDLIB_USECDN)
-                    |> Option.exists (fun s -> s.ToLowerInvariant() = "true")
-                )
-            then
-                ctx.GetSetting RUNTIMESETTING_STDLIB_CDNFORMAT
-                |> Option.orElseWith (fun () -> ctx.GetSetting RUNTIMESETTING_OLD_STDLIB_CDNFORMAT)
-                |> Option.defaultValue "//cdn.websharper.com/{assembly}/{version}/{filename}"
-                |> Some
-            else None
-        |> Option.map (fun urlFormat ->
-            let asmName = AssemblyName(assemblyName)
-            let version = asmName.Version.ToString()
-            urlFormat
-                .Replace("{assembly}", shortName)
-                .Replace("{filename}", filename)
-                .Replace("{version}", version)
-            |> RenderLink
-        )
-
-    static member TryGetCdn(ctx: Context, assembly: Assembly, filename: string) =
-        Rendering.TryGetCdn(ctx, assembly.FullName, filename)
-
     static member GetWebResourceRendering(ctx: Context, resource: Type, filename: string) =
-        match Rendering.TryGetCdn(ctx, resource.Assembly, filename) with
-        | Some r -> r
-        | None -> ctx.GetWebResourceRendering resource filename
+        ctx.GetWebResourceRendering resource filename
 
     static member RenderCached(ctx: Context, resource: IResource, getWriter) =
         let render = ctx.RenderingCache.GetOrAdd(resource, valueFactory = System.Func<_,_>(fun (res: IResource) -> res.Render ctx))

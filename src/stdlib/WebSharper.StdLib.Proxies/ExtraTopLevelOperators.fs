@@ -19,11 +19,45 @@
 // $end{copyright}
 
 [<WebSharper.Proxy "Microsoft.FSharp.Core.ExtraTopLevelOperators, FSharp.Core">]
-module internal WebSharper.Collections.ExtraTopLevelOperatorsProxy
-
-open WebSharper
+module private WebSharper.ExtraTopLevelOperatorsProxy
 
 open System.Collections.Generic
+
+open WebSharper.JavaScript
+module M = WebSharper.Core.Macros
+
+[<Inline "null">]
+let DefaultAsyncBuilder : Control.AsyncBuilder =
+    As (AsyncBuilderProxy())
+
+[<Name "create2D" >]
+let CreateArray2D (rows : seq<#seq<'T>>) =
+    let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
+    arr?dims <- 2
+    arr
+
+[<Inline "+$0">]
+let ToDouble<'T> (x: 'T) : double = X
+
+[<Inline "$f(function(x){return x;})">]
+let PrintFormatToString (f: Printf.StringFormat<'T>) = X<'T>
+
+[<Inline; JavaScript>]
+let PrintFormatToStringThen k f = Printf.ksprintf k f 
+
+[<Inline; JavaScript>]
+let PrintFormatLine f = Printf.printfn f 
+
+[<Inline; JavaScript>]
+let PrintFormatToStringThenFail f = Printf.failwithf f 
+
+[<Inline; JavaScript>]
+let SpliceExpression (e: Microsoft.FSharp.Quotations.Expr<'T>) =
+    As<'T> e
+
+[<Inline; JavaScript>]
+let SpliceUntypedExpression<'T> (e: Microsoft.FSharp.Quotations.Expr) =
+    As<'T> e
 
 [<Name("dict")>]
 let MakeDict (s : seq<('K * 'V)>) =

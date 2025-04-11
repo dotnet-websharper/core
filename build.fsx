@@ -36,7 +36,7 @@ System.Environment.GetCommandLineArgs()
 
 open WebSharper.Fake
 let version = "8.0"
-let pre = Some "beta1"
+let pre = None
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -147,7 +147,7 @@ let targets =
             Attributes =
                 [
                     AssemblyInfo.Company "IntelliFactory"
-                    AssemblyInfo.Copyright "(c) IntelliFactory 2023"
+                    AssemblyInfo.Copyright "(c) IntelliFactory 2025"
                     
                     AssemblyInfo.Description "https://github.com/dotnet-websharper/core"
                     AssemblyInfo.Product "WebSharper"

@@ -79,6 +79,9 @@ type [<Macro(typeof<MacroOnType>)>] MyStub =
 type ITest =
     abstract member Something: int -> int
 
+type ITestOption =
+    abstract member Something: int option -> int
+
 [<JavaScript>]
 type TestImpl() =
     member this.Something x = x + 1
@@ -115,6 +118,12 @@ let Tests =
             equal (o.Something(3)) 4 // ensure member is not DCE-d
             equal ((As<ITest> o).Something(3)) 4
             equal (o?Something(3)) 4
+        }
+
+        Test "Config setting with option" {
+            let o = TestImpl()
+            equal (o.Something(3)) 4 // ensure member is not DCE-d
+            equal ((As<ITestOption> o).Something(Some 3)) 4
         }
 
         Test "Name collision ok" {

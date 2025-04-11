@@ -26,6 +26,13 @@ namespace WebSharper.Web.Tests
 open WebSharper
 open WebSharper.JavaScript
 
+module Alternate =
+    module Server =
+        // Without the alternate path, this should give a startup-time error "Duplicate remote method found: Server/f3"
+        [<Remote "Server/f3Alternate">]
+        let f3 (x: int) =
+            x + 2
+
 module Server =
     open System
 
@@ -58,13 +65,18 @@ module Server =
         | [<Constant true>] UBool
         | UNotConst
 
-    [<Prototype false>]
-    type NoProtoTypes =
-        {
-            [<CompiledName "$TYPES">]
-            Types: string[][]
-        }
+    [<JavaScript>]
+    type LeadAndTrail<'a> = {
+        Lead: 'a
+        Trail: 'a
+    }
 
+    [<JavaScript>]
+    [<NamedUnionCases (nameof SingleOrTwin)>]
+    type SingleOrTwin<'a> =
+        | Single of 'a
+        | TwinLeadAndTrail of LeadAndTrail<'a>
+    
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -240,6 +252,20 @@ module Server =
         async { return (v, u) }
 
     [<Remote>]
+    let bug1439 (x: SingleOrTwin<int>) (y: string) : Async<SingleOrTwin<int option * string option>> =
+        async {
+            return 
+                match x with
+                | Single x -> Single (Some x, Some y)
+                | TwinLeadAndTrail x -> 
+                    TwinLeadAndTrail { 
+                        Lead = (Some x.Lead, Some y)
+                        Trail = (Some x.Trail, None)
+                    }
+
+        }
+
+    [<Remote>]
     let LoginAs (username: string) =
         let ctx = Web.Remoting.GetContext()
         async {
@@ -330,10 +356,6 @@ module Server =
         let d = a.Pop()
         a.Push("test")
         async { return (d, a) }
-
-    [<Remote>]
-    let f25 () =
-        async { return { Types = [| [| "Serializing record with field $TYPES" |] |] } }
 
     [<Remote>]
     let f27 (xy: struct (int * int)) =
@@ -519,6 +541,10 @@ module Remoting =
                 equal (Server.f3 15) 16
             }
 
+            Test "int -> int Alternate path" {
+                equal (Alternate.Server.f3 15) 17
+            }
+
             Test "int -> Async<int>" {
                 let! x = Server.f4 8
                 equal x 9
@@ -638,7 +664,11 @@ module Remoting =
                 equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
             }
 
-            Skip "Automatic field rename" {
+            Test "Bug #1439" {
+                equalAsync (Server.bug1439 (Server.Single 5) "hi") (Server.Single (Some 5, Some "hi"))
+            }
+
+            Test "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
                 isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
             }
@@ -669,11 +699,6 @@ module Remoting =
                 equal x "world"
                 equal (s2.Pop()) "test"
                 equal (s2.Pop()) "Hello"
-            }
-
-            Skip "Record with field named $TYPES" {
-                let! x = Server.f25 ()
-                equal x.Types [| [| "Serializing record with field $TYPES" |] |]
             }
 
             Test "Struct" {

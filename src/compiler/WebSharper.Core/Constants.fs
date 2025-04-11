@@ -29,47 +29,11 @@ module EmbeddedResources =
     [<Literal>]
     let EMBEDDED_RUNTIME_METADATA = "WebSharper.runtime.meta"
 
-    [<Literal>]
-    let EMBEDDED_JS = "WebSharper.js"
-
-    [<Literal>]
-    let EMBEDDED_MAP = "WebSharper.map"
-
-    [<Literal>]
-    let EMBEDDED_MINJS = "WebSharper.min.js"
-
-    [<Literal>]
-    let EMBEDDED_MINMAP = "WebSharper.min.map"
-
-    [<Literal>]
-    let EMBEDDED_TS = "WebSharper.ts"
-
-    [<Literal>]
-    let EMBEDDED_DTS = "WebSharper.d.ts"
-
 [<AutoOpen>]
 module RuntimeSettings =
     
     [<Literal>]
-    let RUNTIMESETTING_OLD_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
-
-    [<Literal>]
-    let RUNTIMESETTING_CDNFORMAT_PREFIX = "CdnFormat."
-
-    [<Literal>]
-    let RUNTIMESETTING_OLD_STDLIB_USECDN = "WebSharper.StdlibUseCdn"
-
-    [<Literal>]
-    let RUNTIMESETTING_STDLIB_USECDN = "UseStdlibCdn"
-
-    [<Literal>]
-    let RUNTIMESETTING_OLD_STDLIB_CDNFORMAT = "WebSharper.StdlibCdnFormat"
-
-    [<Literal>]
-    let RUNTIMESETTING_STDLIB_CDNFORMAT = "StdlibCdnFormat"
-
-    [<Literal>]
     let RUNTIMESETTING_USEDOWNLOADEDRESOURCES = "UseDownloadedResources"
 
     [<Literal>]
-    let RUNTIMESETTING_USEMINIFIEDSCRIPTS = "UseMinifiedScripts"
+    let RUNTIMESETTING_DEBUGSCRIPTREDIRECTURL = "DebugScriptRedirectUrl"

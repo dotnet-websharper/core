@@ -181,11 +181,14 @@ module Content =
             -> ('EndPoint -> Async<Content<'OuterEndPoint>>)
             -> Async<Content<'OuterEndPoint>>
 
-    /// Sets bundle name to use.
+    /// Sets bundle name to use, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
     val Bundle : name: string -> contents: #seq<#WebSharper.Web.INode> -> seq<WebSharper.Web.INode>
 
-    /// Sets bundle name to use for any expression scope.
+    /// Sets bundle name to use for any expression scope, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
     val BundleScope : name: string -> contents: 'A -> 'A
+
+    /// Sets bundle names to use for any expression scope, compiler will check the expression of `contents` to create the bundles, `name` should be a file name without extension.
+    val BundleScopes : names: string[] -> contents: 'A -> 'A
 
     type RenderedResources =
         {
@@ -215,7 +218,7 @@ open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 open System.Threading.Tasks
 
-[<CompiledName "Content"; Struct; Extension; NoEquality; NoComparison>]
+[<CompiledName "Content"; Struct; NoEquality; NoComparison>]
 type CSharpContent =
 
     val private c: Content<obj>
@@ -243,11 +246,23 @@ type CSharpContent =
         : Page
         -> Task<CSharpContent>
 
-    /// Sets bundle name to use.
+    /// Sets bundle name to use, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
     static member Bundle
         : name: string 
         * contents: Web.INode
         -> Web.INode
+
+    /// Sets bundle name to use for any expression scope, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
+    static member BundleScope
+        : name: string 
+        * contents: 'A
+        -> 'A
+
+    /// Sets bundle names to use for any expression scope, compiler will check the expression of `contents` to create the bundles, `name` should be a file name without extension.
+    static member BundleScopes
+        : names: string[] 
+        * contents: 'A
+        -> 'A
 
     /// Creates a plain text content.
     static member Text

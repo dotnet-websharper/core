@@ -29,8 +29,9 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net9.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net9.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
     <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">True</WebSharperStandalone>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net9.0/wsfsc.exe</WebSharperToolPath>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net9.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net9.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net8.0/wsfsc.exe</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net8.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net8.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.sh</WebSharperToolPath>
+    <WebSharperBoosterToolPath Condition=" '$(WebSharperToolPath)' != '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net8.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfscservice_start.sh') ">$(MSBuildThisFileDirectory)/../tools/net8.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfscservice_start.sh</WebSharperBoosterToolPath>
     <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">True</WebSharperStandalone>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net9.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
@@ -47,6 +48,7 @@
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="chmod u+x '$(WebSharperBoosterToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(WebSharperBoosterToolPath)' != ''" />
     <WebSharperTask
       FscCommandLineArgs="@(FscCommandLineArgs)"
       Configuration="$(Configuration)"

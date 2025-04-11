@@ -27,7 +27,7 @@ open WebSharper.JavaScript
 
 /// Defines the bindings to ECMA-262 5th edition JavaScript functions
 /// and objects.
-module Definition =
+module internal Definition =
     module P = Pattern
 
     let EcmaObject =

@@ -23,6 +23,7 @@ open System
 open System.IO.Pipes
 open System.Threading
 open System.IO
+open System.Runtime.InteropServices
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
@@ -102,12 +103,18 @@ let startListening() =
         options.Encoder <-System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         let res = System.Text.Json.JsonSerializer.Serialize(newMessage, options)
         let bytes = System.Text.Encoding.UTF8.GetBytes res
+        serverPipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
         serverPipe.Write(bytes, 0, bytes.Length)
         serverPipe.Flush()
     }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
 
     let sendFinished (serverPipe: NamedPipeServerStream) = sprintf "x: %i" |> send serverPipe
 
@@ -146,7 +153,7 @@ let startListening() =
                 let processCompileMessage (projectOption: string option) (wsConfig: WsConfig) warnSettings args = async {
                     let nLogger = nLogger.WithProperty("wsdir", wsConfig.ProjectDir)
                     nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
-                    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
+                    nLogger.Debug(sprintf "pipename is: %s (server side)" pipeName)
                     nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let compilationResultForDebugOrRelease() =
                         try
@@ -155,7 +162,8 @@ let startListening() =
                         | ArgumentError msg -> 
                             PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))
                             1
-                        | e -> 
+                        | e ->
+                            nLogger.Debug(e.Message)
                             PrintGlobalError logger (sprintf "Global error: %A" e)
                             1
                     let returnValue = compilationResultForDebugOrRelease()
@@ -260,7 +268,7 @@ let startListening() =
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
-                let! _ = readingMessages serverPipe handleMessage
+                let! _ = readingMessages serverPipe handleMessage ignore
                 serverPipe.Close()
             with
             | ex ->
@@ -273,11 +281,17 @@ let startListening() =
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
                           NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
-                          PipeTransmissionMode.Message, // Transmissione Mode
+                          PipeTransmissionMode.Byte, // using Byte for Linux support
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+
+        if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            let currentPermissions = System.IO.File.GetUnixFileMode pipeName
+            System.IO.File.SetUnixFileMode(
+                pipeName, currentPermissions ||| System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+        
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
-        serverPipe.ReadMode <- PipeTransmissionMode.Message
+        serverPipe.ReadMode <- PipeTransmissionMode.Byte
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }
@@ -293,30 +307,44 @@ let startListening() =
 do ()
 
 [<EntryPoint>]
-let main _ =
-    // One service should serve all compilations in a folder. Protect it with a global Mutex.
-    let location = System.Reflection.Assembly.GetEntryAssembly().Location
-    let mutexName =
-        (location, "WsFscServiceMutex")
-        |> System.IO.Path.Combine
-        |> hashPath
-        |> fun x -> "Global\\" + x
-    let mutable mutex = null
-    let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
-    if mutexExists then
-        exit(1)
-    mutex <- new Mutex(false, mutexName)
-    mutex.WaitOne() |> ignore // should always instantly continue
-    System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+let main args =
+    let initialLogLocation = args[0]
     try
-        startListening()
-    // killing the task from Task Manager on Windows 10 will dispose the Mutex
-    finally 
+        // One service should serve all compilations in a folder. Protect it with a global Mutex.
+        let location = System.Reflection.Assembly.GetEntryAssembly().Location
+        let mutexName =
+            (location, "WsFscServiceMutex")
+            |> System.IO.Path.Combine
+            |> hashPath
+            |> fun x -> "Global\\" + x
+        let mutable mutex = null
+        let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
+        if mutexExists then
+            exit(1)
+        mutex <- new Mutex(false, mutexName)
+        mutex.WaitOne() |> ignore // should always instantly continue
+        System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
         try
-            mutex.ReleaseMutex()
-        finally
+            startListening()
             try
-                mutex.Close()
+                mutex.ReleaseMutex()
             finally
-                mutex.Dispose()
+                try
+                    mutex.Close()
+                finally
+                    mutex.Dispose()
+        // killing the task from Task Manager on Windows 10 will dispose the Mutex
+        with
+        | ex ->
+            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
+            try
+                mutex.ReleaseMutex()
+            finally
+                try
+                    mutex.Close()
+                finally
+                    mutex.Dispose()
+    with
+        | ex ->
+            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
     0 // exit code

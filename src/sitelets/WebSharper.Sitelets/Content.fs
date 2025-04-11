@@ -87,25 +87,34 @@ module Content =
             }
         
         // Resolve resources for the set of types and this assembly
-        // Some controls may depend on Requires called first and Encode second, do not break this
         let requiresAndCode =
             controls
             |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
             |> Array.ofSeq
-        if requiresAndCode.Length > 0 then
+        
+        let requires =  
+            requiresAndCode
+            |> Array.choose (function ClientRequire n -> Some n | _ -> None) 
+
+        if requires.Length > 0 then
 
             let resources =
-                let nodeSet =
-                    requiresAndCode
-                    |> Seq.choose (function ClientRequire n -> Some n | _ -> None) 
-                    |> Set
-                ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
+                ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(Set.ofArray requires, fun nodes ->
                     ctx.Dependencies.GetResources ctx.Metadata nodes
                 )
 
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
+
+        let toActivate = 
+            requiresAndCode
+            |> Seq.choose (function ClientBundle _ | ClientRequire _ -> None | n -> Some n)
+            |> Seq.indexed
+            |> Array.ofSeq
+
+        if toActivate.Length > 0 then
+            
             let scriptsTw = tw Core.Resources.Scripts
             
             let requiredBundles =
@@ -137,6 +146,13 @@ module Content =
                 |> Seq.collect importsOf
                 |> Array.ofSeq
 
+#if DEBUG
+            scriptsTw.WriteLine("<!--")
+            scriptsTw.WriteLine("imports needed:")
+            for i in allImports do
+                scriptsTw.WriteLine(i.ToString())
+#endif
+
             let hasRoot =
                 ctx.Metadata.PreBundle.Count = 1 && ctx.Metadata.PreBundle.ContainsKey("root")
             
@@ -144,6 +160,9 @@ module Content =
                 if hasRoot then
                     Some "root"
                 elif ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
+#if DEBUG
+                    scriptsTw.WriteLine($"bundles: %A{requiredBundles}")
+#endif
                     match requiredBundles with
                     | [||] ->
                         if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
@@ -152,7 +171,15 @@ module Content =
                         |> Seq.tryFind (fun b ->
                             match ctx.Metadata.PreBundle.TryFind b with
                             | Some bundle ->
-                                allImports |> Seq.forall bundle.ContainsKey
+                                if allImports |> Seq.forall (fun a -> bundle.ContainsKey a.Root) then
+                                    true
+                                else
+#if DEBUG
+                                    scriptsTw.WriteLine($"failed to use bundle {b}:")
+                                    for i in bundle.Keys do
+                                        scriptsTw.WriteLine(i.ToString())
+#endif
+                                    false
                             | _ ->
                                 false
                         )
@@ -161,6 +188,9 @@ module Content =
                         )
                 else
                     None
+#if DEBUG
+            scriptsTw.WriteLine("-->")
+#endif
 
             let bundle =
                 bundleName
@@ -168,12 +198,6 @@ module Content =
                     ctx.Metadata.PreBundle[b]
                 )
             
-            let toActivate = 
-                requiresAndCode
-                |> Seq.choose (function ClientBundle _ | ClientRequire _ -> None | n -> Some n)
-                |> Seq.indexed
-                |> Array.ofSeq
-
             let activate (url: string) =
                 let imported = Dictionary<AST.Address, string>()
                 let elems = HashSet<string>()
@@ -661,6 +685,9 @@ module Content =
     let BundleScope (name: string) (contents: 'A) =
         contents
 
+    let BundleScopes (names: string[]) (contents: 'A) =
+        contents
+
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
 
@@ -857,7 +884,7 @@ module Internal =
         member t.Map (f: 'A -> 'B) =
             t.ContinueWith(fun (t: Task<'A>) -> f t.Result)
 
-[<CompiledName "Content"; Struct; Extension; NoEquality; NoComparison>]
+[<CompiledName "Content"; Struct; NoEquality; NoComparison>]
 type CSharpContent =
 
     val private c: Content<obj>
@@ -909,6 +936,12 @@ type CSharpContent =
 
     static member Bundle (name, contents: Web.INode) =
         Web.BundleNode(name, contents) :> Web.INode
+
+    static member BundleScope (name: string, contents: 'A) =
+        contents
+
+    static member BundleScopes (names: string[], contents: 'A) =
+        contents
 
     static member Text (text: string, [<Optional>] Encoding: System.Text.Encoding) =
         Content.Text(text, ?encoding = CSharpContent.Opt Encoding)

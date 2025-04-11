@@ -121,15 +121,7 @@ let getAssemblyFileName (mode: Mode) (aN: string) =
 
 /// Gets the physical path to the assembly JavaScript folder.
 let getAssemblyScriptsPath (aN: string) =
-    P.CreatePath ["Scripts"; aN]
-
-/// Gets the physical path to the assembly JavaScript.
-let getAssemblyJavaScriptPath (conf: Config) (aN: string) =
-    P.CreatePath ["Scripts"; aN; getAssemblyFileName conf.Options.Mode aN]
-
-/// Gets the physical path to the TypeScript declaration.
-let getAssemblyTypeScriptPath (conf: Config) (aN: string) =
-    P.CreatePath ["Scripts"; aN; aN + ".d.ts"]
+    P.CreatePath ["Scripts"; "WebSharper"; aN]
 
 /// Gets the source map filename of an assembly, for example `WebSharper.map`.
 let getAssemblyMapFileName (mode: Mode) (aN: string) =
@@ -137,17 +129,9 @@ let getAssemblyMapFileName (mode: Mode) (aN: string) =
     | H.Debug -> String.Format("{0}.map", aN)
     | H.Release -> String.Format("{0}.min.map", aN)
 
-/// Gets the physical path to the assembly source map.
-let getAssemblyMapPath (conf: Config) (aN: string) =
-    P.CreatePath ["Scripts"; aN; getAssemblyMapFileName conf.Options.Mode aN]
-
-/// Gets the physical path to the assembly source map.
-let getSourceFilePath (conf: Config) (aN: string) (n: string) =
-    P.CreatePath ["Scripts"; aN; n]
-
 /// Gets the physical path to the embedded resoure file.
 let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
-    P.CreatePath ["Scripts"; res.AssemblyName.Name; res.Name]
+    P.CreatePath ["Scripts"; "WebSharper"; res.AssemblyName.Name; res.Name]
 
 /// Opens a file for writing, taking care to create folders.
 let createFile (cfg: Config) (targetPath: P.Path) =
@@ -206,36 +190,6 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
         | Some aP ->
             let p = getAssemblyScriptsPath aN
             writeEmbeddedResources st.Config aP ".js" p
-            //let embeddedResourceName =
-            //    match st.Config.Options.Mode with
-            //    | H.Debug -> EMBEDDED_JS
-            //    | H.Release -> EMBEDDED_MINJS
-            //let p = getAssemblyJavaScriptPath st.Config aN
-            //writeEmbeddedResource st.Config aP embeddedResourceName p
-            //if sourceMap then
-            //    let sourceMapResourceName =
-            //        match st.Config.Options.Mode with
-            //        | H.Debug -> EMBEDDED_MAP
-            //        | H.Release -> EMBEDDED_MINMAP
-            //    let sp = getAssemblyMapPath st.Config aN
-            //    try writeEmbeddedResource st.Config aP sourceMapResourceName sp
-            //        let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
-            //        File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory p,
-            //            "\n//# sourceMappingURL=" + mapFileName)       
-            //    with _ -> ()
-            //if typeScript then
-            //    let tp = getAssemblyTypeScriptPath st.Config aN
-            //    writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
-            //st.Metadata.ExtraBundles
-            //|> Set.filter (fun b -> b.AssemblyName = aN)
-            //|> Set.iter (fun b ->
-            //    // TODO: this will have to use b.MinifiedFileName
-            //    // when we get to use .min.js for extra bundles.
-            //    let filename = b.FileName
-            //    let res = EmbeddedResource.Create(filename, AssemblyName(b.AssemblyName))
-            //    let path = getEmbeddedResourcePath st.Config res
-            //    writeEmbeddedResource st.Config aP filename path
-            //)
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
@@ -251,16 +205,11 @@ let relPath level =
 /// Creates a context for resource HTML printing.
 let resourceContext (st: State) (level: int) : R.Context =
     let relPath = relPath level
-    let scriptsFolder = relPath + "Scripts/"
+    let scriptsFolder = relPath + "Scripts/WebSharper/"
     let scriptsFile folder file =
         let url = String.Format("{0}{1}/{2}", scriptsFolder, folder, file)
         R.RenderLink url
     {
-        DebuggingEnabled =
-            match st.Config.Options.Mode with
-            | H.Debug -> true
-            | H.Release -> false
-
         DefaultToHttp = true
 
         ScriptBaseUrl = Some scriptsFolder
@@ -272,10 +221,6 @@ let resourceContext (st: State) (level: int) : R.Context =
                 | _ -> None
             else  
                 fun _ -> None
-
-        GetAssemblyRendering = fun aN ->
-            st.UseAssembly(aN)
-            scriptsFile aN (getAssemblyFileName st.Config.Options.Mode aN)
 
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty.Assembly.GetName()))
@@ -489,7 +434,10 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
             with ex ->
                 let msgs = getError ex action
                 errors.AddRange(msgs)
-        // Write resources determined to be necessary.
-        writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
+        //let mainAssemblyName = config.Options.MainAssemblyPath |> Path.GetFileNameWithoutExtension
+        //st.UseAssembly mainAssemblyName
+        //for asm in config.Options.ReferenceAssemblyPaths do
+        //    st.UseAssembly (Path.GetFileNameWithoutExtension asm)
+        //writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
         return errors :> seq<string>
     }

@@ -61,17 +61,12 @@ type Rendering =
 
     member Emit : HtmlTextWriter * MediaType * ?defaultToHttp: bool -> unit
     member Emit : (RenderLocation -> HtmlTextWriter) * MediaType * ?defaultToHttp: bool -> unit
-    static member TryGetCdn : ctx: Context * assemblyName: string * filename: string -> option<Rendering>
-    static member TryGetCdn : ctx: Context * assembly: System.Reflection.Assembly * filename: string -> option<Rendering>
     static member GetWebResourceRendering : ctx: Context * resource: System.Type * filename: string -> Rendering
     static member RenderCached : ctx: Context * resource: IResource * getWriter : (RenderLocation -> HtmlTextWriter) -> unit
 
 /// Defines the context in which resources can be rendered.
 and Context =
     {
-        /// A flag indicating if debugging is enabled or not.
-        DebuggingEnabled : bool
-
         /// Transform foreign links to starting with `//` to `http://`.
         DefaultToHttp : bool
 
@@ -80,10 +75,6 @@ and Context =
 
         /// Get the base URL path for WebSharper scripts.
         ScriptBaseUrl : option<string>
-
-        /// Constructs URLs to JavaScript-compiled assemblies.
-        /// Assembly names are short, such as FSharp.Core.
-        GetAssemblyRendering : string -> Rendering
 
         /// Provides a configuration settings collection.
         GetSetting : string -> option<string>

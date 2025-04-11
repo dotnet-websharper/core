@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <WebSharperProject>Library</WebSharperProject>
+    <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="JavaScript.fs" />
+    <Compile Include="Pervasives.fs" />
+    <Compile Include="Promise.fs" />
+    <Compile Include="JavaScript.Pervasives.fs" />
+    <Compile Include="Json.fsi" />
+    <Compile Include="Json.fs" />
+    <Compile Include="Remoting.fs" />
+    <Compile Include="Resources.fs" />
+    <Compile Include="Html.fs" />
+    <Compile Include="JSObject.fs" />
+    <Compile Include="FSharpConvert.fs" />
+    <Compile Include="JavaScript.Extensions.fs" />
+    <Compile Include="Comparers.fs" />
+    <Compile Include="Concurrency.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>

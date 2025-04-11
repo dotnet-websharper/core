@@ -98,6 +98,9 @@ module private DateTimeHelpers =
 
     [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})">]
     let LongTime (d: obj) = X<string>
+
+    [<Direct "var d = new Date($y, $mo - 1, $d, $h, $m, $s, $ms); if ($y < 99) d.setFullYear($y); return d.getTime()">]
+    let Create(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = X<DateTime>
                 
 // DateTime is represented as an UTC epoch for remoting purposes.
 // Properties for getting sub-dates/times like Day or Hour convert it to local time on the client for easier display purposes.
@@ -109,14 +112,17 @@ type private DateTimeProxy =
     [<Inline "0">]
     new () = {}
 
-    [<Inline "new Date($y,$mo-1,$d).getTime()"; Pure>]
-    new (y: int, mo: int, d: int) = {}
+    [<Inline; Pure>]
+    static member CtorProxy (y: int, mo: int, d: int) = 
+        DateTimeHelpers.Create(y, mo, d, 0, 0, 0, 0)
 
-    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s).getTime()"; Pure>]
-    new (y: int, mo: int, d: int, h: int, m: int, s: int) = {}
+    [<Inline; Pure>]
+    static member CtorProxy (y: int, mo: int, d: int, h: int, m: int, s: int) = 
+        DateTimeHelpers.Create(y, mo, d, h, m, s, 0)
 
-    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()"; Pure>]
-    new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
+    [<Inline; Pure>]
+    static member CtorProxy (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = 
+        DateTimeHelpers.Create(y, mo, d, h, m, s, ms)
     
     static member Now
         with [<Inline "Date.now()">] get() = X<D>
@@ -127,8 +133,8 @@ type private DateTimeProxy =
     [<Inline "1">]
     member this.Kind = X<System.DateTimeKind>
 
-    [<Macro(typeof<Core.Macros.DateString>)>]
-    member this.ToString(format: string) = Date(As<int> this).ToString()
+    [<Inline>]
+    member this.ToString(format: string) = DateTime.DateFormatter (As this) format
 
     member this.Date 
         with [<Inline; JavaScript>] get() : D = DateTimeHelpers.DatePortion(As this)
@@ -164,7 +170,7 @@ type private DateTimeProxy =
         with [<Inline; JavaScript>] get() = As<System.DayOfWeek>(Date(As<int> this).GetDay())
 
     member this.Ticks
-        with [<Inline "$this * 1E4">] get() = X<int64>
+        with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
 
     [<Inline "$this + $t">]
     member this.Add(t: TS) = X<D>

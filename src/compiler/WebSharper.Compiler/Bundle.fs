@@ -90,16 +90,16 @@ module Bundling =
             |> Seq.append (Seq.singleton o.CurrentMeta.Dependencies)
             |> WebSharper.Core.DependencyGraph.Graph.FromData
 
-        let mapFileSources = 
-            if sourceMap then
-                o.RefAssemblies |> Seq.collect (fun a ->
-                    match a.MapFileForReadable with
-                    | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
-                    | _-> []
-                )  
-                |> Seq.append o.Sources
-                |> Array.ofSeq 
-            else [||]
+        //let mapFileSources = 
+        //    if sourceMap then
+        //        o.RefAssemblies |> Seq.collect (fun a ->
+        //            match a.MapFileForReadable with
+        //            | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
+        //            | _-> []
+        //        )  
+        //        |> Seq.append o.Sources
+        //        |> Array.ofSeq 
+        //    else [||]
 
         let mutable map = None
         let mutable minmap = None
@@ -112,11 +112,9 @@ module Bundling =
 
         let htmlHeadersContext : Res.Context =
             {
-                DebuggingEnabled = false
                 DefaultToHttp = false
                 ScriptBaseUrl = o.Config.ScriptBaseUrl
                 GetSetting = fun _ -> None
-                GetAssemblyRendering = fun _ -> Res.Skip
                 GetWebResourceRendering = fun _ _-> Res.Skip
                 WebRoot = "/"
                 RenderingCache = null
@@ -163,10 +161,6 @@ module Bundling =
                     d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
 
             | _ -> 
-                let debug =
-                    match mode with
-                    | BundleMode.MinifiedJavaScript -> false
-                    | _ -> true
                 let renderWebResource cType (c: string) =
                     match cType, mode with
                     //| CT.JavaScript, BundleMode.JavaScript
@@ -178,25 +172,8 @@ module Bundling =
                     | _ -> ()
                 let ctx : Res.Context =
                     {
-                        DebuggingEnabled = debug
                         DefaultToHttp = false // TODO make configurable
                         ScriptBaseUrl = o.Config.ScriptBaseUrl
-                        GetAssemblyRendering = 
-                            //match concatScripts, mode with
-                            //| true, BundleMode.JavaScript -> 
-                            //    fun name ->
-                            //        assemblyLookup.Value |> Map.tryFind name
-                            //        |> Option.bind (fun a -> a.ReadableJavaScript)
-                            //        |> Option.iter (fun t -> writer.WriteLine(t))
-                            //        Res.Skip
-                            //| true, BundleMode.MinifiedJavaScript -> 
-                            //    fun name ->
-                            //        assemblyLookup.Value |> Map.tryFind name
-                            //        |> Option.bind (fun a -> a.CompressedJavaScript)
-                            //        |> Option.iter (fun t -> writer.WriteLine(t))
-                            //        Res.Skip
-                            //| _ ->
-                                fun _ -> Res.Skip
                         GetSetting = fun _ -> None
                         GetWebResourceRendering = fun ty name ->
                             if name.ToLower().EndsWith ".js" && (mode = BundleMode.JavaScript || mode = BundleMode.MinifiedJavaScript) then
@@ -259,7 +236,7 @@ module Bundling =
                     let getCodeWriter() =
                         if sourceMap then
                             WebSharper.Core.JavaScript.Writer.CodeWriter(
-                                sources = mapFileSources,
+                                //sources = mapFileSources,
                                 offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
@@ -356,7 +333,7 @@ module Bundling =
                     let e = System.Collections.Generic.HashSet jsExportNames
                     yield! 
                         graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode (a, _, _) -> e.Contains a
+                            | M.AssemblyNode a -> e.Contains a
                             | M.TypeNode td
                             | M.MethodNode (td, _)
                             | M.ConstructorNode (td, _) 

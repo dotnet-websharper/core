@@ -30,3 +30,5 @@
 /src/compiler/WebSharper.TypeScriptParser/app.js.map
 /src/compiler/WebSharper.TypeScriptParser/app.js
 websharper.log
+/tests/WebSharper.StaticHtml.Tests/build
+/tests/WebSharper.CSharp.StaticHtml.Tests/build

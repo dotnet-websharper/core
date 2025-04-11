@@ -38,6 +38,7 @@ type Literal =
     | Decimal of Value:decimal
     | ByteArray of Value:byte[]
     | UInt16Array of Value:uint16[]
+    | JSNumber of Value: string
 
     static member (!~) a = Value a
 
@@ -342,6 +343,8 @@ and Statement =
     | Alias of Alias:Id * Generics:list<TSType> * OrigType:TSType
     /// TypeScript - triple-slash directive
     | XmlComment of Xml:string
+    /// Temporary - class during packaging that might need Lazy wrapper
+    | LazyClass of WithoutLazy:Statement * WithLazy:Statement
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -625,6 +628,9 @@ type Transformer() =
     /// TypeScript - triple-slash directive
     abstract TransformXmlComment : Xml:string -> Statement
     override this.TransformXmlComment a = XmlComment (a)
+    /// Temporary - class during packaging that might need Lazy wrapper
+    abstract TransformLazyClass : WithoutLazy:Statement * WithLazy:Statement -> Statement
+    override this.TransformLazyClass (a, b) = LazyClass (this.TransformStatement a, this.TransformStatement b)
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -723,6 +729,7 @@ type Transformer() =
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
         | Alias (a, b, c) -> this.TransformAlias (a, b, c)
         | XmlComment a -> this.TransformXmlComment a
+        | LazyClass (a, b) -> this.TransformLazyClass (a, b)
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -1005,6 +1012,9 @@ type Visitor() =
     /// TypeScript - triple-slash directive
     abstract VisitXmlComment : Xml:string -> unit
     override this.VisitXmlComment a = (())
+    /// Temporary - class during packaging that might need Lazy wrapper
+    abstract VisitLazyClass : WithoutLazy:Statement * WithLazy:Statement -> unit
+    override this.VisitLazyClass (a, b) = this.VisitStatement a; this.VisitStatement b
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -1103,6 +1113,7 @@ type Visitor() =
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
         | Alias (a, b, c) -> this.VisitAlias (a, b, c)
         | XmlComment a -> this.VisitXmlComment a
+        | LazyClass (a, b) -> this.VisitLazyClass (a, b)
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -1207,6 +1218,7 @@ module IgnoreSourcePos =
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
+    let (|LazyClass|_|) x = match ignoreStatementSourcePos x with LazyClass (a, b) -> Some (a, b) | _ -> None
 module Debug =
     let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
     let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
@@ -1306,6 +1318,7 @@ module Debug =
         | Interface (a, b, c, d) -> "Interface" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ")"
         | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + string c + ")"
         | XmlComment a -> "XmlComment" + "(" + string a + ")"
+        | LazyClass (a, b) -> "LazyClass" + "(" + PrintStatement a + ", " + PrintStatement b + ")"
 // }}
 
     let PrintExpressionWithPos x =

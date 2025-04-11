@@ -199,14 +199,12 @@ module SampleSite =
             let bt = Client.ButtonText("click me!")
             return! Content.Page(
                 Title = t.Title,
-#if RELEASE
                 Bundle = "samplehome",
-#endif
                 Body = [
                     yield! t.Login
                     yield! t.Menu
                     yield! t.Body
-                    yield Web.InlineControl ( Client.Widget bt ) :> _
+                    yield Content.BundleScopes [| "samplehome"; "samplecontact"; "samplelogin" |] (Web.InlineControl ( Client.Widget bt )) :> _
                 ]
             )
         }
@@ -235,19 +233,21 @@ module SampleSite =
                 }
             }
 
+    type ClientServer =
+        static member clientInDiv ([<ReflectedDefinition; WebSharper.JavaScript>] expr: Quotations.Expr<#WebSharper.IControlBody>) = 
+            Elt("div", Web.InlineControl(%expr))
+
     /// The pages of this website.
     module Pages =
 
         /// The home page.
         let HomePage =
             Template "Home" <| fun ctx ->
-#if RELEASE
                 Content.Bundle "samplehome"
-#endif
                     [
                         Elt("h1", Text "Welcome to our site!")
                         "Let us know how we can contact you" => ctx.Link Action.Contact
-                        Elt("div", Web.InlineControl (Client.Elt "b" [|Client.Text "It's working baby"|] ))
+                        ClientServer.clientInDiv (Client.Elt "b" [|Client.Text "It's working baby"|])
                         Elt("div",
                             Text """This should say 'Checking "attribute" encoding':""",
                             Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
@@ -277,13 +277,14 @@ module SampleSite =
                     )
                 )
             Template "Contact" <| fun ctx ->
-                [
-                    Elt("h1", Text "Contact Form")
-                    Elt("div", new Client.SignupSequenceControl())
+                Content.Bundle "samplecontact"
+                    [
+                        Elt("h1", Text "Contact Form")
+                        Elt("div", new Client.SignupSequenceControl())
 
-                    form true
-                    form false
-                ]
+                        form true
+                        form false
+                    ]
 
         /// A simple page that echoes a parameter.
         let EchoPage param =
@@ -304,15 +305,16 @@ module SampleSite =
         let LoginPage =
             Template "Login" <| fun ctx ->
                 let redirectLink = Client.LoginLink (ctx.Link (Action.DoLogin ("", "")))
-                [
-                    Elt("h1", Text "Login")
-                    Elt("p",
-                        Text "Login with any username and password='",
-                        Elt("i", Text "password"),
-                        Text "'."
-                    )
-                    new Client.LoginControl(redirectLink)
-                ]
+                Content.Bundle "samplelogin"
+                    [
+                        Elt("h1", Text "Login") :> INode
+                        Elt("p",
+                            Text "Login with any username and password='",
+                            Elt("i", Text "password"),
+                            Text "'."
+                        )
+                        new Client.LoginControl(redirectLink)
+                    ]
 
         /// A simple page that users must log in to view.
         let ProtectedPage =

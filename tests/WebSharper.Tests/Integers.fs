@@ -123,6 +123,29 @@ let Tests =
             equalMsg (Int32.TryParse("3000000000", ref 0)) false "3000000000"
         }
 
+        Test "Int64.Parse" {
+            equalMsg (Int64.Parse "14") 14L "14"
+            equalMsg (Int64.Parse "-14") -14L "-14"
+            raisesMsg (Int64.Parse "14a") "14a"
+            raisesMsg (Int64.Parse "14.2") "14.2"
+            equalMsg (Int64.Parse "2000000000") 2000000000L "2000000000"
+            raisesMsg (Int64.Parse "10000000000000000000") "10000000000000000000"
+        }
+
+        Test "Int64 literal fields" {
+            equalMsg Int64.MaxValue 9223372036854775807L "MaxValue"
+            equalMsg Int64.MinValue -9223372036854775808L "MinValue"
+        }
+
+        Test "Int64.TryParse" {
+            equalMsg (Int64.TryParse "14") (true, 14L) "14"
+            equalMsg (Int64.TryParse "-14") (true, -14L) "-14"
+            equalMsg (Int64.TryParse("14a", ref 0L)) false "14a"
+            equalMsg (Int64.TryParse("14.2", ref 0L)) false "14.2"
+            equalMsg (Int64.TryParse "2000000000") (true, 2000000000L) "2000000000"
+            equalMsg (Int64.TryParse("10000000000000000000", ref 0L)) false "10000000000000000000"
+        }
+        
         Test "UInt32.Parse" {
             equalMsg (UInt32.Parse "14") 14u "14"
             raisesMsg (UInt32.Parse "-14") "-14"
@@ -139,5 +162,27 @@ let Tests =
             equalMsg (UInt32.TryParse("14.2", ref 0u)) false "14.2"
             equalMsg (UInt32.TryParse "4000000000") (true, 4000000000u) "4000000000"
             equalMsg (UInt32.TryParse("5000000000", ref 0u)) false "5000000000"
+        }
+
+        Test "UInt64.Parse" {
+            equalMsg (UInt64.Parse "14") 14UL "14"
+            raisesMsg (UInt64.Parse "-14") "-14"
+            raisesMsg (UInt64.Parse "14a") "14a"
+            raisesMsg (UInt64.Parse "14.2") "14.2"
+            equalMsg (UInt64.Parse "4000000000") 4000000000UL "4000000000"
+            raisesMsg (UInt64.Parse "20000000000000000000") "20000000000000000000"
+        }
+
+        Test "UInt64.TryParse" {
+            equalMsg (UInt64.TryParse "14") (true, 14UL) "14"
+            equalMsg (UInt64.TryParse("-14", ref 0UL)) false "-14"
+            equalMsg (UInt64.TryParse("14a", ref 0UL)) false "14a"
+            equalMsg (UInt64.TryParse("14.2", ref 0UL)) false "14.2"
+            equalMsg (UInt64.TryParse "4000000000") (true, 4000000000UL) "4000000000"
+            equalMsg (UInt64.TryParse("20000000000000000000", ref 0UL)) false "20000000000000000000"
+        }
+        
+        Test "Bitwise not" {
+            equal (~~~1000) -1001
         }
     }

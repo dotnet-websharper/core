@@ -29,11 +29,7 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
-//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
-//#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
 
@@ -59,8 +55,8 @@ module Utils =
         | P.AddressSet(e1,e2) -> printExpr 0 e1 + " <- " + printExpr 0 e2
         | P.Application(f,tyargs,args) -> quote low (printExpr 10 f + printTyargs tyargs + " " + printCurriedArgs args)
         | P.BaseValue(_) -> "base"
-        | P.Call(Some obj,v,tyargs1,tyargs2,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL
-        | P.Call(None,v,tyargs1,tyargs2,argsL) -> v.DeclaringEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
+        | P.CallWithWitnesses(Some obj,v,tyargs1,tyargs2,ws,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL + printWitnesses ws
+        | P.CallWithWitnesses(None,v,tyargs1,tyargs2,ws,argsL) -> v.DeclaringEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL + printWitnesses ws
         | P.Coerce(ty1,e1) -> quote low (printExpr 10 e1 + " :> " + printTy ty1)
         | P.DefaultValue(ty1) -> "dflt"
         | P.FastIntegerForLoop _ -> "for-loop"
@@ -69,7 +65,11 @@ module Utils =
         | P.ILFieldSet _ -> "ILFieldSet"
         | P.IfThenElse (a,b,c) -> "(if " + printExpr 0 a + " then " + printExpr 0 b + " else " + printExpr 0 c + ")"
         | P.Lambda(v,e1) -> "fun " + v.CompiledName + " -> " + printExpr 0 e1
-        | P.Let((v,e1,_),b) -> "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
+        | P.Let((v,e1,_),b) -> 
+            if v.InlineAnnotation = FSharpInlineAnnotation.AlwaysInline then
+                "let inline " + (if v.IsMutable then "mutable " else "") + v.CompiledName + pringGenParams v.GenericParameters + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
+            else
+                "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
         | P.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
         | P.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
         | P.NewDelegate(ty,es) -> "new-delegate" 
@@ -94,14 +94,14 @@ module Utils =
         | P.TupleGet(ty,n,e1) -> printExpr 10 e1 + ".Item" + string n
         | P.DecisionTree(dtree,targets) -> "match " + printExpr 10 dtree + " targets ..."
         | P.DecisionTreeSuccess (tg,es) -> "$" + string tg
-        | P.TypeLambda(gp1,e1) -> "FUN ... -> " + printExpr 0 e1 
+        | P.TypeLambda(gp1,e1) -> "GenParams" + pringGenParams gp1 + " -> " + printExpr 0 e1 
         | P.TypeTest(ty,e1) -> printExpr 10 e1 + " :? " + printTy ty
         | P.UnionCaseSet(obj,ty,uc,f1,e1) -> printExpr 10 obj + "." + f1.Name + " <- " + printExpr 0 e1
         | P.UnionCaseGet(obj,ty,uc,f1) -> printExpr 10 obj + "." + f1.Name
         | P.UnionCaseTest(obj,ty,f1) -> printExpr 10 obj + ".Is" + f1.Name
         | P.UnionCaseTag(obj,ty) -> printExpr 10 obj + ".Tag" 
         | P.ObjectExpr(ty,basecall,overrides,iimpls) -> "{ " + printExpr 10 basecall + " with " + printOverrides overrides + " " + printIimpls iimpls + " }"
-        | P.TraitCall(tys,nm,_,argtys,tinst,args) -> "trait call " + nm + printTupledArgs args
+        | P.TraitCall(tys,nm,mf,argtys,tinst,args) -> "trait call"  + printTyargs tys + "args" + printTyargs argtys + "inst" + printTyargs tinst + " " + nm + printTupledArgs args
         | P.Const(obj,ty) -> 
             match obj with 
             | :? string  as s -> "\"" + s + "\""
@@ -110,6 +110,7 @@ module Utils =
         | P.Value(v) -> v.CompiledName
         | P.ValueSet(v,e1) -> quote low (v.CompiledName + " <- " + printExpr 0 e1)
         | P.WhileLoop(e1,e2,_) -> "while " + printExpr 0 e1 + " do " + printExpr 0 e2 + " done"
+        | P.WitnessArg (w) -> "witnessArg" + string w
         | _ -> failwith (sprintf "unrecognized %+A" e)
 
     and quote low s = if low > 0 then "(" + s + ")" else s
@@ -128,6 +129,12 @@ module Utils =
         | _ -> failwith "wrong this argument in object expression override"
     and printIimpls iis = String.concat ";" (List.map printImlementation iis)
     and printImlementation (i, ors) = "interface " + printTy i + " with " + printOverrides ors
+    and printWitnesses ws =
+        match ws with
+        | [] -> ""
+        | _ -> " with witnesses [" + String.concat "; " (List.map (printExpr 0) ws) + "]"  
+    and pringGenParams (gp: seq<FSharpGenericParameter>) =
+        "<" + (gp |> Seq.map (fun a -> a.Name) |> String.concat ", ") + ">"
 
     let rec printDeclaration (excludes:HashSet<_> option) (d: FSharpImplementationFileDeclaration) = 
         seq {
@@ -286,9 +293,7 @@ let wsRefs =
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
         "WebSharper.JavaScript"
-        "WebSharper.Main"
-        "WebSharper.Collections"
-        "WebSharper.Control"
+        "WebSharper.StdLib"
         "WebSharper.Web"
         //"WebSharper.MathJS"
         //"WebSharper.MathJS.Extensions"
@@ -333,11 +338,7 @@ let metas =
         WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
     )
 
-let metadata =
-    { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-    }
+let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
 
 metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
@@ -507,6 +508,16 @@ let getBody expr =
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
+type IValue<'T> =
+    abstract member Value : 'T with get
+
+let test =
+    let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
+
+    let i = { new IValue<int> with member this.Value = 4 }
+    !!i
+
+
 translate false """
 namespace WebSharper.Tests
 
@@ -515,8 +526,48 @@ open WebSharper.JavaScript
 open System.Collections.Generic
 
 [<JavaScript>]
-module MyTest =
+module Test =
+    type IValue<'T> =
+        abstract member Value : 'T with get
+    
+    let test() =
+        let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
-    let Main() =
-        "hello" |> _.Length
+        let i = { new IValue<int> with member this.Value = 4 }
+        !!i
+
+"""
+
+//type Target() =
+//    member this.GetText(x: int) = string x
+//    member this.GetText(x: uint) = string x
+
+//let inline getText (o: ^x) (v: ^y) : string = (^x : (member GetText : ^y -> string) (o, v))
+
+//let test =
+//    let t = Target()
+//    getText t 4
+
+let test2 =
+    let inline (+@) x y = x + x * y
+    // Call that uses int.
+    printfn "%d" (1 +@ 1)
+    // Call that uses float.
+    printfn "%f" (1.0 +@ 0.5)
+
+translate false """
+namespace WebSharper.Tests
+
+open WebSharper
+open WebSharper.JavaScript
+open System.Collections.Generic
+
+[<JavaScript>]
+module Test =
+
+    let test =
+        let inline (+@) x y = x + x * y
+        printfn "%d" (1 +@ 1)
+        // Call that uses float.
+        printfn "%f" (1.0 +@ 0.5)
 """

@@ -28,21 +28,7 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open System.Linq.Expressions
 
-//module P = WebSharper.Core.JavaScript.Packager
-//module AST = WebSharper.Core.AST
 module Re = WebSharper.Core.Resources
-
-[<Literal>]
-let TYPES = "$TYPES"
-
-[<Literal>]
-let DATA = "$DATA"
-
-[<Literal>]
-let TYPE = "$T"
-
-[<Literal>]
-let VALUE = "$V"
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 
@@ -536,10 +522,8 @@ let serializers =
     addNumeric System.SByte.TryParse d
     addNumeric System.Int16.TryParse d
     addNumeric System.Int32.TryParse d
-    addNumeric System.Int64.TryParse d
     addNumeric System.UInt16.TryParse d
     addNumeric System.UInt32.TryParse d
-    addNumeric System.UInt64.TryParse d
     addNumeric tryParseSingle d
     addNumeric tryParseDouble d
     let encBool = function
@@ -590,6 +574,33 @@ let serializers =
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
+    let encBigInt (d: bigint) =
+        String (d.ToString())
+    let decBigInt = function
+        | String d as x ->
+            match System.Numerics.BigInteger.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<bigint>)) 
+        | x -> raise (DecoderException(x, typeof<bigint>))
+    add encBigInt decBigInt d   
+    let encInt64 (d: int64) =
+        String (d.ToString())
+    let decInt64 = function
+        | String d as x ->
+            match System.Int64.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<int64>)) 
+        | x -> raise (DecoderException(x, typeof<int64>))
+    add encInt64 decInt64 d   
+    let encUInt64 (d: uint64) =
+        String (d.ToString())
+    let decUInt64 = function
+        | String d as x ->
+            match System.UInt64.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<uint64>)) 
+        | x -> raise (DecoderException(x, typeof<uint64>))
+    add encUInt64 decUInt64 d   
     d
 
 let tupleEncoder dE (i: FormatSettings) (ta: TAttrs) =
@@ -1951,9 +1962,16 @@ module PlainProviderInternals =
                             else
                                 fn, f :> System.Reflection.MemberInfo
                         )
-                for fn, f in fields do
-                    if not (d.ContainsKey fn) then
-                        d.Add(fn, TAttrs.GetName f)
+                if t.Name = "BaseClass" || t.Name = "DescendantClass" then
+                    ()
+                let fieldNames = HashSet()
+                for fn, f in fields do                    
+                    let rec addWithRename name =
+                        if fieldNames.Add(name) then
+                            d[fn] <- name
+                        else
+                            addWithRename (Naming.newName name)
+                    addWithRename (TAttrs.GetName f)
                 fun n ->
                     match d.TryGetValue n with
                     | true, n -> n

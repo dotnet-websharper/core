@@ -45,7 +45,7 @@ type private Attribute =
     | OptionalField
     | JavaScript of bool * JavaScriptOptions
     | JavaScriptTypeOrFile of string
-    | Remote
+    | Remote of option<string>
     | RemotingProvider of TypeDefinition * option<obj>
     | NamedUnionCases of option<string>
     | DateTimeFormat of option<string> * string
@@ -114,7 +114,7 @@ type MemberKind =
     | Constant of Literal
     | NoFallback
     | Generated of TypeDefinition * option<obj>
-    | Remote of option<TypeDefinition * option<obj>>
+    | Remote of option<TypeDefinition * option<obj>> * option<string>
     | Stub
     | OptionalField
     | AttributeConflict of string
@@ -306,7 +306,10 @@ type AttributeReader<'A>() =
         | "GeneratedAttribute" ->
             A.Generated (this.ReadTypeArg attr)
         | "RemoteAttribute" ->
-            A.Remote
+            match this.GetCtorArgs(attr) with
+            | [| |] -> A.Remote None
+            | [| s |] -> A.Remote (Some (unbox s))
+            | _ -> failwith "invalid constructor arguments for RemoteAttribute"
         | "RequireAttribute" ->
             A.Require (this.ReadTypeArg attr)
         | "StubAttribute" ->
@@ -495,7 +498,7 @@ type AttributeReader<'A>() =
                 if isJavaScript then Some JavaScript 
                 elif isStub then Some Stub 
                 elif macros.Length = 0 then None else Some NoFallback
-            | [| A.Remote |] -> Some (Remote rp)
+            | [| A.Remote p |] -> Some (Remote (rp, p))
             | [| a |] ->
                 match a with   
                 | A.Inline (None, _) -> Some InlineJavaScript

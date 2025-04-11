@@ -19,11 +19,14 @@
 // $end{copyright}
 module WebSharper.FSharp.NamedPipeClient
 #nowarn "44"
+open WebSharper.Compiler
+
 open System.Text
 
 
 open System.Diagnostics
 open System.IO.Pipes
+open System.Runtime.InteropServices
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
 
@@ -49,11 +52,17 @@ let (|Finish|_|) (str: string) =
     else
         None
 
+let retryErrorCode = -12212
 
-let sendCompileCommand args projectDir =
+let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    let pipeName =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            pipeNameRaw  // Windows uses simple pipe names
+        else
+            Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
     let exeName =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
             "wsfscservice.exe"
@@ -80,6 +89,7 @@ let sendCompileCommand args projectDir =
                         "wsfscservice_start.cmd" else "wsfscservice_start.sh"
         let cmdFullPath = (location, cmdName) |> System.IO.Path.Combine
         let startInfo = ProcessStartInfo(cmdFullPath)
+        startInfo.Arguments <- Path.Combine(projectDir, "websharper.log")
         startInfo.CreateNoWindow <- true
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden
@@ -113,11 +123,17 @@ let sendCompileCommand args projectDir =
                             let unrecognizedMessageErrorCode = -13311
                             return unrecognizedMessageErrorCode |> Some
                     }
-                
+                clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
                 clientPipe.Write(ms, 0, ms.Length)
                 clientPipe.Flush()
-                clientPipe.WaitForPipeDrain()
-                let! errorCode = readingMessages clientPipe printResponse
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+                    clientPipe.WaitForPipeDrain()
+
+                let clientError () =
+                    if clientPipe.IsConnected |> not then
+                        raise <| PipeException ()
+                
+                let! errorCode = readingMessages clientPipe printResponse clientError
                 match errorCode with
                 | Some -12211 ->
                     return -12211
@@ -128,6 +144,9 @@ let sendCompileCommand args projectDir =
             try
                 Async.RunSynchronously(write)
             with
+            | PipeException _ as ex ->
+                cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+                retryErrorCode
             | _ -> 
                 unexpectedFinishErrorCode
         else
@@ -140,11 +159,20 @@ let sendCompileCommand args projectDir =
 
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
-    clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Message
-    let options = System.Text.Json.JsonSerializerOptions()
-    options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
-    let bytes = System.Text.Encoding.UTF8.GetBytes res
-    let returnCode = Write bytes
-    returnCode
+    try
+        clientPipe.Connect(2000)
+        if clientPipe.IsConnected then
+            clientPipe.ReadMode <- PipeTransmissionMode.Byte
+            let options = System.Text.Json.JsonSerializerOptions()
+            options.Encoder <- Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            let res = System.Text.Json.JsonSerializer.Serialize(startCompileMessage, options)
+            let bytes = System.Text.Encoding.UTF8.GetBytes res
+            let returnCode = Write bytes
+            returnCode
+        else
+            cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+            raise <| PipeException()
+    with
+    | :? System.TimeoutException ->
+        cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+        raise <| PipeException()

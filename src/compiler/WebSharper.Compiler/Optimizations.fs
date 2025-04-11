@@ -219,6 +219,7 @@ let cleanRuntime force expr =
     // printf and string interpolation translation cleanup
     | Application(Global "String", [Value Null], _) -> !~(String "null")
     | Application(Global "String", [Value (String _) as s], _) -> s
+    | Application(Global "String", [Var v], _) when v.TSType = Some TSType.String -> Var v
     | Application(GlobalAccess a, [Value Null], _) when a.Address = [ "toSafe"; "Utils"; "WebSharper" ] -> !~(String "")
     | Application(GlobalAccess a, [Value (String _) as s], _) when a.Address = [ "toSafe"; "Utils"; "WebSharper" ] -> s
     | Binary(Value (String s1), BinaryOperator.``+``, Value (String s2)) -> !~(String (s1 + s2))

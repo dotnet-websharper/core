@@ -35,38 +35,6 @@ type ExtraBundleData =
         IncludeJsExports: bool
     }
 
-//[<AutoOpen>]
-//module private WSDefinitions =
-//    let wsEnumeratorModule =
-//        TypeDefinition {
-//            Assembly = "WebSharper.Main"
-//            FullName = "WebSharper.Enumerator"
-//        } 
-
-//    let seq0Ty =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.IEnumerable"
-//        } 
-
-//    let seqTy =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.Generic.IEnumerable`1"
-//        } 
-
-//    let enum0Ty =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.IEnumerator"
-//        } 
-
-//    let enumTy =
-//        TypeDefinition {
-//            Assembly = "mscorlib"
-//            FullName = "System.Collections.Generic.IEnumerator`1"
-//        }
-    
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
@@ -183,12 +151,12 @@ type Compilation(meta: Info, ?hasGraph) =
         else
             name
     
-    member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
-        {
-            Assembly = this.AssemblyName
-            Path = path
-            SignatureHash = hash (args, ret)
-        }
+    member this.GetRemotePath(attrPath: option<string>, typ: TypeDefinition, name: string) =
+        attrPath |> Option.defaultWith (fun () -> 
+            let typShortName =
+                typ.Value.FullName.Split('.', '+') |> Array.last
+            typShortName + "/" + name
+        ) 
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
         if this.SingleNoJSErrors then
@@ -1422,7 +1390,7 @@ type Compilation(meta: Info, ?hasGraph) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
 
         let asmNodeIndex = 
-            if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true, false)) else 0
+            if hasGraph then graph.AddOrLookupNode(AssemblyNode this.AssemblyName) else 0
         if hasGraph then
             for req in this.AssemblyRequires do
                 graph.AddEdge(asmNodeIndex, resNode req)
@@ -1681,7 +1649,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     else
                         New (Some n)
                 | N.AsStatic -> Func (n, true)
-                | N.Remote (_, h, _, _, _, args) -> Remote(n, h, args.IsSome)
+                | N.Remote (_, h, _, _, _, _, args) -> Remote(n, h, args.IsSome)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 
@@ -2016,7 +1984,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let defaultRemotingProvider =
             TypeDefinition {
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
                 FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
             }, ConstructorInfo.Default(), []
 
@@ -2083,7 +2051,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let body = 
                     match nr.Kind with
-                    | N.Remote (kind, handle, args, rh, rt, argTypes) ->
+                    | N.Remote (kind, path, args, sourcePos, rh, rt, argTypes) ->
 
                         let name, m =
                             match kind with
@@ -2176,11 +2144,15 @@ type Compilation(meta: Info, ?hasGraph) =
                         let callRP = 
                             Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, 
                             [ 
-                                Value (String (handle.Pack()))
+                                Value (String path)
                                 NewArray encodedArgs 
                             ]) 
                             |> decode
-                        Function(args, None, None, Return callRP)
+                        let withSourcePos =
+                            match sourcePos with
+                            | Some sp -> ExprSourcePos(sp, callRP) 
+                            | None -> callRP
+                        Function(args, None, None, Return withSourcePos)
                     | _ ->
                         nr.Body
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr
@@ -2501,7 +2473,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 ()
     
         // Add graph edges for Object methods redirections
-        if hasGraph && this.AssemblyName = "WebSharper.Main" then
+        if hasGraph && this.AssemblyName = "WebSharper.StdLib" then
             
             let equals =
                 Method {
@@ -2581,7 +2553,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _ -> None
                 )
                 |> Array.ofSeq
-            unchmod |> Array.iter (printfn "%A")
+
             let uchEqIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
             let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 
@@ -2629,7 +2601,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> false
         let iControlBody =
             TypeDefinition {
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.StdLib"
                 FullName = "WebSharper.IControlBody"
             }
         let getBody =

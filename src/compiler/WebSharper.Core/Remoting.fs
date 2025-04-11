@@ -29,7 +29,6 @@ open System.Collections.Concurrent
 module FI = FastInvoke
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
-//module R = WebSharper.Core.Reflection
 
 type FST = Reflection.FSharpType
 type FSV = Reflection.FSharpValue
@@ -203,24 +202,12 @@ let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodIn
                     ps.[0] <- inst
                     run.InvokeN(ps) |> enc
 
-[<Literal>]
-let HEADER_NAME = "x-websharper-rpc"
-
 exception RemotingException of message: string with
     override this.Message = this.message
 
 [<Sealed>]
 type Server(info, jP, handlers: Func<System.Type, obj>) =
-    let remote = M.Utilities.getRemoteMethods info
-    let remotePaths = 
-        let rp = Dictionary(StringComparer.InvariantCultureIgnoreCase)
-        for (KeyValue(mh, m)) in remote do
-            let p = mh.Pack()
-            try
-                rp.Add(p , m)
-            with _ ->
-                failwithf "Duplicate remote method found: %s" p
-        rp
+    let remotePaths = M.Utilities.getRemoteMethods info
     let d = ConcurrentDictionary()
     let getConverter (td, m) =
         toConverter jP handlers (AST.Reflection.LoadMethod td m)

@@ -172,23 +172,19 @@ type QuotationCompiler (meta : M.Info) =
                             if not isInstance then failwith "Abstract method should not be static" 
                             addMethod N.Abstract true Undefined
                         | _ -> failwith "Member kind not expected for astract method"
-                    | A.MemberKind.Remote rp ->
+                    | A.MemberKind.Remote (rp, p) ->
                         let remotingKind =
                             match mdef.Value.ReturnType with
                             | VoidType -> M.RemoteSend
                             | ConcreteType { Entity = e } when e = Definitions.Async -> M.RemoteAsync
                             | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> M.RemoteTask
                             | _ -> M.RemoteSync
-                        let handle = 
-                            comp.GetRemoteHandle(
-                                thisDef.Value.FullName + "." + mdef.Value.MethodName,
-                                mdef.Value.Parameters,
-                                mdef.Value.ReturnType
-                            )
+                        let path = comp.GetRemotePath(p, thisDef, mdef.Value.MethodName)
                         let vars = getVars()
+                        let sourcePos = getRange m
                         let nr =
                             {
-                                Kind = N.Remote (remotingKind, handle, vars, rp, Some mdef.Value.ReturnType, None)
+                                Kind = N.Remote (remotingKind, path, vars, None, rp, Some mdef.Value.ReturnType, None)
                                 StrongName = mAnnot.Name
                                 Generics = []
                                 Macros = mAnnot.Macros

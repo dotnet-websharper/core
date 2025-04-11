@@ -29,7 +29,7 @@ type private TimeSpanProxy =
     [<Inline "0">]
     new () = {}
 
-    [<Inline "$ticks / 1E4">]
+    [<Inline "Number($ticks) / 1E4">]
     new (ticks: int64) = {}
 
     [<Inline "(($h * 60 + $m) * 60 + $s) * 1E3">]
@@ -52,19 +52,19 @@ type private TimeSpanProxy =
         Unchecked.compare (this :> obj) (t :> obj)
 
     member this.Days
-        with [<Inline "Math.floor($this / 864E5)">] get () = X<int>
+        with [<Inline "Math.trunc($this / 864E5)">] get () = X<int>
 
     member this.Hours
-        with [<Inline "Math.floor($this / 36E5) % 24">] get () = X<int>
+        with [<Inline "Math.trunc($this / 36E5) % 24">] get () = X<int>
 
     member this.Minutes
-        with [<Inline "Math.floor($this / 6E4) % 60">] get () = X<int>
+        with [<Inline "Math.trunc($this / 6E4) % 60">] get () = X<int>
 
     member this.Seconds
-        with [<Inline "Math.floor($this / 1E3) % 60">] get () = X<int>
+        with [<Inline "Math.trunc($this / 1E3) % 60">] get () = X<int>
 
     member this.Milliseconds
-        with [<Inline "$this % 1E3">] get () = X<int>
+        with [<Inline "Math.trunc($this) % 1E3">] get () = X<int>
 
     member this.TotalDays
         with [<Inline "$this / 864E5">] get () = X<float>
@@ -82,7 +82,7 @@ type private TimeSpanProxy =
         with [<Inline "$this">] get () = X<float>
 
     member this.Ticks
-        with [<Inline "$this * 1E4">] get() = X<int64>
+        with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
 
     [<Inline "-$this">]
     member this.Negate() = X<TS>
@@ -100,34 +100,19 @@ type private TimeSpanProxy =
     [<Inline "$days * 864E5">]
     static member FromDays(days: float) = X<TS>
 
-    [<Inline "$days * 864E5">]
-    static member FromDays(days: int) = X<TS>
-
     [<Inline "$hours * 36E5">]
     static member FromHours(hours: float) = X<TS>
-
-    [<Inline "$hours * 36E5">]
-    static member FromHours(hours: int) = X<TS>
 
     [<Inline "$min * 6E4">]
     static member FromMinutes(min: float) = X<TS>
 
-    [<Inline "$min * 6E4">]
-    static member FromMinutes(min: int) = X<TS>
-
     [<Inline "$sec * 1E3">]
     static member FromSeconds(sec: float) = X<TS>
-
-    [<Inline "$sec * 1E3">]
-    static member FromSeconds(sec: int) = X<TS>
 
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<TS>
 
-    [<Inline "$msec">]
-    static member FromMilliseconds(msec: int) = X<TS>
-
-    [<Inline "$ticks / 1E4">]
+    [<Inline "Number($ticks) / 1E4">]
     static member FromTicks(ticks: int64) = X<TS>
 
     static member Zero

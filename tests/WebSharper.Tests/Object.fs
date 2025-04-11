@@ -140,6 +140,22 @@ type StructRecord =
 type StructRecord2 =
     { SR2 : int; SR2b : string }
 
+[<JavaScript; Struct>]
+type Position =
+    {
+        pos_fname: string
+        pos_lnum: int
+        pos_orig_lnum: int
+    }
+
+    member pos.Line = pos.pos_lnum
+
+    member pos.NextLine =
+        let pos = pos
+        { pos with
+            pos_lnum = pos.Line + 1
+        }
+
 [<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
 type U =
     | U0
@@ -645,6 +661,18 @@ let Tests =
         Test "Static let in unions" {
             equal (AbcDU.TryParse "A") (true, A)
             equal (AbcDU.TryParse "D" |> fst) false
+        }
+
+        Test "Struct copy handling #1399" {
+            let orig =     
+                {
+                    pos_fname = "File"
+                    pos_lnum = 10
+                    pos_orig_lnum = 10
+                }
+            equal orig.NextLine.Line 11
+            equal orig.Line 10
+            equal orig.NextLine.pos_fname "File"
         }
 
         Test "Nullable reference types" {

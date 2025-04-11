@@ -198,7 +198,7 @@ let ExprDefs =
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
         "SideeffectingImport", [ Object "Address", "address" ]
-        , "An import statement with no value used"
+            , "An import statement with no value used"
         "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
             , "A global or imported value setter"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
@@ -295,6 +295,10 @@ let StatementDefs =
             , "TypeScript - type or import alias"
         "XmlComment", [ Str, "xml" ]
             , "TypeScript - triple-slash directive"
+
+        // Packaging
+        "LazyClass", [ Statement, "withoutLazy"; Statement, "withLazy" ]
+            , "Temporary - class during packaging that might need Lazy wrapper"
     ]
 
 let binaryOps =

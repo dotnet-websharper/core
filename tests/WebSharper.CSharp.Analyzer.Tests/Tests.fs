@@ -28,13 +28,11 @@ let isDebug = false
 
 let projRefs =
     [
-        $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Collections.dll"
-        $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Control.dll"
         $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Core.dll"
         $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Core.JavaScript.dll"
         $@"..\..\build\{configuration}\netstandard2.0\WebSharper.InterfaceGenerator.dll"
         $@"..\..\build\{configuration}\netstandard2.0\WebSharper.JavaScript.dll"
-        $@"..\..\build\{configuration}\netstandard2.0\WebSharper.Main.dll"
+        $@"..\..\build\{configuration}\netstandard2.0\WebSharper.StdLib.dll"
     ]
     |> List.map (fun p -> 
         MetadataReference.CreateFromFile(Path.Combine(__SOURCE_DIRECTORY__, p)) :> MetadataReference

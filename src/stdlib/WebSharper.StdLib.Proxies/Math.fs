@@ -26,23 +26,23 @@ open WebSharper.JavaScript
 [<Proxy(typeof<System.Math>)>]
 type private MathProxy =
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: sbyte) = X<sbyte>
+    [<Inline>]
+    static member Abs(value: sbyte) = abs value
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: int16) = X<int16>
+    [<Inline>]
+    static member Abs(value: int16) = abs value
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: int) = X<int>
+    [<Inline>]
+    static member Abs(value: int) = abs value
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: int64) = X<int64>
+    [<Inline>]
+    static member Abs(value: int64) = abs value
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: single) = X<single>
+    [<Inline>]
+    static member Abs(value: single) = abs value
 
-    [<Inline "Math.abs($value)">]
-    static member Abs(value: double) = X<double>
+    [<Inline>]
+    static member Abs(value: double) = abs value
 
     [<Inline "Math.acos($d)">]
     static member Acos(d: double) = X<double>
@@ -56,7 +56,7 @@ type private MathProxy =
     [<Inline "Math.atan2($y,$x)">]
     static member Atan2(y: double, x: double) = X<double>
 
-    [<Inline "$a * $b">]
+    [<Inline "BigInt($a) * BigInt($b)">]
     static member BigMul(a: int, b: int) = X<int64>
 
     [<Inline "Math.ceil($a)">]
@@ -85,65 +85,65 @@ type private MathProxy =
     [<Inline "Math.log($d)/Math.log(10)">]
     static member Log10(d: double) = X<double>
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: sbyte, val2: sbyte) = X<sbyte>
+    [<Inline>]
+    static member Max(val1: sbyte, val2: sbyte) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: byte, val2: byte) = X<byte>
+    [<Inline>]
+    static member Max(val1: byte, val2: byte) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: int16, val2: int16) = X<int16>
+    [<Inline>]
+    static member Max(val1: int16, val2: int16) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: uint16, val2: uint16) = X<uint16>
+    [<Inline>]
+    static member Max(val1: uint16, val2: uint16) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: int, val2: int) = X<int>
+    [<Inline>]
+    static member Max(val1: int, val2: int) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: uint32, val2: uint32) = X<uint32>
+    [<Inline>]
+    static member Max(val1: uint32, val2: uint32) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: int64, val2: int64) = X<int64>
+    [<Inline>]
+    static member Max(val1: int64, val2: int64) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: uint64, val2: uint64) = X<uint64>
+    [<Inline>]
+    static member Max(val1: uint64, val2: uint64) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: single, val2: single) = X<single>
+    [<Inline>]
+    static member Max(val1: single, val2: single) = max val1 val2
 
-    [<Inline "Math.max($val1,$val2)">]
-    static member Max(val1: double, val2: double) = X<double>
+    [<Inline>]
+    static member Max(val1: double, val2: double) = max val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: sbyte, val2: sbyte) = X<sbyte>
+    [<Inline>]
+    static member Min(val1: sbyte, val2: sbyte) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: byte, val2: byte) = X<byte>
+    [<Inline>]
+    static member Min(val1: byte, val2: byte) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: int16, val2: int16) = X<int16>
+    [<Inline>]
+    static member Min(val1: int16, val2: int16) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: uint16, val2: uint16) = X<uint16>
+    [<Inline>]
+    static member Min(val1: uint16, val2: uint16) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: int, val2: int) = X<int>
+    [<Inline>]
+    static member Min(val1: int, val2: int) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: uint32, val2: uint32) = X<uint32>
+    [<Inline>]
+    static member Min(val1: uint32, val2: uint32) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: int64, val2: int64) = X<int64>
+    [<Inline>]
+    static member Min(val1: int64, val2: int64) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: uint64, val2: uint64) = X<uint64>
+    [<Inline>]
+    static member Min(val1: uint64, val2: uint64) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: single, val2: single) = X<single>
+    [<Inline>]
+    static member Min(val1: single, val2: single) = min val1 val2
 
-    [<Inline "Math.min($val1,$val2)">]
-    static member Min(val1: double, val2: double) = X<double>
+    [<Inline>]
+    static member Min(val1: double, val2: double) = min val1 val2
 
     static member PI with [<Inline "Math.PI">] get () = 0.
 

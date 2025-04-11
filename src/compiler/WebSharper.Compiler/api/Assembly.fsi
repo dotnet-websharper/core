@@ -36,21 +36,6 @@ type Assembly =
     /// Writes the assembly to the given path.
     member Write : option<byte[]> -> path: string -> unit
 
-    /// Reads the embedded JavaScript.
-    member CompressedJavaScript : option<string>
-
-    /// Reads the embedded map file.
-    member MapFileForCompressed : option<string>
-
-    /// Reads the embedded JavaScript.
-    member ReadableJavaScript : option<string>
-
-    /// Reads the embedded TypeScript.
-    member TypeScript : option<string>
-
-    /// Reads the embedded map file.
-    member MapFileForReadable : option<string>
-
     /// The short name of the assembly.
     member Name : string
 
@@ -62,9 +47,6 @@ type Assembly =
 
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
-
-    /// The TypeScript `.d.ts` declarations for the JavaScript.
-    member TypeScriptDeclarations : option<string>
 
     /// True if the assembly contains the `WebSharper.meta` embedded resource.
     member HasWebSharperMetadata : bool

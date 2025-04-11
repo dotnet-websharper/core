@@ -48,7 +48,6 @@ type WebSharperOptions
         logger: ILogger,
         contentRoot: string,
         webRoot: string,
-        useMinifiedScripts: bool,
         sitelet: option<Sitelet<obj>>,
         metadata: M.Info,
         dependencies: Graph,
@@ -76,8 +75,6 @@ type WebSharperOptions
     member this.Dependencies = dependencies
 
     member this.Json = json
-
-    member this.UseMinifiedScripts = useMinifiedScripts
     
     member this.ContentRootPath = contentRoot
 
@@ -97,7 +94,6 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _webRootPath = None
     let mutable _metadata = None
     let mutable _config = None
-    let mutable _useMinifiedScripts = None
     let mutable _logger = None
     let mutable _authScheme = None
     let mutable _useSitelets = true
@@ -133,12 +129,6 @@ type WebSharperBuilder(services: IServiceProvider) =
     /// <remarks>Default: the host configuration's "websharper" subsection.</remarks>
     member this.Config(config: IConfiguration) =
         _config <- Some config
-        this
-
-    /// <summary>Decides if WebSharper writes .min.js script links.</summary>
-    /// <remarks>Default: the value of WebSharper::UseMinifiedScripts configuration if found, otherwise false.</remarks>
-    member this.UseMinifiedScripts(useMinifiedScripts: bool) =
-        _useMinifiedScripts <- Some useMinifiedScripts
         this
 
     /// <summary>Defines the content root path to be used by WebSharper.</summary>
@@ -222,13 +212,6 @@ type WebSharperBuilder(services: IServiceProvider) =
                 hostingEnvironment.Value.WebRootPath
             )
 
-        let useMinifiedScripts =
-            _useMinifiedScripts |> Option.defaultWith (fun () ->
-                match bool.TryParse(config.[RUNTIMESETTING_USEMINIFIEDSCRIPTS]) with
-                | true, ums -> ums
-                | _ -> false
-            )
-
         let logger =
             _logger |> Option.defaultWith (fun () ->
                 match services.GetService<ILogger<IWebSharperService>>() with
@@ -289,7 +272,6 @@ type WebSharperBuilder(services: IServiceProvider) =
             logger,
             contentRootPath, 
             webRootPath, 
-            useMinifiedScripts,
             sitelet, 
             metadata, 
             dependencies,
