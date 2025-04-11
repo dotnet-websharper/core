@@ -27,7 +27,7 @@ type private T = AttributeTargets
 type private U = AttributeUsageAttribute
 
 /// Marks union cases or properties that should be compiled to constants.
-[<Sealed; U(T.Property)>]
+[<Sealed; U(T.Method|||T.Property)>]
 type ConstantAttribute private () =
     inherit A()
 
