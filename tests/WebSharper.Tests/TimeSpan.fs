@@ -31,6 +31,7 @@ let Tests =
     
         let s = TimeSpan(733869, 14, 12, 12, 545)
         let ss = TimeSpan(0, 14, 12, 15, 545)
+        let ns = TimeSpan.FromTicks -1L
 
         Test "Construction" {
             let s = TimeSpan(123L)
@@ -73,24 +74,34 @@ let Tests =
             equal (s.Negate().Duration().TotalMilliseconds) s.TotalMilliseconds
         }
 
+        Test "Days" {
+            equal (s.Days) 733869
+            equal (ns.Days) 0
+        }
+
         Test "Hours" {
             equal (s.Hours) 14
+            equal (ns.Hours) 0
         }
 
         Test "Minutes" {
             equal (s.Minutes) 12
+            equal (ns.Minutes) 0
         }
 
         Test "Seconds" {
             equal (s.Seconds) 12
+            equal (ns.Seconds) 0
         }
 
         Test "Milliseconds" {
             equal (s.Milliseconds) 545
+            equal (ns.Milliseconds) 0
         }
 
         Test "Ticks" {
             equal (s.Ticks) 634063327325450000L
+            equal (ns.Ticks) -1L
         }
 
         Test "TotalDays" {
