@@ -57,19 +57,8 @@ type ApplicationBuilderExtensions =
     static member UseWebSharperRemoting
         (
             this: IApplicationBuilder,
-            [<Optional>] build: Action<WebSharperBuilder>
-        ) =
-        ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
-            builder.UseSitelets(false) |> ignore
-            if not (isNull build) then build.Invoke(builder)
-        )
-
-    [<Extension>]
-    static member UseWebSharperRemoting
-        (
-            this: IApplicationBuilder,
             [<Optional>] build: Action<WebSharperBuilder>,
-            [<Optional>] headers: (string * string) []
+            [<Optional; DefaultParameterValue [||]>] headers: (string * string) []
         ) =
         ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
             builder.UseSitelets(false) |> ignore
@@ -77,7 +66,7 @@ type ApplicationBuilderExtensions =
             if not (isNull build) then build.Invoke(builder)
         )
 
-    /// Use the WebSharper server side for remoting only.
+    /// Use the WebSharper server side for sitelets only.
     [<Extension>]
     static member UseWebSharperSitelets
         (
@@ -89,7 +78,7 @@ type ApplicationBuilderExtensions =
             if not (isNull build) then build.Invoke(builder)
         )
 
-    /// Use the WebSharper server side.
+    /// Use vite for JavaScript localhost debugging.
     [<Extension>]
     static member UseWebSharperScriptRedirect
         (
