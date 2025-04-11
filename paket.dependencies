@@ -39,11 +39,11 @@ group includes
     nuget FSharp.Core
 
 group fcs
-    framework: net9.0, netstandard2.0
+    framework: net8.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     storage: none
-    nuget System.Runtime.Caching ~> 6.0.0
-    nuget System.Configuration.ConfigurationManager ~> 6.0.0
+    nuget System.Runtime.Caching ~> 8.0.0
+    nuget System.Configuration.ConfigurationManager ~> 8.0.0
     nuget NLog ~> 4.7.10
     nuget FSharp.Compiler.Service ~> 43.9.100
 
@@ -52,7 +52,7 @@ group test
     nuget Chutzpah ~> 4.4.11
 
 group nunit
-    framework: net9.0, net472
+    framework: net8.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2

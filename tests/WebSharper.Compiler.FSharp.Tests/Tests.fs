@@ -18,23 +18,23 @@ let isDebug = false
 #endif
 
 let programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
-let get6xfolder root =
+let get9xfolder root =
     Directory.GetDirectories(root)
     |> Array.sort
     |> Array.find (fun d ->
         let n = Path.GetFileName d
-        n.StartsWith("6.") && not (n.Contains("-"))
+        n.StartsWith("9.") && not (n.Contains("-"))
     )
     
 let ancAppRefRoot =
     Path.Combine(
-        get6xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.AspNetCore.App.Ref")),
+        get9xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.AspNetCore.App.Ref")),
         @"ref\net9.0"
     )
         
 let ncAppRefRoot =
     Path.Combine(
-        get6xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.NETCore.App.Ref")),
+        get9xfolder (Path.Combine(programFiles, @"dotnet\packs\Microsoft.NETCore.App.Ref")),
         @"ref\net9.0"
     )
 
@@ -55,7 +55,7 @@ let ``Compilation test`` () =
 
             let nugets =
                 [ 
-                    @"fsharp.core\6.0.0\lib\netstandard2.0\FSharp.Core.dll"
+                    @"fsharp.core\9.0.0\lib\netstandard2.0\FSharp.Core.dll"
                     @"htmlagilitypack\1.11.0\lib\netstandard2.0\HtmlAgilityPack.dll"
                     @"system.xml.xpath.xmldocument\4.3.0\ref\netstandard1.3\System.Xml.XPath.XmlDocument.dll"
                     @"mono.cecil\0.11.4\lib\netstandard2.0\Mono.Cecil.dll"
@@ -129,7 +129,7 @@ let ``Compilation test`` () =
 
     let fileNames =
         [
-            Path.Combine(__SOURCE_DIRECTORY__, $@"obj\{configuration}\net9.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs")
+            Path.Combine(__SOURCE_DIRECTORY__, $@"obj\{configuration}\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\..\msbuild\AssemblyInfo.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\example1.abc.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\Site.fs")

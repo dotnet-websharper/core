@@ -64,9 +64,9 @@ let publish rids (mode: BuildMode) =
                     fsharpCoreLib </> "FSharp.Core.dll" 
                 ] 
                 |> Shell.copy outputPath                
-    publishExe mode "net9.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-    publishExe mode "net9.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
-    publishExe mode "net9.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt

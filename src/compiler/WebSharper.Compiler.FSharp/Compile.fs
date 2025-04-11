@@ -128,18 +128,19 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             MakeDummyDll config.AssemblyFile thisName
             0
         else
-            let errors, exitCode = 
+            let errors, exnOpt = 
                 checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
     
             PrintFSharpErrors warnSettings logger errors
     
-            if exitCode = 0 then 
+            if Option.isNone exnOpt then 
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
                 logger.TimedStage "F# compilation"
-
-            exitCode
+                0
+            else
+                1
             
     if exitCode <> 0 then 
         exitCode
