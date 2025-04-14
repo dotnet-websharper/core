@@ -565,6 +565,10 @@ module Bug1390 =
         static member MyFunction(str: string) = sprintf "MyFunction: %A" str
 
 [<JavaScript>]
+type IValue<'T> =
+    abstract member Value : 'T with get
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1112,5 +1116,12 @@ let Tests =
 
         Test "#1390 BaseClass with no generated code" {
             equal (Bug1390.MyProp.MyFunction("hello")) "MyFunction: \"hello\""
+        }
+
+        Test "#1454 Optimizer bug with object properties" {
+            let test =
+                let i = { new IValue<int> with member this.Value = 4 }
+                i.Value
+            equal test 4
         }
     }

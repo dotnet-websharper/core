@@ -254,14 +254,19 @@ let cleanRuntime force expr =
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []
         let mutable fieldValue = None
-        for n, _, v in fs do
+        let mutable isSetter = false
+        for n, k, v in fs do
             if n = fieldName then
-                fieldValue <- Some v
+                match k with
+                | MemberKind.Simple -> fieldValue <- Some v
+                | MemberKind.Getter -> fieldValue <- Some (ApplAny(v, []))
+                | MemberKind.Setter -> isSetter <- true
             else 
                 if not (isPureExpr v) then
                     match fieldValue with
                     | None -> nonPureBefore <- v :: nonPureBefore
                     | _ -> nonPureAfter <- v :: nonPureAfter
+        if isSetter then expr else
         let fieldValue = defaultArg fieldValue Undefined
         let result =
             Sequential (List.rev (fieldValue :: nonPureBefore))
