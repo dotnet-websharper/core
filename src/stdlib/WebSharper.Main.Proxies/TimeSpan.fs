@@ -51,19 +51,19 @@ type private TimeSpanProxy =
         Unchecked.compare (this :> obj) (t :> obj)
 
     member this.Days
-        with [<Inline "Math.floor($this / 864E5)">] get () = X<int>
+        with [<Inline "Math.trunc($this / 864E5)">] get () = X<int>
 
     member this.Hours
-        with [<Inline "Math.floor($this / 36E5) % 24">] get () = X<int>
+        with [<Inline "Math.trunc($this / 36E5) % 24">] get () = X<int>
 
     member this.Minutes
-        with [<Inline "Math.floor($this / 6E4) % 60">] get () = X<int>
+        with [<Inline "Math.trunc($this / 6E4) % 60">] get () = X<int>
 
     member this.Seconds
-        with [<Inline "Math.floor($this / 1E3) % 60">] get () = X<int>
+        with [<Inline "Math.trunc($this / 1E3) % 60">] get () = X<int>
 
     member this.Milliseconds
-        with [<Inline "$this % 1E3">] get () = X<int>
+        with [<Inline "Math.trunc($this) % 1E3">] get () = X<int>
 
     member this.TotalDays
         with [<Inline "$this / 864E5">] get () = X<float>
