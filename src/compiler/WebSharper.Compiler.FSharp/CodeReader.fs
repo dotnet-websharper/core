@@ -37,6 +37,7 @@ type VarKind =
     | FuncArg
     | ByRefArg
     | ThisArg
+    | InlineVar of (FSharpMemberOrFunctionOrValue * FSharpExpr)
          
 let rec getOrigDef (td: FSharpEntity) =
     if td.IsFSharpAbbreviation then getOrigDef td.AbbreviatedType.TypeDefinition else td 
@@ -152,6 +153,16 @@ let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
 let (|This|_|) v expr =
     match expr, v with
     | I.Var t, Some vv when t = vv -> Some()
+    | _ -> None
+
+let (|NestedLambda|_|) x =
+    let rec nestedLambda args =
+        function
+        | P.Lambda(arg, body) -> nestedLambda (arg :: args) body
+        | body -> List.rev args, body
+
+    match x with
+    | P.Lambda(arg, body) -> nestedLambda [ arg ] body |> Some
     | _ -> None
 
 type FixCtorTransformer(typ, btyp, thisVar, thisCtor) =
@@ -477,7 +488,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         else
         // measure type parameters do not have a TypeDefinition
         // reusing LocalTypeParameter case as it is also fully erased
-        if not t.HasTypeDefinition then LocalTypeParameter "" else
+        if not t.HasTypeDefinition then LocalTypeParameter t.GenericParameter.Name else
         let td = t.TypeDefinition
         if td.IsArrayType then
             ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.ArrayRank)
@@ -628,6 +639,8 @@ type Environment =
         SymbolReader : SymbolReader
         RecMembers : Dictionary<FSharpMemberOrFunctionOrValue, Id * FSharpExpr>
         mutable RecMemberUsed : option<Id * FSharpExpr>
+        Witnesses : list<string * bool * list<FSharpType> * Expression>
+        InlineTypeArgs : list<string * FSharpType>
     }
     static member New(vars, isCtor, tparams, comp, sr, rm) = 
 //        let tparams = Array.ofSeq tparams
@@ -646,6 +659,8 @@ type Environment =
             SymbolReader = sr 
             RecMembers = rm
             RecMemberUsed = None
+            Witnesses = []
+            InlineTypeArgs = []
         }
 
     member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
@@ -719,6 +734,16 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
     let sr = env.SymbolReader
     try
         match expr with
+        | P.Application(P.Value var, types, args) when (match env.LookupVar var with _, InlineVar _ -> true | _ -> false) ->
+            match env.LookupVar var with
+            | _, InlineVar (inlineId, inl) ->
+                let typArgNames = inlineId.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq
+                let env = { env with InlineTypeArgs = List.zip typArgNames types }   
+                let trFunc = transformExpression env inl
+                let trArgs = args |> List.map (fun a -> isUnit a.Type, tr a)
+                printfn "InlineVar curriedApplication %A %A" trFunc trArgs
+                curriedApplication trFunc trArgs
+            | _ -> failwithf "Only functions should be marked inline"
         | P.Value(var) ->                
             let t = var.FullType
             if isUnit t then
@@ -732,6 +757,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | ByRefArg -> 
                     let t = getOrigType expr.Type
                     if t.HasTypeDefinition && isByRefDef t.TypeDefinition then Var v else GetRef (Var v)
+                | InlineVar (_, e) -> tr e
         | P.Lambda _ ->
             let rec loop acc = function
                 | P.Lambda (var, body) -> loop (var :: acc) body
@@ -806,13 +832,17 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             Let (i, trValue, tr body)
         | P.Let((id, value, _), body) ->
             let i = namedId (Some env) false id
-            let trValue = tr value
-            let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
-            let inline tr x = transformExpression env x
-            if id.IsMutable then
-                Sequential [ NewVar(i, trValue); tr body ]
-            else
-                Let (i, trValue, tr body)
+            if id.InlineAnnotation = FSharpInlineAnnotation.AlwaysInline then
+                let env = env.WithVar(i, id, InlineVar (id, value))                
+                transformExpression env body
+            else    
+                let trValue = tr value
+                let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
+                let inline tr x = transformExpression env x
+                if id.IsMutable then
+                    Sequential [ NewVar(i, trValue); tr body ]
+                else
+                    Let (i, trValue, tr body)
         | P.LetRec(defs, body) ->
             let mutable env = env
             let ids = defs |> List.map (fun (id, _, _) ->
@@ -826,12 +856,47 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 |> Seq.map (fun (i, (_, v, _)) -> i, tr v) |> List.ofSeq, 
                 tr body
             )
-        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+        | P.CallWithWitnesses(this, meth, typeGenerics, methodGenerics, witnesses, arguments) ->
+            let env =
+                match witnesses with
+                | [] -> env
+                | _ ->
+                    let ws =
+                        witnesses |> List.choose (
+                            function
+                            | P.WitnessArg _ -> None
+                            | NestedLambda(args, body) ->
+                                match body with
+                                | P.Call(callee, memb, _, _, _args) ->
+                                    Some(memb.CompiledName, Option.isSome callee, args, body)
+                                | P.AnonRecordGet(_, calleeType, fieldIndex) ->
+                                    let fieldName =
+                                        calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
+                                    Some("get_" + fieldName, true, args, body)
+                                | P.FSharpFieldGet(_, _, field) ->
+                                    Some("get_" + field.Name, true, args, body)
+                                | _ -> None
+                            | _ -> None
+                        )
+                        |> List.rev
+                    env |> List.foldBack (fun (name, isInstance, args, body) env ->
+                        let argTypes = args |> List.map (fun (a: FSharpMemberOrFunctionOrValue) -> a.FullType)
+                        let trBody = body |> transformExpression env
+                        { env with Witnesses = (name, isInstance, argTypes, trBody) :: env.Witnesses }
+                    ) ws
+            let inline tr x = transformExpression env x
+            let useInlineTypeArgs (ts: list<Type>) =
+                match env.InlineTypeArgs with
+                | [] ->
+                    ts
+                | types ->
+                    let trTypes = types |> List.map (fun (n, t) -> n, sr.ReadType env.TParams t)
+                    ts |> List.map (fun (tp: Type) -> tp.SubstituteLocalGenerics trTypes)
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity meth)
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
-                let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
+                let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
                 let args = 
                     arguments |> List.map (fun a ->
                         let ta = tr a
@@ -854,7 +919,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         if td = Definitions.IntrinsicFunctions && m = Definitions.CheckThis then
                             env.ThisVar
                         else
-                            let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
+                            let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
                             if isInstance then
                                 Call (Option.map tr this, t, mt, args)
                             else 
@@ -863,11 +928,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                                 else 
                                     Call (None, t, mt, Option.toList (Option.map tr this) @ args)
                     | Member.Implementation (i, m) ->
-                        let t = Generic i (typeGenerics |> List.map (sr.ReadType env.TParams))
-                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
+                        let t = Generic i (typeGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
+                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
                         Call (Option.map tr this, t, mt, args)
                     | Member.Override (_, m) ->
-                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
+                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
                         Call (Option.map tr this, t, mt, args)
                     | Member.Constructor c -> Ctor (t, c, args)
                     | Member.StaticConstructor -> parsefailf "Invalid: direct call to static constructor" 
@@ -950,6 +1015,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | FuncArg -> failwith "function argument cannot be set"
                 | ByRefArg -> SetRef (Var v) (tr value)
                 | ThisArg -> failwith "'this' parameter cannot be set"
+                | InlineVar _ -> failwith "inline let cannot be set"
         | P.TupleGet (_, i, tuple) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
         | P.FastIntegerForLoop (start, end_, body, up, _, _) ->
@@ -1287,23 +1353,93 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             parsefailf "Unrecognized ILAsm: %s" s
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
             let isInstance = memberFlags.IsInstance
-            let meth =
-                Method {
-                    MethodName = traitName
-                    Parameters = argExprs |> List.skip (if isInstance then 1 else 0) |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
-                    ReturnType = sr.ReadTypeSt true env.TParams expr.Type
-                    Generics   = 0
-                } 
-            let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
-            if isInstance then 
-                match argExprs |> List.map tr with
-                | t :: a ->
-                    TraitCall(Some t, s, m, a)
+            let witnessOpt =
+                env.Witnesses
+                |> List.tryFind (fun (n, i, t, _) ->
+                    n = traitName
+                    && i = isInstance
+                    && t = typeArgs
+                )
+            match witnessOpt with
+            | Some (_, _, _, witnessLambda) ->
+                let trArgs = argExprs |> List.map (fun a -> isUnit a.Type, tr a)
+                curriedApplication witnessLambda trArgs
+            | _ ->
+                let inlinedRes =
+                    match env.InlineTypeArgs with  
+                    | [] ->
+                        None
+                    | types ->
+                        let inlTypeArgs =
+                            types |> List.map (fun (n, t) -> n, sr.ReadType env.TParams t)
+                        let tparams = 
+                            inlTypeArgs |> List.map (fun (n, t) -> t)
+                        let sourceTypeNames = sourceTypes |> List.map (fun t -> t.GenericParameter.Name)
+                        let pars = argExprs |> List.skip (if isInstance then 1 else 0) |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
+                        let ret = sr.ReadTypeSt true env.TParams expr.Type
+                        let tcSig = FSharpFuncType (TupleType (pars, false), ret)
+                        let targetTypeAndMethod =
+                            types
+                            |> List.choose (fun (n, t) -> 
+                                if sourceTypeNames |> List.contains n then
+                                    Some t
+                                else 
+                                    None
+                            )
+                            |> List.tryPick (fun t -> 
+                                if t.HasTypeDefinition then
+                                    t.TypeDefinition.TryGetMembersFunctionsAndValues()
+                                    |> Seq.tryPick (fun mem ->
+                                        match sr.ReadMember mem with
+                                        | Member.Method(inst, m) when inst = isInstance && m.Value.MethodName = traitName -> 
+                                            let mSig = FSharpFuncType (TupleType (m.Value.Parameters, false), m.Value.ReturnType)
+                                            if Type.IsGenericCompatible(mSig, tcSig) then
+                                                Some (t, m) 
+                                            else
+                                                None
+                                        | _ -> None
+                                    )
+                                else
+                                    None
+                            ) 
+                        match targetTypeAndMethod with
+                        | Some (targetType, targetMethod) -> 
+                            match sr.ReadType env.TParams targetType with
+                            | ConcreteType td ->
+                                let m = Generic targetMethod tparams
+                                if isInstance then 
+                                    match argExprs |> List.map tr with
+                                    | t :: a ->
+                                        Call(Some t, td, m, a)
+                                    | _ ->
+                                        failwith "No `this` value found for instance trait call"
+                                else
+                                    Call(None, td, m, argExprs |> List.map tr) 
+                                |> Some 
+                            | _ ->
+                                None    
+                        | _ ->
+                            None
+                match inlinedRes with  
+                | Some res -> res
                 | _ ->
-                    failwith "No this value found for instance trait call"
-            else
-                TraitCall(None, s, m, argExprs |> List.map tr)  
+                    let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
+                    let meth =
+                        Method {
+                            MethodName = traitName
+                            Parameters = argExprs |> List.skip (if isInstance then 1 else 0) |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
+                            ReturnType = sr.ReadTypeSt true env.TParams expr.Type
+                            Generics   = 0
+                        } 
+                    let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
+                    if isInstance then 
+                        match argExprs |> List.map tr with
+                        | t :: a ->
+                            TraitCall(Some t, s, m, a)
+                        | _ ->
+                            failwith "No this value found for instance trait call"
+                    else
+                        TraitCall(None, s, m, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"

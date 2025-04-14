@@ -278,6 +278,10 @@ type type' =
     static member myFunction'<'t>(x: 't) = x
         
 [<JavaScript>]
+type IValue<'T> =
+    abstract member Value : 'T with get
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 
@@ -765,5 +769,18 @@ let Tests =
         Test "Computed literal" {
             equal ComputedLiteral 3
             equal ComputedLiteralJS 3
+        }
+
+        Test "Local inlines" {
+            let test1 =
+                let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
+                let i = { new IValue<int> with member this.Value = 4 }
+                !!i
+            equal test1 4
+
+            let test2 =
+                let inline (+@) x y = x + x * y
+                1 +@ 1, 1.0 +@ 0.5
+            equal test2 (2, 1.5)
         }
     }
