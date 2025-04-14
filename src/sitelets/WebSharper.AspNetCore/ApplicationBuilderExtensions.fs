@@ -40,7 +40,7 @@ type ApplicationBuilderExtensions =
     static member UseWebSharper
         (
             this: IApplicationBuilder,
-            [<Optional>] build: Action<WebSharperBuilder>
+            build: Action<WebSharperBuilder>
         ) =
         let builder = WebSharperBuilder(this.ApplicationServices)
         if not (isNull build) then build.Invoke(builder)
@@ -52,13 +52,21 @@ type ApplicationBuilderExtensions =
         options.UseExtension this options
         this
 
+    /// Use the WebSharper server side.
+    [<Extension>]
+    static member UseWebSharper
+        (
+            this: IApplicationBuilder
+        ) =
+        ApplicationBuilderExtensions.UseWebSharper(this, null)
+
     /// Use the WebSharper server side for remoting only.
     [<Extension>]
     static member UseWebSharperRemoting
         (
             this: IApplicationBuilder,
-            [<Optional>] build: Action<WebSharperBuilder>,
-            [<Optional; DefaultParameterValue [||]>] headers: (string * string) []
+            build: Action<WebSharperBuilder>,
+            headers: (string * string) []
         ) =
         ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
             builder.UseSitelets(false) |> ignore
@@ -66,25 +74,58 @@ type ApplicationBuilderExtensions =
             if not (isNull build) then build.Invoke(builder)
         )
 
+    /// Use the WebSharper server side for remoting only.
+    [<Extension>]
+    static member UseWebSharperRemoting
+        (
+            this: IApplicationBuilder
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperRemoting(this, null, [||])
+
+    /// Use the WebSharper server side for remoting only.
+    [<Extension>]
+    static member UseWebSharperRemoting
+        (
+            this: IApplicationBuilder,
+            build: Action<WebSharperBuilder>
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperRemoting(this, build, [||])
+
+    /// Use the WebSharper server side for remoting only.
+    [<Extension>]
+    static member UseWebSharperRemoting
+        (
+            this: IApplicationBuilder,
+            headers: (string * string) []
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperRemoting(this, null, headers)
+
     /// Use the WebSharper server side for sitelets only.
     [<Extension>]
     static member UseWebSharperSitelets
         (
             this: IApplicationBuilder,
-            [<Optional>] build: Action<WebSharperBuilder>
+            build: Action<WebSharperBuilder>
         ) =
         ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
             builder.UseRemoting(false) |> ignore
             if not (isNull build) then build.Invoke(builder)
         )
 
+    [<Extension>]
+    static member UseWebSharperSitelets
+        (
+            this: IApplicationBuilder
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperSitelets(this, null)
+
     /// Use vite for JavaScript localhost debugging.
     [<Extension>]
     static member UseWebSharperScriptRedirect
         (
             this: IApplicationBuilder,
-            [<Optional>] redirectUrlRoot: string,
-            [<Optional; DefaultParameterValue false>] startVite: bool
+            redirectUrlRoot: string,
+            startVite: bool
         ) =
 
         let redirectUrlRoot =
@@ -110,3 +151,30 @@ type ApplicationBuilderExtensions =
             proc.Start() |> ignore
         this.Use(ScriptRedirect.Middleware redirectUrlRoot) |> ignore
         this
+
+    /// Use vite for JavaScript localhost debugging.
+    [<Extension>]
+    static member UseWebSharperScriptRedirect
+        (
+            this: IApplicationBuilder
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperScriptRedirect(this, null, false)
+
+    /// Use vite for JavaScript localhost debugging.
+    [<Extension>]
+    static member UseWebSharperScriptRedirect
+        (
+            this: IApplicationBuilder,
+            redirectUrlRoot: string
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperScriptRedirect(this, redirectUrlRoot, false)
+
+    /// Use vite for JavaScript localhost debugging.
+    [<Extension>]
+    static member UseWebSharperScriptRedirect
+        (
+            this: IApplicationBuilder,
+            startVite: bool
+        ) =
+        ApplicationBuilderExtensions.UseWebSharperScriptRedirect(this, null, startVite)
+
