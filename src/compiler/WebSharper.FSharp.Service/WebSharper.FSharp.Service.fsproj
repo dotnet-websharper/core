@@ -5,7 +5,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <Name>wsfscservice</Name>
     <FSharpTool>True</FSharpTool>
-    <TargetFramework>net8.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

@@ -832,6 +832,13 @@ namespace WebSharper.CSharp.Tests
     {
         public int Field2 = 2;
 
+        private string _name;
+        public partial string Name
+        {
+            get => _name;
+            set => _name = value;
+        }
+
         partial void PartialMethod() { Value = 3; }
 
         private partial int PartialMethodRelaxed() { return Value; }

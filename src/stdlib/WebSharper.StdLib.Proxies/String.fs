@@ -250,8 +250,15 @@ type private StringProxy =
     [<Inline "$strings.join('')">]
     static member Concat([<System.ParamArray>] strings: string[]) = X<string>
 
+    [<Inline "$strings.join('')">]
+    static member Concat([<System.ParamArray>] strings: ReadOnlySpanProxy<string>) = X<string>
+
     [<Inline>]
-    static member Concat(objs: obj[]) =
+    static member Concat([<System.ParamArray>] objs: obj[]) =
+        Join "" (As<string[]> objs)
+
+    [<Inline>]
+    static member Concat([<System.ParamArray>] objs: ReadOnlySpanProxy<obj>) = 
         Join "" (As<string[]> objs)
 
     [<Inline "$this.indexOf($s) != -1">]
@@ -445,6 +452,10 @@ type private StringProxy =
     [<Macro(typeof<M.StringFormat>)>]
     [<Inline>]
     static member Format(format: string, [<System.ParamArray>] arguments: obj []) = SFormat format arguments
+
+    [<Macro(typeof<M.StringFormat>)>]
+    [<Inline>]
+    static member Format(format: string, [<System.ParamArray>] arguments: ReadOnlySpanProxy<obj>) = SFormat format (As arguments)
 
     [<Macro(typeof<M.StringFormat>)>]
     [<Inline>]

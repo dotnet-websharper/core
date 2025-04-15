@@ -1506,6 +1506,10 @@ and LiteralExpressionData(node: LiteralExpressionSyntax) =
     member this.Token = node.Token |> LiteralExpressionToken.FromToken
     static member FromNode(n: LiteralExpressionSyntax) = LiteralExpressionData(n)
 
+and FieldExpressionData(node: FieldExpressionSyntax) =
+    member this.Node = node
+    static member FromNode(n: FieldExpressionSyntax) = FieldExpressionData(n)
+
 and MakeRefExpressionData(node: MakeRefExpressionSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
@@ -1847,6 +1851,7 @@ and [<RequireQualifiedAccess>] ExpressionData =
     | AssignmentExpression                      of AssignmentExpressionData
     | ConditionalExpression                     of ConditionalExpressionData
     | LiteralExpression                         of LiteralExpressionData
+    | FieldExpression                           of FieldExpressionData
     | MakeRefExpression                         of MakeRefExpressionData
     | RefTypeExpression                         of RefTypeExpressionData
     | RefValueExpression                        of RefValueExpressionData
@@ -1895,6 +1900,7 @@ with
         | :? AssignmentExpressionSyntax as d -> AssignmentExpression (AssignmentExpressionData.FromNode(d))
         | :? ConditionalExpressionSyntax as d -> ConditionalExpression (ConditionalExpressionData.FromNode(d))
         | :? LiteralExpressionSyntax as d -> LiteralExpression (LiteralExpressionData.FromNode(d))
+        | :? FieldExpressionSyntax as d -> FieldExpression (FieldExpressionData.FromNode(d))
         | :? MakeRefExpressionSyntax as d -> MakeRefExpression (MakeRefExpressionData.FromNode(d))
         | :? RefTypeExpressionSyntax as d -> RefTypeExpression (RefTypeExpressionData.FromNode(d))
         | :? RefValueExpressionSyntax as d -> RefValueExpression (RefValueExpressionData.FromNode(d))
@@ -1943,6 +1949,7 @@ with
         | AssignmentExpression d -> d.Node :> ExpressionSyntax
         | ConditionalExpression d -> d.Node :> ExpressionSyntax
         | LiteralExpression d -> d.Node :> ExpressionSyntax
+        | FieldExpression d -> d.Node :> ExpressionSyntax
         | MakeRefExpression d -> d.Node :> ExpressionSyntax
         | RefTypeExpression d -> d.Node :> ExpressionSyntax
         | RefValueExpression d -> d.Node :> ExpressionSyntax

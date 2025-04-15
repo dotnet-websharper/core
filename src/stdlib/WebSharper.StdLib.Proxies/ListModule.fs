@@ -854,3 +854,57 @@ let UpdateAt (index: int) (item: 'T) (arr: 'T list): 'T list =
                 List.append (List.append arr.[0..index-1] [item]) arr.[index+1..]
     else
         failwith "Incorrect index"
+
+[<Inline>]
+let RandomChoice (source: 'T list) : 'T = 
+    ArrayRandomChoice (Array.ofList source)
+
+[<Inline>]
+let RandomChoiceBy (randomizer: unit -> float) (source: 'T list) : 'T = 
+    ArrayRandomChoiceBy randomizer (Array.ofList source)
+
+[<Inline>]
+let RandomChoiceWith (random: System.Random) (source: 'T list) : 'T = 
+    ArrayRandomChoiceBy random.NextDouble (Array.ofList source)
+
+[<Inline>]
+let RandomChoices (count: int) (source: 'T list) : 'T list = 
+    Array.init count (fun _ -> RandomChoice source) |> List.ofArray
+
+[<Inline>]
+let RandomChoicesBy (randomizer: unit -> float) (count: int) (source: 'T list) : 'T list = 
+    Array.init count (fun _ -> RandomChoiceBy randomizer source) |> List.ofArray
+
+[<Inline>]
+let RandomChoicesWith (random: System.Random) (count: int) (source: 'T list) : 'T list = 
+    Array.init count (fun _ -> RandomChoiceWith random source) |> List.ofArray
+
+[<Inline>]
+let RandomSample (count: int) (source: 'T list) : 'T list = 
+    ArrayRandomSample count (Array.ofList source) |> List.ofArray
+
+[<Inline>]
+let RandomSampleBy (randomizer: unit -> float) (count: int) (source: 'T list) : 'T list = 
+    ArrayRandomSampleBy randomizer count (Array.ofList source) |> List.ofArray
+
+[<Inline>]
+let RandomSampleWith (random: System.Random) (count: int) (source: 'T list) : 'T list = 
+    ArrayRandomSampleBy random.NextDouble count (Array.ofList source) |> List.ofArray
+
+[<Inline>]
+let RandomShuffle (source: 'T list) : 'T list =
+    let s = Array.ofList source 
+    ArrayRandomShuffleInPlace s
+    List.ofArray s
+
+[<Inline>]
+let RandomShuffleBy (randomizer: unit -> float) (source: 'T list) : 'T list = 
+    let s = Array.ofList source 
+    ArrayRandomShuffleInPlaceBy randomizer s
+    List.ofArray s
+    
+[<Inline>]
+let RandomShuffleWith (random: System.Random) (source: 'T list) : 'T list = 
+    let s = Array.ofList source 
+    ArrayRandomShuffleInPlaceBy random.NextDouble s
+    List.ofArray s

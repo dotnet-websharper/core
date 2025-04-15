@@ -1,13 +1,13 @@
 references: strict
 redirects: on
 
-framework: net8.0, netstandard2.0
+framework: net9.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 4.11.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 4.12.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Configuration.ConfigurationManager 4.7.0
@@ -33,7 +33,7 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net8.0, netstandard2.1
+    framework: net9.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref 2.1.0
     nuget FSharp.Core
@@ -42,10 +42,10 @@ group fcs
     framework: net8.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     storage: none
-    nuget System.Runtime.Caching ~> 6.0.0
-    nuget System.Configuration.ConfigurationManager ~> 6.0.0
+    nuget System.Runtime.Caching ~> 8.0.0
+    nuget System.Configuration.ConfigurationManager ~> 8.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service ~> 43.8.400
+    nuget FSharp.Compiler.Service ~> 43.9.100
 
 group test
     source https://api.nuget.org/v3/index.json
@@ -66,7 +66,7 @@ group nunit
 
 
 group giraffe
-    framework: net8.0
+    framework: net9.0
     source https://api.nuget.org/v3/index.json
     storage: none
 

@@ -905,4 +905,54 @@ let Tests =
             raises ([| 0 |] |> Array.removeManyAt 2 2)
             equal ([| 0 .. 4 |] |> Array.removeManyAt 2 2) [|0; 1; 4|]
         }
+
+        Test "Random functions" {
+            let s = [| 1 .. 10 |]
+            let r = System.Random()
+            let rc = Array.randomChoice s
+            isTrue (rc >= 1 && rc <= 10)
+            let four = Array.randomChoiceBy (fun _ -> 0.35) s
+            equal four 4
+            let rc2 = Array.randomChoiceWith r s
+            isTrue (rc2 >= 1 && rc2 <= 10)
+
+            let rcs = Array.randomChoices 3 s
+            isTrue (Array.head rcs >= 1 && Array.head rcs <= 10)
+            equal (Array.length rcs) 3
+            let fours = Array.randomChoicesBy (fun _ -> 0.35) 3 s
+            equal (Array.head fours) 4
+            let rcs2 = Array.randomChoicesWith r 3 s
+            isTrue (Array.head rcs2 >= 1 && Array.head rcs2 <= 10)
+            equal (Array.length rcs2) 3
+
+            let rs = Array.randomSample 3 s
+            isTrue (Array.head rs >= 1 && Array.head rs <= 10)
+            equal (Array.length (Array.distinct rs)) 3
+            let firstFour = Array.randomSampleBy (fun _ -> 0.35) 3 s
+            equal (Array.head firstFour) 4
+            let rs2 = Array.randomSampleWith r 3 s
+            isTrue (Array.head rs2 >= 1 && Array.head rs2 <= 10)
+            equal (Array.length (Array.distinct rs2)) 3
+
+            let rsh = Array.randomShuffle s
+            isTrue (Array.head rsh >= 1 && Array.head rsh <= 10)
+            equal (Array.length (Array.distinct rsh)) 10
+            let firstTen = Array.randomShuffleBy (fun _ -> 0.35) s
+            equal (Array.head firstTen) 10
+            let rsh2 = Array.randomShuffleWith r s
+            isTrue (Array.head rsh2 >= 1 && Array.head rsh2 <= 10)
+            equal (Array.length (Array.distinct rsh2)) 10
+
+            let s1 = Array.copy s
+            Array.randomShuffleInPlace s1
+            isTrue (Array.head s1 >= 1 && Array.head s1 <= 10)
+            equal (Array.length (Array.distinct s1)) 10
+            let s2 = Array.copy s
+            Array.randomShuffleInPlaceBy (fun _ -> 0.35) s2
+            equal (Array.head s2) 10
+            let s3 = Array.copy s
+            Array.randomShuffleInPlaceWith r s3
+            isTrue (Array.head s3 >= 1 && Array.head s3 <= 10)
+            equal (Array.length (Array.distinct s3)) 10
+        }
     }

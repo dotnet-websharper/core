@@ -96,9 +96,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let fixedArgs =
             config.CompilerArgs 
             |> Array.map (fun s -> 
-                s.Replace(@"net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                s.Replace(@"net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
-                    ).Replace(@"net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                    ).Replace(@"net9.0/.NETCoreApp,Version=v9.0.AssemblyAttributes.fs", 
                         @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
@@ -128,18 +128,19 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             MakeDummyDll config.AssemblyFile thisName
             0
         else
-            let errors, exitCode = 
+            let errors, exnOpt = 
                 checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
     
             PrintFSharpErrors warnSettings logger errors
     
-            if exitCode = 0 then 
+            if Option.isNone exnOpt then 
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
                 logger.TimedStage "F# compilation"
-
-            exitCode
+                0
+            else
+                1
             
     if exitCode <> 0 then 
         exitCode

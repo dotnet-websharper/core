@@ -844,4 +844,46 @@ let Tests =
                 }
             equal (s |> Array.ofSeq) [| -1; 0; 1 |]
         }
+
+        Test "Empty-bodied computation expressions" {
+            equal (seq { } |> Seq.toArray) [||]
+        }
+
+        Test "Random functions" {
+            let s = seq { 1 .. 10 }
+            let r = System.Random()
+            let rc = Seq.randomChoice s
+            isTrue (rc >= 1 && rc <= 10)
+            let four = Seq.randomChoiceBy (fun _ -> 0.35) s
+            equal four 4
+            let rc2 = Seq.randomChoiceWith r s
+            isTrue (rc2 >= 1 && rc2 <= 10)
+
+            let rcs = Seq.randomChoices 3 s
+            isTrue (Seq.head rcs >= 1 && Seq.head rcs <= 10)
+            equal (Seq.length rcs) 3
+            let fours = Seq.randomChoicesBy (fun _ -> 0.35) 3 s
+            equal (Seq.head fours) 4
+            let rcs2 = Seq.randomChoicesWith r 3 s
+            isTrue (Seq.head rcs2 >= 1 && Seq.head rcs2 <= 10)
+            equal (Seq.length rcs2) 3
+
+            let rs = Seq.randomSample 3 s
+            isTrue (Seq.head rs >= 1 && Seq.head rs <= 10)
+            equal (Seq.length (Seq.distinct rs)) 3
+            let firstFour = Seq.randomSampleBy (fun _ -> 0.35) 3 s
+            equal (Seq.head firstFour) 4
+            let rs2 = Seq.randomSampleWith r 3 s
+            isTrue (Seq.head rs2 >= 1 && Seq.head rs2 <= 10)
+            equal (Seq.length (Seq.distinct rs2)) 3
+
+            let rsh = Seq.randomShuffle s
+            isTrue (Seq.head rsh >= 1 && Seq.head rsh <= 10)
+            equal (Seq.length (Seq.distinct rsh)) 10
+            let firstTen = Seq.randomShuffleBy (fun _ -> 0.35) s
+            equal (Seq.head firstTen) 10
+            let rsh2 = Seq.randomShuffleWith r s
+            isTrue (Seq.head rsh2 >= 1 && Seq.head rsh2 <= 10)
+            equal (Seq.length (Seq.distinct rsh2)) 10
+        }
     }

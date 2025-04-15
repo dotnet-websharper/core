@@ -102,5 +102,33 @@ namespace WebSharper.CSharp.Tests
             IsTrue(a is [.., 3]);
             IsTrue(a is [1, 2, 3, ..]);
         }
+
+        public class TimerRemaining
+        {
+            public int[] buffer { get; set; } = new int[10];
+        }
+
+        [Test("Collection construction with implicit from the end indexing", TestKind.Skip)]
+        public void ImplicitFromTheEnd()
+        {
+            var countdown = new TimerRemaining()
+            {
+                buffer =
+                    {
+                        [^1] = 0,
+                        [^2] = 1,
+                        [^3] = 2,
+                        [^4] = 3,
+                        [^5] = 4,
+                        [^6] = 5,
+                        [^7] = 6,
+                        [^8] = 7,
+                        [^9] = 8,
+                        [^10] = 9
+                    }
+            };
+
+            Equal(countdown.buffer[0], 9);
+        }
     }
 }

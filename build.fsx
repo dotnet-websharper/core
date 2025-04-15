@@ -35,7 +35,7 @@ System.Environment.GetCommandLineArgs()
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 
 open WebSharper.Fake
-let version = "8.0"
+let version = "9.0"
 let pre = None
 
 let baseVersion =
@@ -243,7 +243,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net8.0\Web.exe"
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net9.0\Web.exe"
     webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false

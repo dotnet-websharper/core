@@ -27,6 +27,7 @@ using WebSharper.Testing;
 using I = WebSharper.Collections.Tests.Interop;
 using Microsoft.FSharp.Control;
 using WebSharper.JavaScript;
+using Microsoft.FSharp.Collections;
 
 namespace WebSharper.CSharp.Tests
 {
@@ -398,5 +399,15 @@ namespace WebSharper.CSharp.Tests
         }
 
         public static int AddNullables(int? x, int? y) => (x ?? 0) + (y ?? 0);
+
+        [Test]
+        public void CollectionExpressions()
+        {
+            FSharpSet<int> mySet = [1, 2, 3];
+            IsTrue(mySet.Contains(2));
+
+            FSharpList<int> myList = [1, 2, 3];
+            IsTrue(myList.Contains(2));
+        }
     }
 }

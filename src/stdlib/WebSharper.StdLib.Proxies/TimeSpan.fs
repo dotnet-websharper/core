@@ -100,17 +100,32 @@ type private TimeSpanProxy =
     [<Inline "$days * 864E5">]
     static member FromDays(days: float) = X<TS>
 
+    [<Inline "$days * 864E5">]
+    static member FromDays(days: int) = X<TS>
+
     [<Inline "$hours * 36E5">]
     static member FromHours(hours: float) = X<TS>
+
+    [<Inline "$hours * 36E5">]
+    static member FromHours(hours: int) = X<TS>
 
     [<Inline "$min * 6E4">]
     static member FromMinutes(min: float) = X<TS>
 
+    [<Inline "$min * 6E4">]
+    static member FromMinutes(min: int) = X<TS>
+
     [<Inline "$sec * 1E3">]
     static member FromSeconds(sec: float) = X<TS>
 
+    [<Inline "$sec * 1E3">]
+    static member FromSeconds(sec: int) = X<TS>
+
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<TS>
+
+    [<Inline "$msec">]
+    static member FromMilliseconds(msec: int) = X<TS>
 
     [<Inline "Number($ticks) / 1E4">]
     static member FromTicks(ticks: int64) = X<TS>

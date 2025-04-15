@@ -749,4 +749,42 @@ let Tests =
             raises ([ 0 ] |> List.removeManyAt 2 2)
             equal ([ 0 .. 4 ] |> List.removeManyAt 2 2) [0; 1; 4]
         }
+
+        Test "Random functions" {
+            let s = [ 1 .. 10 ]
+            let r = System.Random()
+            let rc = List.randomChoice s
+            isTrue (rc >= 1 && rc <= 10)
+            let four = List.randomChoiceBy (fun _ -> 0.35) s
+            equal four 4
+            let rc2 = List.randomChoiceWith r s
+            isTrue (rc2 >= 1 && rc2 <= 10)
+
+            let rcs = List.randomChoices 3 s
+            isTrue (List.head rcs >= 1 && List.head rcs <= 10)
+            equal (List.length rcs) 3
+            let fours = List.randomChoicesBy (fun _ -> 0.35) 3 s
+            equal (List.head fours) 4
+            let rcs2 = List.randomChoicesWith r 3 s
+            isTrue (List.head rcs2 >= 1 && List.head rcs2 <= 10)
+            equal (List.length rcs2) 3
+
+            let rs = List.randomSample 3 s
+            isTrue (List.head rs >= 1 && List.head rs <= 10)
+            equal (List.length (List.distinct rs)) 3
+            let firstFour = List.randomSampleBy (fun _ -> 0.35) 3 s
+            equal (List.head firstFour) 4
+            let rs2 = List.randomSampleWith r 3 s
+            isTrue (List.head rs2 >= 1 && List.head rs2 <= 10)
+            equal (List.length (List.distinct rs2)) 3
+
+            let rsh = List.randomShuffle s
+            isTrue (List.head rsh >= 1 && List.head rsh <= 10)
+            equal (List.length (List.distinct rsh)) 10
+            let firstTen = List.randomShuffleBy (fun _ -> 0.35) s
+            equal (List.head firstTen) 10
+            let rsh2 = List.randomShuffleWith r s
+            isTrue (List.head rsh2 >= 1 && List.head rsh2 <= 10)
+            equal (List.length (List.distinct rsh2)) 10
+        }
     }
