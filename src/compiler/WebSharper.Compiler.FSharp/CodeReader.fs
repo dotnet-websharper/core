@@ -856,34 +856,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 |> Seq.map (fun (i, (_, v, _)) -> i, tr v) |> List.ofSeq, 
                 tr body
             )
-        | P.CallWithWitnesses(this, meth, typeGenerics, methodGenerics, witnesses, arguments) ->
-            let env =
-                match witnesses with
-                | [] -> env
-                | _ ->
-                    let ws =
-                        witnesses |> List.choose (
-                            function
-                            | P.WitnessArg _ -> None
-                            | NestedLambda(args, body) ->
-                                match body with
-                                | P.Call(callee, memb, _, _, _args) ->
-                                    Some(memb.CompiledName, Option.isSome callee, args, body)
-                                | P.AnonRecordGet(_, calleeType, fieldIndex) ->
-                                    let fieldName =
-                                        calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
-                                    Some("get_" + fieldName, true, args, body)
-                                | P.FSharpFieldGet(_, _, field) ->
-                                    Some("get_" + field.Name, true, args, body)
-                                | _ -> None
-                            | _ -> None
-                        )
-                        |> List.rev
-                    env |> List.foldBack (fun (name, isInstance, args, body) env ->
-                        let argTypes = args |> List.map (fun (a: FSharpMemberOrFunctionOrValue) -> a.FullType)
-                        let trBody = body |> transformExpression env
-                        { env with Witnesses = (name, isInstance, argTypes, trBody) :: env.Witnesses }
-                    ) ws
+        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
             let inline tr x = transformExpression env x
             let useInlineTypeArgs (ts: list<Type>) =
                 match env.InlineTypeArgs with
