@@ -569,6 +569,29 @@ type IValue<'T> =
     abstract member Value : 'T with get
 
 [<JavaScript>]
+module Bug1455 =
+    [<Inline>]
+    let inline ( := ) (o: ^x) (v: ^a) = (^x: (member Value: ^a with set) (o, v))
+
+    type [<AbstractClass>] ValueRef<'T>() =
+        abstract Get : unit -> 'T
+        abstract Set : 'T -> unit
+        member this.Value
+            with [<Inline>] get() = this.Get()
+            and [<Inline>] set v = this.Set v
+        
+    and ConcreteValueRef<'T>(initVal) =
+        inherit ValueRef<'T>()
+        let mutable value = initVal
+        default this.Get() = value
+        default this.Set(v) = value <- v
+
+    let test() =
+        let v = ConcreteValueRef ""
+        v := "test"
+        v.Get()    
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1123,5 +1146,9 @@ let Tests =
                 let i = { new IValue<int> with member this.Value = 4 }
                 i.Value
             equal test 4
+        }
+
+        Test "#1455 Inlines not resolved from base classes" {
+            equal (Bug1455.test()) "test"
         }
     }

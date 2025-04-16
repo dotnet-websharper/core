@@ -346,7 +346,7 @@ let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
 
 open System.IO
 
-let translate isBundle source = 
+let translate isBundle (source: string) = 
 
     let tempFileName = Path.GetTempFileName()
     let fileName = Path.ChangeExtension(tempFileName, ".fs")

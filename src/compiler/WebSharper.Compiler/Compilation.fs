@@ -749,15 +749,22 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ ->
                 failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
 
-    member this.GetMethods typ =
+    member this.GetMethods (typ: Concrete<TypeDefinition>) =
+        let typEnt = typ.Entity
         compilingMethods |> Seq.choose (fun (KeyValue ((td, m), _)) ->
-            if td = typ then Some m else None
+            if td = typEnt then Some (typ, m) else None
         ) |> Seq.append (
-            match this.TryLookupClassInfo typ with
-            | Some (_, cls) when not (this.IsInterface(typ)) -> cls.Methods.Keys :> _ seq
+            match this.TryLookupClassInfo typEnt with
+            | Some (_, cls) when not (this.IsInterface(typEnt)) -> 
+                match cls.BaseClass with
+                | None ->
+                    cls.Methods.Keys |> Seq.map (fun m -> typ, m)
+                | Some bTyp ->
+                    let gsArr = typ.Generics |> List.toArray
+                    Seq.append (cls.Methods.Keys |> Seq.map (fun m -> typ, m)) (this.GetMethods { bTyp with Generics = bTyp.Generics |> List.map (fun p -> p.SubstituteGenerics(gsArr)) })
             | _ ->
-            match this.TryLookupInterfaceInfo typ with
-            | Some intf -> intf.Methods.Keys :> _ seq
+            match this.TryLookupInterfaceInfo typEnt with
+            | Some intf -> intf.Methods.Keys |> Seq.map (fun m -> typ, m)
             | _ ->
                 Seq.empty
         )

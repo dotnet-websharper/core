@@ -1221,26 +1221,26 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match typ with
                 | ConcreteType ct ->
                     //let trmv = trmv.SubstituteGenerics(Array.ofList (typ :: meth.Generics))
-                    let methods = comp.GetMethods ct.Entity
+                    let methods = comp.GetMethods ct
                     let getMethods pars ret =
-                        methods |> Seq.choose (fun m ->
+                        methods |> Seq.choose (fun (mtyp, m) ->
                             let tcSig = FSharpFuncType (TupleType (pars, false), ret)
                             let mv = m.Value
                             if mv.MethodName = mName then
                                 let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
                                 if Type.IsGenericCompatible(mSig, tcSig) then
-                                    Some m 
+                                    Some (mtyp, m) 
                                 else
                                     None
                             else None
                         ) 
                         |> List.ofSeq
                     match getMethods trmv.Parameters trmv.ReturnType with
-                    | [ m ] ->
-                        this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
+                    | [ (mtyp, m) ] ->
+                        this.TransformCall(thisObj, mtyp, Generic m meth.Generics, args) |> Some
                     | [] -> 
                         let targets =
-                            methods |> Seq.choose (fun m ->
+                            methods |> Seq.choose (fun (_, m) ->
                                 let mv = m.Value
                                 if mv.MethodName = mName then
                                     let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
@@ -2097,7 +2097,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         TypeOf "function"
                     | M.FSharpRecordInfo _
                     | M.FSharpAnonRecordInfo _
-                    | M.StructInfo _ ->
+                    | M.StructInfo ->
                         PlainObject false
                     | M.FSharpUnionInfo ui ->
                         PlainObject ui.HasNull

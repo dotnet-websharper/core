@@ -1388,7 +1388,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             )
                             |> List.tryPick (fun t -> 
                                 if t.HasTypeDefinition then
-                                    t.TypeDefinition.TryGetMembersFunctionsAndValues()
+                                    let rec getAllMembers (t: FSharpEntity) =
+                                        match t.BaseType with
+                                        | None -> t.TryGetMembersFunctionsAndValues() :> _ seq
+                                        | Some bt -> Seq.append (t.TryGetMembersFunctionsAndValues()) (getAllMembers bt.TypeDefinition)
+                                    getAllMembers t.TypeDefinition
                                     |> Seq.tryPick (fun mem ->
                                         match sr.ReadMember mem with
                                         | Member.Method(inst, m) when inst = isInstance && m.Value.MethodName = traitName -> 
