@@ -1,5 +1,6 @@
 ﻿#r "../../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../../build/Release/netstandard2.0/WebSharper.Core.dll"
+#r "../../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 
 #r "nuget: System.CodeDom, 4.4"
 
@@ -15,6 +16,8 @@ open System.IO
 open System.Collections.Generic
 
 open WebSharper.InterfaceGenerator.TypeScriptImport
+
+type JSObject<'T> = WebSharper.JavaScript.Object<'T>
 
 let jsonFile = Path.Combine(__SOURCE_DIRECTORY__, "../WebSharper.TypeScriptParser/node_modules/typescript/lib/lib.d.ts.json")
 
@@ -38,35 +41,35 @@ open WebSharper.InterfaceGenerator
 
 let skippedDefs =
     HashSet [|
-        "ThisParameterType"
-        "OmitThisParameter"
-        "CallableFunction"
-        "NewableFunction"
-        "ClassDecorator"
-        "PropertyDecorator"
-        "ElementTagNameMap"
-        "MethodDecorator"
-        "ParameterDecorator"
-        "PromiseConstructorLike"
-        "Awaited"
-        "Partial"
-        "Required"
-        "Readonly"
-        "Pick"
-        "Record"
-        "Exclude"
-        "Extract"
-        "Omit"
-        "NonNullable"
-        "Parameters"
-        "ConstructorParameters"
-        "ReturnType"
-        "InstanceType"
-        "ArrayBufferLike"
-        "NodeFilter"
-        "XPathNSResolver"
-        "HeadersInit"
-        "IDBValidKey"
+        //"ThisParameterType"
+        //"OmitThisParameter"
+        //"CallableFunction"
+        //"NewableFunction"
+        //"ClassDecorator"
+        //"PropertyDecorator"
+        //"ElementTagNameMap"
+        //"MethodDecorator"
+        //"ParameterDecorator"
+        //"PromiseConstructorLike"
+        //"Awaited"
+        //"Partial"
+        //"Required"
+        //"Readonly"
+        //"Pick"
+        //"Record"
+        //"Exclude"
+        //"Extract"
+        //"Omit"
+        //"NonNullable"
+        //"Parameters"
+        //"ConstructorParameters"
+        //"ReturnType"
+        //"InstanceType"
+        //"ArrayBufferLike"
+        //"NodeFilter"
+        //"XPathNSResolver"
+        //"HeadersInit"
+        //"IDBValidKey"
     |]
 
 
@@ -107,20 +110,6 @@ let getOrAddIntf name = intfDefinitions |> getOrAdd name Interface
 let lookupClass name = classDefinitions[name]
 let lookupIntf name = intfDefinitions[name]
 
-let rec lookupType name =
-    match typeNameRedirects.TryGetValue(name) with
-    | true, alias -> lookupType alias
-    | _ -> 
-        match typeAliases.TryGetValue(name) with
-        | true, v -> v
-        | _ -> 
-            match classDefinitions.TryGetValue(name) with
-            | true, v -> v.Type
-            | _ -> 
-                match intfDefinitions.TryGetValue(name) with
-                | true, v -> v.Type
-                | _ -> failwithf "Type not found %s" name
-
 let glob = getOrAddClass "Global"
 
 let typeAliasDefs = Dictionary<string, option<TSTypeParameter[]> * TSType>()
@@ -143,10 +132,12 @@ iterStatements <| fun moduleName st ->
     | TSClassDeclaration (name, typars, mems, ext, impl) -> 
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
+            //printfn $"Initialized class {name}"
             getOrAddClass name |> ignore
     | TSInterfaceDeclaration (name, typars, mems, ext) ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
+            //printfn $"Initialized interface {name}"
             getOrAddIntf name |> ignore
     | TSTypeAlias (name, typars, typ) ->
         let name = moduleName + name
@@ -178,16 +169,41 @@ iterStatements <| fun moduleName st ->
                             None
                     )
                 let cls = Pattern.EnumStrings name values
+                //printfn $"Initialized type alias {name} as classDefinition"
                 classDefinitions.Add(name, cls)
             | None ->
                 match typ with
                 | TSSimpleType n ->
+                    //printfn $"Initialized type alias {name} as typeNameRedirect"
                     typeNameRedirects.Add(name, n)
                 | _ ->
+                    //printfn $"Initialized type alias {name} as typeAliasDef"
                     typeAliasDefs.Add(name, (typars, typ))
     | _ -> ()
 
-let rec processType (typ: TSType) : Type.Type =
+let rec lookupType name =
+    match typeNameRedirects.TryGetValue(name) with
+    | true, alias -> lookupType alias
+    | _ -> 
+        match typeAliases.TryGetValue(name) with
+        | true, v -> v
+        | _ -> 
+            match typeAliasDefs.TryGetValue(name) with
+            | true, (typars, typ) ->
+                //printfn $"typeAliasDef: {name} -> %A{typ}"
+                let tRes = processType (Some name) typ
+                typeAliases.Add(name, tRes)
+                typeAliasDefs.Remove(name) |> ignore
+                lookupType name
+            | _ ->
+                match classDefinitions.TryGetValue(name) with
+                | true, v -> v.Type
+                | _ -> 
+                    match intfDefinitions.TryGetValue(name) with
+                    | true, v -> v.Type
+                    | _ -> failwithf "Type not found %s" name
+
+and processType forAlias (typ: TSType) : Type.Type =
     match typ with
     | TSSimpleType name ->
         lookupType name
@@ -199,54 +215,118 @@ let rec processType (typ: TSType) : Type.Type =
                 | TSLiteralType "undefined" -> true
                 | _ -> false
             )
-        let notOpt =
-            nonNullCase |> Seq.map processType |> Seq.reduce ( + )    
-        if Array.isEmpty nullCase then
-            notOpt
+        let recCase, nonRecCase =
+            match forAlias with 
+            | Some alias ->
+                nonNullCase |> Array.partition (
+                    function 
+                    //| TSTypeReference (rname, _) when rname = alias -> true
+                    | TSArrayType (TSSimpleType (rname)) when rname = alias -> true
+                    | _ -> false
+                )
+            | _ ->
+                [||], nonNullCase 
+        if Array.isEmpty nonRecCase then
+            T<obj> // TODO
         else
-            Type.OptionType notOpt
+            let notOpt =
+                nonRecCase |> Seq.map (processType None) |> Seq.reduce ( + )    
+            let withNull =
+                if Array.isEmpty nullCase then
+                    notOpt
+                else
+                    Type.OptionType notOpt
+            if Array.isEmpty recCase then
+                withNull
+            else
+                Type.ItemOrArrayType withNull
     | TSArrayType typ ->
-        !| (processType typ)
+        !| (processType None typ)
+    | TSTupleType typs ->
+        typs |> Seq.map (processType None) |> Seq.reduce ( * )   
     | TSTypeReference (name, typars) ->
         match name with 
         | "Readonly" ->
-            processType typars[0]
+            processType None typars[0]
+        | "Record" ->
+            //let k = processType typars[0]
+            let t = processType None typars[1]
+            T<JSObject<_>>[t]
         | _ ->
             lookupType name   
     | TSIntersectionType [| typ; TSTypeReference ("ThisType", [| TSSimpleType "any" |]) |] ->
-        processType typ  
+        processType None typ  
     | TSTypeParamReference name ->
         T<obj>
     | TSFunctionType (pars, ret) ->
-        (processParams pars) ^-> (processType ret) 
+        (processParams pars) ^-> (processType None ret) 
+    | TSNewType (pars, ret) ->
+        (processParams pars) ^-> (processType None ret) // how to enforce ctor semantics?
     | TSTypePredicate _ ->
         T<bool>
+    | TSTypeLiteral mems ->
+        let clsName = $"Object{hash mems}"
+        let cls =
+            match classDefinitions.TryGetValue(clsName) with
+            | true, cls -> cls
+            | false, _ ->
+                let cls = Class clsName
+                for mem in mems do
+                    match processMem mem with
+                    | Some (m, true) ->
+                        cls |+> Static [ m ] |> ignore
+                    | Some (m, false) ->
+                        cls |+> Instance [ m ] |> ignore
+                    | _ ->
+                        ()
+                classDefinitions.Add(clsName, cls)
+                cls
+        cls.Type
     | TSKeyOfType (TSSimpleType name) ->
-        let names =
-            match classDefinitions.TryGetValue(name) with
-            | true, v ->
-                Seq.append 
-                    (v.Methods |> Seq.map (fun m -> m.Name))
-                    (v.Properties |> Seq.map (fun p -> p.Name))
-            | _ -> 
-                match intfDefinitions.TryGetValue(name) with
-                | true, v -> 
-                    Seq.append 
-                        (v.Methods |> Seq.map (fun m -> m.Name))
-                        (v.Properties |> Seq.map (fun p -> p.Name))
-                | _ -> failwithf "Type not found %s" name
-        let cls = Pattern.EnumStrings name values
-        classDefinitions.Add(name, cls)
-    | _ ->
-        failwithf "processType fail %A" typ
+        let clsName = "KeyOf" + name
+        let cls =
+            match classDefinitions.TryGetValue(clsName) with
+            | true, cls -> cls
+            | false, _ ->
+                let names =
+                    match classDefinitions.TryGetValue(name) with
+                    | true, v ->
+                        Seq.append 
+                            (v.Methods |> Seq.map (fun m -> m.Name))
+                            (v.Properties |> Seq.map (fun p -> p.Name))
+                    | _ -> 
+                        match intfDefinitions.TryGetValue(name) with
+                        | true, v -> 
+                            Seq.append 
+                                (v.Methods |> Seq.map (fun m -> m.Name))
+                                (v.Properties |> Seq.map (fun p -> p.Name))
+                        | _ -> failwithf "Type not found %s" name
+                let cls = Pattern.EnumStrings name names
+                classDefinitions.Add(clsName, cls)
+                cls
+        cls.Type
+    | TSIndexType (index, typ) ->
+        T<string> // usually an index is a string   
+    | TSLiteralType value ->
+        T<obj> // TODO
+    | TSConditionalType (check, extends, trueType, falseType) ->
+        T<obj> // TODO
+    | TSMappedType typ ->
+        T<obj> // TODO
+    | TSIntersectionType (typs) ->
+        T<obj> // TODO
+    | TSKeyOfType typ ->
+        T<obj> // TODO
+    | TSQueryType expr ->
+        T<obj> // TODO
 
 and processParam (param: TSParameter) : Type.Parameter =
     match param.Type with
     | TSUnionType [| typ; TSLiteralType "null" |]
     | TSUnionType [| TSLiteralType "null"; typ |] ->
-        !? (processType typ)?(param.Name) 
+        !? (processType None typ)?(param.Name) 
     | typ ->
-        (processType typ)?(param.Name) 
+        (processType None typ)?(param.Name) 
 
 and processParams (pars: TSParameter[]) =
     {
@@ -255,16 +335,17 @@ and processParams (pars: TSParameter[]) =
         Variable  = None
     } : Type.Parameters
 
-let processMem mem =
-    try
+and processMem mem =
+    //try
         match mem with
         | TSMethod (name, st, pars, typars, typ) ->
-            let m = name => (processParams pars) ^-> (processType typ) 
+            printfn "Processing member %s" name
+            let m = name => (processParams pars) ^-> (processType None typ) 
             Some (m, st |> Option.defaultValue false)
         | _ -> None
-    with e ->
-        printfn "%s" e.Message
-        failwithf "processMem fail %A" mem
+    //with e ->
+    //    printfn "%s" e.Message
+    //    failwithf "processMem fail %A" mem
     //| TSProperty (name, typ)
     //| TSNew (pars, typ)
     //| TSCall (pars, typars, typ)
@@ -275,13 +356,14 @@ let processMem mem =
 let mutable typeAliasDefCount = typeAliasDefs.Count
 
 while typeAliasDefCount > 0 do
-    for KeyValue(name, (typars, typ)) in typeAliasDefs |> Array.ofSeq do
-        try
-            let tRes = processType typ
-            typeAliases.Add(name, tRes)
-            typeAliasDefs.Remove(name) |> ignore
-        with _ ->
-            ()
+    let (KeyValue(name, (typars, typ))) = typeAliasDefs |> Seq.head
+    try
+        printfn "Processing typeAlias %s" name
+        let tRes = processType (Some name) typ
+        typeAliases.Add(name, tRes)
+        typeAliasDefs.Remove(name) |> ignore
+    with e ->
+        printfn "%s" e.Message
     if typeAliasDefCount = typeAliasDefs.Count then
         failwithf "Unresolved types: %s" (typeAliasDefs.Keys |> String.concat ", ")
     else
@@ -293,6 +375,7 @@ iterStatements <| fun moduleName st ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
             try
+                printfn "Processing class %s" name
                 let cls = lookupClass name
                 match ext with
                 | Some (TSSimpleType b) ->
@@ -307,19 +390,14 @@ iterStatements <| fun moduleName st ->
                         cls |+> Instance [ m ] |> ignore
                     | _ ->
                         ()
-                    //| TSProperty (name, typ)
-                    //| TSNew (pars, typ)
-                    //| TSCall (pars, typars, typ)
-                    //| TSGet (name, typ)
-                    //| TSSet (name, typ)
-                    //| TSIndex (pars, typ)
             with e ->
                 printfn "%s" e.Message
                 failwithf "class fail %s" name
     | TSInterfaceDeclaration (name, typars, mems, ext) ->
         let name = moduleName + name
         if not (skippedDefs.Contains name) then
-            try
+            //try
+                printfn "Processing interface %s" name
                 let intf = lookupIntf name
                 for mem in mems do
                     match processMem mem with
@@ -327,9 +405,9 @@ iterStatements <| fun moduleName st ->
                         intf |+> [ m ] |> ignore
                     | _ ->
                         ()
-            with e ->
-                printfn "%s" e.Message
-                failwithf "interface fail %s" name
+            //with e ->
+            //    printfn "%s" e.Message
+            //    failwithf "interface fail %s" name
     | _ -> ()
  
 

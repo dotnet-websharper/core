@@ -242,23 +242,31 @@ function transformType(x: ts.TypeNode): TSType {
       Index: transformType(x.indexType),
       Type: transformType(x.objectType)
     }
-  if (ts.isTypeReferenceNode(x))
+  if (ts.isTypeReferenceNode(x)) {
+    let t = checker.getTypeAtLocation(x)
+    let n = x.typeName.getText()
+    let s = t.aliasSymbol || t.symbol
     if (x.typeArguments)
       return {
         Kind: 'typeref',
-        Type: x.typeName.getText(),
+        Type: n,
         Arguments: x.typeArguments.map(transformType)
       }
     else {
-      let t: ts.Type = checker.getTypeAtLocation(x)
       if (t && t.flags & ts.TypeFlags.TypeParameter)
         return {
           Kind: 'typeparamref',
-          Type: x.typeName.getText()
+          Type: n
         }
-      else
-        return simpleType(x.typeName.getText())
+      else { 
+        if (s && !(s.flags & ts.SymbolFlags.TypeLiteral))
+          n = checker.getFullyQualifiedName(s)
+        if ((<any>t).intrinsicName) // for aliases of built-in types
+          n = (<any>t).intrinsicName
+        return simpleType(n)
+      }
     }
+  }
   if (ts.isTypePredicateNode(x))
     return {
       Kind: 'predicate',
@@ -413,8 +421,8 @@ function transformExpessionWithTypeArguments(x: ts.ExpressionWithTypeArguments):
 }
 
 function transformStatement(x: ts.Statement): TSStatement {
-  if (ts.getJSDocDeprecatedTag(x) != null)
-    return null;
+  //if (ts.getJSDocDeprecatedTag(x) != null)
+  //  return null;
   if (ts.isVariableStatement(x))
     return {
       Kind: 'vars',

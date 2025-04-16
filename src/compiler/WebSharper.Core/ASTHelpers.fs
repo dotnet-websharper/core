@@ -234,6 +234,10 @@ let erasedUnions =
                 Assembly = "WebSharper.Core"
                 FullName = "WebSharper.JavaScript.Optional`1"
             }
+            yield TypeDefinition {
+                Assembly = "WebSharper.Core"
+                FullName = "WebSharper.JavaScript.ItemOrArray`1"
+            }
             for i in 2 .. 7 ->
                 TypeDefinition {
                     Assembly = "WebSharper.Core"
