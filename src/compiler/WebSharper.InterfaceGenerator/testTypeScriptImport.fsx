@@ -19,7 +19,7 @@ open WebSharper.InterfaceGenerator.TypeScriptImport
 
 type JSObject<'T> = WebSharper.JavaScript.Object<'T>
 
-let jsonFile = Path.Combine(__SOURCE_DIRECTORY__, "../WebSharper.TypeScriptParser/node_modules/typescript/lib/lib.d.ts.json")
+let jsonFile = Path.Combine(__SOURCE_DIRECTORY__, "../WebSharper.TypeScriptParser/node_modules/typescript/lib/lib.es2022.full.d.ts.json")
 
 let jsonString = File.ReadAllText(jsonFile)
 
@@ -90,6 +90,7 @@ let typeAliases =
 let typeNameRedirects = 
     dict [
         "symbol", "Symbol"
+        "bigint", "BigInt"
     ]
     |> Dictionary<string, string>
 
@@ -230,7 +231,12 @@ and processType forAlias (typ: TSType) : Type.Type =
             T<obj> // TODO
         else
             let notOpt =
-                nonRecCase |> Seq.map (processType None) |> Seq.reduce ( + )    
+                try
+                    nonRecCase |> Seq.map (processType None) |> Seq.reduce ( + )   
+                with
+                | _ ->
+                    printfn $"Error processing union type, nonRecCase=%A{nonRecCase}"
+                    T<obj> // TODO
             let withNull =
                 if Array.isEmpty nullCase then
                     notOpt
@@ -408,6 +414,7 @@ iterStatements <| fun moduleName st ->
             //with e ->
             //    printfn "%s" e.Message
             //    failwithf "interface fail %s" name
+    //| TSVariableStatement
     | _ -> ()
  
 

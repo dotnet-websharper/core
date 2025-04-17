@@ -1,5 +1,6 @@
 ﻿import * as fs from "fs"
 import * as ts from "typescript"
+import * as readline from "readline"
 
 // main: parse and transform file
 
@@ -18,9 +19,19 @@ let output =
 
 let outputPath = process.argv[3] ?? (filePath + ".json")
 
+console.log("Writing output to: ", outputPath)
 fs.writeFileSync(outputPath, JSON.stringify(output, undefined, 2))
 
-process.exit(0)
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+rl.on('line', () => {
+  process.exit(0)
+});
+
+//process.exit(0)
 
 // output shape
 

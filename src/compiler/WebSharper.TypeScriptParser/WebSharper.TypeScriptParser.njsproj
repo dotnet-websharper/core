@@ -6,7 +6,7 @@
     <VSToolsPath Condition="Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)')">$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
     <Name>WebSharper.TypeScriptParser</Name>
     <RootNamespace>WebSharperTypeScriptParser</RootNamespace>
-    <ScriptArguments>node_modules\typescript\lib\lib.d.ts</ScriptArguments>
+    <ScriptArguments>node_modules\typescript\lib\lib.es2022.full.d.ts</ScriptArguments>
     <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />

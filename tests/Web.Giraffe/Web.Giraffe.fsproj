@@ -5,6 +5,7 @@
     <AssemblyName>Web.Giraffe.App</AssemblyName>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>
   <ItemGroup>
     <None Include="wsconfig.json" />
