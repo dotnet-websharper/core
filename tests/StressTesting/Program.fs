@@ -26,6 +26,16 @@ let main argv =
                 |> Http.send context
     )
 
+    let testsPage =
+        Step.create(
+            "tests_home",
+            clientFactory = httpFactory, 
+            timeout = seconds 10,
+            execute = fun context ->
+                Http.createRequest "GET" (endpointUrl + "tests")
+                |> Http.send context
+    )
+
     let json = """{"A":"hello","B":123,"C":false}"""
     let jsonPost = 
         Step.create(
@@ -50,6 +60,7 @@ let main argv =
 
     Scenario.create "sitelets_testing" [
         siteletTest
+        testsPage
         jsonPost
         jsonGet
     ]    
