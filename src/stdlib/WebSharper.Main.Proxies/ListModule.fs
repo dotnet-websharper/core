@@ -795,8 +795,8 @@ let SplitAt (n: int) (list: 'T list) =
 
 [<Name "insertAt">]
 let InsertAt (index: int) (item: 'T) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
+    if index >= 0 && arr.Length >= index then
+        if index = arr.Length then
             List.append arr [item]
         else
             if index = 0 then
@@ -804,12 +804,12 @@ let InsertAt (index: int) (item: 'T) (arr: 'T list): 'T list =
             else
                 List.append (List.append arr.[0..index-1] [item]) arr.[index..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "insertManyAt">]
 let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
+    if index >= 0 && arr.Length >= index then
+        if index = arr.Length then
             List.append arr (items |> List.ofSeq)
         else
             if index = 0 then
@@ -817,7 +817,7 @@ let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>
             else
                 List.append (List.append arr.[0..index-1] (items |> List.ofSeq)) arr.[index..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeAt">]
 let RemoveAt (index: int) (arr: 'T list): 'T list =
@@ -830,11 +830,11 @@ let RemoveAt (index: int) (arr: 'T list): 'T list =
             else
                 List.append arr.[0..index-1] arr.[index+1..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeManyAt">]
 let RemoveManyAt (index: int) (number: int) (arr: 'T list): 'T list =
-    if index + number >= 0 && arr.Length > index + number then
+    if index >= 0 && arr.Length > index + number then
         if index + number = arr.Length then
             arr.[0..index-1]
         else
@@ -843,7 +843,7 @@ let RemoveManyAt (index: int) (number: int) (arr: 'T list): 'T list =
             else
                 List.append arr.[0..index-1] arr.[index+number..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "updateAt">]
 let UpdateAt (index: int) (item: 'T) (arr: 'T list): 'T list =
@@ -856,4 +856,4 @@ let UpdateAt (index: int) (item: 'T) (arr: 'T list): 'T list =
             else
                 List.append (List.append arr.[0..index-1] [item]) arr.[index+1..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()

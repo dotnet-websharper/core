@@ -882,27 +882,38 @@ let Tests =
         }
 
         Test "Array.insertAt" {
-            raises ([| 0 |] |> Array.insertAt 2 5)
+            raises ([| 0 .. 4 |] |> Array.insertAt -1 5)
+            equal ([| 0 .. 4 |] |> Array.insertAt 0 5) [|5; 0; 1; 2; 3; 4|]
             equal ([| 0 .. 4 |] |> Array.insertAt 2 5) [|0; 1; 5; 2; 3; 4|]
+            equal ([| 0 .. 4 |] |> Array.insertAt 4 5) [|0; 1; 2; 3; 5; 4|]
+            equal ([| 0 .. 4 |] |> Array.insertAt 5 5) [|0; 1; 2; 3; 4; 5|]
+            raises ([| 0 .. 4 |] |> Array.insertAt 6 5)
         }
 
         Test "Array.removeAt" {
-            raises ([| 0 |] |> Array.removeAt 2)
+            raises ([| 0 .. 4 |] |> Array.removeAt -1)
             equal ([| 0 .. 4 |] |> Array.removeAt 2) [|0; 1; 3; 4|]
+            raises ([| 0 .. 4 |] |> Array.removeAt 5)
         }
 
         Test "Array.updateAt" {
-            raises ([| 0 |] |> Array.updateAt 2 5)
+            raises ([| 0 .. 4 |] |> Array.updateAt -1 5)
             equal ([| 0 .. 4 |] |> Array.updateAt 2 5) [|0; 1; 5; 3; 4|]
+            raises ([| 0 .. 4 |] |> Array.updateAt 5 5)
         }
 
         Test "Array.insertManyAt" {
-            raises ([| 0 |] |> Array.insertManyAt 2 [|5; 6|])
-            equal ([| 0 .. 4 |] |> Array.insertManyAt 2 [|5; 6|]) [|0; 1; 5; 6; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Array.insertManyAt -1 [5; 6])
+            equal ([| 0 .. 4 |] |> Array.insertManyAt 0 [5; 6]) [|5; 6; 0; 1; 2; 3; 4|]
+            equal ([| 0 .. 4 |] |> Array.insertManyAt 2 [5; 6]) [|0; 1; 5; 6; 2; 3; 4|]
+            equal ([| 0 .. 4 |] |> Array.insertManyAt 4 [5; 6]) [|0; 1; 2; 3; 5; 6; 4|]
+            equal ([| 0 .. 4 |] |> Array.insertManyAt 5 [5; 6]) [|0; 1; 2; 3; 4; 5; 6|]
+            raises ([| 0 .. 4 |] |> Array.insertManyAt 6 [5; 6])
         }
 
         Test "Array.removeManyAt" {
-            raises ([| 0 |] |> Array.removeManyAt 2 2)
+            raises ([| 0 .. 4 |] |> Array.removeManyAt -1 2)
             equal ([| 0 .. 4 |] |> Array.removeManyAt 2 2) [|0; 1; 4|]
+            raises ([| 0 .. 4 |] |> Array.removeManyAt 4 2)
         }
     }
