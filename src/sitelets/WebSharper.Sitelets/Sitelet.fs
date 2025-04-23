@@ -63,7 +63,7 @@ module Sitelet =
                 {
                     Handle = fun endpoint ->
                         Content.CustomContent <| fun _ ->
-                            {
+                            Task.FromResult {
                                 Status = Http.Status.NotFound
                                 Headers = []
                                 WriteBody = Http.EmptyBody
@@ -78,7 +78,7 @@ module Sitelet =
             Controller =
             {
                 Handle = fun ep ->
-                    Content.CustomContentAsync <| fun ctx -> async {
+                    Content.CustomContent <| fun ctx -> task {
                         let! content = handle ctx ep
                         return! WebSharper.Sitelets.Content<'T>.ToResponse content ctx
                     }
@@ -100,12 +100,12 @@ module Sitelet =
             Controller =                                                                                                                                      
                 { Handle = fun endpoint ->
                     let prot = filter
-                    let failure ctx = async {
+                    let failure ctx = task {
                         let! c = Content.RedirectTemporary (prot.LoginRedirect endpoint)
                         return! Content.ToResponse c ctx
                     }
-                    Content.CustomContentAsync <| fun ctx ->
-                        async {
+                    Content.CustomContent <| fun ctx ->
+                        task {
                             try
                                 let! loggedIn = ctx.UserSession.GetLoggedInUser ()
                                 match loggedIn with
@@ -132,7 +132,7 @@ module Sitelet =
         {
             Router = Router.Single endpoint location |> RouterOperators.rCors
             Controller = { Handle = fun ep ->
-                Content.CustomContentAsync <| fun ctx -> async {
+                Content.CustomContent <| fun ctx -> task {
                     let cctx = Context.Map Cors.Of ctx 
                     let! ccnt = 
                         Content.Cors ep allows (fun _ -> cnt cctx)
@@ -147,7 +147,7 @@ module Sitelet =
         {
             Router = Router.Single endpoint location
             Controller = { Handle = fun _ ->
-                Content.CustomContentAsync <| fun ctx -> async {
+                Content.CustomContent <| fun ctx -> task {
                     let! cnt = cnt ctx
                     return! Content.ToResponse cnt ctx
                 }
@@ -164,8 +164,6 @@ module Sitelet =
                         match s.Controller.Handle <| g endpoint with
                         | Content.CustomContent genResp ->
                             CustomContent (genResp << Context.Map f)
-                        | Content.CustomContentAsync genResp ->
-                            CustomContentAsync (genResp << Context.Map f)
                 }
         }
 
@@ -189,7 +187,7 @@ module Sitelet =
             Controller =
                 { Handle = fun a ->
                     match g a with
-                    | Some ea -> C.CustomContentAsync <| fun ctx ->
+                    | Some ea -> C.CustomContent <| fun ctx ->
                         C.ToResponse (s.Controller.Handle ea) (Context.Map (f >> Option.get) ctx)
                     | None -> failwith "Invalid endpoint in Sitelet.Embed" }
         }
@@ -201,7 +199,7 @@ module Sitelet =
             Controller =
                 { Handle = fun a ->
                     match unembed a with
-                    | Some ea -> C.CustomContentAsync <| fun ctx ->
+                    | Some ea -> C.CustomContent <| fun ctx ->
                         C.ToResponse (sitelet.Controller.Handle ea) (Context.Map embed ctx)
                     | None -> failwith "Invalid endpoint in Sitelet.Embed" }
         }
@@ -287,7 +285,7 @@ module Sitelet =
         {
             Router = Router.IInfer<'T>()
             Controller = { Handle = fun x ->
-                C.CustomContentAsync <| fun ctx -> async {
+                C.CustomContent <| fun ctx -> task {
                     let! content = handle ctx x
                     return! C.ToResponse content ctx
                 }
@@ -298,7 +296,7 @@ module Sitelet =
         {
             Router = Router.IInferWithCustomErrors<'T>()
             Controller = { Handle = fun x ->
-                C.CustomContentAsync <| fun ctx -> async {
+                C.CustomContent <| fun ctx -> task {
                     let ctx = (Context.Map ParseRequestResult.Success ctx)
                     let! content = handle ctx x
                     return! C.ToResponse content ctx
@@ -310,7 +308,7 @@ module Sitelet =
         {
             Router = Router.IInfer<'T1>() |> IRouter.Embed embed unembed
             Controller = { Handle = fun p ->
-                C.CustomContentAsync <| fun ctx -> async {
+                C.CustomContent <| fun ctx -> task {
                     match unembed p with
                     | Some e ->
                         let! content = mkContent ctx e
@@ -328,7 +326,7 @@ module Sitelet =
     let MapContext (f: Context<'T> -> Context<'T>) (sitelet: Sitelet<'T>) : Sitelet<'T> =
         { sitelet with
             Controller = { Handle = fun action ->
-                CustomContentAsync <| fun ctx ->
+                CustomContent <| fun ctx ->
                     C.ToResponse (sitelet.Controller.Handle action) (f ctx)
             }
         }
@@ -450,7 +448,6 @@ type SiteletBuilder() =
                     return
                         match content.AsContent with
                         | CustomContent f -> CustomContent (f << Context.Map box)
-                        | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
                 })
         this
 
@@ -468,7 +465,6 @@ type SiteletBuilder() =
                             return
                                 match content.AsContent with
                                 | CustomContent f -> CustomContent (f << Context.Map box)
-                                | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
                         }
                     )
                 )

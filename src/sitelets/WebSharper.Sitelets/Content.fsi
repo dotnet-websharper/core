@@ -26,15 +26,13 @@ open WebSharper
 
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
-[<CompiledName "FSharpContent">]
+[<CompiledName "FSharpContent"; Struct>]
 type Content<'Endpoint> =
     | [<Obsolete "Use Content.Custom">]
-      CustomContent of (Context<'Endpoint> -> Http.Response)
-    | [<Obsolete "Use Content.Custom">]
-      CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
+      CustomContent of (Context<'Endpoint> -> Task<Http.Response>)
 
     /// Generates an HTTP response.
-    static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>        
+    static member ToResponse<'T> : Content<'T> -> Context<'T> -> Task<Http.Response>        
 
     /// Boxes endpoint type.
     member Box : unit -> Content<obj>
@@ -94,14 +92,17 @@ module Content =
     val FromContext : (Context<'T> -> Async<Content<'T>>) -> Async<Content<'T>>
 
     /// Generates an HTTP response.
-    val ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
+    val ToResponse<'T> : Content<'T> -> Context<'T> -> Task<Http.Response>
 
     /// Generates an HTTP response.
     [<Obsolete "Use ToResponse">]
-    val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>
+    val ToResponseAsync<'T> : Content<'T> -> Context<'T> -> Task<Http.Response>
 
     /// Wraps an asynchronous content.
     val FromAsync<'T> : Async<Content<'T>> -> Content<'T>
+
+    /// Wraps an asynchronous content.
+    val FromTask<'T> : Task<Content<'T>> -> Content<'T>
 
     /// Generates JSON content from the given object.
     [<Obsolete "Use Content.Json">]

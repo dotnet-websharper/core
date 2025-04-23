@@ -28,25 +28,21 @@ open WebSharper.Core
 
 module CT = WebSharper.Core.ContentTypes
 
-[<CompiledName "FSharpContent">]
+[<CompiledName "FSharpContent"; Struct>]
 type Content<'Endpoint> =
-    | CustomContent of (Context<'Endpoint> -> Http.Response)
-    | CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
+    | CustomContent of (Context<'Endpoint> -> Task<Http.Response>)
 
-    static member ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
+    static member ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Task<Http.Response> =
         match c with
-        | CustomContent x -> async.Return (x ctx)
-        | CustomContentAsync x -> x ctx
+        | CustomContent x -> x ctx
 
     member c.Box() : Content<obj> =
         match c with
         | CustomContent x -> CustomContent (fun ctx -> x (Context.Map box ctx))
-        | CustomContentAsync x -> CustomContentAsync (fun ctx -> x (Context.Map box ctx))
 
     static member Unbox (c: Content<obj>) : Content<'T> =
         match c with
         | CustomContent x -> CustomContent (fun ctx -> x (Context.Map unbox ctx))
-        | CustomContentAsync x -> CustomContentAsync (fun ctx -> x (Context.Map unbox ctx))
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
@@ -427,8 +423,8 @@ module Content =
             tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
     
-    let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
-        async {
+    let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Task<Http.Response> =
+        task {
             let! htmlPage = genPage context
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
@@ -447,18 +443,18 @@ module Content =
                 htmlPage.Renderer htmlPage.Doctype htmlPage.Title
                     renderHead renderBody htmlWriter
                 textWriter.Flush()
-            return {
+            return ({
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
                 WriteBody = Http.WriteBody writeBody
-            }
+            } : Http.Response)
         }
 
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
         let encoder = Json.ServerSideProvider.GetEncoder<'U>()
         Content.CustomContent <| fun ctx ->
             let x = f ctx
-            {
+            Task.FromResult {
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "application/json"]
                 WriteBody = Http.WriteBody (fun s ->
@@ -471,10 +467,10 @@ module Content =
 
     let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
         let encoder = Json.ServerSideProvider.GetEncoder<'U>()
-        Content.CustomContentAsync <| fun ctx ->
-            async {
+        Content.CustomContent <| fun ctx ->
+            task {
                 let! x = f ctx
-                return {
+                return ({
                     Status = Http.Status.Ok
                     Headers = [Http.Header.Custom "Content-Type" "application/json"]
                     WriteBody = Http.WriteBody (fun s ->
@@ -483,14 +479,14 @@ module Content =
                         |> encoder.Encode
                         |> WebSharper.Core.Json.Write tw
                     )
-                }
+                } : Http.Response)
             }
 
-    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
-        Content<_>.ToResponse c ctx
+    let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Task<Http.Response> =
+        Content<_>.ToResponse c ctx 
 
-    let FromContext f =
-        Content.CustomContentAsync (fun ctx -> async {
+    let FromContext<'T> (f: Context<'T> -> Async<Content<'T>>) =
+        Content.CustomContent (fun ctx -> task {
             let! content = f ctx
             return! ToResponse content ctx
         })
@@ -498,37 +494,36 @@ module Content =
 
     let ToResponseAsync c ctx = ToResponse c ctx
 
-    let FromAsync ac =
-        CustomContentAsync <| fun ctx -> async {
+    let FromAsync<'T> (ac: Async<Content<'T>>) =
+        CustomContent <| fun ctx -> task {
             let! c = ac
             return! ToResponse c ctx
         }
 
-    let delay1 f =
-        fun arg -> async { return f arg }
+    let FromTask<'T> (ac: Task<Content<'T>>) =
+        CustomContent <| fun ctx -> task {
+            let! c = ac
+            return! ToResponse c ctx
+        }
 
     let MapResponseAsync<'T> (f: Http.Response -> Async<Http.Response>) (content: Async<Content<'T>>) =
-        let genResp content =
-            match content with
-            | CustomContent gen -> delay1 gen
-            | CustomContentAsync x -> x
-        CustomContentAsync <| fun context ->
-            async {
+        CustomContent <| fun context ->
+            task {
                 let! content = content
-                let! result = genResp content context
+                let! result = 
+                    match content with
+                    | CustomContent gen -> gen context
                 return! f result
             }
         |> async.Return
 
     let MapResponse<'T> (f: Http.Response -> Http.Response) (content: Async<Content<'T>>) =
-        let genResp content =
-            match content with
-            | CustomContent gen -> delay1 gen
-            | CustomContentAsync x -> x
-        CustomContentAsync <| fun context ->
-            async {
+        CustomContent <| fun context ->
+            task {
                 let! content = content
-                let! result = genResp content context
+                let! result = 
+                    match content with
+                    | CustomContent gen -> gen context
                 return f result
             }
         |> async.Return
@@ -561,7 +556,7 @@ module Content =
     /// Emits a 301 Moved Permanently response to a given URL.
     let RedirectToUrl<'T> (url: string) : Content<'T> =
         CustomContent <| fun ctx ->
-            {
+            Task.FromResult {
                 Status = Http.Status.Custom 301 (Some "Moved Permanently")
                 Headers = [Http.Header.Custom "Location" url]
                 WriteBody = Http.EmptyBody
@@ -569,7 +564,7 @@ module Content =
 
     /// Emits a 301 Moved Permanently response to a given action.
     let Redirect<'T> (endpoint: 'T) =
-        CustomContentAsync <| fun ctx ->
+        CustomContent <| fun ctx ->
             let resp = RedirectToUrl (ctx.Link endpoint)
             ToResponse resp ctx
 
@@ -579,7 +574,7 @@ module Content =
     /// Emits a 307 Redirect Temporary response to a given url.
     let RedirectTemporaryToUrl<'T> (url: string) : Async<Content<'T>> =
         CustomContent <| fun ctx ->
-            {
+            Task.FromResult {
                 Status = Http.Status.Custom 307 (Some "Temporary Redirect")
                 Headers = [Http.Header.Custom "Location" url]
                 WriteBody = Http.EmptyBody
@@ -588,7 +583,7 @@ module Content =
 
     /// Emits a 307 Redirect Temporary response to a given url.
     let RedirectTemporary<'T> (endpoint: 'T) : Async<Content<'T>> =
-        CustomContentAsync <| fun ctx -> async {
+        CustomContent <| fun ctx -> task {
             let! content = RedirectTemporaryToUrl (ctx.Link endpoint)
             return! ToResponse content ctx
         }
@@ -597,7 +592,7 @@ module Content =
     /// Constructs a status code response.
     let httpStatusContent<'T> status : Async<Content<'T>> =
         CustomContent <| fun ctx ->
-            {
+            Task.FromResult {
                 Status = status
                 Headers = []
                 WriteBody = Http.EmptyBody
@@ -660,19 +655,18 @@ module Content =
         match cors.EndPoint with
         | None ->
             CustomContent <| fun ctx ->
-                {
+                Task.FromResult {
                     Status = Http.Status.Ok
                     Headers = headers ctx
                     WriteBody = Http.EmptyBody
                 }
             |> async.Return
         | Some ep ->
-            CustomContentAsync <| fun ctx -> async {
+            CustomContent <| fun ctx -> task {
                 let! content = content ep
                 let! resp =
                     match content with
-                    | CustomContent f -> async.Return (f ctx)
-                    | CustomContentAsync f -> f ctx
+                    | CustomContent f -> f ctx
                 return { resp with Headers = Seq.append (headers ctx) resp.Headers }
             }
             |> async.Return
@@ -706,7 +700,7 @@ module M = WebSharper.Core.Metadata
 type Content<'Endpoint> with
 
     static member Custom (response: Http.Response) : Async<Content<'Endpoint>> =
-        Content.CustomContent <| fun _ -> response
+        Content.CustomContent <| fun _ -> Task.FromResult response
         |> async.Return
 
     static member Custom (?Status: Http.Status, ?Headers: seq<Http.Header>, ?WriteBody: System.IO.Stream -> unit) : Async<Content<'Endpoint>> =
@@ -749,7 +743,7 @@ type Content<'Endpoint> with
             | None -> page 
             | Some b -> 
                 { page with Body = Seq.append (Seq.singleton (Web.BundleNode(b) :> Web.INode)) page.Body }
-        Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return pageWithBundle }))
+        Content.CustomContent (Content.toCustomContentAsync (fun _ -> async { return pageWithBundle }))
         |> async.Return
 
     static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Endpoint>> =
@@ -776,7 +770,7 @@ type Content<'Endpoint> with
                     Path.Combine(rootFolder, path)
             let fi = System.IO.FileInfo(path)
             if fi.FullName.StartsWith rootFolder || allowOutsideRootFolder then
-                {
+                Task.FromResult ({
                     Status = Http.Status.Ok
                     Headers = [if ContentType.IsSome then yield Http.Header.Custom "Content-Type" ContentType.Value]
                     WriteBody = Http.WriteBodyAsync(fun out ->
@@ -785,7 +779,7 @@ type Content<'Endpoint> with
                             do! inp.CopyToAsync(out, 16 * 1024)
                         }
                     )
-                }
+                } : Http.Response)
             else
                 failwith "Cannot serve file from outside the application's root folder"
         |> async.Return
@@ -803,7 +797,7 @@ type Content<'Endpoint> with
             let bundleName = Path.GetFileNameWithoutExtension(path)
             let fi = System.IO.FileInfo(path)
             if fi.FullName.StartsWith rootFolder then
-                {
+                Task.FromResult ({
                     Status = Http.Status.Ok
                     Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
                     WriteBody = Http.WriteBodyAsync(fun out ->
@@ -857,7 +851,7 @@ type Content<'Endpoint> with
                             do! w.FlushAsync()
                         }
                     )
-                }
+                } : Http.Response)
             else
                 failwith "Cannot serve file from outside the application's root folder"
         |> async.Return
@@ -984,13 +978,11 @@ type CSharpContent =
     [<Extension>]
     static member ToResponse (content: CSharpContent, context: Context) =
         Content.ToResponse content.AsContent context
-        |> Async.StartAsTask
 
     static member FromTask (content: Task<CSharpContent>) =
         content
         |> CSharpContent.TaskAsContent
-        |> Async.AwaitTask
-        |> Content.FromAsync
+        |> Content.FromTask
         |> CSharpContent
 
     [<Extension>]
