@@ -744,8 +744,8 @@ let SplitAt (n: int) (ar: 'T []) =
 
 [<Name "insertAt">]
 let InsertAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
+    if index >= 0 && arr.Length >= index then
+        if index = arr.Length then
             Array.append arr [|item|]
         else
             if index = 0 then
@@ -753,12 +753,12 @@ let InsertAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
             else
                 Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "insertManyAt">]
 let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T []): 'T [] =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
+    if index >= 0 && arr.Length >= index then
+        if index = arr.Length then
             Array.append arr (items |> Array.ofSeq)
         else
             if index = 0 then
@@ -766,7 +766,7 @@ let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>
             else
                 Array.append (Array.append arr.[0..index-1] (items |> Array.ofSeq)) arr.[index..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeAt">]
 let RemoveAt (index: int) (arr: 'T []): 'T [] =
@@ -779,11 +779,11 @@ let RemoveAt (index: int) (arr: 'T []): 'T [] =
             else
                 Array.append arr.[0..index-1] arr.[index+1..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeManyAt">]
 let RemoveManyAt (index: int) (number: int) (arr: 'T []): 'T [] =
-    if index + number >= 0 && arr.Length > index + number then
+    if index >= 0 && arr.Length > index + number then
         if index + number = arr.Length then
             arr.[0..index-1]
         else
@@ -792,7 +792,7 @@ let RemoveManyAt (index: int) (number: int) (arr: 'T []): 'T [] =
             else
                 Array.append arr.[0..index-1] arr.[index+number..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "updateAt">]
 let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
@@ -805,7 +805,7 @@ let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
             else
                 Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index+1..]
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Inline>]
 let RandomChoice (source: 'T[]) : 'T = 

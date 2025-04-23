@@ -726,28 +726,39 @@ let Tests =
         }
 
         Test "List.insertAt" {
-            raises ([ 0 ] |> List.insertAt 2 5)
+            raises ([ 0 .. 4 ] |> List.insertAt -1 5)
+            equal ([ 0 .. 4 ] |> List.insertAt 0 5) [5; 0; 1; 2; 3; 4]
             equal ([ 0 .. 4 ] |> List.insertAt 2 5) [0; 1; 5; 2; 3; 4]
+            equal ([ 0 .. 4 ] |> List.insertAt 4 5) [0; 1; 2; 3; 5; 4]
+            equal ([ 0 .. 4 ] |> List.insertAt 5 5) [0; 1; 2; 3; 4; 5]
+            raises ([ 0 .. 4 ] |> List.insertAt 6 5)
         }
 
         Test "List.removeAt" {
-            raises ([ 0 ] |> List.removeAt 2)
+            raises ([ 0 .. 4 ] |> List.removeAt -1)
             equal ([ 0 .. 4 ] |> List.removeAt 2) [0; 1; 3; 4]
+            raises ([ 0 .. 4 ] |> List.removeAt 5)
         }
 
         Test "List.updateAt" {
-            raises ([ 0 ] |> List.updateAt 2 5)
+            raises ([ 0 .. 4 ] |> List.updateAt -1 5)
             equal ([ 0 .. 4 ] |> List.updateAt 2 5) [0; 1; 5; 3; 4]
+            raises ([ 0 .. 4 ] |> List.updateAt 5 5)
         }
 
         Test "List.insertManyAt" {
-            raises ([ 0 ] |> List.insertManyAt 2 [5; 6])
+            raises ([ 0 .. 4 ] |> List.insertManyAt -1 [5; 6])
+            equal ([ 0 .. 4 ] |> List.insertManyAt 0 [5; 6]) [5; 6; 0; 1; 2; 3; 4]
             equal ([ 0 .. 4 ] |> List.insertManyAt 2 [5; 6]) [0; 1; 5; 6; 2; 3; 4]
+            equal ([ 0 .. 4 ] |> List.insertManyAt 4 [5; 6]) [0; 1; 2; 3; 5; 6; 4]
+            equal ([ 0 .. 4 ] |> List.insertManyAt 5 [5; 6]) [0; 1; 2; 3; 4; 5; 6]
+            raises ([ 0 .. 4 ] |> List.insertManyAt 6 [5; 6])
         }
 
         Test "List.removeManyAt" {
-            raises ([ 0 ] |> List.removeManyAt 2 2)
+            raises ([ 0 .. 4 ] |> List.removeManyAt -1 2)
             equal ([ 0 .. 4 ] |> List.removeManyAt 2 2) [0; 1; 4]
+            raises ([ 0 .. 4 ] |> List.removeManyAt 4 2)
         }
 
         Test "Random functions" {

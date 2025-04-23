@@ -808,28 +808,45 @@ let Tests =
         }
     
         Test "Seq.insertAt" {
-            raises ([| 0 |] |> Seq.insertAt 2 5)
+            raises ([| 0 .. 4 |] |> Seq.insertAt -1 5)
+            equal ([| 0 .. 4 |] |> Seq.insertAt 0 5 |> Array.ofSeq) [|5; 0; 1; 2; 3; 4|]
             equal ([| 0 .. 4 |] |> Seq.insertAt 2 5 |> Array.ofSeq) [|0; 1; 5; 2; 3; 4|]
+            equal ([| 0 .. 4 |] |> Seq.insertAt 4 5 |> Array.ofSeq) [|0; 1; 2; 3; 5; 4|]
+            equal ([| 0 .. 4 |] |> Seq.insertAt 5 5 |> Array.ofSeq) [|0; 1; 2; 3; 4; 5|]
+            equal ([| 0 .. 4 |] |> Seq.insertAt 6 5 |> Seq.take 5 |> Array.ofSeq) [|0; 1; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Seq.insertAt 6 5 |> Array.ofSeq)
         }
 
         Test "Seq.removeAt" {
-            raises ([| 0 |] |> Seq.removeAt 2)
+            raises ([| 0 .. 4 |] |> Seq.removeAt -1)
             equal ([| 0 .. 4 |] |> Seq.removeAt 2 |> Array.ofSeq) [|0; 1; 3; 4|]
+            equal ([| 0 .. 4 |] |> Seq.removeAt 5 |> Seq.take 5 |> Array.ofSeq) [|0; 1; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Seq.removeAt 5 |> Array.ofSeq)
         }
 
         Test "Seq.updateAt" {
-            raises ([| 0 |] |> Seq.updateAt 2 5)
+            raises ([| 0 .. 4 |] |> Seq.updateAt -1 5)
             equal ([| 0 .. 4 |] |> Seq.updateAt 2 5 |> Array.ofSeq) [|0; 1; 5; 3; 4|]
+            equal ([| 0 .. 4 |] |> Seq.updateAt 6 5 |> Seq.take 5 |> Array.ofSeq) [|0; 1; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Seq.updateAt 6 5 |> Array.ofSeq)
         }
 
         Test "Seq.insertManyAt" {
-            raises ([| 0 |] |> Seq.insertManyAt 2 [|5; 6|])
+            raises ([| 0 .. 4 |] |> Seq.insertManyAt -1 [|5; 6|])
+            equal ([| 0 .. 4 |] |> Seq.insertManyAt 0 [|5; 6|] |> Array.ofSeq) [|5; 6; 0; 1; 2; 3; 4|]
             equal ([| 0 .. 4 |] |> Seq.insertManyAt 2 [|5; 6|] |> Array.ofSeq) [|0; 1; 5; 6; 2; 3; 4|]
+            equal ([| 0 .. 4 |] |> Seq.insertManyAt 4 [|5; 6|] |> Array.ofSeq) [|0; 1; 2; 3; 5; 6; 4|]
+            equal ([| 0 .. 4 |] |> Seq.insertManyAt 5 [|5; 6|] |> Array.ofSeq) [|0; 1; 2; 3; 4; 5; 6|]
+            equal ([| 0 .. 4 |] |> Seq.insertManyAt 6 [|5; 6|] |> Seq.take 5 |> Array.ofSeq) [|0; 1; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Seq.insertManyAt 6 [|5; 6|] |> Array.ofSeq)
         }
 
         Test "Seq.removeManyAt" {
-            raises ([| 0 |] |> Seq.removeManyAt 2 2)
+            raises ([| 0 .. 4 |] |> Seq.removeManyAt -1 2)
             equal ([| 0 .. 4 |] |> Seq.removeManyAt 2 2 |> Array.ofSeq) [|0; 1; 4|]
+            equal ([| 0 .. 4 |] |> Seq.removeManyAt 4 2 |> Array.ofSeq) [|0; 1; 2; 3|]
+            equal ([| 0 .. 4 |] |> Seq.removeManyAt 5 2 |> Seq.take 5 |> Array.ofSeq) [|0; 1; 2; 3; 4|]
+            raises ([| 0 .. 4 |] |> Seq.removeManyAt 5 2 |> Array.ofSeq)
         }
 
         Test "Try-with within seq" {

@@ -875,21 +875,50 @@ let Where (predicate : 'T -> bool) (s : seq<'T>) : seq<'T> =
 
 [<Name "insertAt">]
 let InsertAt (index: int) (item: 'T) (arr: 'T seq): 'T seq =
-    if index >= 0 && Seq.length arr > index then
-        if index + 1 = Seq.length arr then
-            Seq.append arr [item]
+    if index >= 0 then
+        if index = 0 then
+            Seq.append [item] arr
         else
-            if index = 0 then
-                Seq.append [item] arr
-            else
-                Enumerable.Of <| fun () ->
-                    let en = Enumerator.Get arr
-                    let mutable ind = 0
-                    Enumerator.NewDisposing () (fun _ -> en.Dispose())
-                        (fun e ->
-                            if ind = index then
-                                e.Current <- item
+            Enumerable.Of <| fun () ->
+                let en = Enumerator.Get arr
+                let mutable ind = 0
+                Enumerator.NewDisposing () (fun _ -> en.Dispose())
+                    (fun e ->
+                        if ind = index then
+                            e.Current <- item
+                            ind <- ind + 1
+                            true
+                        else
+                            if en.MoveNext() then
+                                e.Current <- en.Current
                                 ind <- ind + 1
+                                true
+                            else
+                                if ind < index then
+                                    OutOfBounds()
+                                else 
+                                    false
+                    )
+    else
+        OutOfBounds()
+
+[<Name "insertManyAt">]
+let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T seq): 'T seq =
+    if index >= 0 then
+        if index = 0 then
+            Seq.append items arr
+        else
+            Enumerable.Of <| fun () ->
+                let en = Enumerator.Get arr
+                let mutable newItems = null       
+                let mutable ind = 0
+                Enumerator.NewDisposing () (fun _ -> en.Dispose(); safeDispose newItems)
+                    (fun e ->
+                        if ind = index then
+                            if isNull newItems then
+                                newItems <- Enumerator.Get items   
+                            if newItems.MoveNext() then
+                                e.Current <- newItems.Current
                                 true
                             else
                                 ind <- ind + 1
@@ -898,148 +927,130 @@ let InsertAt (index: int) (item: 'T) (arr: 'T seq): 'T seq =
                                     true
                                 else
                                     false
-                        )
-    else
-        failwith "Incorrect index"
-
-[<Name "insertManyAt">]
-let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T seq): 'T seq =
-    if index >= 0 && Seq.length arr > index then
-        if index + 1 = Seq.length arr then
-            Seq.append arr items
-        else
-            if index = 0 then
-                Seq.append items arr
-            else
-                Enumerable.Of <| fun () ->
-                    let en = Enumerator.Get arr
-                    let newItems = Enumerator.Get items                        
-                    let mutable ind = 0
-                    Enumerator.NewDisposing () (fun _ -> en.Dispose(); newItems.Dispose())
-                        (fun e ->
-                            if ind = index then
-                                if newItems.MoveNext() then
-                                    e.Current <- newItems.Current
-                                    true
-                                else
-                                    ind <- ind + 1
-                                    if en.MoveNext() then
-                                        e.Current <- en.Current
-                                        true
-                                    else
-                                        false
-                            else
+                        else
+                            if en.MoveNext() then
+                                e.Current <- en.Current
                                 ind <- ind + 1
-                                if en.MoveNext() then
-                                    e.Current <- en.Current
-                                    true
-                                else
+                                true
+                            else
+                                if ind < index then
+                                    OutOfBounds()
+                                else 
                                     false
-                        )
+                    )
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeAt">]
 let RemoveAt (index: int) (arr: 'T seq): 'T seq =
-    if index >= 0 && Seq.length arr > index then
-        if index + 1 = Seq.length arr then
-            Seq.take (index) arr
+    if index >= 0 then
+        if index = 0 then
+            Seq.tail arr
         else
-            if index = 0 then
-                Seq.tail arr
-            else
-                Enumerable.Of <| fun () ->
-                    let en = Enumerator.Get arr                     
-                    let mutable ind = 0
-                    Enumerator.NewDisposing () (fun _ -> en.Dispose())
-                        (fun e ->
-                            if ind = index then
-                                ind <- ind + 1
-                                if en.MoveNext() then
-                                    if en.MoveNext() then
-                                        e.Current <- en.Current
-                                        true
-                                    else
-                                        false
-                                else
-                                    false
-                            else
-                                ind <- ind + 1
+            Enumerable.Of <| fun () ->
+                let en = Enumerator.Get arr                     
+                let mutable ind = 0
+                Enumerator.NewDisposing () (fun _ -> en.Dispose())
+                    (fun e ->
+                        if ind = index then
+                            if en.MoveNext() then
                                 if en.MoveNext() then
                                     e.Current <- en.Current
+                                    ind <- ind + 2
                                     true
                                 else
                                     false
-                        )
+                            else
+                                OutOfBounds()
+                        else
+                            if en.MoveNext() then
+                                e.Current <- en.Current
+                                ind <- ind + 1
+                                true
+                            else
+                                if ind < index then
+                                    OutOfBounds()
+                                else 
+                                    false
+                    )
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "removeManyAt">]
 let RemoveManyAt (index: int) (number: int) (arr: 'T seq): 'T seq =
-    if index + number >= 0 && Seq.length arr > index + number then
-        if index + number = Seq.length arr then
-            Seq.take (index) arr
+    if index >= 0 then
+        if index = 0 then
+            Seq.skip number arr
         else
-            if index = 0 then
-                Seq.skip number arr
-            else
-                Enumerable.Of <| fun () ->
-                    let en = Enumerator.Get arr                     
-                    let mutable ind = 0
-                    let mutable current = number
-                    Enumerator.NewDisposing () (fun _ -> en.Dispose())
-                        (fun e ->
-                            if ind = index then
-                                while current > 0 && en.MoveNext() do
+            Enumerable.Of <| fun () ->
+                let en = Enumerator.Get arr                     
+                let mutable ind = 0
+                Enumerator.NewDisposing () (fun _ -> en.Dispose())
+                    (fun e ->
+                        if ind = index then
+                            if en.MoveNext() then
+                                let mutable current = number
+                                while current > 0 && (
+                                    if en.MoveNext() then 
+                                        true
+                                    else
+                                        current <- -1
+                                        false
+                                ) do
                                     current <- current - 1
-                                ind <- ind + 1
-                                if en.MoveNext() then
+                                if current = 0 then
                                     e.Current <- en.Current
+                                    ind <- ind + number + 1
                                     true
                                 else
                                     false
                             else
+                                OutOfBounds()
+                        else
+                            if en.MoveNext() then
+                                e.Current <- en.Current
                                 ind <- ind + 1
-                                if en.MoveNext() then
-                                    e.Current <- en.Current
-                                    true
-                                else
+                                true
+                            else
+                                if ind < index then
+                                    OutOfBounds()
+                                else 
                                     false
-                        )
+                    )
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Name "updateAt">]
 let UpdateAt (index: int) (item: 'T) (arr: 'T seq): 'T seq =
-    if index >= 0 && Seq.length arr > index then
-        if index + 1 = Seq.length arr then
-            Seq.append (Seq.take index arr) [item]
+    if index >= 0 then
+        if index = 0 then
+            Seq.append [item] (Seq.tail arr)
         else
-            if index = 0 then
-                Seq.append [item] (Seq.tail arr)
-            else
-                Enumerable.Of <| fun () ->
-                    let en = Enumerator.Get arr
-                    let mutable ind = 0
-                    Enumerator.NewDisposing () (fun _ -> en.Dispose())
-                        (fun e ->
-                            if ind = index then
-                                if en.MoveNext() then
-                                    e.Current <- item
-                                    ind <- ind + 1
-                                    true
-                                else
-                                    false
-                            else
+            Enumerable.Of <| fun () ->
+                let en = Enumerator.Get arr
+                let mutable ind = 0
+                Enumerator.NewDisposing () (fun _ -> en.Dispose())
+                    (fun e ->
+                        if ind = index then
+                            if en.MoveNext() then
+                                e.Current <- item
                                 ind <- ind + 1
-                                if en.MoveNext() then
-                                    e.Current <- en.Current
-                                    true
-                                else
+                                true
+                            else
+                                OutOfBounds()
+                        else
+                            if en.MoveNext() then
+                                e.Current <- en.Current
+                                ind <- ind + 1
+                                true
+                            else
+                                if ind < index then
+                                    OutOfBounds()
+                                else 
                                     false
-                        )
+                    )
     else
-        failwith "Incorrect index"
+        OutOfBounds()
 
 [<Inline>]
 let RandomChoice (source: 'T seq) : 'T = 
