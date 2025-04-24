@@ -222,7 +222,7 @@ let InsufficientElements() =
 
 [<Name "outOfBounds">]
 let OutOfBounds() =
-    failwith "index must be within bounds of the array (Parameter 'index')"
+    invalidArg "index" "index must be within bounds"
 
 [<Name "last">]
 let SeqLast (s: seq<_>) =

@@ -745,65 +745,45 @@ let SplitAt (n: int) (ar: 'T []) =
 [<Name "insertAt">]
 let InsertAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length >= index then
-        if index = arr.Length then
-            Array.append arr [|item|]
-        else
-            if index = 0 then
-                Array.append [|item|] arr
-            else
-                Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index..]
+        let res = Array.copy arr
+        res.JS.Splice(index, 0, item) |> ignore
+        res
     else
         OutOfBounds()
 
 [<Name "insertManyAt">]
 let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length >= index then
-        if index = arr.Length then
-            Array.append arr (items |> Array.ofSeq)
-        else
-            if index = 0 then
-                Array.append (items |> Array.ofSeq) arr
-            else
-                Array.append (Array.append arr.[0..index-1] (items |> Array.ofSeq)) arr.[index..]
+        let res = Array.copy arr
+        res.JS.Splice(index, 0, Array.ofSeq items) |> ignore
+        res
     else
         OutOfBounds()
 
 [<Name "removeAt">]
 let RemoveAt (index: int) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
-            arr.[0..index-1]
-        else
-            if index = 0 then
-                Array.tail arr
-            else
-                Array.append arr.[0..index-1] arr.[index+1..]
+        let res = Array.copy arr
+        res.JS.Splice(index, 1) |> ignore
+        res
     else
         OutOfBounds()
 
 [<Name "removeManyAt">]
 let RemoveManyAt (index: int) (number: int) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length > index + number then
-        if index + number = arr.Length then
-            arr.[0..index-1]
-        else
-            if index = 0 then
-                arr.[number..]
-            else
-                Array.append arr.[0..index-1] arr.[index+number..]
+        let res = Array.copy arr
+        res.JS.Splice(index, number) |> ignore
+        res
     else
         OutOfBounds()
 
 [<Name "updateAt">]
 let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
-            Array.append arr.[0..index-1] [|item|]
-        else
-            if index = 0 then
-                Array.append [|item|] (Array.tail arr)
-            else
-                Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index+1..]
+        let res = Array.copy arr
+        arr[index] <- item
+        res
     else
         OutOfBounds()
 
