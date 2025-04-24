@@ -222,7 +222,7 @@ let InsufficientElements() =
 
 [<Name "WebSharper.Seq.outOfBounds">]
 let OutOfBounds() =
-    failwith "index must be within bounds of the array (Parameter 'index')"
+    invalidArg "index" "index must be within bounds"
 
 [<Name "WebSharper.Seq.last">]
 let SeqLast (s: seq<_>) =

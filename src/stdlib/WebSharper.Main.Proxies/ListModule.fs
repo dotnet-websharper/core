@@ -794,66 +794,128 @@ let SplitAt (n: int) (list: 'T list) =
     (Take n list, Skip n list)
 
 [<Name "insertAt">]
-let InsertAt (index: int) (item: 'T) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length >= index then
-        if index = arr.Length then
-            List.append arr [item]
-        else
-            if index = 0 then
-                List.append [item] arr
-            else
-                List.append (List.append arr.[0..index-1] [item]) arr.[index..]
+let InsertAt (index: int) (item: 'T) (l: 'T list): 'T list =
+    if index >= 0 then
+        let mutable l = l
+        let res = freshEmptyList()
+        let mutable r = res
+        let mutable i = 0
+        while i < index do
+            match l with
+            | [] -> OutOfBounds()
+            | lh :: lt ->
+                setValue r lh
+                r <- freshTail r
+                l <- lt
+                i <- i + 1
+        setValue r item
+        setTail r l
+        res
     else
         OutOfBounds()
 
 [<Name "insertManyAt">]
-let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length >= index then
-        if index = arr.Length then
-            List.append arr (items |> List.ofSeq)
+let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (l: 'T list): 'T list =
+    if index >= 0 then
+        let mutable l = l
+        let res = freshEmptyList()
+        let mutable r = res
+        let mutable lr = Unchecked.defaultof<_>
+        let mutable i = 0
+        let mutable empty = true
+        while i < index do
+            match l with
+            | [] -> OutOfBounds()
+            | lh :: lt ->
+                empty <- false
+                setValue r lh
+                lr <- r
+                r <- freshTail r
+                l <- lt
+                i <- i + 1
+        for item in items do
+            empty <- false
+            setValue r item
+            lr <- r
+            r <- freshTail r
+        if empty then 
+           l
         else
-            if index = 0 then
-                List.append (items |> List.ofSeq) arr
-            else
-                List.append (List.append arr.[0..index-1] (items |> List.ofSeq)) arr.[index..]
+            setTail lr l
+            res
     else
         OutOfBounds()
 
 [<Name "removeAt">]
-let RemoveAt (index: int) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
-            arr.[0..index-1]
+let RemoveAt (index: int) (l: 'T list): 'T list =
+    if index >= 0 then
+        if index = 0 then
+            List.tail l
         else
-            if index = 0 then
-                List.tail arr
-            else
-                List.append arr.[0..index-1] arr.[index+1..]
+            let mutable l = l
+            let res = freshEmptyList()
+            let mutable r = res
+            let mutable lr = Unchecked.defaultof<_>
+            let mutable i = 0
+            while i < index do
+                match l with
+                | [] -> OutOfBounds()
+                | lh :: lt ->
+                    setValue r lh
+                    lr <- r
+                    r <- freshTail r
+                    l <- lt
+                    i <- i + 1
+            setTail lr (List.tail l)
+            res
     else
         OutOfBounds()
 
 [<Name "removeManyAt">]
-let RemoveManyAt (index: int) (number: int) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length > index + number then
-        if index + number = arr.Length then
-            arr.[0..index-1]
+let RemoveManyAt (index: int) (number: int) (l: 'T list): 'T list =
+    if index >= 0 then
+        if index = 0 then
+            List.skip number l
         else
-            if index = 0 then
-                arr.[number..]
-            else
-                List.append arr.[0..index-1] arr.[index+number..]
+            let mutable l = l
+            let res = freshEmptyList()
+            let mutable r = res
+            let mutable lr = Unchecked.defaultof<_>
+            let mutable i = 0
+            while i < index do
+                match l with
+                | [] -> OutOfBounds()
+                | lh :: lt ->
+                    setValue r lh
+                    lr <- r
+                    r <- freshTail r
+                    l <- lt
+                    i <- i + 1
+            setTail lr (List.skip number l)
+            res
     else
         OutOfBounds()
 
 [<Name "updateAt">]
-let UpdateAt (index: int) (item: 'T) (arr: 'T list): 'T list =
-    if index >= 0 && arr.Length > index then
-        if index + 1 = arr.Length then
-            List.append arr.[0..index-1] [item]
-        else
-            if index = 0 then
-                List.append [item] (List.tail arr)
-            else
-                List.append (List.append arr.[0..index-1] [item]) arr.[index+1..]
+let UpdateAt (index: int) (item: 'T) (l: 'T list): 'T list =
+    if index >= 0 then
+        let mutable l = l
+        let res = freshEmptyList()
+        let mutable r = res
+        let mutable i = 0
+        while i < index do
+            match l with
+            | [] -> OutOfBounds()
+            | lh :: lt ->
+                setValue r lh
+                r <- freshTail r
+                l <- lt
+                i <- i + 1
+        match l with 
+        | [] -> OutOfBounds()
+        | _ :: lt ->
+            setValue r item
+            setTail r lt
+        res
     else
         OutOfBounds()
