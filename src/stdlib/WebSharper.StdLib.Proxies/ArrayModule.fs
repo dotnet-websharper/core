@@ -782,7 +782,7 @@ let RemoveManyAt (index: int) (number: int) (arr: 'T []): 'T [] =
 let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
     if index >= 0 && arr.Length > index then
         let res = Array.copy arr
-        arr[index] <- item
+        res[index] <- item
         res
     else
         OutOfBounds()
