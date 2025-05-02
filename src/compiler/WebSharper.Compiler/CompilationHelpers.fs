@@ -1080,7 +1080,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                     match meta.Interfaces.TryGetValue(i) with
                     | true, ii ->
                         let jsName, _, _ = ii.Methods[m]
-                        match icls.Methods |> Seq.tryFind (fun cm -> cm.Value.CompiledForm = Instance (jsName, MemberKind.Simple, Modifier.None)) with
+                        match icls.Methods |> Seq.tryFind (fun cm -> match cm.Value.CompiledForm with Instance (n, MemberKind.Simple, _) when n = jsName -> true | _ -> false) with
                         | Some mImpl ->
                             mImpl.Key |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation based on JS name" td
                         | _ ->

@@ -97,6 +97,37 @@ let getCompactName (env: Environment) =
         env.CompactVars <- env.CompactVars + 1   
     name
 
+let rec registerTSType (env: Environment) (tt: TSType) =
+    match tt with
+    | TSType.Named (n :: _) -> 
+        if StandardLibNames.Set.Contains n then
+            env.ScopeNames <- env.ScopeNames |> Set.add n
+    | TSType.Generic (t, g) -> 
+        registerTSType env t
+        g |> List.iter (registerTSType env)
+    | TSType.Function (this, args, rest, ret) -> 
+        this |> Option.iter (registerTSType env)
+        args |> List.iter (fun (t, _) -> registerTSType env t)
+        rest |> Option.iter (registerTSType env)
+        registerTSType env ret
+    | TSType.New (args, ret) -> 
+        args |> List.iter (registerTSType env)
+        registerTSType env ret 
+    | TSType.Tuple ts 
+    | TSType.Union ts
+    | TSType.Intersection ts -> 
+        ts |> List.iter (registerTSType env)
+    | TSType.Constraint (t, ts) -> 
+        registerTSType env t
+        ts |> List.iter (registerTSType env)
+    | TSType.TypeGuard (_, t) -> 
+        registerTSType env t
+    | TSType.ObjectOf t ->
+        registerTSType env t
+    | TSType.TypeLiteral mems ->
+        mems |> List.iter (fun (_, _, t) -> registerTSType env t)
+    | _ -> ()
+
 let defineId (env: Environment) (id: Id) =
     let name =
         if id.HasStrongName then
@@ -119,6 +150,10 @@ let defineId (env: Environment) (id: Id) =
                 env.ScopeIds <- env.ScopeIds |> Map.add id name
                 //if addToDecl then env.ScopeVars.Add(name)
                 name
+    if env.Output <> O.JavaScript then
+        match id.TSType with
+        | Some tt -> registerTSType env tt
+        | _ -> ()
     J.Id.New(name, rest = id.IsRest)
 
 let defineImportedId (env: Environment) (id: Id) =
@@ -136,20 +171,26 @@ let invalidForm c =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _, gs) =
         defineId env f |> ignore    
+        gs |> List.iter (registerTSType env)
 
     override this.VisitVarDeclaration(v, _) =
         defineId env v |> ignore
 
-    override this.VisitInterface(i, _, _, _) =
+    override this.VisitInterface(i, _, _, gs) =
         defineId env i |> ignore
+        gs |> List.iter (registerTSType env)
 
-    override this.VisitClass(c, _, _, _, _, _) =
+    override this.VisitClass(c, _, _, _, gs, bgs) =
         defineId env c |> ignore
+        gs |> List.iter (registerTSType env)
+        bgs |> List.iter (registerTSType env)
 
-    override this.VisitAlias(a, _, _) =
+    override this.VisitAlias(a, gs, o) =
         defineId env a |> ignore
+        gs |> List.iter (registerTSType env)
+        registerTSType env o
 
     override this.VisitExportDecl(_, s) =
         match s with 
