@@ -481,6 +481,7 @@ let varEvalOrder (vars : Id list) expr =
             | Import _
             | Interface _
             | XmlComment _
+            | FuncSignature _
             | LazyClass _
                 -> fail()      
                

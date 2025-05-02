@@ -74,6 +74,8 @@ type private ListProxy<'T> =
             As List.empty
 
 [<Proxy "System.ReadOnlySpan`1, netstandard">]
+[<Prototype(false)>]
+[<Type("$0[]")>]
 type private ReadOnlySpanProxy<'T> = class end
 
 [<Proxy "Microsoft.FSharp.Collections.FSharpList, FSharp.Core">]

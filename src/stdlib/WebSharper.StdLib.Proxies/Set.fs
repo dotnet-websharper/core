@@ -114,9 +114,6 @@ type private FSharpSet<'T when 'T : comparison>
             member this.CopyTo(arr: 'T[], index: int) =
                 (Seq.toArray this).CopyTo(arr, index)
             member this.Remove(p) = failwith "Set values cannot be mutated."
-
-[<Proxy "System.ReadOnlySpan`1, netstandard">]
-type private ReadOnlySpanProxy<'T> = class end
         
 [<Proxy "Microsoft.FSharp.Collections.FSharpSet, FSharp.Core">]
 type private SetProxy =

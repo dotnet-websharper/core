@@ -43,7 +43,7 @@ module internal BigIntProxyHelpers =
         |> fun x -> "0b" + x
 
 [<Proxy(typeof<System.Numerics.BigInteger>)>]
-[<Type "BigInt">]
+[<Type "bigint">]
 [<Prototype(false)>]
 type private BigIntegerProxy =     
 

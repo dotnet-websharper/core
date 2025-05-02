@@ -132,6 +132,7 @@ type private AsyncProxy =
         As (C.TryCancelled(As p, f))
 
 [<Proxy(typeof<Async<_>>)>]
+[<Type "(a: $wstype(../WebSharper.StdLib/WebSharper.Concurrency.AsyncBody`1)) => void">]
 type private Async1Proxy<'T> =
     class end
 

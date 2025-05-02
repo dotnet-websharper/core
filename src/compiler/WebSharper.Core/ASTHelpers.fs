@@ -498,6 +498,9 @@ module TSType =
         | "()=>$0" -> Lambda ([], TSType.Param 0)
         | "$0[]" -> ArrayOf (TSType.Param 0) 
         | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
+        | "{d: number, o: number}" -> TSType.TypeLiteral [ "d", MemberKind.Simple, Number; "o", MemberKind.Simple, Number ]
         | "{c: boolean, r: (() => void)[]}" -> TSType.TypeLiteral [ "c", MemberKind.Simple, TSType.Named [ "boolean" ]; "r", MemberKind.Simple, TSType.Named [ "(() => void)[]" ] ]
+        | "(a: $wstype(../WebSharper.StdLib/WebSharper.Concurrency.AsyncBody`1)) => void" -> 
+            Lambda([TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.Concurrency.AsyncBody`1" })], Void)            
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))

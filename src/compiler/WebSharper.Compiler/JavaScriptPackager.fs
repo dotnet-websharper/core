@@ -749,6 +749,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     tsTypeOf [||] m.Value.ReturnType
             let mgen = getGenerics cgenl gc
             
+            let isTakingSingleGenericArg =
+                match m.Value.Parameters with
+                | [Type.TypeParameter _ | Type.StaticTypeParameter _ | Type.LocalTypeParameter _] -> true
+                | _ -> false
+
+            let transformSingleGenericArg (t: TSType) =
+                match t with
+                | TSType.Function(this, _, rest, ret) ->
+                    TSType.Function(this, [ TSType.Void, true ], rest, ret)  
+                | _ -> t
+
             let func fromInst addr =
                 let f = 
                     match getOrImportAddress false addr with
@@ -771,6 +782,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        let optVoid = [ Id.New(?name = args[0].Name, opt = true, typ = Type.TSType TSType.Void) ]
+                        addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                            (FuncSignature(f, optVoid, thisVar, cgen @ mgen))
                     addStatement <| exportWithBundleSupport false typ (Some m) addr f 
                         (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
@@ -789,6 +804,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature false |> transformSingleGenericArg |> addGenerics mgen)
                     members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics mgen)
                 | _ -> ()       
             | M.Static (mname, fromInst, mkind) ->
@@ -800,6 +817,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature fromInst |> transformSingleGenericArg |> addGenerics (cgen @ mgen))
                     members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature fromInst |> addGenerics (cgen @ mgen))
                 | _ ->
                     let info = 
@@ -1468,7 +1487,18 @@ let analyzeLazyClasses (pkgs: ResizeArray<string * TypeDefinition * PackageTypeR
         let i = (pkgsToProcess |> Seq.head)
         processPkg i
 
-
+let jsInteropClasses =
+    let coreTyp t =
+        TypeDefinition{
+            Assembly = "WebSharper.Core"
+            FullName = t
+        }
+    [
+        yield coreTyp "WebSharper.JavaScript.Optional`1"
+        yield coreTyp "WebSharper.JavaScript.ItemOrArray`1"
+        for i = 1 to 7 do
+            yield coreTyp ("WebSharper.JavaScript.Union`" + string i)
+    ]
 
 let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let pkgs = ResizeArray()
@@ -1477,6 +1507,8 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         let pkg = packageType output refMeta current asmName (SingleType typ)
         if not (List.isEmpty pkg.Statements) then
             pkgs.Add(makeFileName typ, typ, pkg)
+    for typ in jsInteropClasses do
+        classes.Remove(typ) |> ignore
     for typ in current.Interfaces.Keys do
         classes.Remove(typ) |> ignore
         pkgTyp typ

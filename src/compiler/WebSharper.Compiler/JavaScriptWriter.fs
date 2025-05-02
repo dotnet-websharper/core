@@ -507,6 +507,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | J.Return None -> []
             | b -> [ b ]
         J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
+    | FuncSignature (x, ids, t, g) ->
+        let jsgen = g |> transformGenerics env
+        let innerEnv = env.NewInner()
+        let args = ids |> List.map (defineIdTyped innerEnv)
+        let id = transformIdTyped innerEnv x
+        let id = id.WithGenerics(jsgen)
+        J.Function(id, args, None)
     | While(a, b) -> 
         J.While (trE a, trS b)
     | DoWhile(a, b) ->
@@ -576,13 +583,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Class (n, b, i, m, g) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
-        let isAbstract =
-            if env.Output = O.TypeScriptDeclaration then false else
-            m |> List.exists (function
-                | ClassMethod (_, _, _, _, None, _) -> true
-                | _ -> false
-            )
-        J.Class(jn, isAbstract, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
+        //let isAbstract =
+        //    if env.Output = O.TypeScriptDeclaration then false else
+        //    m |> List.exists (function
+        //        | ClassMethod (_, _, _, _, None, _) -> true
+        //        | _ -> false
+        //    )
+        J.Class(jn, false, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         J.Interface(jn, List.map trT e, List.map (transformMember env) m)

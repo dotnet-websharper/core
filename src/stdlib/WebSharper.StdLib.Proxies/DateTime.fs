@@ -276,6 +276,7 @@ type private DateTimeProxy =
 [<Proxy(typeof<System.DateTimeOffset>)>]
 [<Prototype false>]
 [<Name "DateTimeOffset">]
+[<Type "{d: number, o: number}">]
 // "d" contains UTC epoch time
 // "o" contains time zone offset in minutes
 type private DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: D, o: int) =

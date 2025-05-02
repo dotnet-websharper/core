@@ -1,19 +1,9 @@
-
 export function Create(ctor, copyFrom) {
   return Object.assign(Object.create(ctor.prototype), copyFrom);
 }
 
 export function Clone(obj) {
   return Object.assign(Object.create(Object.getPrototypeOf(obj)), obj);
-}
-
-export function Ctor(ctor, typeFunction) {
-  ctor.prototype = typeFunction.prototype;
-  return ctor;
-}
-
-export function Base(obj, base, ...args) {
-  return Object.assign(obj, Reflect.construct(base, args, obj.constructor));
 }
 
 const forceSymbol = Symbol("force")

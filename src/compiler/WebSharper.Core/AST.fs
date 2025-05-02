@@ -345,6 +345,8 @@ and Statement =
     | XmlComment of Xml:string
     /// Temporary - class during packaging that might need Lazy wrapper
     | LazyClass of WithoutLazy:Statement * WithLazy:Statement
+    /// Function signature
+    | FuncSignature of FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType>
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -631,6 +633,9 @@ type Transformer() =
     /// Temporary - class during packaging that might need Lazy wrapper
     abstract TransformLazyClass : WithoutLazy:Statement * WithLazy:Statement -> Statement
     override this.TransformLazyClass (a, b) = LazyClass (this.TransformStatement a, this.TransformStatement b)
+    /// Function signature
+    abstract TransformFuncSignature : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType> -> Statement
+    override this.TransformFuncSignature (a, b, c, d) = FuncSignature (this.TransformId a, List.map this.TransformId b, Option.map this.TransformId c, d)
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -730,6 +735,7 @@ type Transformer() =
         | Alias (a, b, c) -> this.TransformAlias (a, b, c)
         | XmlComment a -> this.TransformXmlComment a
         | LazyClass (a, b) -> this.TransformLazyClass (a, b)
+        | FuncSignature (a, b, c, d) -> this.TransformFuncSignature (a, b, c, d)
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -1015,6 +1021,9 @@ type Visitor() =
     /// Temporary - class during packaging that might need Lazy wrapper
     abstract VisitLazyClass : WithoutLazy:Statement * WithLazy:Statement -> unit
     override this.VisitLazyClass (a, b) = this.VisitStatement a; this.VisitStatement b
+    /// Function signature
+    abstract VisitFuncSignature : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType> -> unit
+    override this.VisitFuncSignature (a, b, c, d) = this.VisitId a; List.iter this.VisitId b; Option.iter this.VisitId c; ()
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -1114,6 +1123,7 @@ type Visitor() =
         | Alias (a, b, c) -> this.VisitAlias (a, b, c)
         | XmlComment a -> this.VisitXmlComment a
         | LazyClass (a, b) -> this.VisitLazyClass (a, b)
+        | FuncSignature (a, b, c, d) -> this.VisitFuncSignature (a, b, c, d)
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -1219,6 +1229,7 @@ module IgnoreSourcePos =
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
     let (|LazyClass|_|) x = match ignoreStatementSourcePos x with LazyClass (a, b) -> Some (a, b) | _ -> None
+    let (|FuncSignature|_|) x = match ignoreStatementSourcePos x with FuncSignature (a, b, c, d) -> Some (a, b, c, d) | _ -> None
 module Debug =
     let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
     let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
@@ -1319,6 +1330,7 @@ module Debug =
         | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + string c + ")"
         | XmlComment a -> "XmlComment" + "(" + string a + ")"
         | LazyClass (a, b) -> "LazyClass" + "(" + PrintStatement a + ", " + PrintStatement b + ")"
+        | FuncSignature (a, b, c, d) -> "FuncSignature" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + defaultArg (Option.map string c) "_" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ")"
 // }}
 
     let PrintExpressionWithPos x =
@@ -1401,8 +1413,6 @@ module JSRuntime =
     let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
     let Create obj props = runtimeFunc "Create" Pure [obj; props]
-    let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
-    let Base obj baseFunc args = runtimeFunc "Base" NonPure (obj :: baseFunc :: args)
     let Clone obj = runtimeFunc "Clone" Pure [obj]
     let Force obj = runtimeFunc "Force" NonPure [obj]
     let Lazy (factory: (Expression -> Expression) -> Expression) =  

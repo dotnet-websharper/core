@@ -34,6 +34,7 @@
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
+    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
@@ -41,7 +42,7 @@
     </ItemGroup>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
-  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile">
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <ItemGroup Condition="$(CompilerGeneratedFilesOutputPath) != ''">
       <Compile Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />

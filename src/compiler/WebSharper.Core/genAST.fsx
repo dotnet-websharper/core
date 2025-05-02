@@ -299,6 +299,8 @@ let StatementDefs =
         // Packaging
         "LazyClass", [ Statement, "withoutLazy"; Statement, "withLazy" ]
             , "Temporary - class during packaging that might need Lazy wrapper"
+        "FuncSignature", [ Id, "funcId"; List Id, "parameters"; Option Id, "thisVar"; List TSType, "generics" ]
+            , "Function signature"
     ]
 
 let binaryOps =

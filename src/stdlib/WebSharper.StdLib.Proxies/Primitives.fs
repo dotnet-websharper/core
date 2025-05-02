@@ -142,7 +142,7 @@ type internal NUI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
 [<Name "Int64">]
-[<Type "BigInt">]
+[<Type "bigint">]
 type internal NI64 =
 
     static member Parse(s: string) : System.Int64 =
@@ -154,7 +154,7 @@ type internal NI64 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
-[<Type "BigInt">]
+[<Type "bigint">]
 type internal NUI64 =
 
     static member Parse(s: string) : System.UInt64 =
