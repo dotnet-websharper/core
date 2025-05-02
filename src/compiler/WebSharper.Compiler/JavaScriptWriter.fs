@@ -145,7 +145,7 @@ type CollectVariables(env: Environment) =
     override this.VisitInterface(i, _, _, _) =
         defineId env i |> ignore
 
-    override this.VisitClass(c, _, _, _, _) =
+    override this.VisitClass(c, _, _, _, _, _) =
         defineId env c |> ignore
 
     override this.VisitAlias(a, _, _) =
@@ -580,7 +580,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.ForVarIn(defineId env a, None, trE b, trS c)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
-    | Class (n, b, i, m, g) ->
+    | Class (n, b, i, m, g, bg) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
         //let isAbstract =
@@ -589,7 +589,12 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         //        | ClassMethod (_, _, _, _, None, _) -> true
         //        | _ -> false
         //    )
-        J.Class(jn, false, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
+        let trB =
+            match b with
+            | Some b -> 
+                Some (trE b, transformGenerics env bg)
+            | None -> None
+        J.Class(jn, false, trB, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         J.Interface(jn, List.map trT e, List.map (transformMember env) m)

@@ -31,6 +31,7 @@ open FSharp.Quotations
 open FSharp.Linq
 
 [<Proxy(typeof<QuerySource<_,_>>)>]
+[<Type "$wstype(../WebSharper.StdLib/System.Collections.Generic.IEnumerable`1)">]
 type internal QuerySourceProxy<'T, 'Q> [<Inline "$source">] (source: IEnumerable<'T>) =
 
     [<Inline "$this">]

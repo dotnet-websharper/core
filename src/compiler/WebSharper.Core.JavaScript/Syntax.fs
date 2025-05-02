@@ -259,7 +259,7 @@ and Statement =
     | Declare      of S
     | DeclareGlobal of list<S>
     | Namespace    of Id * list<S>
-    | Class        of Id * bool * option<E> * list<E> * list<Member>
+    | Class        of Id * bool * option<E * list<Id>> * list<E> * list<Member>
     | Interface    of Id * list<E> * list<Member>
     | StatementPos of S * SourcePos
     | StatementComment of S * string

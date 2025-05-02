@@ -742,7 +742,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                     failwithf "failed to substitute interface generics: %A to %A" ig m
                         let pts =
                             if isInstToStatic then
-                                tsTypeOf gsArr (NonGenericType typ) :: (typeOfParams opts gsArr p)
+                                (tsTypeOf gsArr (NonGenericType typ) |> addGenerics cgen) :: (typeOfParams opts gsArr p)
                             else typeOfParams opts gsArr p
                         TSType.Lambda(pts, tsTypeOf gsArr r)
                 | _ ->
@@ -980,7 +980,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
 
-        let baseType, bc, isObjBase =
+        let baseType, bgen, bc, isObjBase =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
                 | Some _ as res -> 
@@ -988,8 +988,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | _ -> 
                     if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress false ba), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
-            | _ -> None, None, false
+            | Some (ba, _, _) -> Some (getOrImportAddress false ba), c.BaseClass.Value.Generics |> List.map (tsTypeOf [||]), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
+            | _ -> None, [], None, false
 
         baseClass <- bc
 
@@ -1253,7 +1253,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let implements =
                 if output = O.JavaScript then [] else
                 c.Implements |> List.map (tsTypeOfConcrete gsArr)
-            let classDecl = Class(classId, baseType, implements, List.ofSeq members, cgen)
+            let classDecl = Class(classId, baseType, implements, List.ofSeq members, cgen, bgen)
             match baseType with
             | Some b ->
                 let needsLazy = 

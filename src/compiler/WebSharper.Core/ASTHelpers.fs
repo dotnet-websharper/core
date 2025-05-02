@@ -504,5 +504,7 @@ module TSType =
             Lambda([TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.Concurrency.AsyncBody`1" }), [TSType.Param 0])], Void)            
         | "$wstype(../WebSharper.StdLib/WebSharper.LazyExtensionsProxy.LazyRecord`1)<$0>" ->
             TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.LazyExtensionsProxy.LazyRecord`1" }), [TSType.Param 0])
+        | "$wstype(../WebSharper.StdLib/System.Collections.Generic.IEnumerable`1)" ->
+            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "System.Collections.Generic.IEnumerable`1" }), [TSType.Param 0])
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))

@@ -279,7 +279,7 @@ let StatementDefs =
             , "JavaScript - export"
         "Declare", [ Statement, "statement" ]
             , "TypeScript - declare ..."
-        "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
+        "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics"; List TSType, "baseGenerics" ]
             , "JavaScript - class { ... }"
         "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript - class method"

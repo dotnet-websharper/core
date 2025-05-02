@@ -31,14 +31,22 @@ type LLN<'T> = LinkedListNode<'T>
 type LLE<'T> = LinkedList<'T>.Enumerator
 
 [<Proxy(typeof<LLN<_>>)>]
-[<Name "WebSharper.Collections.LinkedListNode">]
+[<Prototype false>]
 type NodeProxy<'T> =
+    {
+        mutable p: LLN<'T>
+        mutable n: LLN<'T>
+        mutable v: 'T
+        l : LL<'T>
+    }
     member this.Previous with [<Inline "$this.p">] get () = X<LLN<'T>>
     member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
-    member this.Value    with [<Inline "$this.v">] get () = X<'T>
+    member this.Value    with [<Inline "$this.v">] get () = X<'T> 
+                         and  [<Inline "$this.v = $v">] set (v: 'T) = X<unit>
+    member this.List     with [<Inline "$this.l">] get () = X<'T>
 
-[<Inline "{p: $p, n: $n, v: $v}">]
-let newNode<'T> (p: LLN<'T>) (n: LLN<'T>) (v: 'T) = X<LLN<'T>>
+[<Inline "{p: $p, n: $n, v: $v, l: $l}">]
+let newNode<'T> (p: LLN<'T>) (n: LLN<'T>) (v: 'T) (l: LL<'T>) = X<LLN<'T>>
 
 [<Inline "$node.p = $p" >]
 let setPrev (node: LLN<'T>) (p: LLN<'T>) = ()
@@ -74,18 +82,18 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
 
 [<Proxy(typeof<LL<_>>)>]
 [<Name "WebSharper.Collections.LinkedList">]
-type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
+type ListProxy<'T> [<JavaScript>] (coll: 'T seq) as self =
     let mutable c = 0
     let mutable n = null
     let mutable p = null
 
     do  let ie = coll.GetEnumerator()
         if ie.MoveNext() then
-            n <- newNode null null ie.Current
+            n <- newNode null null ie.Current (As self)
             p <- n
             c <- 1
         while ie.MoveNext() do
-            let node = newNode p null ie.Current
+            let node = newNode p null ie.Current (As self)
             setNext p node
             p <- node
             c <- c + 1
@@ -103,7 +111,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
 
     member this.AddAfter(after: LLN<'T>, value) =
         let before = after.Next
-        let node = newNode after before value
+        let node = newNode after before value (As this)
         if after.Next = null then p <- node
         setNext after node
         if before <> null then setPrev before node
@@ -112,7 +120,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
 
     member this.AddBefore(before: LLN<'T>, value) =
         let after = before.Previous
-        let node = newNode after before value
+        let node = newNode after before value (As this)
         if before.Previous = null then n <- node 
         setPrev before node
         if after <> null then setNext after node
@@ -121,7 +129,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
 
     member this.AddFirst(value) =
         if c = 0 then
-            let node = newNode null null value
+            let node = newNode null null value (As this)
             n <- node
             p <- n 
             c <- 1
@@ -130,7 +138,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
 
     member this.AddLast(value) =
         if c = 0 then
-            let node = newNode null null value
+            let node = newNode null null value (As this)
             n <- node
             p <- n 
             c <- 1

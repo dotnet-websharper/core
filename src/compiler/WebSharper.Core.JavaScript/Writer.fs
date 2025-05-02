@@ -621,7 +621,7 @@ and Statement canBeEmpty statement =
         Conditional (Word "abstract") a
         ++ Word "class" 
         ++ Id n 
-        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ Optional (fun (b, bg) -> Word "extends" ++ Expression b ++ Generics bg) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member true) ms)
     | S.Interface (n, i, ms) ->
