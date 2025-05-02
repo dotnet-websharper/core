@@ -741,7 +741,6 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let env = { env with InlineTypeArgs = List.zip typArgNames types }   
                 let trFunc = transformExpression env inl
                 let trArgs = args |> List.map (fun a -> isUnit a.Type, tr a)
-                printfn "InlineVar curriedApplication %A %A" trFunc trArgs
                 curriedApplication trFunc trArgs
             | _ -> failwithf "Only functions should be marked inline"
         | P.Value(var) ->                

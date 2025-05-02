@@ -220,6 +220,10 @@ let ArrayGroupBy (f: 'T -> 'K when 'K : equality) (a: 'T[]) : ('K * 'T[])[] =
 let InsufficientElements() =
     failwith "The input sequence has an insufficient number of elements."
 
+[<Name "outOfBounds">]
+let OutOfBounds() =
+    invalidArg "index" "index must be within bounds"
+
 [<Name "last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
