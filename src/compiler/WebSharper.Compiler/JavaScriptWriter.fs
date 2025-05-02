@@ -720,6 +720,10 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             | _ ->
                 p |> List.map (defineId innerEnv)
                 , t
+        let tr =
+            match s.Kind with
+            | MemberKind.Setter -> TSType.Any
+            | _ -> tr
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)

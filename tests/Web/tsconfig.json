@@ -8,7 +8,8 @@
     "lib": [
       "es2017",
       "dom"
-    ]
+    ],
+    "declaration": true
   },
   "exclude": [
     "node_modules"

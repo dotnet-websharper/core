@@ -500,7 +500,9 @@ module TSType =
         | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
         | "{d: number, o: number}" -> TSType.TypeLiteral [ "d", MemberKind.Simple, Number; "o", MemberKind.Simple, Number ]
         | "{c: boolean, r: (() => void)[]}" -> TSType.TypeLiteral [ "c", MemberKind.Simple, TSType.Named [ "boolean" ]; "r", MemberKind.Simple, TSType.Named [ "(() => void)[]" ] ]
-        | "(a: $wstype(../WebSharper.StdLib/WebSharper.Concurrency.AsyncBody`1)) => void" -> 
-            Lambda([TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.Concurrency.AsyncBody`1" })], Void)            
+        | "(a: $wstype(../WebSharper.StdLib/WebSharper.Concurrency.AsyncBody`1)<$0>) => void" -> 
+            Lambda([TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.Concurrency.AsyncBody`1" }), [TSType.Param 0])], Void)            
+        | "$wstype(../WebSharper.StdLib/WebSharper.LazyExtensionsProxy.LazyRecord`1)<$0>" ->
+            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.LazyExtensionsProxy.LazyRecord`1" }), [TSType.Param 0])
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))

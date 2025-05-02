@@ -1661,7 +1661,7 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
     
     rootJs, finalAddrMap
 
-let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
     let all = ResizeArray()
     let bundles = Dictionary()
@@ -1751,7 +1751,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     s.Add(m) |> ignore
                     exportedTypes.Add(td, s)
 
-        let pkg = packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
+        let pkg = packageType output trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
         results.Add(b.Key, (pkg.Statements, pkg.BundleExports))
 
     results

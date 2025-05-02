@@ -1372,7 +1372,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     {
                         Kind = NotResolvedMemberKind.Static
                         StrongName = None
-                        Generics = []
+                        Generics = nr.Generics
                         Macros = []
                         Generator = None
                         Compiled = true
