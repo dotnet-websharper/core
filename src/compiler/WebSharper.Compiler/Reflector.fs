@@ -287,7 +287,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some (Inline (true, false)) else 
                         match name with
-                        | Some n -> Some (Instance (n, MemberKind.Simple)) // named instance members only for mixin interfaces
+                        | Some n -> Some (Instance (n, MemberKind.Simple, Modifier.None)) // named instance members only for mixin interfaces
                         | _ -> None
                 let kind =
                     if List.isEmpty macros then kindWithoutMacros else

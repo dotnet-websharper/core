@@ -265,7 +265,7 @@ and Statement =
     | StatementComment of S * string
 
 and Member =
-    | Method      of isStatic:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
+    | Method      of isStatic:bool * isAbstract:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
     | Constructor of list<Id * Modifiers> * option<list<S>>
     | Property    of isStatic:bool * Id * option<E>
     | Static      of list<S>

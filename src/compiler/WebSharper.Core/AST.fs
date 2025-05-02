@@ -93,6 +93,7 @@ and ClassMethodInfo =
     {
         IsStatic : bool
         IsPrivate : bool
+        IsAbstract : bool
         Kind : MemberKind
     }
 
@@ -1357,6 +1358,7 @@ module ClassMethodInfo =
         {
             IsStatic = true
             IsPrivate = false
+            IsAbstract = false
             Kind = MemberKind.Simple
         }
 
@@ -1364,6 +1366,7 @@ module ClassMethodInfo =
         {
             IsStatic = false
             IsPrivate = false
+            IsAbstract = false
             Kind = MemberKind.Simple
         }
 

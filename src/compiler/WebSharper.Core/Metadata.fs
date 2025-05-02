@@ -92,8 +92,13 @@ type ParameterObject =
         | Type   x -> box x
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
+type [<RequireQualifiedAccess>] Modifier =
+    | None
+    | Abstract
+    | Override of TypeDefinition
+
 type CompiledMember =
-    | Instance of name:string * kind: MemberKind
+    | Instance of name:string * kind: MemberKind * modifier: Modifier
     | Static of name:string * fromInstance:bool * kind: MemberKind
     | Func of name:string * fromInstance:bool
     | GlobalFunc of address: Address * fromInstance:bool

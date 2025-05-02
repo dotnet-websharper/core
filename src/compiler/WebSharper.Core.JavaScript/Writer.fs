@@ -664,9 +664,9 @@ and Accessor a =
 
 and Member isClass mem =
     match mem with
-    | S.Method (s, a, n, args, body) ->
-        //Conditional (Word "abstract") (isClass && Option.isNone body)
-        Conditional (Word "static") s
+    | S.Method (s, ab, a, n, args, body) ->
+        Conditional (Word "abstract") ab
+        ++ Conditional (Word "static") s
         ++ Accessor a
         ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)

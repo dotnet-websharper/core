@@ -1032,7 +1032,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let trThisArg = trThisObj()
             ApplTyped(func, (Option.toList trThisArg) @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + Option.count trThisArg), funcParams true)
         match info with
-        | M.Instance (name, kind) ->
+        | M.Instance (name, kind, _) ->
             match baseCall with
             | Some true ->
                 match kind with
@@ -1289,7 +1289,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Static(typ, name, true)   
             | M.GlobalFunc (address, _) ->
                 GlobalAccess address
-            | M.Instance (name, kind) -> 
+            | M.Instance (name, kind, _) -> 
                 // Object.getOwnPropertyDescriptor(o, "a").get
                 match comp.TryLookupClassInfo typ.Entity with
                 | Some (addr, _) ->
@@ -1824,8 +1824,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     override this.TransformObjectExpr(typ, ctor, ovr) =
         let rec getOverrideNameAndKind typ meth fallback =
             match comp.LookupMethodInfo(typ, meth, false) with
-            | Compiled (M.Instance (name, kind), _, _, _) 
-            | Compiling ({ CompiledMember = M.Instance (name, kind) }, _, _) ->
+            | Compiled (M.Instance (name, kind, _), _, _, _) 
+            | Compiling ({ CompiledMember = M.Instance (name, kind, _) }, _, _) ->
                 name, kind
             | LookupMemberError err ->
                 let fail() =
@@ -1868,6 +1868,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 {
                     IsStatic = false
                     IsPrivate = false
+                    IsAbstract = false
                     Kind = kind
                 }
             let trOvr =

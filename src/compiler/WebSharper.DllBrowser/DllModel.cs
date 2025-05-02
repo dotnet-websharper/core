@@ -155,6 +155,15 @@ namespace WebSharper.DllBrowser
                     sb.Append("BaseClass: ").AppendLine(cls.BaseClass.Value.ToString().Replace("\n", ""));
                     sb.AppendLine();
                 }
+                if (!cls.Implements.IsEmpty)
+                {
+                    foreach (var i in cls.Implements)
+                    {
+                        sb.AppendLine("Implements:");
+                        sb.Append("  ").AppendLine(i.ToString().Replace("\n", ""));
+                    }
+                    sb.AppendLine();
+                }
                 foreach (var m in cls.Constructors)
                 {
                     sb.AppendLine(".ctor(" + m.Key.Value.ToString() + ")");

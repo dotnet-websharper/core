@@ -549,13 +549,18 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Import(None, None, [], d) ->
         J.ImportAll(None, d)               
     | Import(a, Some b, ((_ :: _) as c), d) ->
+        let nonLib (i: Id) =
+            match i.Name with 
+            | Some n when StandardLibNames.Set.Contains n -> i.Name <- Some (n + "_1")
+            | _ -> ()
+            i
         // import * and named exports cannot be on same statement, separate them
         J.Block [
-            J.ImportAll(b |> defineId env |> Some, d)            
+            J.ImportAll(b |> nonLib |> defineId env |> Some, d)            
             J.Import(
-                a |> Option.map (defineId env), 
+                a |> Option.map (nonLib >> defineId env), 
                 None, 
-                c |> List.map (fun (n, x) -> n, defineId env x),
+                c |> List.map (fun (n, x) -> n, x |> nonLib |> defineId env),
                 d)
         ]
     | Import(a, b, c, d) ->
@@ -583,18 +588,18 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Class (n, b, i, m, g, bg) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
-        //let isAbstract =
-        //    if env.Output = O.TypeScriptDeclaration then false else
-        //    m |> List.exists (function
-        //        | ClassMethod (_, _, _, _, None, _) -> true
-        //        | _ -> false
-        //    )
+        let isAbstract =
+            env.Output <> O.JavaScript &&
+            m |> List.exists (function
+                | ClassMethod ({ IsAbstract = true }, _, _, _, _, _) -> true
+                | _ -> false
+            )
         let trB =
             match b with
             | Some b -> 
                 Some (trE b, transformGenerics env bg)
             | None -> None
-        J.Class(jn, false, trB, List.map (transformType env) i, List.map (transformMember innerEnv) m)
+        J.Class(jn, isAbstract, trB, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         J.Interface(jn, List.map trT e, List.map (transformMember env) m)
@@ -736,7 +741,9 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             )
         let id = J.Id.New(n, gen = jsgen) |> withType env tr 
         let acc = transformMemberKind s.Kind
-        J.Method(s.IsStatic, acc, id, args, body)   
+        let isAbstract =
+            env.Output <> O.JavaScript && s.IsAbstract
+        J.Method(s.IsStatic, isAbstract, acc, id, args, body)   
     | ClassConstructor (p, _, b, t) ->
         let innerEnv = env.NewInner()
         let args =

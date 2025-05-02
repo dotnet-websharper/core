@@ -177,7 +177,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                         f.JSName, MemberKind.Simple, this.TSTypeOf f.RecordFieldType
                     ))
                 | Class (a, (FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
-                    tsTypeOfAddress a
+                    let className = (t.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+                    tsTypeOfAddress { a with Address = [ className ] } 
                 | Interface i ->
                     tsTypeOfAddress i.Address
                 | _ -> TSType.Any
