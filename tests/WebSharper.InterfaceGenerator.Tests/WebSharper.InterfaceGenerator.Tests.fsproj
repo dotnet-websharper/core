@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />
+    <EmbeddedResource Include="IWIGTest.d.ts" />
     <EmbeddedResource Include="WIGtest.js" />
     <EmbeddedResource Include="WIGtest2.js" />
     <EmbeddedResource Include="WIGtest3.js" />
