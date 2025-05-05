@@ -958,12 +958,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         try
             let res = Substitution(args, ?thisObj = thisObj).TransformExpression(ge)
             let trRes = if isCompiled then res else this.TransformExpression res
-            trRes
-            // we will need casts for TS only
-            //if assertReturnType then
-            //    let t = comp.TypeTranslator.TSTypeOf currentGenerics retTyp
-            //    Cast(t, trRes)
-            //else trRes
+            if assertReturnType then
+                let t = comp.TypeTranslator.TSTypeOf retTyp
+                Cast(t, trRes)
+            else trRes
         with _ ->
             failwithf "Error during applying inline: %s" (Debug.PrintExpression expr)
 
@@ -1433,11 +1431,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ("$", MemberKind.Simple, Value (Int index)) ::
                     (trArgs |> List.mapi (fun j e -> "$" + string j, MemberKind.Simple, e)) 
                 )
-        objExpr
-        // we will need casts for TS only
-        //match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
-        //| TSType.Any -> objExpr
-        //| t -> Cast (t, objExpr)
+        match comp.TypeTranslator.TSTypeOf (ConcreteType typ) with
+        | TSType.Any -> objExpr
+        | t -> Cast (t, objExpr)
 
     override this.TransformNewRecord(typ, args) =
         match comp.TryGetRecordConstructor typ.Entity with
@@ -1460,11 +1456,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         else this.TransformExpression a)
                 |> List.ofSeq |> Object
             let typedObj =
-                obj
-                // we will need casts for TS only
-                //match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
-                //| TSType.Any -> obj
-                //| t -> Cast (t, obj)
+                match comp.TypeTranslator.TSTypeOf (ConcreteType typ) with
+                | TSType.Any -> obj
+                | t -> Cast (t, obj)
             let optFields = 
                 fields |> List.choose (fun f -> 
                     if f.Optional then Some (Value (String f.JSName)) else None)
@@ -1613,11 +1607,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some i ->
                     let getField = this.TransformExpression expr |> getItem ("$" + string i)
                     getField
-                    // we will need casts for TS only
-                    //let fieldTyp = fields.[i].UnionFieldType.SubstituteGenerics(Array.ofSeq typ.Generics)                    
-                    //match comp.TypeTranslator.TSTypeOf currentGenerics fieldTyp with
-                    //| TSType.Any -> getField
-                    //| t -> Cast (t, getField)
+                    let fieldTyp = fields.[i].UnionFieldType.SubstituteGenerics(Array.ofSeq typ.Generics)                    
+                    match comp.TypeTranslator.TSTypeOf fieldTyp with
+                    | TSType.Any -> getField
+                    | t -> Cast (t, getField)
                 | _ ->
                     this.Error(sprintf "Could not find field of union case: %s.%s.%s" typ.Entity.Value.FullName case field)        
         
@@ -2120,19 +2113,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             OtherTypeCheck 
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
-        this.TransformExpression(expr)
-        // we will need casts for TS only
-        //let trExpr = this.TransformExpression(expr)
-        //let f = comp.TypeTranslator.TSTypeOf currentGenerics fromTyp
-        //let t = comp.TypeTranslator.TSTypeOf currentGenerics toTyp
-        //match f, t with
-        //| _ when f = t -> trExpr
-        //| _ ->
-        //if currentIsInline then
-        //    hasDelayedTransform <- true
-        //    Coerce(trExpr, fromTyp, toTyp)
-        //else
-        //    Cast(t, trExpr) 
+        let trExpr = this.TransformExpression(expr)
+        let f = comp.TypeTranslator.TSTypeOf fromTyp
+        let t = comp.TypeTranslator.TSTypeOf toTyp
+        match f, t with
+        | _ when f = t -> trExpr
+        | _ ->
+        if currentIsInline then
+            hasDelayedTransform <- true
+            Coerce(trExpr, fromTyp, toTyp)
+        else
+            Cast(t, trExpr) 
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with

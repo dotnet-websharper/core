@@ -758,7 +758,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                 with _ ->
                                     failwithf "failed to substitute interface/override generics: %A to %A" ig m
                         let r =
-                            if List.isEmpty gc then
+                            if cgenl = 0 && List.isEmpty gc then
                                 match r with
                                 | TSType _ -> r
                                 | _ -> r.SubstituteGenericsToSame (TSType TSType.Any)
@@ -810,6 +810,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         let optVoid = [ Id.New(?name = args[0].Name, opt = true, typ = Type.TSType TSType.Void) ]
                         addStatement <| exportWithBundleSupport false typ (Some m) addr f 
                             (FuncSignature(f, optVoid, thisVar, cgen @ mgen))
+                        if output = O.TypeScript then
+                            addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                                (FuncSignature(f, args, thisVar, cgen @ mgen))
                     addStatement <| exportWithBundleSupport false typ (Some m) addr f 
                         (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->

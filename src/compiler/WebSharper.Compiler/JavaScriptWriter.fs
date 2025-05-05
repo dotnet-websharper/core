@@ -154,7 +154,8 @@ let defineId (env: Environment) (id: Id) =
         match id.TSType with
         | Some tt -> registerTSType env tt
         | _ -> ()
-    J.Id.New(name, rest = id.IsRest)
+    let opt = env.Output <> O.JavaScript && id.IsOptional 
+    J.Id.New(name, opt = opt, rest = id.IsRest)
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
