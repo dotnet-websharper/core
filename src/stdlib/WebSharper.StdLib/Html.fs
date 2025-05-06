@@ -40,11 +40,13 @@ type ClientCode =
     | ClientBundle of string
 
 /// Use to get a new unique id for an element on a page.
+[<JavaScript(false)>]
 type IUniqueIdSource =
     abstract member NewId : unit -> string
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.
+[<JavaScript(false)>]
 type IRequiresResources =
     abstract member Requires : M.Info * J.Provider * IUniqueIdSource -> seq<ClientCode>
 

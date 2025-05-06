@@ -37,7 +37,7 @@ module Definition =
 
     let IWIGTest =
         Interface "IWIGTest"
-        |> Import "IWIGTest" "./IWIGtest"
+        |> Import "IWIGTest" "./IWIGTest"
         |+> [
             "add" => Int * Int ^-> Int
         ]

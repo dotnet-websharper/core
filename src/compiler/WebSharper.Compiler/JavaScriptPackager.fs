@@ -481,11 +481,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | Var i ->
                 match classIdToOuter.Value.TryGetValue(i) with
                 | true, oi ->
-                    match oi.Name with
-                    | Some n ->
-                        TSType.Named([ n ])
-                    | _ ->
-                        TSType.Named t    
+                    TSType.Imported(oi, [])
                 | _ ->
                     TSType.Imported(i, [])
             | _ ->

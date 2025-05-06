@@ -172,26 +172,20 @@ let invalidForm c =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _, _, gs) =
+    override this.VisitFuncDeclaration(f, _, _, _, _) =
         defineId env f |> ignore    
-        gs |> List.iter (registerTSType env)
 
     override this.VisitVarDeclaration(v, _) =
         defineId env v |> ignore
 
-    override this.VisitInterface(i, _, _, gs) =
+    override this.VisitInterface(i, _, _, _) =
         defineId env i |> ignore
-        gs |> List.iter (registerTSType env)
 
-    override this.VisitClass(c, _, _, _, gs, bgs) =
+    override this.VisitClass(c, _, _, _, _, _) =
         defineId env c |> ignore
-        gs |> List.iter (registerTSType env)
-        bgs |> List.iter (registerTSType env)
 
-    override this.VisitAlias(a, gs, o) =
+    override this.VisitAlias(a, _, _) =
         defineId env a |> ignore
-        gs |> List.iter (registerTSType env)
-        registerTSType env o
 
     override this.VisitExportDecl(_, s) =
         match s with 
@@ -206,6 +200,37 @@ type CollectVariables(env: Environment) =
             let jsNames = n |> Seq.map fst |> Set
             env.ScopeNames <- Set.union env.ScopeNames jsNames
             env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
+
+type RegisterTSTypes(env: Environment) =
+    inherit Visitor()
+
+    override this.VisitFuncDeclaration(_, _, _, b, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitFuncSignature(_, _, _, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitInterface(_, _, _, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitClass(_, _, ims, mems, gs, bgs) =
+        ims |> List.iter (registerTSType env)
+        gs |> List.iter (registerTSType env)
+        bgs |> List.iter (registerTSType env)
+        mems |> List.iter this.VisitStatement
+
+    override this.VisitAlias(_, gs, o) =
+        gs |> List.iter (registerTSType env)
+        registerTSType env o
+
+    override this.VisitClassMethod (_, _, _, _, _, t) = 
+        registerTSType env t    
+
+    override this.VisitClassConstructor (_, _, _, t) =
+        registerTSType env t    
+
+    override this.VisitClassProperty (_, _, t, _) =
+        registerTSType env t    
 
 let flattenJS s =
     let res = ResizeArray()
@@ -823,6 +848,9 @@ let transformProgram output pref statements =
     let env = Environment.New(pref, output)
     //let cnames = CollectStrongNames(env)
     //statements |> List.iter cnames.VisitStatement
+    if env.Output <> O.JavaScript then
+        let typs = RegisterTSTypes(env)
+        statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
     //J.Ignore (J.Constant (J.String "use strict")) ::
@@ -831,6 +859,9 @@ let transformProgram output pref statements =
 let transformProgramAndAddrMap output pref (addrMap: IDictionary<Address, Id>) statements =
     if List.isEmpty statements then [], false, dict [] else
     let env = Environment.New(pref, output)
+    if env.Output <> O.JavaScript then
+        let typs = RegisterTSTypes(env)
+        statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
     (statements |> List.map (transformStatement env) |> flattenJS), 

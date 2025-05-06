@@ -42,7 +42,7 @@
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
-  <ItemGroup Condition=" '$(Tests)' == 'True' ">
+  <!--<ItemGroup Condition=" '$(Tests)' == 'True' ">
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/FSharp.Core.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Mdb.dll" />
@@ -53,7 +53,7 @@
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Core.JavaScript.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.InterfaceGenerator.dll" />
-  </ItemGroup>
+  </ItemGroup>-->
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />

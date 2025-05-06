@@ -59,6 +59,7 @@
     <Compile Include="WIG.fs" />
     <Compile Include="Promise.fs" />
     <Compile Include="Compiler.fs" />
+    <Compile Include="TypeScript.fs" />
     <Compile Include="Main.fs" />
     <None Include="QuotationTests.fsx" />
     <None Include="ASTTests.fsx" />
