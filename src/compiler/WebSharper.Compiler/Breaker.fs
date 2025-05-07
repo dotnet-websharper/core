@@ -216,10 +216,12 @@ let toStatementExpr b =
 
 let hasNoStatements b = List.isEmpty b.Statements
 
+let (|MayCastAny|) = function I.Cast(TSType.Any, x) | x -> x
+
 let rec (|PropSet|_|) expr =
     match IgnoreExprSourcePos expr with
-    | Unary (UnaryOperator.``void``, I.ItemSet (I.Var objVar, I.Value (String field), value))
-    | ItemSet (I.Var objVar, I.Value (String field), value) 
+    | Unary (UnaryOperator.``void``, I.ItemSet (MayCastAny(I.Var objVar), I.Value (String field), value))
+    | ItemSet (MayCastAny(I.Var objVar), I.Value (String field), value) 
         when CountVarOccurence(objVar).Get(value) = 0 ->
         Some (objVar, (field, value))
     | Let (var, value, PropSet ((objVar, (field, I.Var v)))) 

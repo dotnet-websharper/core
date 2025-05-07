@@ -470,18 +470,18 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | JavaScriptModule _ 
         | NpmPackage _
         | DotNetType _ ->
-            let a = if a.Address.IsEmpty then { a with Address = [ "default" ] } else a
+            let a = 
+                if a.Address.IsEmpty then 
+                    { a with Address = [ "default" ] } 
+                else 
+                    a
             match getOrImportAddress false a with
             | GlobalAccess { Module = ImportedModule i; Address = a } ->
                 TSType.Imported(i, a |> List.rev)
             | Var i ->
                 match classIdToOuter.Value.TryGetValue(i) with
                 | true, oi ->
-                    match oi.Name with
-                    | Some n ->
-                        TSType.Named([ n ])
-                    | _ ->
-                        TSType.Named t    
+                    TSType.Imported(oi, [])
                 | _ ->
                     TSType.Imported(i, [])
             | _ ->
@@ -707,11 +707,24 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         let members = ResizeArray<Statement>()
          
+        let baseClassInfos =
+            lazy
+            let rec getBaseClassInfo (c: Concrete<TypeDefinition> option, gen: Type[]) =
+                match c with
+                | Some bc ->
+                    match allClasses.[bc.Entity] with
+                    | _, _, Some cls ->
+                        let gen = bc.Generics |> List.map (fun t -> t.SubstituteGenerics gen) |> Array.ofList
+                        Some ((bc.Entity, (cls, gen)), (cls.BaseClass, gen))
+                    | _ -> None
+                | _ -> None
+            (c.BaseClass, Array.init c.Generics.Length TypeParameter) |> List.unfold getBaseClassInfo |> dict
+
         let mem (m: Method) info gc opts intfGen body =
             
             let gsArr = Array.append gsArr (Array.ofList gc)
             let bTr() = bodyTransformer(gsArr)   
-            let getSignature isInstToStatic =         
+            let getSignature baseGen isInstToStatic =         
                 if output = O.JavaScript then TSType.Any else
                 match IgnoreExprSourcePos body with
                 | Function (_, _, ret, _) ->
@@ -730,7 +743,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     //    TSType.Lambda(pts, TSType.Intersection [ tsTypeOf gsArr r; thisTSTypeOrUnion.Value ] ) 
                     //else
                         let p, r = 
-                            match intfGen with 
+                            match baseGen with 
                             | None -> 
                                 m.Value.Parameters
                                 , ret |> Option.defaultValue m.Value.ReturnType
@@ -739,16 +752,34 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                     m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
                                     , m.Value.ReturnType.SubstituteGenerics ig 
                                 with _ ->
-                                    failwithf "failed to substitute interface generics: %A to %A" ig m
+                                    failwithf "failed to substitute interface/override generics: %A to %A" ig m
+                        let r =
+                            if cgenl = 0 && List.isEmpty gc then
+                                match r with
+                                | TSType _ -> r
+                                | _ -> r.SubstituteGenericsToSame (TSType TSType.Any)
+                            else 
+                                r
                         let pts =
                             if isInstToStatic then
-                                tsTypeOf gsArr (NonGenericType typ) :: (typeOfParams opts gsArr p)
+                                (tsTypeOf gsArr (NonGenericType typ) |> addGenerics cgen) :: (typeOfParams opts gsArr p)
                             else typeOfParams opts gsArr p
                         TSType.Lambda(pts, tsTypeOf gsArr r)
                 | _ ->
                     tsTypeOf [||] m.Value.ReturnType
             let mgen = getGenerics cgenl gc
             
+            let isTakingSingleGenericArg =
+                match m.Value.Parameters with
+                | [Type.TypeParameter _ | Type.StaticTypeParameter _ | Type.LocalTypeParameter _] -> true
+                | _ -> false
+
+            let transformSingleGenericArg (t: TSType) =
+                match t with
+                | TSType.Function(this, _, rest, ret) ->
+                    TSType.Function(this, [ TSType.Void, true ], rest, ret)  
+                | _ -> t
+
             let func fromInst addr =
                 let f = 
                     match getOrImportAddress false addr with
@@ -760,7 +791,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | Function (args, thisVar, _, b) ->
                     let f, args =
                         if output = O.JavaScript then f, args else
-                        match getSignature fromInst with
+                        match getSignature intfGen fromInst with
                         | TSType.Function(t, a, rest, r) ->
                             let aTyp = a |> Array.ofList
                             f.WithType(Some (TSType r)), 
@@ -771,25 +802,51 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        let optVoid = [ Id.New(?name = args[0].Name, opt = true, typ = Type.TSType TSType.Void) ]
+                        addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                            (FuncSignature(f, optVoid, thisVar, cgen @ mgen))
+                        if output = O.TypeScript then
+                            addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                                (FuncSignature(f, args, thisVar, cgen @ mgen))
                     addStatement <| exportWithBundleSupport false typ (Some m) addr f 
                         (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
-                    let f = 
-                        if output = O.JavaScript then f else
-                        f.WithType(Some (TSType (getSignature fromInst)))
-                    addStatement <| export false (VarDeclaration(f, implExpr(fun () -> bTr().TransformExpression e)))
+                    if output <> O.TypeScriptDeclaration then 
+                        let f = 
+                            if output = O.JavaScript then f else
+                            f.WithType(Some (TSType (getSignature intfGen fromInst)))
+                        addStatement <| export false (VarDeclaration(f, implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
-            | M.Instance (mname, mkind) ->
+            | M.Instance (mname, mkind, modifier) ->
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
                     let info = 
                         {
                             IsStatic = false
                             IsPrivate = false // TODO
+                            IsAbstract = modifier = M.Modifier.Abstract
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics mgen)
+                    let baseGen =
+                        match modifier with
+                        | M.Modifier.Override bcls ->
+                            match baseClassInfos.Value.TryGetValue bcls with
+                            | true, (cls, clsGen) ->
+                                match m.Value.Generics with
+                                | 0 -> clsGen
+                                | mgen -> Array.append clsGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+                            | _ ->
+                                if bcls = typ then
+                                    Array.init (cgenl + m.Value.Generics) (fun i -> TypeParameter i)
+                                else
+                                    [||] // TODO: should this be an error? I don't think it should ever happen
+                            |> Some
+                        | _ -> intfGen
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature baseGen false |> transformSingleGenericArg |> addGenerics mgen)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature baseGen false |> addGenerics mgen)
                 | _ -> ()       
             | M.Static (mname, fromInst, mkind) ->
                 match IgnoreExprSourcePos body with
@@ -798,9 +855,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         {
                             IsStatic = true
                             IsPrivate = false // TODO
+                            IsAbstract = false
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature fromInst |> addGenerics (cgen @ mgen))
+                    if output <> O.JavaScript && isTakingSingleGenericArg then
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature intfGen fromInst |> transformSingleGenericArg |> addGenerics (cgen @ mgen))
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature intfGen fromInst |> addGenerics (cgen @ mgen))
                 | _ ->
                     let info = 
                         {
@@ -808,7 +868,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false // TODO
                             IsOptional = false
                         }
-                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics (cgen @ mgen), implExprOpt (fun () -> body))
+                    members.Add <| ClassProperty(info, mname, getSignature intfGen false |> addGenerics (cgen @ mgen), implExprOpt (fun () -> body))
             | M.Func (fname, fromInst) ->
                 func fromInst (currentClassAddr.Func(fname))
             | M.Remote (fname, _, _) ->
@@ -828,7 +888,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             for f in c.Fields.Values |> Seq.sortBy (fun f -> f.Order) do
                 let fTyp =
                     if output = O.JavaScript then TSType.Any else
-                    tsTypeOf gsArr f.Type
+                    let ft =
+                        if cgenl = 0 then
+                            match f.Type with
+                            | TSType _ -> f.Type
+                            | _ -> f.Type.SubstituteGenericsToSame (TSType TSType.Any)
+                        else
+                            f.Type
+                    tsTypeOf gsArr ft
                 match f.CompiledForm with
                 | M.InstanceField name ->
                     members.Add <| ClassProperty(propInfo false false false, name, fTyp, None)
@@ -843,7 +910,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         for f in c.Fields.Values do
             match f.CompiledForm with
             | M.VarField v ->
-                addStatement <| VarDeclaration(v, Undefined)
+                if output <> O.TypeScriptDeclaration then 
+                    addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
         // let mem (m: Method) info gc opts intfGen body =
@@ -855,18 +923,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             c.Implements |> Seq.map (fun i ->
                 i.Entity, (allInterfaces.[i.Entity], Array.ofList i.Generics)
             ) |> dict
-        let baseClassInfos =
-            lazy
-            let rec getBaseClassInfo (c: Concrete<TypeDefinition> option, gen: Type[]) =
-                match c with
-                | Some bc ->
-                    match allClasses.[bc.Entity] with
-                    | _, _, Some cls ->
-                        let gen = bc.Generics |> List.map (fun t -> t.SubstituteGenerics gen) |> Array.ofList
-                        Some ((bc.Entity, (cls, gen)), (cls.BaseClass, gen))
-                    | _ -> None
-                | _ -> None
-            (c.BaseClass, Array.init c.Generics.Length TypeParameter) |> List.unfold getBaseClassInfo |> dict
 
         for KeyValue((i, m), mi) in c.Implementations do
             let intfGen, mParam = 
@@ -877,17 +933,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     | 0 -> intfGen, mg
                     | mgen -> Array.append intfGen (Array.init mgen (fun i -> TypeParameter (cgenl + i))), mg
                 | _ ->
-                    match baseClassInfos.Value.TryGetValue i with
-                    | true, (cls, clsGen) ->
-                        match m.Value.Generics with
-                        | 0 -> clsGen
-                        | mgen -> Array.append clsGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
-                        , 
-                        cls.Methods.[m].Generics
-                    | _ ->
-                        if i = typ then
-                            Array.init (cgenl + m.Value.Generics) (fun i -> TypeParameter i), []
-                        else
+                    //match baseClassInfos.Value.TryGetValue i with
+                    //| true, (cls, clsGen) ->
+                    //    match m.Value.Generics with
+                    //    | 0 -> clsGen
+                    //    | mgen -> Array.append clsGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+                    //    , 
+                    //    cls.Methods.[m].Generics
+                    //| _ ->
+                    //    if i = typ then
+                    //        Array.init (cgenl + m.Value.Generics) (fun i -> TypeParameter i), []
+                    //    else
                             [||], [] // TODO: should this be an error? I don't think it should ever happen
             mem m mi.CompiledForm mParam M.Optimizations.None (Some intfGen) mi.Expression
 
@@ -924,15 +980,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 match ct.Expression with
                 | Function (args, thisVar, _, b) ->                  
                     constructors.Add(name, thisVar, args, b, getSignature true (Some name))
-                    let info =
-                        {
-                            IsStatic = true
-                            IsPrivate = false
-                            Kind = MemberKind.Simple
-                        }
-                    let ctorBody() =
-                        Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt ctorBody, getSignature false None |> addGenerics cgen))
+                    //let info =
+                    //    {
+                    //        IsStatic = true
+                    //        IsPrivate = false
+                    //        Kind = MemberKind.Simple
+                    //    }
+                    //let ctorBody() =
+                    //    Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
+                    //members.Add (ClassMethod(info, name, args, thisVar, implStOpt ctorBody, getSignature false None |> addGenerics cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Func (name, _) ->
@@ -954,6 +1010,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         {
                             IsStatic = true
                             IsPrivate = false
+                            IsAbstract = false
                             Kind = kind
                         }
                     members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false None |> addGenerics cgen))
@@ -961,7 +1018,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
 
-        let baseType, bc, isObjBase =
+        let baseType, bgen, bc, isObjBase =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
                 | Some _ as res -> 
@@ -969,8 +1026,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | _ -> 
                     if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress false ba), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
-            | _ -> None, None, false
+            | Some (ba, _, _) -> Some (getOrImportAddress false ba), c.BaseClass.Value.Generics |> List.map (tsTypeOf [||]), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
+            | _ -> None, [], None, false
 
         baseClass <- bc
 
@@ -1134,12 +1191,18 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             if output <> O.JavaScript then
                 
                 let ucTypes = ResizeArray()
+                let ucNames = HashSet()
                 for uci, uc in u.Cases |> Seq.indexed do
                     
                     let tagMem() = 
                         ClassProperty(propInfo false false false, "$", TSType.Basic (string uci), None)
+                    let ucName = 
+                        if StandardLibNames.Set.Contains uc.Name then
+                            Resolve.getRenamed (uc.Name + "_1") ucNames
+                        else
+                            Resolve.getRenamed uc.Name ucNames
                     let ucId() =
-                        Id.New(uc.Name, str = true)  
+                        Id.New(ucName, str = true)  
                     match uc.Kind with
                     | M.NormalFSharpUnionCase fs ->
                         let ucmems =
@@ -1152,14 +1215,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         addStatement <| export false ( 
                             Interface(ucId(), [], tagMem() :: ucmems, cgen)
                         )
-                        ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
+                        ucTypes.Add(TSType.Basic ucName |> addGenerics cgen)
                     | M.ConstantFSharpUnionCase v -> 
                         ucTypes.Add(TSType.Basic v.TSType)
                     | M.SingletonFSharpUnionCase ->
                         addStatement <| export false (
                             Interface(ucId(), [], [ tagMem() ], cgen)
                         )
-                        ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
+                        ucTypes.Add(TSType.Basic ucName |> addGenerics cgen)
 
                 if not (TypeTranslator.CustomTranslations.ContainsKey typ) then
                     let t =
@@ -1234,7 +1297,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let implements =
                 if output = O.JavaScript then [] else
                 c.Implements |> List.map (tsTypeOfConcrete gsArr)
-            let classDecl = Class(classId, baseType, implements, List.ofSeq members, cgen)
+            let classDecl = Class(classId, baseType, implements, List.ofSeq members, cgen, bgen)
             match baseType with
             | Some b ->
                 let needsLazy = 
@@ -1269,7 +1332,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     packageLazyClass classDecl classExpr
                 else
                     packageClass classDecl
-
+    
     let packageInterface (typ: TypeDefinition) (i: M.InterfaceInfo) =
         match classRes.TryGetValue typ with 
         | false, _ -> ()
@@ -1306,6 +1369,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         {
                             IsStatic = false
                             IsPrivate = false
+                            IsAbstract = false
                             Kind = k
                         }
                     ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc)) |> Some   
@@ -1321,8 +1385,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
     for typ in orderedTypes do
         match current.Classes.TryFind(typ) with
-        | None
-        | Some (_, _, None) -> ()
+        | None -> ()
+        | Some (a, ct, None) -> 
+            if output <> O.JavaScript then
+                let cgen = List.init typ.Value.GenericLength (fun _ -> M.GenericParam.None)
+                packageClass typ a ct { M.ClassInfo.None with Generics = cgen }
         | Some (a, ct, Some c) ->
             packageClass typ a ct c
 
@@ -1468,7 +1535,18 @@ let analyzeLazyClasses (pkgs: ResizeArray<string * TypeDefinition * PackageTypeR
         let i = (pkgsToProcess |> Seq.head)
         processPkg i
 
-
+let jsInteropClasses =
+    let coreTyp t =
+        TypeDefinition{
+            Assembly = "WebSharper.Core"
+            FullName = t
+        }
+    [
+        yield coreTyp "WebSharper.JavaScript.Optional`1"
+        yield coreTyp "WebSharper.JavaScript.ItemOrArray`1"
+        for i = 1 to 7 do
+            yield coreTyp ("WebSharper.JavaScript.Union`" + string i)
+    ]
 
 let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let pkgs = ResizeArray()
@@ -1477,6 +1555,8 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         let pkg = packageType output refMeta current asmName (SingleType typ)
         if not (List.isEmpty pkg.Statements) then
             pkgs.Add(makeFileName typ, typ, pkg)
+    for typ in jsInteropClasses do
+        classes.Remove(typ) |> ignore
     for typ in current.Interfaces.Keys do
         classes.Remove(typ) |> ignore
         pkgTyp typ
@@ -1486,7 +1566,8 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         let epTyp = TypeDefinition { Assembly = asmName; FullName = "$EntryPoint" }     
         let pkg = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
         pkgs.Add("$EntryPoint", epTyp, pkg)
-    analyzeLazyClasses pkgs
+    if output <> O.TypeScriptDeclaration then
+        analyzeLazyClasses pkgs
     pkgs |> Seq.map (fun (fn, _, pkg) -> fn, pkg.Statements) |> Array.ofSeq
 
 let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
@@ -1629,7 +1710,7 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
     
     rootJs, finalAddrMap
 
-let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName =
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
     let all = ResizeArray()
     let bundles = Dictionary()
@@ -1719,7 +1800,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     s.Add(m) |> ignore
                     exportedTypes.Add(td, s)
 
-        let pkg = packageType O.JavaScript trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
+        let pkg = packageType output trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
         results.Add(b.Key, (pkg.Statements, pkg.BundleExports))
 
     results

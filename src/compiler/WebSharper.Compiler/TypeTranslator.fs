@@ -166,7 +166,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                         TSType.Intersection [ tsTypeOfAddress { a with Address = [ unionName ] }; tsTypeOfAddress { a with Address = [ unionCaseName ] } ] 
                 | Class (a, _, Some c) ->
                     match c.Type with
-                    | Some t -> t
+                    | Some t -> t.ResolveAddress(tsTypeOfAddress)
                     | _ -> tsTypeOfAddress a
                 | Class (_, DelegateInfo i, None) ->
                     TSType.LambdaWithOpt(i.DelegateArgs |> List.map (fun (t, d) -> this.TSTypeOf t, Option.isSome d), this.TSTypeOf i.ReturnType)
@@ -177,7 +177,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                         f.JSName, MemberKind.Simple, this.TSTypeOf f.RecordFieldType
                     ))
                 | Class (a, (FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
-                    tsTypeOfAddress a
+                    let className = (t.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+                    tsTypeOfAddress { a with Address = [ className ] } 
                 | Interface i ->
                     tsTypeOfAddress i.Address
                 | _ -> TSType.Any

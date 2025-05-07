@@ -226,14 +226,30 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
             let bundles =
                 if prebundle then
-                    JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName
-                    |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
-                        let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
-                        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                        logger.TimedStage (sprintf "Writing prebundle %s.js" bname)
-                        bname, js, trAddrMap
-                    )
-                    |> Array.ofSeq |> Some
+                    let output = if ts then O.TypeScript else O.JavaScript 
+                    let ext = if ts then ".ts" else ".js"
+                    let bundles =
+                        JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName output
+                        |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
+                            let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap output WebSharper.Core.JavaScript.Readable addrMap
+                            let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                            logger.TimedStage (sprintf "Writing prebundle %s.js" bname)
+                            bname, bname + ext, js, trAddrMap
+                        )
+                        |> Array.ofSeq
+                    //if dts then
+                    //    JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName O.TypeScriptDeclaration
+                    //    |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
+                    //        let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable addrMap
+                    //        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                    //        logger.TimedStage (sprintf "Writing prebundle %s.d.ts" bname)
+                    //        "", bname + ".d.ts", js, trAddrMap
+                    //    )
+                    //    |> Seq.append bundles
+                    //    |> Array.ofSeq |> Some
+                    //else
+                    //    Some bundles
+                    Some bundles
                 elif isSitelet then
                     let rootJS, addrMap = JavaScriptPackager.packageEntryPointReexport meta
                     let program, _, trAddrMap = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap O.JavaScript WebSharper.Core.JavaScript.Readable addrMap
@@ -241,7 +257,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                     let trAddrMap = Dict.union [ trAddrMap; dict [ AST.Address.Global(), assemblyName ] ]
                     logger.TimedStage (sprintf "Writing reexports root.js")
                     Some [|
-                        "root", js, trAddrMap    
+                        "root", "root.js", js, trAddrMap    
                     |]
                 else
                     None
@@ -253,7 +269,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                         PreBundle = 
                             match bundles with
                             | Some bundles ->
-                                bundles |> Seq.map (fun (bname, _, addrMap) -> bname, addrMap :> IDictionary<_,_>) |> dict
+                                bundles |> Seq.choose (fun (bname, _, _, addrMap) -> if bname <> "" then Some (bname, addrMap :> IDictionary<_,_>) else None) |> dict
                             | _ -> Dictionary()
                 }
             Some (updated, bundles)
@@ -299,8 +315,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
     match rMeta with
     | Some (_, Some bundles) ->
-        for bname, bundleJs, _ in bundles do
-            addRes (bname + ".js") (Some "") (Some (getBytes bundleJs))
+        for bname, bFileName, bundleText, _ in bundles do
+            addRes bFileName (Some "") (Some (getBytes bundleText))
     | _ -> ()
 
     if pkg.Length > 0 then

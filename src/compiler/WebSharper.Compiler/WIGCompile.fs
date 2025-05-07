@@ -413,6 +413,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let funcWithOnlyThis = resolveType typedefof<WebSharper.JavaScript.FuncWithOnlyThis<_,_>>
     let funcWithArgsRest = resolveType typedefof<WebSharper.JavaScript.FuncWithArgsRest<_,_,_>>
     let optionType = resolveType typedefof<WebSharper.JavaScript.Optional<_>>
+    let itemOrArrayType = resolveType typedefof<WebSharper.JavaScript.ItemOrArray<_>>
 
     member b.CorrectType t = correctType t; t
 
@@ -442,6 +443,9 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.Choice(ts: seq<TypeReference>) =
         wsCoreType "WebSharper.JavaScript.Union" ts
+
+    member b.ItemOrArray t =
+        genericInstance itemOrArrayType [t]    
 
     member b.Option t =
         genericInstance optionType [t]    
@@ -623,6 +627,8 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 tB.Choice (ts |> Seq.map tRef)
             | Type.OptionType t ->
                 tB.Option (tRef t) 
+            | Type.ItemOrArrayType t ->
+                tB.ItemOrArray (tRef t) 
             | Type.DefiningType ->
                 byId defT.Id
         // check missing generics

@@ -31,12 +31,14 @@
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
+    <!--<WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>-->
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <NoWarn>$(NoWarn);3366;3370</NoWarn>
+    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
@@ -44,7 +46,7 @@
     </ItemGroup>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
-  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile">
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask
       FscCommandLineArgs="@(FscCommandLineArgs)"

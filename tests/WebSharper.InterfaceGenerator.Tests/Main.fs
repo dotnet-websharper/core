@@ -37,6 +37,7 @@ module Definition =
 
     let IWIGTest =
         Interface "IWIGTest"
+        |> Import "IWIGTest" "./IWIGTest"
         |+> [
             "add" => Int * Int ^-> Int
         ]
@@ -258,6 +259,7 @@ module Definition =
                  ConcCls
                  res1 |> AssemblyWide
                  Resource "WIGTestJs2" "WIGtest2.js" |> Requires [ res1 ] |> AssemblyWide
+                 Resource "IWIGTestDTs" "IWIGtest.d.ts"
                  res3
             ]
             Namespace "WebSharper.InterfaceGenerator.Tests.Regression1010" [

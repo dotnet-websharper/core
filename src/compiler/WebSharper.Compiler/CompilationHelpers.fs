@@ -481,6 +481,7 @@ let varEvalOrder (vars : Id list) expr =
             | Import _
             | Interface _
             | XmlComment _
+            | FuncSignature _
             | LazyClass _
                 -> fail()      
                
@@ -903,7 +904,7 @@ let getAllAddresses (meta: Info) =
         let pr = if cls.HasWSPrototype then Some (r.LookupClass typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance (n, k) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, k) |> ignore)            
+            | Instance (n, k, _) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, k) |> ignore)            
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m in cls.Constructors.Values do addMember m.CompiledForm
@@ -1079,7 +1080,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                     match meta.Interfaces.TryGetValue(i) with
                     | true, ii ->
                         let jsName, _, _ = ii.Methods[m]
-                        match icls.Methods |> Seq.tryFind (fun cm -> cm.Value.CompiledForm = Instance (jsName, MemberKind.Simple)) with
+                        match icls.Methods |> Seq.tryFind (fun cm -> match cm.Value.CompiledForm with Instance (n, MemberKind.Simple, _) when n = jsName -> true | _ -> false) with
                         | Some mImpl ->
                             mImpl.Key |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "interface implementation based on JS name" td
                         | _ ->

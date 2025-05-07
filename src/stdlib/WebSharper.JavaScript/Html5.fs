@@ -2163,6 +2163,7 @@ module internal Geolocation =
 
     let Coordinates =
         Class "Coordinates"
+        |> WithTSType "GeolocationCoordinates"
         |+> Instance [
             "latitude" =? T<float>
             "longitude" =? T<float>
@@ -2175,6 +2176,7 @@ module internal Geolocation =
 
     let Position = 
         Class "Position"
+        |> WithTSType "GeolocationPosition"
         |+> Instance [
             "coords" =? Coordinates
             "timestamp" =? EcmaDate
@@ -2182,6 +2184,7 @@ module internal Geolocation =
 
     let PositionError = 
         Class "PositionError"
+        |> WithTSType "GeolocationPositionError"
         |+> Instance [
             "UNKNOWN_ERROR" =? T<int>
             "PERMISSION_DENIED" =? T<int>
@@ -2479,6 +2482,7 @@ module internal Fetch =
                     "signal", Dom.Interfaces.AbortSignal.Type
                 ]
         }
+        |> WithTSType "Request"
 
     let Body =
         Instance [
@@ -2988,6 +2992,7 @@ module internal WebWorkers =
     let DedicatedWorkerGlobalScope =
         Class "DedicatedWorkerGlobalScope"
         |=> Inherits WorkerGlobalScope
+        |> WithTSType "any"
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>
             |> ObsoleteWithMessage "Use OnMesssage instead"
@@ -3611,27 +3616,35 @@ module internal WebGL =
 
     let BufferClass =
         Buffer
+        |> WithTSType "WebGLBuffer"
 
     let FramebufferClass =
         Framebuffer
+        |> WithTSType "WebGLFramebuffer"
 
     let ProgramClass =
         Program
+        |> WithTSType "WebGLProgram"
 
     let RenderbufferClass =
         Renderbuffer
+        |> WithTSType "WebGLRenderbuffer"
 
     let ShaderClass =
         Shader
+        |> WithTSType "WebGLShader"
 
     let TextureClass =
         Texture
+        |> WithTSType "WebGLTexture"
 
     let UniformLocationClass =
         UniformLocation
+        |> WithTSType "WebGLUniformLocation"
 
     let ActiveInfoClass =
         ActiveInfo
+        |> WithTSType "WebGLActiveInfo"
         |+> Instance
             [
                 "size" =? T<int>

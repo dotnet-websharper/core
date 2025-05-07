@@ -27,5 +27,5 @@ type WebResourceAttribute(filename: string, mime: string) =
     inherit Attribute()
 
 [<assembly: WebResource("Runtime.js", "text/javascript")>]
-[<assembly: WebResource("Runtime.min.js", "text/javascript")>]
+[<assembly: WebResource("Runtime.ts", "text/javascript")>]
 do ()

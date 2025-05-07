@@ -40,6 +40,7 @@ let CopyTo (a: obj) (array: 'T[]) (index: int) =
 
 [<Proxy(typeof<System.Collections.Generic.Queue<_>>)>]
 [<WebSharper.Name "WebSharper.Queue">]
+[<Type "$0[]">]
 type private QueueProxy<'T when 'T : equality>
 
     [<Inline "$data">] private (data: 'T []) =

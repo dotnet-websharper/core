@@ -1538,12 +1538,12 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         let pos = e.Range.AsSourcePos
                         if expectWithValue && not withValue then
                             env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
-                        let e = transformExpression env e
+                        let trE = transformExpression env e
                         let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                         for t in argTypes do
                             if t.CanHaveDeserializer then
                                 env.Compilation.AddTypeNeedingDeserialization(t, pos, bundleScope)
-                        let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
+                        let retTy = env.SymbolReader.ReadType Map.empty e.Type
                         let qm =
                             Method {
                                 Generics = 0
@@ -1552,20 +1552,20 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 ReturnType = retTy
                             }
                         let argNames = [ for (v, _, _) in env.FreeVars -> v.LogicalName ]
-                        let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], None, e)
+                        let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], None, trE)
                         // emptying FreeVars so that env can be reused for reading multiple quotation arguments
                         env.FreeVars.Clear()
                         // if the quotation is a single static call, the runtime fallback will be able to 
                         // handle it without introducing a pre-compiled function for it
                         let isTrivial =
-                            match e with 
+                            match trE with 
                             | I.Call(None, _, _, args) ->
                                 args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
                             | _ -> false
                         if not isTrivial then
                             quotations.Add(pos, qm, argNames, f, bundleScope) 
                         else
-                            match e with 
+                            match trE with 
                             | I.Call(None, td, m, _) ->
                                 env.Compilation.AddQuotedMethod(td.Entity, m.Entity, bundleScope)
                             | _ -> ()

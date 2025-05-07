@@ -92,8 +92,13 @@ type ParameterObject =
         | Type   x -> box x
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
+type [<RequireQualifiedAccess>] Modifier =
+    | None
+    | Abstract
+    | Override of TypeDefinition
+
 type CompiledMember =
-    | Instance of name:string * kind: MemberKind
+    | Instance of name:string * kind: MemberKind * modifier: Modifier
     | Static of name:string * fromInstance:bool * kind: MemberKind
     | Func of name:string * fromInstance:bool
     | GlobalFunc of address: Address * fromInstance:bool
@@ -651,7 +656,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "8.0"
+    let CurrentVersion = "9.1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

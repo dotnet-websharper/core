@@ -1,5 +1,4 @@
-
-export function Create(ctor, copyFrom) {
+export function Create<T extends object, U>(ctor: { prototype: T }, copyFrom: U) : T & U {
   return Object.assign(Object.create(ctor.prototype), copyFrom);
 }
 
@@ -7,19 +6,10 @@ export function Clone(obj) {
   return Object.assign(Object.create(Object.getPrototypeOf(obj)), obj);
 }
 
-export function Ctor(ctor, typeFunction) {
-  ctor.prototype = typeFunction.prototype;
-  return ctor;
-}
-
-export function Base(obj, base, ...args) {
-  return Object.assign(obj, Reflect.construct(base, args, obj.constructor));
-}
-
 const forceSymbol = Symbol("force")
 export function Force(obj) { obj[forceSymbol] }
 
-export function Lazy<C>(factory: (i:(s:C) => void) => C) {
+export function Lazy<I, C>(factory: (setter : (I) => I) => C) : C {
   var instance;
   function getInstance() {
     if (!instance) {
@@ -42,7 +32,7 @@ export function Lazy<C>(factory: (i:(s:C) => void) => C) {
       return Reflect.construct(getInstance(), args, newTarget);
     }
   });
-  return <C>res;
+  return <any>res;
 }
 
 export function PrintObject(obj) {
@@ -280,6 +270,21 @@ export function SetterOf(o, n) {
   return Object.getOwnPropertyDescriptor(o, n).set;
 }
 
+let scriptsLoaded = [];
+
+export function LoadScript(u) {
+  if (!scriptsLoaded.some(s => s == u.toLowerCase())) {
+    if (!u.startsWith("http")) {
+      u = Runtime.ScriptBasePath + u;
+    }
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", u, false);
+    xhr.send(null);
+    scriptsLoaded.push(u.toLowerCase());
+    globalThis.eval(xhr.responseText);
+  }
+}
+
 let load = [];
 
 export function OnLoad(f) {
@@ -294,26 +299,7 @@ export function Start() {
 }
 
 export function ignore() { }
-export function id(x) { return x }
-export function fst(x) { return x[0] }
-export function snd(x) { return x[1] }
-export function trd(x) { return x[2] }
-
-//  if (!Global.console) {
-//    Global.console = {
-//      count: ignore,
-//      dir: ignore,
-//      error: ignore,
-//      group: ignore,
-//      groupEnd: ignore,
-//      info: ignore,
-//      log: ignore,
-//      profile: ignore,
-//      profileEnd: ignore,
-//      time: ignore,
-//      timeEnd: ignore,
-//      trace: ignore,
-//      warn: ignore
-//    }
-//  }
-//}(self));
+export function id<T>(x : T) : T { return x }
+export function fst<T>(x: { [0]: T }) : T { return x[0] }
+export function snd<T>(x: { [1]: T }): T { return x[1] }
+export function trd<T>(x: { [2]: T }): T { return x[2] }

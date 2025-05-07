@@ -621,7 +621,7 @@ and Statement canBeEmpty statement =
         Conditional (Word "abstract") a
         ++ Word "class" 
         ++ Id n 
-        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ Optional (fun (b, bg) -> Word "extends" ++ Expression b ++ Generics bg) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member true) ms)
     | S.Interface (n, i, ms) ->
@@ -664,9 +664,9 @@ and Accessor a =
 
 and Member isClass mem =
     match mem with
-    | S.Method (s, a, n, args, body) ->
-        //Conditional (Word "abstract") (isClass && Option.isNone body)
-        Conditional (Word "static") s
+    | S.Method (s, ab, a, n, args, body) ->
+        Conditional (Word "abstract") ab
+        ++ Conditional (Word "static") s
         ++ Accessor a
         ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)

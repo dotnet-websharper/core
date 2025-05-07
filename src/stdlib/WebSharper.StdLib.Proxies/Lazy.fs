@@ -24,6 +24,7 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Lazy<_>>)>]
 [<Name "WebSharper.Lazy">]
+[<Type "$wstype(../WebSharper.StdLib/WebSharper.LazyExtensionsProxy.LazyRecord`1)<$0>">]
 type private LazyProxy<'T> =
 
     [<Inline; JavaScript>]

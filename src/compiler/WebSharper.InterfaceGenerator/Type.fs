@@ -61,6 +61,7 @@ module Type =
         | DelegateType of list<Type> * option<Type>
         | ChoiceType of Type list
         | OptionType of Type
+        | ItemOrArrayType of Type
         | DefiningType
 
         member this.Item
@@ -128,6 +129,7 @@ module Type =
             | DelegateType (a, r) -> DelegateType (a |> List.map sub, r)
             | ChoiceType ts -> ChoiceType (ts |> List.map sub)
             | OptionType t -> OptionType (sub t)
+            | ItemOrArrayType t -> ItemOrArrayType (sub t)
             | DefiningType -> toType 
             | _ -> this
 
@@ -511,6 +513,8 @@ module Type =
                 ChoiceType (List.map withoutInterop ts)
             | OptionType t ->
                 OptionType (withoutInterop t)
+            | ItemOrArrayType t ->
+                ItemOrArrayType (withoutInterop t)
             | _ -> t
         let key t = 
             match withoutInterop t with

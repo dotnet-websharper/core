@@ -32,6 +32,7 @@
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net8.0/wscsc.sh</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
+    <!--<WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>-->
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
@@ -41,7 +42,7 @@
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
-  <ItemGroup Condition=" '$(Tests)' == 'True' ">
+  <!--<ItemGroup Condition=" '$(Tests)' == 'True' ">
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/FSharp.Core.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Mdb.dll" />
@@ -52,9 +53,9 @@
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.Core.JavaScript.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)/build/$(Configuration)/CSharp/Analyzer/netstandard2.0/WebSharper.InterfaceGenerator.dll" />
-  </ItemGroup>
+  </ItemGroup>-->
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
-  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile">
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <ItemGroup Condition="$(CompilerGeneratedFilesOutputPath) != ''">
       <Compile Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />

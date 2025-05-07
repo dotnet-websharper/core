@@ -97,6 +97,37 @@ let getCompactName (env: Environment) =
         env.CompactVars <- env.CompactVars + 1   
     name
 
+let rec registerTSType (env: Environment) (tt: TSType) =
+    match tt with
+    | TSType.Named (n :: _) -> 
+        if StandardLibNames.Set.Contains n then
+            env.ScopeNames <- env.ScopeNames |> Set.add n
+    | TSType.Generic (t, g) -> 
+        registerTSType env t
+        g |> List.iter (registerTSType env)
+    | TSType.Function (this, args, rest, ret) -> 
+        this |> Option.iter (registerTSType env)
+        args |> List.iter (fun (t, _) -> registerTSType env t)
+        rest |> Option.iter (registerTSType env)
+        registerTSType env ret
+    | TSType.New (args, ret) -> 
+        args |> List.iter (registerTSType env)
+        registerTSType env ret 
+    | TSType.Tuple ts 
+    | TSType.Union ts
+    | TSType.Intersection ts -> 
+        ts |> List.iter (registerTSType env)
+    | TSType.Constraint (t, ts) -> 
+        registerTSType env t
+        ts |> List.iter (registerTSType env)
+    | TSType.TypeGuard (_, t) -> 
+        registerTSType env t
+    | TSType.ObjectOf t ->
+        registerTSType env t
+    | TSType.TypeLiteral mems ->
+        mems |> List.iter (fun (_, _, t) -> registerTSType env t)
+    | _ -> ()
+
 let defineId (env: Environment) (id: Id) =
     let name =
         if id.HasStrongName then
@@ -119,7 +150,12 @@ let defineId (env: Environment) (id: Id) =
                 env.ScopeIds <- env.ScopeIds |> Map.add id name
                 //if addToDecl then env.ScopeVars.Add(name)
                 name
-    J.Id.New(name, rest = id.IsRest)
+    if env.Output <> O.JavaScript then
+        match id.TSType with
+        | Some tt -> registerTSType env tt
+        | _ -> ()
+    let opt = env.Output <> O.JavaScript && id.IsOptional 
+    J.Id.New(name, opt = opt, rest = id.IsRest)
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
@@ -145,7 +181,7 @@ type CollectVariables(env: Environment) =
     override this.VisitInterface(i, _, _, _) =
         defineId env i |> ignore
 
-    override this.VisitClass(c, _, _, _, _) =
+    override this.VisitClass(c, _, _, _, _, _) =
         defineId env c |> ignore
 
     override this.VisitAlias(a, _, _) =
@@ -164,6 +200,37 @@ type CollectVariables(env: Environment) =
             let jsNames = n |> Seq.map fst |> Set
             env.ScopeNames <- Set.union env.ScopeNames jsNames
             env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
+
+type RegisterTSTypes(env: Environment) =
+    inherit Visitor()
+
+    override this.VisitFuncDeclaration(_, _, _, b, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitFuncSignature(_, _, _, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitInterface(_, _, _, gs) =
+        gs |> List.iter (registerTSType env)
+
+    override this.VisitClass(_, _, ims, mems, gs, bgs) =
+        ims |> List.iter (registerTSType env)
+        gs |> List.iter (registerTSType env)
+        bgs |> List.iter (registerTSType env)
+        mems |> List.iter this.VisitStatement
+
+    override this.VisitAlias(_, gs, o) =
+        gs |> List.iter (registerTSType env)
+        registerTSType env o
+
+    override this.VisitClassMethod (_, _, _, _, _, t) = 
+        registerTSType env t    
+
+    override this.VisitClassConstructor (_, _, _, t) =
+        registerTSType env t    
+
+    override this.VisitClassProperty (_, _, t, _) =
+        registerTSType env t    
 
 let flattenJS s =
     let res = ResizeArray()
@@ -507,6 +574,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | J.Return None -> []
             | b -> [ b ]
         J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
+    | FuncSignature (x, ids, t, g) ->
+        let jsgen = g |> transformGenerics env
+        let innerEnv = env.NewInner()
+        let args = ids |> List.map (defineIdTyped innerEnv)
+        let id = transformIdTyped innerEnv x
+        let id = id.WithGenerics(jsgen)
+        J.Function(id, args, None)
     | While(a, b) -> 
         J.While (trE a, trS b)
     | DoWhile(a, b) ->
@@ -542,13 +616,18 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Import(None, None, [], d) ->
         J.ImportAll(None, d)               
     | Import(a, Some b, ((_ :: _) as c), d) ->
+        let nonLib (i: Id) =
+            match i.Name with 
+            | Some n when StandardLibNames.Set.Contains n -> i.Name <- Some (n + "_1")
+            | _ -> ()
+            i
         // import * and named exports cannot be on same statement, separate them
         J.Block [
-            J.ImportAll(b |> defineId env |> Some, d)            
+            J.ImportAll(b |> nonLib |> defineId env |> Some, d)            
             J.Import(
-                a |> Option.map (defineId env), 
+                a |> Option.map (nonLib >> defineId env), 
                 None, 
-                c |> List.map (fun (n, x) -> n, defineId env x),
+                c |> List.map (fun (n, x) -> n, x |> nonLib |> defineId env),
                 d)
         ]
     | Import(a, b, c, d) ->
@@ -573,16 +652,21 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.ForVarIn(defineId env a, None, trE b, trS c)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
-    | Class (n, b, i, m, g) ->
+    | Class (n, b, i, m, g, bg) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
         let isAbstract =
-            if env.Output = O.TypeScriptDeclaration then false else
+            env.Output <> O.JavaScript &&
             m |> List.exists (function
-                | ClassMethod (_, _, _, _, None, _) -> true
+                | ClassMethod ({ IsAbstract = true }, _, _, _, _, _) -> true
                 | _ -> false
             )
-        J.Class(jn, isAbstract, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
+        let trB =
+            match b with
+            | Some b -> 
+                Some (trE b, transformGenerics env bg)
+            | None -> None
+        J.Class(jn, isAbstract, trB, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let jn = (transformId env n).WithGenerics(transformGenerics env g)
         J.Interface(jn, List.map trT e, List.map (transformMember env) m)
@@ -713,6 +797,10 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             | _ ->
                 p |> List.map (defineId innerEnv)
                 , t
+        let tr =
+            match s.Kind with
+            | MemberKind.Setter -> TSType.Any
+            | _ -> tr
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
@@ -720,7 +808,9 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             )
         let id = J.Id.New(n, gen = jsgen) |> withType env tr 
         let acc = transformMemberKind s.Kind
-        J.Method(s.IsStatic, acc, id, args, body)   
+        let isAbstract =
+            env.Output <> O.JavaScript && s.IsAbstract
+        J.Method(s.IsStatic, isAbstract, acc, id, args, body)   
     | ClassConstructor (p, _, b, t) ->
         let innerEnv = env.NewInner()
         let args =
@@ -758,6 +848,9 @@ let transformProgram output pref statements =
     let env = Environment.New(pref, output)
     //let cnames = CollectStrongNames(env)
     //statements |> List.iter cnames.VisitStatement
+    if env.Output <> O.JavaScript then
+        let typs = RegisterTSTypes(env)
+        statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
     //J.Ignore (J.Constant (J.String "use strict")) ::
@@ -766,6 +859,9 @@ let transformProgram output pref statements =
 let transformProgramAndAddrMap output pref (addrMap: IDictionary<Address, Id>) statements =
     if List.isEmpty statements then [], false, dict [] else
     let env = Environment.New(pref, output)
+    if env.Output <> O.JavaScript then
+        let typs = RegisterTSTypes(env)
+        statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
     (statements |> List.map (transformStatement env) |> flattenJS), 

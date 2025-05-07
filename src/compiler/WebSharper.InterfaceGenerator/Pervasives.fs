@@ -385,8 +385,8 @@ module Pervasives =
     let RequiresExternal<'T when 'T :> Code.IResourceDependable<'T>> (requires: Type.Type list) (ty: 'T) =
         ty.AddRequires (requires |> List.map (fun res -> Code.ExternalDependency res))
 
-    // only used for Obsolete members
-    type private T = Type.Type
+    // Constructs a type parameter.
+    let TypeParameter name = Code.TypeParameter name
 
     /// Generics helper.
     type GenericHelper = 

@@ -28,7 +28,7 @@ open WebSharper.JavaScript
 type LazyRecord<'T> =
     {
         [<Name "c">] mutable created : bool
-        [<Name "v">] mutable evalOrVal : obj
+        [<Name "v">] mutable evalOrVal : Union<unit -> 'T, 'T>
         [<Name "f">] mutable force : unit -> 'T
     }
 
@@ -36,23 +36,23 @@ let cachedLazy<'T> () =
     JS.This.evalOrVal
 
 let forceLazy<'T> () =
-    let v = (As JS.This.evalOrVal)()
+    let v = As<'T>((As JS.This.evalOrVal)())
     JS.This.created <- true
-    JS.This.evalOrVal <- v
+    JS.This.evalOrVal <- Union2Of2 v
     JS.This.force <- As cachedLazy
     v
 
 let Create (f: unit -> 'T) : Lazy<'T> =
     As {
         created = false
-        evalOrVal = f
+        evalOrVal = Union1Of2 f
         force = As forceLazy
     }
 
 let CreateFromValue (v: 'T) : Lazy<'T> =
     As {
         created = true
-        evalOrVal = v
+        evalOrVal = Union2Of2 v
         force = As cachedLazy
     }
 

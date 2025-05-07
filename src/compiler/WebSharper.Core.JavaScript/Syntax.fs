@@ -259,13 +259,13 @@ and Statement =
     | Declare      of S
     | DeclareGlobal of list<S>
     | Namespace    of Id * list<S>
-    | Class        of Id * bool * option<E> * list<E> * list<Member>
+    | Class        of Id * bool * option<E * list<Id>> * list<E> * list<Member>
     | Interface    of Id * list<E> * list<Member>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
 
 and Member =
-    | Method      of isStatic:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
+    | Method      of isStatic:bool * isAbstract:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
     | Constructor of list<Id * Modifiers> * option<list<S>>
     | Property    of isStatic:bool * Id * option<E>
     | Static      of list<S>

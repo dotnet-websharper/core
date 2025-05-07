@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
     <!--<WebSharperStandalone>True</WebSharperStandalone>-->
   </PropertyGroup>
   <ItemGroup>

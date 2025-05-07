@@ -660,8 +660,7 @@ type Compilation(meta: Info, ?hasGraph) =
             Address.TypeModuleRoot m
 
     member this.ProcessCustomType(typ: TypeDefinition, ct) =
-        let getAddr hasWSPrototype = 
-            this.TypeAddress(typ, hasWSPrototype)
+        let getAddr hasWSPrototype = this.TypeAddress(typ, hasWSPrototype)
         let addr, cls = 
             match classes.TryFind typ with
             | Some ({ Address = []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
@@ -883,7 +882,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | Some intf -> 
                 match intf.Methods.TryFind meth with
                 | Some (m, mt, gpars) ->
-                    Compiled (Instance (m, mt), Optimizations.None, gpars, Undefined)              
+                    Compiled (Instance (m, mt, Modifier.None), Optimizations.None, gpars, Undefined)              
                 | _ ->
                     let mName = meth.Value.MethodName
                     let candidates = 
@@ -1372,7 +1371,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     {
                         Kind = NotResolvedMemberKind.Static
                         StrongName = None
-                        Generics = []
+                        Generics = nr.Generics
                         Macros = []
                         Generator = None
                         Compiled = true
@@ -1670,9 +1669,9 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledInstanceMember (name: string) k (nr: NotResolvedMethod) =
             match nr.Kind with
             | N.Instance  
-            | N.Abstract
-            | N.Override _  
-            | N.Implementation _ -> Instance (name, k)
+            | N.Implementation _ -> Instance (name, k, Modifier.None)
+            | N.Abstract -> Instance (name, k, if nr.Body = Undefined then Modifier.Abstract else Modifier.None) 
+            | N.Override b -> Instance (name, k, Modifier.Override b)
             | _ -> failwith "Invalid instance member kind"
             |> withMacros nr
 
@@ -2380,7 +2379,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
                                 match smi with
-                                | Some (Instance (n, kind)) -> Some n, kind
+                                | Some (Instance (n, kind, _)) -> Some n, kind
                                 | None -> None, MemberKind.Simple
                                 | _ -> 
                                     printerrf "Abstract method must be compiled as instance member: %s in %s" (string mDef.Value) td.Value.FullName
@@ -2407,7 +2406,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     cls.Value.Methods
                     |> Seq.tryPick (fun (KeyValue(m, cm)) ->
                         match cm.CompiledForm with 
-                        | Instance (name, kind) when name = n -> Some (MethodNode(typ, m))
+                        | Instance (name, kind, _) when name = n -> Some (MethodNode(typ, m))
                         | _ -> None
                     )
                     |> Option.orElseWith (fun () ->
@@ -2415,7 +2414,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         |> Seq.tryPick(fun (KeyValue((td, m), (cm, _, _))) ->
                             if td = typ then
                                 match cm.CompiledMember with 
-                                | Instance (name, _) when name = n -> Some (MethodNode(typ, m))
+                                | Instance (name, _, _) when name = n -> Some (MethodNode(typ, m))
                                 | _ -> None
                             else None
                         )
@@ -2425,7 +2424,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         |> Seq.tryPick(fun (KeyValue((td, i, m), (cm, _))) ->
                             if td = typ then
                                 match cm.CompiledMember with 
-                                | Instance (name, _) when name = n -> Some (ImplementationNode(typ, i, m))
+                                | Instance (name, _, _) when name = n -> Some (ImplementationNode(typ, i, m))
                                 | _ -> None
                             else None
                         )
@@ -2451,7 +2450,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             cls.Value.Methods.Values 
                             |> Seq.choose (fun cm -> 
                                 match cm.CompiledForm with 
-                                | Instance (name, kind) -> Some name
+                                | Instance (name, kind, _) -> Some name
                                 | _ -> None
                             )
                             |> Seq.append (
@@ -2459,7 +2458,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 |> Seq.choose(fun (KeyValue((td, m), (cm, _, _))) ->
                                     if td = typ && m = meth then
                                         match cm.CompiledMember with 
-                                        | Instance (name, _) -> Some name
+                                        | Instance (name, _, _) -> Some name
                                         | _ -> None
                                     else None
                                 )
@@ -2469,7 +2468,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 |> Seq.choose(fun (KeyValue((td, _, m), (cm, _))) ->
                                     if td = typ && m = meth then
                                         match cm.CompiledMember with 
-                                        | Instance (name, _) -> Some name
+                                        | Instance (name, _, _) -> Some name
                                         | _ -> None
                                     else None
                                 )
