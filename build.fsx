@@ -35,7 +35,7 @@ System.Environment.GetCommandLineArgs()
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 
 open WebSharper.Fake
-let version = "9.0"
+let version = "9.1"
 let pre = None
 
 let baseVersion =
