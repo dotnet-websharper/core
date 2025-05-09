@@ -31,6 +31,7 @@ module UnpackCommand =
             UnpackTypeScript : bool
             UnpackTypeScriptDeclaration : bool
             DownloadResources : bool
+            Flatten : bool
             Loader : option<Loader>
             Logger : LoggerBase
         }

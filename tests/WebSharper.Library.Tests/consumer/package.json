@@ -1,0 +1,14 @@
+{
+  "name": "websharper-library-tests",
+  "version": "1.0.0",
+  "description": "Using npm-facing output of WebSharper",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "IntelliFactory",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "websharper-library-tests": "file:../build/websharper-library-tests-1.0.0.tgz"
+  }
+}

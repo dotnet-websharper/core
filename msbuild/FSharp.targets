@@ -36,7 +36,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <ErrorOnDuplicatePublishOutputFiles>False</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
-  <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
+  <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile" Condition=" '$(IncludeWebSharperVersionFile)' != 'False' ">
     <ItemGroup>
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />

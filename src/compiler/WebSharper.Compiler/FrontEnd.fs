@@ -135,7 +135,46 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     Some ("", "")
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
+let GetDepsFromJSExports (jsExport: JsExport list) entryPointNode (graph: WebSharper.Core.DependencyGraph.Graph) =
+    let jsExportNames =
+        jsExport |> List.choose (function 
+            | ExportByName n -> Some n
+            | _ -> None
+        )
+    let nodes =
+        seq {
+            yield entryPointNode
+            match jsExportNames with
+            | [] -> ()
+            | _ ->
+                let e = System.Collections.Generic.HashSet jsExportNames
+                yield! 
+                    graph.Nodes |> Seq.filter (function
+                        | M.AssemblyNode a -> e.Contains a
+                        | M.TypeNode td
+                        | M.MethodNode (td, _)
+                        | M.ConstructorNode (td, _) 
+                            -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
+                        | _ -> false
+                    )
+            yield!  
+                jsExport |> Seq.choose (function 
+                    | ExportNode n -> Some n
+                    | _ -> None
+                )
+            if jsExport |> Seq.contains ExportCurrentAssembly then
+                yield 
+                    // assembly nodes are ordered, current is always last
+                    graph.Nodes |> Seq.filter (function
+                        | M.AssemblyNode _ -> true
+                        | _ -> false
+                    )
+                    |> Seq.last
+        }
+        |> graph.GetDependencies
+    nodes
+
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
     let assemblyName = a.Name.Name
     let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
@@ -158,7 +197,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         if prebundle then
             [||]
         else
-            JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
+            let refMeta, current =
+                match comp, dce with
+                | Some c, true ->
+                    let nodes = GetDepsFromJSExports c.JavaScriptExports M.EntryPointNode c.Graph
+                    let meta = M.Info.UnionWithoutDependencies [ refMeta; current ]
+                    let trimmed = trimMetadata meta nodes
+                    trimmed, trimmed
+                |  _ ->
+                    refMeta, current
+            JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName dce (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
     if not prebundle then
         logger.TimedStage "Packaging assembly"
@@ -372,7 +420,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if ts then
             let tspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
+                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName dce (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in tspkg do
                 let ts, _, isJSX =
@@ -386,7 +434,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         if dts then
             let dtspkg = 
-                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None epStyle
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName dce None epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in dtspkg do
                 let ts, _, _ =
@@ -397,22 +445,38 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .d.ts files"
 
+        match comp, dce with
+        | Some c, true ->
+            let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.JavaScript 
+            let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.JavaScript WebSharper.Core.JavaScript.Readable
+            let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+            addRes "index.js" (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
+
+            if dts then
+                let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.TypeScriptDeclaration 
+                let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+                let dts, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                addRes "index.d.ts" (Some (pu.JavaScriptFileName(ai))) (Some (getBytes dts))
+
+            logger.TimedStage (sprintf "Writing index.js for library")
+        | _ -> ()
+
         addMeta()
         Some jss, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
     else
         addMeta()
         None, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
-    let jsOpt, currentPosFixed, rMeta, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a isLibrary prebundle isSitelet
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
+    let jsOpt, currentPosFixed, rMeta, sources, res = CreateResources logger comp refMeta current sourceMap dts ts dce closures runtimeMeta a isLibrary prebundle isSitelet
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, rMeta, sources, res
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
-    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
+    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts dce closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

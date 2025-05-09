@@ -263,7 +263,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         config.PreBundle
 
                 let js, currentMeta, rMeta, sources, res =
-                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary prebundle isSitelet
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.DeadCodeElimination config.AnalyzeClosures runtimeMeta assem isLibrary prebundle isSitelet
                 match config.ProjectType with
                 | Some (Bundle | Website | Html) ->
                     let wsRefs =

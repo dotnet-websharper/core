@@ -1880,8 +1880,6 @@ let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
                     else d
     get
 
-module M = WebSharper.Core.Metadata
-
 let defaultGetUnionTag t =
     let k = FST.GetUnionCases(t, flags).Length
     fun get ->

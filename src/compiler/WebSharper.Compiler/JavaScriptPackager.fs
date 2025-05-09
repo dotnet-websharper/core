@@ -117,7 +117,7 @@ type LazyClassTransformer(needsLazy) =
             withoutLazy
 
     override this.TransformImport(defaultImport, fullImport, namedImports, fromModule) =
-        if needsLazy || fromModule <> "../WebSharper.Core.JavaScript/Runtime.js" then
+        if needsLazy || (fromModule <> "../WebSharper.Core.JavaScript/Runtime.js" && fromModule <> "./Runtime.js") then
             Import(defaultImport, fullImport, namedImports, fromModule)
         else
             let namedImportsWithoutLazy =
@@ -147,7 +147,7 @@ type PackageTypeResults =
         HasStaticConstructor: bool
     }
 
-let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattened (content: PackageContent) =
     let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
@@ -1454,7 +1454,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         m.Name
                     elif isSPABundleType then
                         "./" + m.Assembly + "/" + m.Name + ext  
-                    elif m.Assembly = asmName then
+                    elif flattened || m.Assembly = asmName then
                         "./" + m.Name + ext  
                     else
                         "../" + m.Assembly + "/" + m.Name + ext  
@@ -1548,11 +1548,11 @@ let jsInteropClasses =
             yield coreTyp ("WebSharper.JavaScript.Union`" + string i)
     ]
 
-let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
+let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName flattened entryPoint entryPointStyle =
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let pkg = packageType output refMeta current asmName (SingleType typ)
+        let pkg = packageType output refMeta current asmName flattened (SingleType typ)
         if not (List.isEmpty pkg.Statements) then
             pkgs.Add(makeFileName typ, typ, pkg)
     for typ in jsInteropClasses do
@@ -1564,7 +1564,7 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = asmName; FullName = "$EntryPoint" }     
-        let pkg = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
+        let pkg = packageType output refMeta current asmName flattened (Bundle ([| epTyp |], entryPointStyle, entryPoint))
         pkgs.Add("$EntryPoint", epTyp, pkg)
     if output <> O.TypeScriptDeclaration then
         analyzeLazyClasses pkgs
@@ -1576,7 +1576,7 @@ let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint
         |> Seq.distinct
         |> Array.ofSeq
 
-    let pkg = packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
+    let pkg = packageType output refMeta current asmName false (Bundle (types, entryPointStyle, entryPoint))
     pkg.Statements
 
 let getImportedModules (pkg: Statement list) =
@@ -1710,6 +1710,85 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
     
     rootJs, finalAddrMap
 
+let packageLibraryBundle (current: M.Info) (jsExport: JsExport list) output =
+    let exportTypes = HashSet()
+    let exportFunctions = Dictionary()
+    for e in jsExport do
+        match e with
+        | ExportNode (M.TypeNode t | M.ConstructorNode (t, _)) -> 
+            exportTypes.Add t |> ignore
+        | ExportNode (M.MethodNode (t, m)) -> 
+            match current.Classes.TryFind t with
+            | Some (_, _, Some c) ->
+                match c.Methods.TryFind m with
+                | Some mi -> 
+                    match mi.CompiledForm with
+                    | M.Func _
+                    | M.GlobalFunc _ -> 
+                        let fs =
+                            match exportFunctions.TryGetValue t with
+                            | false, _ ->
+                                let fs = ResizeArray()
+                                exportFunctions.Add(t, fs)
+                                fs
+                            | true, fs ->
+                                fs
+                        fs.Add(mi.CompiledForm)
+                    | _ ->
+                        exportTypes.Add t |> ignore
+                | _ -> ()
+            | _ -> ()
+        | _ -> ()
+    let reexports = ResizeArray()
+    for t in exportTypes do
+        match current.Classes.TryFind t with
+        | Some (a, _, Some c) when c.HasWSPrototype ->
+            let newName = 
+                match a.Module with
+                | JavaScriptModule m -> 
+                    m.Name.Replace('.', '_').Replace('`', '_')
+                | DotNetType m -> 
+                    (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                | _ -> "x"
+            let x = Id.New newName
+            let moduleName =
+                match a.Module with
+                | JavaScriptModule m 
+                | DotNetType m -> 
+                    "./" + m.Name + (if output = O.JavaScript then ".js" else "")
+                | _ -> ""
+            reexports.Add <| ExportDecl (false, Import(None, None, ["default", x], moduleName))
+        | _ -> ()
+    for KeyValue(t, fs) in exportFunctions do
+        match current.Classes.TryFind t with
+        | Some (a, _, Some c) ->
+            let moduleName =
+                match a.Module with
+                | JavaScriptModule m 
+                | DotNetType m -> 
+                    "./" + m.Name + (if output = O.JavaScript then ".js" else "")
+                | _ -> ""
+            let namedImports = 
+                fs |> Seq.choose (fun f ->
+                    match f with  
+                    | M.Func (n, _) ->
+                        let x = Id.New n
+                        Some (n, x)
+                    | _ -> None
+                ) |> List.ofSeq
+            let newName = 
+                match a.Module with
+                | JavaScriptModule m -> 
+                    m.Name.Replace('.', '_').Replace('`', '_')
+                | DotNetType m -> 
+                    (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                | _ -> "x"
+            let x = Id.New newName
+            reexports.Add <| ExportDecl (false, Import(None, None, namedImports, moduleName))
+        | _ -> ()
+    
+    reexports |> List.ofSeq
+
 let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
     let all = ResizeArray()
@@ -1800,7 +1879,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     s.Add(m) |> ignore
                     exportedTypes.Add(td, s)
 
-        let pkg = packageType output trimmed trimmed asmName (Bundle (types, SiteletBundle exportedTypes, None)) 
+        let pkg = packageType output trimmed trimmed asmName false (Bundle (types, SiteletBundle exportedTypes, None)) 
         results.Add(b.Key, (pkg.Statements, pkg.BundleExports))
 
     results

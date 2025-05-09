@@ -1396,8 +1396,8 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
     for jsExport in config.JavaScriptExport do
         comp.AddJavaScriptExport jsExport
         match jsExport with
-        | ExportCurrentAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
-        | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
+        | ExportCurrentAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true; IsJavaScriptExport = true }
+        | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles; JavaScriptExportTypesFilesAndAssemblies = n :: asmAnnot.JavaScriptExportTypesFilesAndAssemblies }
         | _ -> ()
 
     if config.StubInterfaces then

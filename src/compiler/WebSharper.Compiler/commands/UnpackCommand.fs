@@ -35,6 +35,7 @@ module UnpackCommand =
             UnpackTypeScript : bool
             UnpackTypeScriptDeclaration : bool
             DownloadResources : bool
+            Flatten : bool
             Loader : option<Loader>
             Logger : LoggerBase
         }
@@ -47,6 +48,7 @@ module UnpackCommand =
                 UnpackTypeScript = false
                 UnpackTypeScriptDeclaration = false
                 DownloadResources = false
+                Flatten = false
                 Loader = None
                 Logger = ConsoleLogger()
             }
@@ -150,11 +152,17 @@ module UnpackCommand =
             //if cmd.UnpackTypeScript then
             //    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
-                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                writeTextFile (p, c)
+                if cmd.Flatten then
+                    writeTextFile (System.IO.Path.Combine(cmd.RootDirectory, fn), c)
+                else
+                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                    writeTextFile (p, c)
             let writeBinary k fn c =
-                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                writeBinaryFile (p, c)
+                if cmd.Flatten then
+                    writeBinaryFile (System.IO.Path.Combine(cmd.RootDirectory, fn), c)
+                else
+                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                    writeBinaryFile (p, c)
             if cmd.UnpackTypeScript then
                 for r in a.GetScripts(O.TypeScript) do
                     writeText script r.FileName r.Content

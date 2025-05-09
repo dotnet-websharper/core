@@ -32,3 +32,4 @@
 websharper.log
 /tests/WebSharper.StaticHtml.Tests/build
 /tests/WebSharper.CSharp.StaticHtml.Tests/build
+/tests/WebSharper.Library.Tests/build

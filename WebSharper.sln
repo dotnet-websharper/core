@@ -169,6 +169,8 @@ Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "WebSharper.TypeScriptParser
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web.TypeScript", "tests\Web.TypeScript\Web.TypeScript.csproj", "{B4F073FF-8989-4EA2-90D1-C3919173ECB1}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Library.Tests", "tests\WebSharper.Library.Tests\WebSharper.Library.Tests.fsproj", "{765F528A-8AC1-92BA-70CC-421D045522DE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -331,6 +333,10 @@ Global
 		{B4F073FF-8989-4EA2-90D1-C3919173ECB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B4F073FF-8989-4EA2-90D1-C3919173ECB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B4F073FF-8989-4EA2-90D1-C3919173ECB1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{765F528A-8AC1-92BA-70CC-421D045522DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{765F528A-8AC1-92BA-70CC-421D045522DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{765F528A-8AC1-92BA-70CC-421D045522DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{765F528A-8AC1-92BA-70CC-421D045522DE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -380,6 +386,7 @@ Global
 		{A4A58D51-C5C4-48FC-9E15-5EAB4811B80B} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{B4F073FF-8989-4EA2-90D1-C3919173ECB1} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{765F528A-8AC1-92BA-70CC-421D045522DE} = {7C8FF043-B608-42BD-930B-2249675BA666}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F8D55BB-6DB9-4B9C-9104-C9F5EFC53B01}

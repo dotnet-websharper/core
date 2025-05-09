@@ -318,45 +318,6 @@ module Bundling =
             Imports = imports
         }
 
-    let private getDeps (jsExport: JsExport list) entryPointNode (graph: Graph) =
-        let jsExportNames =
-            jsExport |> List.choose (function 
-                | ExportByName n -> Some n
-                | _ -> None
-            )
-        let nodes =
-            seq {
-                yield entryPointNode
-                match jsExportNames with
-                | [] -> ()
-                | _ ->
-                    let e = System.Collections.Generic.HashSet jsExportNames
-                    yield! 
-                        graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode a -> e.Contains a
-                            | M.TypeNode td
-                            | M.MethodNode (td, _)
-                            | M.ConstructorNode (td, _) 
-                                -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
-                            | _ -> false
-                        )
-                yield!  
-                    jsExport |> Seq.choose (function 
-                        | ExportNode n -> Some n
-                        | _ -> None
-                    )
-                if jsExport |> Seq.contains ExportCurrentAssembly then
-                    yield 
-                        // assembly nodes are ordered, current is always last
-                        graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode _ -> true
-                            | _ -> false
-                        )
-                        |> Seq.last
-            }
-            |> graph.GetDependencies
-        nodes
-
     let private (==) s1 s2 =
         System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
 
@@ -397,7 +358,7 @@ module Bundling =
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
-                    GetAllDeps = getDeps jsExports bundle.Node
+                    GetAllDeps = FrontEnd.GetDepsFromJSExports jsExports bundle.Node
                     EntryPoint = Some bundle.EntryPoint
                     EntryPointStyle = JavaScriptPackager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
@@ -490,7 +451,7 @@ module Bundling =
                 Config = config
                 RefMetas = refMetas
                 CurrentMeta = currentMeta
-                GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
+                GetAllDeps = FrontEnd.GetDepsFromJSExports comp.JavaScriptExports M.EntryPointNode 
                 EntryPoint = comp.EntryPoint
                 EntryPointStyle = entryPointStyle
                 CurrentJs = currentJS

@@ -1,0 +1,11 @@
+{
+  "name": "websharper-library-tests",
+  "version": "1.0.0",
+  "description": "Testing npm-facing output of WebSharper",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "IntelliFactory",
+  "license": "Apache-2.0"
+}

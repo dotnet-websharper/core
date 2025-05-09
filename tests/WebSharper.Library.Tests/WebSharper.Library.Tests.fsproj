@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeWebSharperVersionFile>False</IncludeWebSharperVersionFile>
+    <Tests>True</Tests>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Library.fs" />
+    <None Include="wsconfig.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
+  </ItemGroup>
+
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+
+  <Target Name="CopyPackageJsonAndPack" AfterTargets="Build">
+    <Copy SourceFiles="testpackage/package.json" DestinationFolder="build" />
+    <Delete Files="build/*.tgz" />
+    <Exec Command="npm pack" WorkingDirectory="build" />
+  </Target>  
+
+</Project>

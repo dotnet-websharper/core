@@ -344,10 +344,12 @@ module ExecuteCommands =
     let Unpack webRoot settings loader (logger: LoggerBase) =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
-        for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
-            let dir = DirectoryInfo(Path.Combine(webRoot, d))
-            if not dir.Exists then
-                dir.Create()
+        let flatten = settings.ProjectType = None && settings.DeadCodeElimination
+        if not flatten then 
+            for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+                let dir = DirectoryInfo(Path.Combine(webRoot, d))
+                if not dir.Exists then
+                    dir.Create()
         let assemblies =
             let dir =
                 match settings.OutputDir with
@@ -371,6 +373,7 @@ module ExecuteCommands =
                     UnpackTypeScript = settings.TypeScriptOutput
                     UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = Option.isSome settings.DownloadResources
+                    Flatten = flatten
                     Loader = Some loader
                     Logger = logger
             }
