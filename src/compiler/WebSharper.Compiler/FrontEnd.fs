@@ -257,7 +257,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
-            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm |> refreshVarFields
+            let trimmed = comp.ToRuntimeMetadata(rm <> M.DiscardExpressions) |> M.ApplyMetadataOptions rm |> refreshVarFields
             let graph =
                 DependencyGraph.Graph.FromData(
                     refMetas |> Seq.map (fun m -> m.Dependencies)

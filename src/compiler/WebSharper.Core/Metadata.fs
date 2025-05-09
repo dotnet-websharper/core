@@ -375,6 +375,7 @@ type Info =
         PreBundle : IDictionary<string, IDictionary<Address, string>>
         QuotedMethods : IDictionary<TypeDefinition * Method, list<string>>
         WebControls : IDictionary<Type, list<string>>
+        RemoteMethods : IDictionary<string, TypeDefinition * Method>
     }
 
     static member Empty =
@@ -390,6 +391,7 @@ type Info =
             PreBundle = Map.empty
             QuotedMethods = Map.empty
             WebControls = Map.empty
+            RemoteMethods = Map.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -494,6 +496,7 @@ type Info =
             PreBundle = Map.empty
             QuotedMethods = Dict.unionAppend (metas |> Seq.map (fun m -> m.QuotedMethods))
             WebControls = Dict.unionAppend (metas |> Seq.map (fun m -> m.WebControls))
+            RemoteMethods = Map.empty
         }
 
     member this.ClassInfo(td) =
@@ -568,30 +571,6 @@ let ApplyMetadataOptions options (m: Info) =
     | DiscardExpressions -> m.DiscardExpressions() 
     | DiscardInlineExpressions -> m.DiscardInlineExpressions()
     | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
-
-module internal Utilities = 
- 
-    let ignoreMacro m =
-        match m with
-        | Macro (_, _, Some f) -> f
-        | _ -> m
-
-    type RemoteMethods = IDictionary<string, TypeDefinition * Method>
-
-    let getRemoteMethods meta =
-        let remotes = Dictionary()
-        for KeyValue(cDef, (_, _, c)) in meta.Classes do
-            c |> Option.iter (fun c ->
-            for KeyValue(mDef, m) in c.Methods do
-                match ignoreMacro m.CompiledForm with
-                | Remote (_, path, _) ->
-                    try
-                        remotes.Add(path, (cDef, mDef))
-                    with _ ->
-                        failwithf "Duplicate remote method path found: %s" path
-                | _ -> ()
-            )
-        remotes :> RemoteMethods            
 
 let UnionCaseConstructMethod (td: TypeDefinition) (uc: FSharpUnionCaseInfo) =
     Method {

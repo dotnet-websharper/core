@@ -206,8 +206,8 @@ exception RemotingException of message: string with
     override this.Message = this.message
 
 [<Sealed>]
-type Server(info, jP, handlers: Func<System.Type, obj>) =
-    let remotePaths = M.Utilities.getRemoteMethods info
+type Server(info: M.Info, jP, handlers: Func<System.Type, obj>) =
+    let remotePaths = info.RemoteMethods
     let d = ConcurrentDictionary()
     let getConverter (td, m) =
         toConverter jP handlers (AST.Reflection.LoadMethod td m)

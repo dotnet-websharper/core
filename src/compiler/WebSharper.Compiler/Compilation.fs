@@ -110,6 +110,25 @@ type Compilation(meta: Info, ?hasGraph) =
             | i -> n.[.. i - 1]
         typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
 
+    let getRemoteMethods() =
+        let remotes = Dictionary()
+        let ignoreMacro m =
+            match m with
+            | Macro (_, _, Some f) -> f
+            | _ -> m
+        for KeyValue(cDef, (_, _, c)) in classes do
+            c |> Option.iter (fun c ->
+            for KeyValue(mDef, m) in c.Methods do
+                match ignoreMacro m.CompiledForm with
+                | Remote (_, path, _) ->
+                    try
+                        remotes.Add(path, (cDef, mDef))
+                    with _ ->
+                        failwithf "Duplicate remote method path found: %s" path
+                | _ -> ()
+            )
+        remotes
+
     member val UseLocalMacros = true with get, set
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
@@ -501,6 +520,7 @@ type Compilation(meta: Info, ?hasGraph) =
             PreBundle = Map.empty
             QuotedMethods = quotedMethods
             WebControls = webControls
+            RemoteMethods = getRemoteMethods()
         }    
 
     member this.HideInternalProxies(meta) =
@@ -533,12 +553,23 @@ type Compilation(meta: Info, ?hasGraph) =
         else
             meta
 
-    member this.ToRuntimeMetadata() =
+    member this.ToRuntimeMetadata(keepTypes) =
         {
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
-            Interfaces = interfaces
-            Classes = classes
+            Interfaces = if keepTypes then interfaces :> IDictionary<_,_> else Map.empty
+            Classes = 
+                if keepTypes then 
+                    classes :> IDictionary<_,_>
+                else
+                    let runtimeTypes = HashSet()
+                    for qi in quotations.Values do
+                        runtimeTypes.Add(qi.TypeDefinition) |> ignore
+                    for t, _ in quotedMethods.Keys do
+                        runtimeTypes.Add(t) |> ignore
+                    for t in webControls.Keys do
+                        runtimeTypes.Add(t.TypeDefinition) |> ignore
+                    classes |> Dict.filter (fun k _ -> runtimeTypes.Contains k)
             MacroEntries = 
                 macroEntries |> Dict.filter (fun k _ ->
                     match k with
@@ -551,6 +582,7 @@ type Compilation(meta: Info, ?hasGraph) =
             PreBundle = Map.empty
             QuotedMethods = Map.empty
             WebControls = Map.empty
+            RemoteMethods = getRemoteMethods()
         }    
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
