@@ -345,7 +345,11 @@ module ExecuteCommands =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
         let flatten = settings.ProjectType = None && settings.DeadCodeElimination
-        if not flatten then 
+        if flatten then
+            let dir = DirectoryInfo(webRoot)
+            if not dir.Exists then
+                dir.Create()
+        else
             for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
                 let dir = DirectoryInfo(Path.Combine(webRoot, d))
                 if not dir.Exists then

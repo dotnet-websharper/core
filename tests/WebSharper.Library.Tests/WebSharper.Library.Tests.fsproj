@@ -21,7 +21,7 @@
 
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
 
-  <Target Name="CopyPackageJsonAndPack" AfterTargets="Build">
+  <Target Name="CopyPackageJsonAndPack" AfterTargets="WebSharperCompile">
     <Copy SourceFiles="testpackage/package.json" DestinationFolder="build" />
     <Delete Files="build/*.tgz" />
     <Exec Command="npm pack" WorkingDirectory="build" />
