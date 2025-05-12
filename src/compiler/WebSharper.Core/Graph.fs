@@ -128,9 +128,40 @@ type Graph =
                 ) 
                 |> Array.ofSeq
         } 
-    
-    /// Get all code dependencies unordered
-    member this.GetDependencies (nodes : seq<Node>) =
+
+    member this.GetTrimmedData(nodes : seq<Node>) =
+        let allNodes = this.GetDependencyIndexes nodes |> Array.ofSeq 
+        let mapping = allNodes |> Seq.mapi (fun i n -> n, i) |> dict
+        {
+            
+            GraphData.Nodes = allNodes |> Array.map (fun i -> this.Nodes[i])
+            Edges = 
+                allNodes |> Array.map (fun i -> 
+                    this.Edges[i] 
+                    |> Seq.choose (fun j -> 
+                        match mapping.TryGetValue j with
+                        | true, jm -> Some jm
+                        | _ -> None
+                    ) 
+                    |> Array.ofSeq
+                )
+            Overrides = 
+                this.Overrides |> Seq.choose (fun (KeyValue(i, jk)) -> 
+                    match mapping.TryGetValue i with
+                    | true, im -> 
+                        let o = 
+                            jk |> Seq.choose (fun (KeyValue(j, k)) -> 
+                                match mapping.TryGetValue j, mapping.TryGetValue k with
+                                | (true, jm), (true, km) -> Some (jm, km)
+                                | _ -> None
+                            ) |> Array.ofSeq
+                        Some (im, o)
+                    | _ -> None
+                ) |> Array.ofSeq
+        } 
+
+    /// Get indexes of all code dependencies unordered
+    member this.GetDependencyIndexes (nodes : seq<Node>) =
         let allNodes = HashSet()
         let newNodes = HashSet()
         let allTypesWithOverrides = HashSet()
@@ -176,7 +207,11 @@ type Graph =
                     for mem in currentOrAllAbstractMembers do
                         ors.TryFind mem |> Option.iter (fun i -> addNode this.Nodes.[i] i)
         
-        allNodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq
+        allNodes
+
+    /// Get all code dependencies unordered
+    member this.GetDependencies (nodes : seq<Node>) =
+        this.GetDependencyIndexes nodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq 
 
     /// Get all resource nodes used by a graph node.
     member private this.GetRequires (metadata: Info) (nodes : seq<Node>) =

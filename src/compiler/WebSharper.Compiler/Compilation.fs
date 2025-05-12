@@ -556,20 +556,51 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.ToRuntimeMetadata(keepTypes) =
         {
             SiteletDefinition = this.SiteletDefinition 
-            Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
+            Dependencies = 
+                if hasGraph then 
+                    if keepTypes then
+                        graph.GetData() 
+                    else
+                        let nodes = HashSet() 
+                        for qi in quotations.Values do
+                            nodes.Add(MethodNode (qi.TypeDefinition, qi.Method)) |> ignore
+                        for t, m in quotedMethods.Keys do
+                            nodes.Add(MethodNode (t, m)) |> ignore
+                        for t in webControls.Keys do
+                            let rec addWithGenerics t =
+                                match t with 
+                                | ConcreteType ct ->
+                                    nodes.Add(TypeNode ct.Entity) |> ignore
+                                    for p in ct.Generics do
+                                        addWithGenerics p
+                                | _ -> ()
+                            addWithGenerics t
+                        graph.GetTrimmedData(nodes)                            
+                else 
+                    GraphData.Empty
             Interfaces = if keepTypes then interfaces :> IDictionary<_,_> else Map.empty
-            Classes = 
-                if keepTypes then 
-                    classes :> IDictionary<_,_>
-                else
-                    let runtimeTypes = HashSet()
-                    for qi in quotations.Values do
-                        runtimeTypes.Add(qi.TypeDefinition) |> ignore
-                    for t, _ in quotedMethods.Keys do
-                        runtimeTypes.Add(t) |> ignore
-                    for t in webControls.Keys do
-                        runtimeTypes.Add(t.TypeDefinition) |> ignore
-                    classes |> Dict.filter (fun k _ -> runtimeTypes.Contains k)
+            Classes = classes
+                //if keepTypes then 
+                //    classes :> IDictionary<_,_>
+                //else
+                //    let runtimeTypes = HashSet()
+                //    let rec addWithGenerics t =
+                //        match t with 
+                //        | ConcreteType ct ->
+                //            runtimeTypes.Add(ct.Entity) |> ignore
+                //            for p in ct.Generics do
+                //                addWithGenerics p
+                //        | _ -> ()
+                //    for qi in quotations.Values do
+                //        runtimeTypes.Add(qi.TypeDefinition) |> ignore
+                //    for t, m in quotedMethods.Keys do
+                //        runtimeTypes.Add(t) |> ignore
+                //        for p in m.Value.Parameters do
+                //            addWithGenerics p
+                //        addWithGenerics m.Value.ReturnType
+                //    for t in webControls.Keys do
+                //        addWithGenerics t
+                //    classes |> Dict.filter (fun k _ -> runtimeTypes.Contains k)
             MacroEntries = 
                 macroEntries |> Dict.filter (fun k _ ->
                     match k with
