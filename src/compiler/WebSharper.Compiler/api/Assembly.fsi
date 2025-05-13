@@ -27,7 +27,10 @@ type Assembly =
     /// Loads embedded non-script resources.
     member GetContents : unit -> seq<EmbeddedFile>
 
-    /// Loads embedded JavaScript resources.
+    /// Loads embedded script resources with a WebResource attribute.
+    member GetResScripts : unit -> seq<EmbeddedFile>
+
+    /// Loads all embedded JavaScript resources.
     member GetScripts : WebSharper.Core.JavaScript.Output -> seq<EmbeddedFile>
 
     /// Returns the raw assembly data.

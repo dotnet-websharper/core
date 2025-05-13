@@ -130,6 +130,10 @@ type Assembly =
         ParseAllScriptResources this.Definition t
         |> Seq.ofArray
 
+    member this.GetResScripts() =
+        ParseWebResources this.Definition
+        |> Seq.filter (fun r -> r.IsScript)
+
     member this.GetContents() =
         ParseWebResources this.Definition
         |> Seq.filter (fun r -> not r.IsScript)

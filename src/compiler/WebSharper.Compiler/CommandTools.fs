@@ -344,30 +344,26 @@ module ExecuteCommands =
     let Unpack webRoot settings loader (logger: LoggerBase) =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
-        let flatten = settings.ProjectType = None && settings.DeadCodeElimination = Some true
-        if flatten then
-            let dir = DirectoryInfo(webRoot)
+        for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
+            let dir = DirectoryInfo(Path.Combine(webRoot, d))
             if not dir.Exists then
                 dir.Create()
-        else
-            for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
-                let dir = DirectoryInfo(Path.Combine(webRoot, d))
-                if not dir.Exists then
-                    dir.Create()
-        let assemblies =
+        let assemblies, currentAssembly =
             let dir =
                 match settings.OutputDir with
                 | None | Some "" -> Path.Combine(webRoot, "bin")
                 | Some p -> p
             let rootDir = Path.GetDirectoryName(settings.ProjectFile)
+            let currentAssembly = Path.Combine(rootDir, settings.AssemblyFile)
             let fullDir = Path.Combine(rootDir, dir)
             [
                 yield! Directory.EnumerateFiles(fullDir, "*.dll")
                 yield! Directory.EnumerateFiles(fullDir, "*.exe")
-                yield Path.Combine(rootDir, settings.AssemblyFile)
+                yield currentAssembly
                 yield! settings.References
             ]        
             |> List.distinct
+            , currentAssembly
         let cfg =
             {
                 Compiler.UnpackCommand.Config.Create() with
@@ -377,7 +373,8 @@ module ExecuteCommands =
                     UnpackTypeScript = settings.TypeScriptOutput
                     UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = Option.isSome settings.DownloadResources
-                    Flatten = flatten
+                    WebResourcesOnly = settings.PreBundle
+                    ScriptsFromCurrentAssembly = if settings.PreBundle then Some currentAssembly else None
                     Loader = Some loader
                     Logger = logger
             }

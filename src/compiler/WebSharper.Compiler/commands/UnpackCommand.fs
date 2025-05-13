@@ -35,7 +35,8 @@ module UnpackCommand =
             UnpackTypeScript : bool
             UnpackTypeScriptDeclaration : bool
             DownloadResources : bool
-            Flatten : bool
+            WebResourcesOnly : bool
+            ScriptsFromCurrentAssembly : option<string>
             Loader : option<Loader>
             Logger : LoggerBase
         }
@@ -48,7 +49,8 @@ module UnpackCommand =
                 UnpackTypeScript = false
                 UnpackTypeScriptDeclaration = false
                 DownloadResources = false
-                Flatten = false
+                WebResourcesOnly = false
+                ScriptsFromCurrentAssembly = None
                 Loader = None
                 Logger = ConsoleLogger()
             }
@@ -152,18 +154,19 @@ module UnpackCommand =
             //if cmd.UnpackTypeScript then
             //    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
-                if cmd.Flatten then
-                    writeTextFile (System.IO.Path.Combine(cmd.RootDirectory, fn), c)
-                else
-                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                    writeTextFile (p, c)
+                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                writeTextFile (p, c)
             let writeBinary k fn c =
-                if cmd.Flatten then
-                    writeBinaryFile (System.IO.Path.Combine(cmd.RootDirectory, fn), c)
-                else
-                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                    writeBinaryFile (p, c)
-            if cmd.UnpackTypeScript then
+                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                writeBinaryFile (p, c)
+            let isCurrentAsm =
+                match cmd.ScriptsFromCurrentAssembly with
+                | Some ca when ca = p -> true
+                | _ -> false
+            if cmd.WebResourcesOnly && not isCurrentAsm then
+                for r in a.GetResScripts() do
+                    writeText script r.FileName r.Content
+            elif cmd.UnpackTypeScript then
                 for r in a.GetScripts(O.TypeScript) do
                     writeText script r.FileName r.Content
             else
