@@ -91,7 +91,7 @@ type WsConfig =
         Documentation : string option
         PrintJS : bool
         WarnOnly : bool
-        DeadCodeElimination : bool
+        DeadCodeElimination : bool option
         DownloadResources : bool option
         AnalyzeClosures : bool option
         JavaScriptScope : JavaScriptScope
@@ -133,7 +133,7 @@ type WsConfig =
             Documentation = None
             PrintJS = false
             WarnOnly = false
-            DeadCodeElimination = true
+            DeadCodeElimination = None
             DownloadResources = None       
             AnalyzeClosures = None
             JavaScriptScope = JSDefault
@@ -229,7 +229,7 @@ type WsConfig =
             | "scriptbaseurl" ->
                 res <- { res with ScriptBaseUrl = Some (getString k v) }
             | "dce" ->
-                res <- { res with DeadCodeElimination = getBool k v }
+                res <- { res with DeadCodeElimination = Some (getBool k v) }
             | "sourcemap" ->
                 res <- { res with SourceMap = getBool k v }
             | "dts" ->
@@ -344,7 +344,7 @@ module ExecuteCommands =
     let Unpack webRoot settings loader (logger: LoggerBase) =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
-        let flatten = settings.ProjectType = None && settings.DeadCodeElimination
+        let flatten = settings.ProjectType = None && settings.DeadCodeElimination = Some true
         if flatten then
             let dir = DirectoryInfo(webRoot)
             if not dir.Exists then
@@ -594,7 +594,7 @@ let RecognizeWebSharperArg a wsArgs =
     | "--html" -> Some { wsArgs with ProjectType = Some Html }
     | "--site" -> Some { wsArgs with ProjectType = Some Website }
     | Flag "--wswarnonly" v -> Some { wsArgs with WarnOnly = v }
-    | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = v }
+    | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = Some v }
     | StartsWith "--ws:" wsProjectType ->
         let pt = ProjectType.Parse wsProjectType
         let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(wsProjectType, pt))

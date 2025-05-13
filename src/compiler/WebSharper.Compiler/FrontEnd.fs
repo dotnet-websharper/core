@@ -22,6 +22,7 @@ module WebSharper.Compiler.FrontEnd
 
 open WebSharper.Core
 open WebSharper.Constants
+open System.IO
 
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
@@ -197,15 +198,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         if prebundle then
             [||]
         else
-            let refMeta, current =
-                match comp, dce with
-                | Some c, true ->
-                    let nodes = GetDepsFromJSExports c.JavaScriptExports M.EntryPointNode c.Graph
-                    let meta = M.Info.UnionWithoutDependencies [ refMeta; current ]
-                    let trimmed = trimMetadata meta nodes
-                    trimmed, trimmed
-                |  _ ->
-                    refMeta, current
             JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName dce (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
 
     if not prebundle then
@@ -445,22 +437,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .d.ts files"
 
-        match comp, dce with
-        | Some c, true ->
-            let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.JavaScript 
-            let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.JavaScript WebSharper.Core.JavaScript.Readable
-            let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-            addRes "index.js" (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
-
-            if dts then
-                let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.TypeScriptDeclaration 
-                let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
-                let dts, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                addRes "index.d.ts" (Some (pu.JavaScriptFileName(ai))) (Some (getBytes dts))
-
-            logger.TimedStage (sprintf "Writing index.js for library")
-        | _ -> ()
-
         addMeta()
         Some jss, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
     else
@@ -477,6 +453,59 @@ let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta
 
 let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
     ModifyCecilAssembly logger comp refMeta current sourceMap dts ts dce closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet
+
+let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) dts ts (runtimeMeta: option<M.MetadataOptions * M.Info list>) outputDir =
+    match comp, runtimeMeta with
+    | Some c, Some (_, refMetas) ->
+        let currentL =
+            let nodes = GetDepsFromJSExports c.JavaScriptExports M.EntryPointNode c.Graph
+            let meta = c.ToRuntimeMetadata(true)
+            let graph =
+                DependencyGraph.Graph.FromData(
+                    refMetas |> Seq.map (fun m -> m.Dependencies)
+                    |> Seq.append [ meta.Dependencies ]
+                )
+            let deps = graph.GetDependencies nodes
+            trimMetadata meta deps
+
+        let makeFile name (js: string) =
+            let path = Path.Combine(outputDir, name)
+            if not (Directory.Exists outputDir) then
+                Directory.CreateDirectory outputDir |> ignore
+            File.WriteAllText(path, js)
+
+        let jspkg = 
+            JavaScriptPackager.packageAssembly O.JavaScript refMeta currentL "" true (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.LibraryBundle
+        for name, p in jspkg do
+            let program, isJsx = p |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.JavaScript WebSharper.Core.JavaScript.Readable
+            let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+            let x = if isJsx then "x" else ""
+            makeFile (name + ".js" + x) js
+
+        if dts then
+            let dtspkg = 
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta currentL "" true (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.LibraryBundle
+            for name, p in dtspkg do
+                let program, _ = p |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+                makeFile (name + ".d.ts") js
+
+        logger.TimedStage (sprintf "Writing code files for library")
+
+        let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.JavaScript 
+        let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.JavaScript WebSharper.Core.JavaScript.Readable
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+        makeFile "index.js" js
+
+        if dts then
+            let rootJS = JavaScriptPackager.packageLibraryBundle current c.JavaScriptExports O.TypeScriptDeclaration 
+            let program, _ = rootJS |> WebSharper.Compiler.JavaScriptWriter.transformProgram O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+            let dts, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
+            makeFile "index.d.ts" dts
+
+        logger.TimedStage (sprintf "Writing index.js for library")
+
+    | _ -> ()
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

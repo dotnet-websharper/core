@@ -128,6 +128,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             let runtimeMeta =
                 match config.ProjectType with
                 | Some (Bundle | Website | Html | Service) -> Some (config.RuntimeMetadata, metas)
+                | _ when config.DeadCodeElimination = Some true -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
             let isSitelet =
@@ -147,8 +148,20 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | _ ->
                     config.PreBundle
 
+            let dce =
+                config.DeadCodeElimination |> Option.defaultValue (
+                    match config.ProjectType with
+                    | Some Bundle -> true
+                    | _ -> false
+                )
+
             let js, currentMeta, rMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.DeadCodeElimination config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) prebundle isSitelet
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) prebundle isSitelet
+
+            match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
+            | None, Some true, Some outputDir ->
+                UnpackLibraryCode logger (Some comp) refMeta currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir
+            | _ -> ()
 
             match config.ProjectType with
             | Some (Bundle | Website | Html) ->
@@ -229,8 +242,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             unpack()
         | _ ->
             htmlRes |> handleCommandResult "Finished writing offline sitelet" true
-    | Some Website
-    | _ when Option.isSome config.OutputDir ->
+    | Some Website ->
+        unpack()
+    | _ when Option.isSome config.OutputDir && config.DeadCodeElimination <> Some true ->
         unpack()
     | _ -> ()
 

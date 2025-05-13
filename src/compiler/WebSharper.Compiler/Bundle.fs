@@ -133,7 +133,7 @@ module Bundling =
                     |> M.Info.UnionWithoutDependencies
                 try
                     let current = 
-                        if dce then trimMetadata meta nodes 
+                        if dce <> Some false then trimMetadata meta nodes 
                         else meta
                     let asmName = Path.GetFileNameWithoutExtension o.Config.AssemblyFile
                     JavaScriptPackager.bundleAssembly O.JavaScript current current asmName o.EntryPoint o.EntryPointStyle
@@ -325,7 +325,7 @@ module Bundling =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
-                DeadCodeElimination = true
+                DeadCodeElimination = Some true
                 ScriptBaseUrl = None
             }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public

@@ -241,6 +241,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 let runtimeMeta =
                     match config.ProjectType with
                     | Some (Bundle | Website | Html | Service) -> Some (config.RuntimeMetadata, getRefMetas())
+                    | _ when config.DeadCodeElimination = Some true -> Some (config.RuntimeMetadata, getRefMetas())
                     | _ -> None
 
                 let isLibrary = config.ProjectType = None 
@@ -262,8 +263,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     | _ ->
                         config.PreBundle
 
+                let dce =
+                    config.DeadCodeElimination |> Option.defaultValue (
+                        match config.ProjectType with
+                        | Some Bundle -> true
+                        | _ -> false
+                    )
+
                 let js, currentMeta, rMeta, sources, res =
-                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.DeadCodeElimination config.AnalyzeClosures runtimeMeta assem isLibrary prebundle isSitelet
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem isLibrary prebundle isSitelet
+                
+                match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
+                | None, Some true, Some outputDir ->
+                    UnpackLibraryCode logger (Some comp) (getRefMeta()) currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir
+                | _ -> ()
+                
                 match config.ProjectType with
                 | Some (Bundle | Website | Html) ->
                     let wsRefs =
@@ -344,8 +358,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 unpack()
             else
                 htmlRes
-        | Some Website
-        | _ when Option.isSome config.OutputDir ->
+        | Some Website ->
+            unpack()
+        | _ when Option.isSome config.OutputDir && config.DeadCodeElimination <> Some true ->
             unpack()
         | _ ->
             0
