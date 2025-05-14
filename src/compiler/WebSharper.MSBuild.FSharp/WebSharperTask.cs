@@ -78,8 +78,8 @@ namespace WebSharper.MSBuild.FSharp
                 WriteIfSet(w, "--wsoutput:", WebSharperBundleOutputDir);
                 WriteIfSet(w, "--wsoutput:", WebSharperHtmlDirectory);
 
-                if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed) && !parsed)
-                    w.WriteLine("--dce-");
+                if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
+                    w.WriteLine("--dce" + (parsed ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");

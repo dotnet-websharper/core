@@ -528,20 +528,17 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
   --ws:<type>           Set WebSharper project type; one of:
                           library, site, bundle, bundleonly, html, extension
   --wig                 InterfaceGenerator project
-                          same as --ws:extension
+                          same as --ws:binding
   --library             Library project
                           same as --ws:library
   --bundle              Single-page application project
-                          same as --ws:bundle
+                          same as --ws:spa
   --bundleonly          SPA project with .js/.css outputs only
                           same as --ws:bundleonly
   --html                Static site generator project
                           same as --ws:html
   --site                Client-server application project
-                          same as --ws:site
-  --jsmap[+|-]          Enable source mapping
-                          available for --ws:site,bundle,bundleonly
-                          default: false
+                          same as --ws:web
   --wswarnonly[+|-]     Print WebSharper-specific errors as warnings
                           default: false
   --dce[+|-]            Turn off dead code elimination for SPA projects
@@ -554,8 +551,6 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
                           default: false
   --wsoutput:<dir>      Specify output directory for WebSharper-generated files
                           available for --ws:html,bundle,bundleOnly
-  --jsoutput:<path>     Specify output file for compiled JavaScript
-  --minjsoutput:<path>  Specify output file for compiled & minified JavaScript
   --project:<path>      Location of project file
   --closures[+|-]       Enable JS closure analysis
                           default: false
