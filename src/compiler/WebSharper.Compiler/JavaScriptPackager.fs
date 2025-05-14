@@ -1026,7 +1026,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | _ -> 
                     if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress false ba), c.BaseClass.Value.Generics |> List.map (tsTypeOf [||]), Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
+            | Some (ba, _, _) -> 
+                let bgen =
+                    if output = O.JavaScript then [] else
+                    c.BaseClass.Value.Generics |> List.map (tsTypeOf [||])
+                Some (getOrImportAddress false ba), bgen, Some c.BaseClass.Value.Entity, c.BaseClass.Value.Entity = Definitions.Object
             | _ -> None, [], None, false
 
         baseClass <- bc
