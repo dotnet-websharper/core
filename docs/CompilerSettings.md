@@ -58,14 +58,17 @@ The other use case for dead code elimination is producing npm-facing library cod
 To package the output for npm set `"outputDir": "build"` and then you can add a section to your project file like this:
 
 ```xml
+  <Target Name="CleanBuildDir" BeforeTargets="CoreCompile">
+    <RemoveDir Directories="build" />
+  </Target>
+  
   <Target Name="CopyPackageJsonAndPack" AfterTargets="WebSharperCompile">
     <Copy SourceFiles="assets/package.json" DestinationFolder="build" />
-    <Delete Files="build/*.tgz" />
     <Exec Command="npm pack" WorkingDirectory="build" />
   </Target>
 ```
 
-This copies over a `package.json` file to serve as your package declaration to your WebSharper project's output folder, removes the old package if any and creates a new tar package.
+This cleans the build folder before a new build. After a successful WebSharper build, it copies over a `package.json` file to serve as your package declaration to your WebSharper project's output folder.
 
 WebSharper will create an `index.js` to serve as the root of the npm package, so in your `assets/package.json` file, set `"main": "index.js"`. Also take note that all static methods on static classes will be exported as top level functions, make sure to give expressive names for your functions for npm library use that does not depend on F# module name for example to disambiguate them.
 
