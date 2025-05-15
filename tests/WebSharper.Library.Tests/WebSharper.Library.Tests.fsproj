@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Library.fs" />
     <None Include="wsconfig.json" />
+    <None Include="testpackage/package.json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -53,19 +53,21 @@ Allows overriding configuration values based on project configuration. For examp
 
 An `spa` or `bundleOnly` project uses dead code elimination to have a minimal size `.js` output. If you run into any errors with missing code, please [report as a bug](https://github.com/dotnet-websharper/core/issues). As a quick workaround you can set `"dce": false` to see if that resolves your problem.
 
-The other use case for dead code elimination is producing npm-facing library code. For this, set `"dce": true` on a libray project and specify an [outputDir](#outputDir).
+The other use case for dead code elimination is producing npm-facing library code. For this, set `"dce": true` on a libray project and specify an [outputDir](#outputDir). You might also want to set `"javascriptExport": true` to make the whole current project exported into the final output, otherwise only classes and methods marked with the `JavascriptExport` attribute will be available.
 
 To package the output for npm set `"outputDir": "build"` and then you can add a section to your project file like this:
 
 ```xml
   <Target Name="CopyPackageJsonAndPack" AfterTargets="WebSharperCompile">
-    <Copy SourceFiles="tonpm/package.json" DestinationFolder="build" />
+    <Copy SourceFiles="assets/package.json" DestinationFolder="build" />
     <Delete Files="build/*.tgz" />
     <Exec Command="npm pack" WorkingDirectory="build" />
   </Target>
 ```
 
 This copies over a `package.json` file to serve as your package declaration to your WebSharper project's output folder, removes the old package if any and creates a new tar package.
+
+WebSharper will create an `index.js` to serve as the root of the npm package, so in your `assets/package.json` file, set `"main": "index.js"`. Also take note that all static methods on static classes will be exported as top level functions, make sure to give expressive names for your functions for npm library use that does not depend on F# module name for example to disambiguate them.
 
 <a name="downloadResources"></a>
 ## "downloadResources"
