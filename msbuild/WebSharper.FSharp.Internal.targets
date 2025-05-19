@@ -31,7 +31,7 @@
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
-    <!--<WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>-->
+    <WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>

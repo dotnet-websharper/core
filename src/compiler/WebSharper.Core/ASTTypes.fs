@@ -990,13 +990,6 @@ type [<RequireQualifiedAccess>] TSType =
         | ObjectOf a -> ObjectOf(tr a)
         | TypeLiteral m -> TypeLiteral(m |> List.map (fun (n, k, t) -> n, k, tr t))
 
-    member this.ResolveModule (getModule: Module -> Id option) =
-        this.ResolveAddress (fun m ->
-            match getModule m.Module with
-            | Some v -> Imported(v, m.Address)
-            | _ -> Named m.Address
-        )
-
     override this.ToString() =
         match this with
         | Any -> "any"

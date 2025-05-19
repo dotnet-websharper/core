@@ -533,11 +533,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
 
     let resModule (t: TSType) =
         if output = O.JavaScript then t else 
-        t.ResolveModule (fun m ->
-            match getOrImportAddress false ({ Module = m; Address = [] }) with 
-            | Var v -> Some v
-            | GlobalAccess { Module = ImportedModule v } -> Some v
-            | _ -> None
+        t.ResolveAddress (fun a ->
+            let a =
+                match a.Address with
+                | [] -> { a with Address = [ "default" ] }
+                | _ -> a
+            match getOrImportAddress false a with 
+            | Var v -> TSType.Imported (v, [])
+            | GlobalAccess ({ Module = ImportedModule v; Address = ia }) -> TSType.Imported (v, ia)
+            | _ -> TSType.Named a.Address
         )
 
     let bodyTransformer gsArr =
