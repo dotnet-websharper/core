@@ -373,7 +373,7 @@ type private IEnumeratorProxy =
     [<Inline>]
     default this.Reset() = Enumerator.Reset (As<System.Collections.IEnumerator> this)
 
-[<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
+[<AbstractClass; Proxy(typeof<System.Collections.Generic.IEnumerator<_>>, [| typeof<System.Collections.IEnumerator> |])>]
 type private IEnumeratorProxy<'T> =
     [<Name "Current">]
     abstract member Current : 'T

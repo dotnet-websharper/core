@@ -90,6 +90,14 @@ type Id =
             }
         else this
 
+    member this.ToOptional() =
+        if this.Optional then
+            this
+        else
+            { this with
+                Optional = true
+            }
+
     member this.VarType = this.Type
 
     member this.IsTuple =

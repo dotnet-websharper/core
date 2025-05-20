@@ -778,10 +778,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | [Type.TypeParameter _ | Type.StaticTypeParameter _ | Type.LocalTypeParameter _] -> true
                 | _ -> false
 
-            let transformSingleGenericArg (t: TSType) =
+            let transformSingleGenericArgToEmpty (t: TSType) =
                 match t with
-                | TSType.Function(this, _, rest, ret) ->
-                    TSType.Function(this, [ TSType.Void, true ], rest, ret)  
+                | TSType.Function(this, [ _ ], rest, ret) ->
+                    TSType.Function(this, [], rest, ret)  
                 | _ -> t
 
             let func fromInst addr =
@@ -806,15 +806,19 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    if output <> O.JavaScript && isTakingSingleGenericArg then
-                        let optVoid = [ Id.New(?name = args[0].Name, opt = true, typ = Type.TSType TSType.Void) ]
+                    if isTakingSingleGenericArg && output <> O.JavaScript then
                         addStatement <| exportWithBundleSupport false typ (Some m) addr f 
-                            (FuncSignature(f, optVoid, thisVar, cgen @ mgen))
+                            (FuncSignature(f, [], thisVar, cgen @ mgen))
+                        addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                            (FuncSignature(f, args, thisVar, cgen @ mgen))
                         if output = O.TypeScript then
+                            let optArg = args[0].ToOptional()
+                            let b = SubstituteVar(args[0], Var optArg).TransformStatement(b)
                             addStatement <| exportWithBundleSupport false typ (Some m) addr f 
-                                (FuncSignature(f, args, thisVar, cgen @ mgen))
-                    addStatement <| exportWithBundleSupport false typ (Some m) addr f 
-                        (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
+                                (FuncDeclaration(f, [optArg], thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
+                    else
+                        addStatement <| exportWithBundleSupport false typ (Some m) addr f 
+                            (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
                     if output <> O.TypeScriptDeclaration then 
                         let f = 
@@ -848,9 +852,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                                     [||] // TODO: should this be an error? I don't think it should ever happen
                             |> Some
                         | _ -> intfGen
-                    if output <> O.JavaScript && isTakingSingleGenericArg then
-                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature baseGen false |> transformSingleGenericArg |> addGenerics mgen)
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature baseGen false |> addGenerics mgen)
+                    if isTakingSingleGenericArg && output <> O.JavaScript then
+                        members.Add <| ClassMethod(info, mname, [], thisVar, None, getSignature baseGen false |> transformSingleGenericArgToEmpty |> addGenerics mgen)
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature baseGen false |> addGenerics mgen)
+                        if output = O.TypeScript then
+                            let optArg = args[0].ToOptional()
+                            let b = SubstituteVar(args[0], Var optArg).TransformStatement(b)
+                            members.Add <| ClassMethod(info, mname, [ optArg ], thisVar, implStOpt (fun () -> b), getSignature baseGen false |> addGenerics mgen)
+                    else
+                        members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature baseGen false |> addGenerics mgen)
                 | _ -> ()       
             | M.Static (mname, fromInst, mkind) ->
                 match IgnoreExprSourcePos body with
@@ -862,9 +872,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             IsAbstract = false
                             Kind = mkind
                         }
-                    if output <> O.JavaScript && isTakingSingleGenericArg then
-                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature intfGen fromInst |> transformSingleGenericArg |> addGenerics (cgen @ mgen))
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature intfGen fromInst |> addGenerics (cgen @ mgen))
+                    if isTakingSingleGenericArg && output <> O.JavaScript then
+                        members.Add <| ClassMethod(info, mname, [], thisVar, None, getSignature intfGen fromInst |> transformSingleGenericArgToEmpty |> addGenerics (cgen @ mgen))
+                        members.Add <| ClassMethod(info, mname, args, thisVar, None, getSignature intfGen fromInst |> addGenerics (cgen @ mgen))
+                        if output = O.TypeScript then
+                            let optArg = args[0].ToOptional()
+                            let b = SubstituteVar(args[0], Var optArg).TransformStatement(b)
+                            members.Add <| ClassMethod(info, mname, [ optArg ], thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature intfGen fromInst |> addGenerics (cgen @ mgen))
+                    else
+                        members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature intfGen fromInst |> addGenerics (cgen @ mgen))
                 | _ ->
                     let info = 
                         {
@@ -1300,7 +1316,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
-                    ClassStatic (VarSetStatement(outerClassId, setInstance(JSThis))) 
+                    ClassStatic (VarSetStatement(outerClassId, Cast(TSType.Any, setInstance(JSThis)))) 
                     :: List.ofSeq members)
             let implements =
                 if output = O.JavaScript then [] else
