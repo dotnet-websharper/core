@@ -248,6 +248,13 @@ If the value is `true`, WebSharper errors for not finding a type or method in Ja
 
 If the value is `false`, the WebSharper F# compiler will not use a backend process for faster compilation speeds. If set to `true`, it will use backend process even if `WebSharperBuildService` environment variable is `false`.
 
+<a name="sourceMap"></a>
+## "sourceMap"
+
+**Type**: bool (default is `false`)
+
+Enable source maps for the generated JavaScript code. This is useful for debugging purposes, as it allows you to see the original F#/C# code in the browser's developer tools instead of the compiled JavaScript.
+
 <a name="stubInterfaces"></a>
 ## "stubInterfaces"
 
