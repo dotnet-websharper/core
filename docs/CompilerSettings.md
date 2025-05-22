@@ -39,6 +39,13 @@ This setting can enable warnings on these kinds of captures, helping to eliminat
 * `"moveToTop"` - Moves all non-capturing lambdas to top level automatically (experimental).
 * `false` - Default setting, no JS closure analysis.
 
+<a name="buildService"></a>
+## "buildService"
+
+**Type**: bool (default is `true` except if `WebSharperBuildService` environment variable is set to `false`)
+
+If the value is `false`, the WebSharper F# compiler will not use a backend process for faster compilation speeds. If set to `true`, it will use backend process even if `WebSharperBuildService` environment variable is `false`.
+
 <a name="configurationName"></a>
 ## Configuration name (usually `"Debug"` or `"Release"`)
 
@@ -240,13 +247,6 @@ Current recommended approach is to use npm packages only for referencing externa
 **Type**: bool (default is `false`)
 
 If the value is `true`, WebSharper errors for not finding a type or method in JavaScript scope will show up only once per type/method, where it's first encountered.
-
-<a name="standalone"></a>
-## "standalone"
-
-**Type**: bool (default is `false` except if `WebSharperBuildService` environment variable is set to `false`)
-
-If the value is `false`, the WebSharper F# compiler will not use a backend process for faster compilation speeds. If set to `true`, it will use backend process even if `WebSharperBuildService` environment variable is `false`.
 
 <a name="sourceMap"></a>
 ## "sourceMap"

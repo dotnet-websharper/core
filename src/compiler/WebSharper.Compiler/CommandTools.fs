@@ -291,7 +291,9 @@ type WsConfig =
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = Some (getBool k v) }
             | "standalone" ->
-                res <- { res with Standalone = res.Standalone || getBool k v }
+                res <- { res with Standalone = getBool k v }
+            | "buildservice" ->
+                res <- { res with Standalone = not (getBool k v) }
             | "runtimemetadata" ->
                 let runtimeMetadata =
                     match (getString k v).ToLower() with
