@@ -46,6 +46,13 @@ This setting can enable warnings on these kinds of captures, helping to eliminat
 
 If the value is `false`, the WebSharper F# compiler will not use a backend process for faster compilation speeds. If set to `true`, it will use backend process even if `WebSharperBuildService` environment variable is `false`.
 
+<a name="buildServiceLogging"></a>
+## "buildServiceLogging"
+
+**Type**: bool (default is `true` except if `WebSharperBuildServiceLogging` environment variable is set to `false`)
+
+If the value is `false`, the WebSharper F# compiler service will not create a `websharper.log` file. If set to `true`, it will use logging even if `WebSharperBuildServiceLogging` environment variable is `false`.
+
 <a name="configurationName"></a>
 ## Configuration name (usually `"Debug"` or `"Release"`)
 

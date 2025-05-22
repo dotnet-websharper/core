@@ -308,7 +308,7 @@ do ()
 
 [<EntryPoint>]
 let main args =
-    let initialLogLocation = args[0]
+    let initialLogLocation = if args.Length > 1 then Some (args[0]) else None
     try
         // One service should serve all compilations in a folder. Protect it with a global Mutex.
         let location = System.Reflection.Assembly.GetEntryAssembly().Location
@@ -336,7 +336,7 @@ let main args =
         // killing the task from Task Manager on Windows 10 will dispose the Mutex
         with
         | ex ->
-            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
+            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
             try
                 mutex.ReleaseMutex()
             finally
@@ -346,5 +346,5 @@ let main args =
                     mutex.Dispose()
     with
         | ex ->
-            System.IO.File.AppendAllLines(initialLogLocation, [ex.ToString()])
+            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
     0 // exit code

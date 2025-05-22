@@ -104,6 +104,7 @@ type WsConfig =
         UseJavaScriptSymbol : bool option
         TargetProfile : string
         Standalone : bool
+        BuildServiceLogging : bool
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
         PreBundle : bool
@@ -153,6 +154,14 @@ type WsConfig =
                     match bool.TryParse(envVar) with
                     | true, v -> not v
                     | _ -> false
+            BuildServiceLogging =
+                let envVar = System.Environment.GetEnvironmentVariable("WebSharperBuildServiceLogging")
+                if isNull envVar then
+                    true
+                else
+                    match bool.TryParse(envVar) with
+                    | true, v -> v
+                    | _ -> true                
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
             PreBundle = false
@@ -294,6 +303,8 @@ type WsConfig =
                 res <- { res with Standalone = getBool k v }
             | "buildservice" ->
                 res <- { res with Standalone = not (getBool k v) }
+            | "buildservicelogging" ->
+                res <- { res with BuildServiceLogging = not (getBool k v) }
             | "runtimemetadata" ->
                 let runtimeMetadata =
                     match (getString k v).ToLower() with

@@ -54,7 +54,7 @@ let (|Finish|_|) (str: string) =
 
 let retryErrorCode = -12212
 
-let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
+let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
@@ -89,7 +89,8 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
                         "wsfscservice_start.cmd" else "wsfscservice_start.sh"
         let cmdFullPath = (location, cmdName) |> System.IO.Path.Combine
         let startInfo = ProcessStartInfo(cmdFullPath)
-        startInfo.Arguments <- Path.Combine(projectDir, "websharper.log")
+        if useLogs then
+            startInfo.Arguments <- Path.Combine(projectDir, "websharper.log")
         startInfo.CreateNoWindow <- true
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden

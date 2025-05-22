@@ -88,7 +88,7 @@ let main(argv) =
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
             try
-                let res = sendCompileCommand argv wsConfig.ProjectDir logger
+                let res = sendCompileCommand argv wsConfig.ProjectDir wsConfig.BuildServiceLogging logger
                 res
             with
             | PipeException () ->
