@@ -23,6 +23,7 @@ module WebSharper.Compiler.FrontEnd
 open WebSharper.Core
 open WebSharper.Constants
 open System.IO
+open System.Collections.Generic
 
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
@@ -114,7 +115,7 @@ let ModifyTSAssembly (current: M.Info) (a: Assembly) =
 let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     if sourceMap then
         let current, fileNames = transformAllSourcePositionsInMetadata assemblyName false current
-        let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
+        let sources = fileNames |> Array.choose (fun (fn, key) -> if File.Exists fn then Some (key, File.ReadAllText fn) else None)
         current, sources
     else
         transformAllSourcePositionsInMetadata assemblyName true current |> fst, [||]
@@ -177,7 +178,6 @@ let GetDepsFromJSExports (jsExport: JsExport list) entryPointNode (graph: WebSha
 
 let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
     let assemblyName = a.Name.Name
-    let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
         
@@ -361,11 +361,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
     if pkg.Length > 0 then
         
-        let getCodeWriter() = 
-            if sourceMap then
-                WebSharper.Core.JavaScript.Writer.CodeWriter(sources)
-            else WebSharper.Core.JavaScript.Writer.CodeWriter()    
-
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let shouldUseJSX = ResizeArray<string>()
@@ -377,6 +372,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                     shouldUseJSX.Add n
                 n, program, jsx
             )
+        let sourcesUsed = HashSet()
         let jss = 
             jss' |> Array.map (fun (n, p, jsx) ->
                 let jsxModifiedProgram =
@@ -390,15 +386,26 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                                 st
                         | _ -> st
                     )
-                let js, map, isJSX = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter jsxModifiedProgram jsx
+                let codeWriter = 
+                    WebSharper.Core.JavaScript.Writer.CodeWriter(sourceMap)
+
+                let js, map, isJSX = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable (fun () -> codeWriter) jsxModifiedProgram jsx
+                if sourceMap then
+                    codeWriter.GetSourceFiles() |> Array.iter (sourcesUsed.Add >> ignore)
                 n, js, map, isJSX
             )
+        if sourceMap then
+            sources |> Array.filter (fun (n, s) -> sourcesUsed.Contains n) 
+            |> Array.iter (fun (name, contents) ->
+                addRes (EMBEDDED_SOURCES + name) None (Some (getBytes contents))
+            )
+
         for n, js, map, isJSX in jss do
             let x = if isJSX then "x" else ""
             addRes (n + ".js" + x) (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
-                addRes (n + ".map") None (Some (getBytes m)))
-            logger.TimedStage (if sourceMap then sprintf "Writing %s.js and %s.map.js" n n else sprintf "Writing %s.js" n)
+                addRes (n + ".js.map") None (Some (getBytes m)))
+            logger.TimedStage (if sourceMap then sprintf "Writing %s.js and %s.js.map.js" n n else sprintf "Writing %s.js" n)
             //let minJs, minMap = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Compact getCodeWriter
             //addRes (n + ".min.js") (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
             //minMap |> Option.iter (fun m ->

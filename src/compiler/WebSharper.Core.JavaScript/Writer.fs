@@ -846,24 +846,17 @@ let testEncode value =
     encodeBase64VLQ value b
     string b
 
-type CodeWriter(?sources: (string * string)[], ?offset) =
+type CodeWriter(?sourceMap: bool, ?isBundle: bool) =
     let code = StringBuilder()
     let mappings = StringBuilder()
-    let sourceMap = Option.isSome sources
-    let sources = defaultArg sources [||]  
-    let sourcesDict = sources |> Seq.mapi (fun i (n, _) -> n, i) |> dict 
+    let sourceMap = defaultArg sourceMap false
+    let isBundle = defaultArg isBundle false
     let mutable insertComma = false
     let mutable colFromLastMapping = 0
-    let mutable mappingOn = false
+    let sources = ResizeArray()
+    let sourcesDict = System.Collections.Generic.Dictionary()
     let names = ResizeArray()
     let namesDict = System.Collections.Generic.Dictionary()
-
-    do
-        match offset with
-        | Some o ->
-            for i = 1 to o do
-                mappings.Append ';' |> ignore    
-        | None -> ()
 
     let mutable lastFileName = ""
     let mutable lastFileIndex = 0
@@ -884,30 +877,16 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
     member this.WriteLine() =
         code.AppendLine() |> ignore
         if sourceMap then
-            if insertComma then
-                this.WriteMappingSkip()
             mappings.Append ';' |> ignore
             insertComma <- false
             colFromLastMapping <- 0
 
-    member this.WriteMappingComma() =
-        if insertComma then
-            mappings.Append ',' |> ignore
-        else
-            insertComma <- true
-
-    member this.WriteMappingSkip() =
-        if not mappingOn then
-            if colFromLastMapping > 0 then
-                this.WriteMappingComma()
-                mappings |> encodeBase64VLQ colFromLastMapping
-                colFromLastMapping <- 0
-
     member this.AddCodeMapping(pos : S.SourcePos, start: bool, ?name : string) =
         if sourceMap then
-            this.WriteMappingSkip()
-            this.WriteMappingComma()
-            mappingOn <- start
+            if insertComma then
+                mappings.Append ',' |> ignore
+            else
+                insertComma <- true
 
             mappings |> encodeBase64VLQ colFromLastMapping
             colFromLastMapping <- 0
@@ -916,7 +895,15 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
             if lastFileName = fileName then
                 mappings.Append 'A' |> ignore
             else
-                let fileIndex = sourcesDict.[fileName]
+                let fileIndex =
+                    match sourcesDict.TryGetValue fileName with
+                    | true, i ->  i
+                    | _ ->
+                        let i = sources.Count
+                        sources.Add(fileName)
+                        sourcesDict.Add(fileName, i)   
+                        i
+        
                 mappings |> encodeBase64VLQ (fileIndex - lastFileIndex)   
                 lastFileIndex <- fileIndex   
                 lastFileName <- fileName
@@ -925,7 +912,7 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
             mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
             lastSourceLine <- sourceLine
         
-            let sourceColumn = if start then pos.Column - 1 else pos.EndColumn - 1
+            let sourceColumn = if start then pos.Column else pos.EndColumn
             mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
             lastSourceColumn <- sourceColumn
 
@@ -948,7 +935,7 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
     override this.ToString() = string code
 
     member this.GetMapFile() =
-        if sources.Length = 0 then None else
+        if sources.Count = 0 then None else
         let mapFile = StringBuilder()
         let inline mapC (c: char) = mapFile.Append c |> ignore 
         let inline mapS (s: string) = mapFile.Append s |> ignore 
@@ -956,30 +943,18 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
 
         mapN "{"
         mapN "\"version\": 3,"
-        mapN "\"sourceRoot\": \"Source\","
+        if isBundle then
+            mapN "\"sourceRoot\": \"Source\","
+        else
+            mapN "\"sourceRoot\": \"../Source\","
         mapS "\"sources\": [\""
-        let im = sources.Length - 1
+        let im = sources.Count - 1
         for i = 0 to im do
-            let key, _ = sources.[i]
-            mapS key
+            let file = sources.[i]
+            mapS file
             if i < im then
                 mapS "\", \""
         mapN "\"],"
-        mapS "\"sourcesContent\": ["
-        for i = 0 to im do
-            let _, content = sources.[i]
-            mapC '"'
-            for c in content do
-                match c with
-                | '\\' -> mapS "\\\\"
-                | '"' ->  mapS "\\\""
-                | '\n' -> mapS "\\n"
-                | '\r' -> ()
-                | _ -> mapC c
-            mapC '"'
-            if i < im then
-                mapS ", "
-        mapN "],"
         mapS "\"names\": [" 
         let im = names.Count - 1
         for i = 0 to im do
@@ -994,6 +969,9 @@ type CodeWriter(?sources: (string * string)[], ?offset) =
         mapN "\""  
         mapN "}"
         Some (string mapFile)        
+
+    member this.GetSourceFiles() =
+        sources.ToArray()
 
 let Render mode (out: CodeWriter) layout =
     let rec (|O|_|) xs =

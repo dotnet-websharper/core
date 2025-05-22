@@ -317,7 +317,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 for (name, content) in resources do
                     if not <| name.ToLower().EndsWith ".meta" then
                         let filePath = Path.Combine(asmPath, name)
-                        File.WriteAllBytes(Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath), content)
+                        let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath)
+                        Directory.CreateDirectory(Path.GetDirectoryName fullPath) |> ignore
+                        File.WriteAllBytes(fullPath, content)
                         logger.TimedStage ("Writing " + name)
         | _ -> ()
 

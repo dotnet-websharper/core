@@ -153,8 +153,15 @@ module UnpackCommand =
             //emit a.TypeScript (pc.TypeScriptPath aid)
             //if cmd.UnpackTypeScript then
             //    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
-            let writeText k fn c =
+            let writeText k fn c map =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                System.IO.Directory.CreateDirectory (System.IO.Path.GetDirectoryName p) |> ignore
+                let c =
+                    if map && cmd.UnpackSourceMap then
+                        let m = System.IO.Path.GetFileName(p) + ".map"
+                        c + ("\n//# sourceMappingURL=" + m)
+                    else 
+                        c
                 writeTextFile (p, c)
             let writeBinary k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
@@ -165,18 +172,27 @@ module UnpackCommand =
                 | _ -> false
             if cmd.WebResourcesOnly && not isCurrentAsm then
                 for r in a.GetResScripts() do
-                    writeText script r.FileName r.Content
+                    writeText script r.FileName r.Content false
             elif cmd.UnpackTypeScript then
                 for r in a.GetScripts(O.TypeScript) do
-                    writeText script r.FileName r.Content
+                    writeText script r.FileName r.Content true
             else
                 for r in a.GetScripts(O.JavaScript) do
-                    writeText script r.FileName r.Content
+                    writeText script r.FileName r.Content true
                 if cmd.UnpackTypeScriptDeclaration then
                     for r in a.GetScripts(O.TypeScriptDeclaration) do
-                        writeText script r.FileName r.Content
+                        writeText script r.FileName r.Content false
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
+            if cmd.UnpackSourceMap && not cmd.WebResourcesOnly then
+                if cmd.UnpackTypeScript then 
+                    for m in a.GetMapFiles(O.TypeScript) do
+                        writeText script m.FileName m.Content false
+                else
+                    for m in a.GetMapFiles(O.JavaScript) do
+                        writeText script m.FileName m.Content false                   
+                for s in a.GetSources() do
+                    writeText script s.FileName s.Content false
         
         if errors.Count = 0 then
             C.Ok

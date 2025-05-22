@@ -1613,15 +1613,6 @@ let getImportedModules (pkg: Statement list) =
     |> Seq.distinct
     |> Seq.toList
 
-let readMapFileSources mapFile =
-    match Json.Parse mapFile with
-    | Json.Object fields ->
-        let getString j = match j with Json.String s -> s | _ -> failwith "string expected in map file"
-        let sources = fields |> List.pick (function "sources", Json.Array s -> Some (s |> List.map getString) | _ -> None)  
-        let sourcesContent = fields |> List.pick (function "sourcesContent", Json.Array s -> Some (s |> List.map getString) | _ -> None)  
-        List.zip sources sourcesContent
-    | _ -> failwith "map file JSON should be an object"
-
 let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statement list) =
     if List.isEmpty urls then
         let start = Id.New("Start")

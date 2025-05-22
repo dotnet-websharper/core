@@ -33,6 +33,12 @@ type Assembly =
     /// Loads all embedded JavaScript resources.
     member GetScripts : WebSharper.Core.JavaScript.Output -> seq<EmbeddedFile>
 
+    /// Loads all embedded map files.
+    member GetMapFiles : WebSharper.Core.JavaScript.Output -> seq<EmbeddedFile>
+
+    /// Loads all source files.
+    member GetSources : unit -> seq<EmbeddedFile> 
+
     /// Returns the raw assembly data.
     member RawBytes : option<byte[]> -> byte[]
 
@@ -53,6 +59,9 @@ type Assembly =
 
     /// True if the assembly contains the `WebSharper.meta` embedded resource.
     member HasWebSharperMetadata : bool
+
+    /// The source files embedded for source mapping, in path-contents pairs
+    member EmbeddedSourceFiles : (string * string)[]
 
     static member internal Create :
         def: Mono.Cecil.AssemblyDefinition

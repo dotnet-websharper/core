@@ -24,9 +24,10 @@ module WebSharper.Core.JavaScript.Writer
 val EscapeId : id: string -> string
 
 type CodeWriter =
-    new : ?sources: (string * string)[] * ?offset: int -> CodeWriter 
+    new : ?sourceMap: bool * ?isBundle: bool -> CodeWriter 
     member GetMapFile : unit -> string option
     member GetCodeFile : unit -> string
+    member GetSourceFiles : unit -> string[]
 
 /// Writes a JavaScript expression to a writer.
 val WriteExpression : Preferences -> CodeWriter -> Syntax.Expression -> unit

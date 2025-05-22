@@ -21,6 +21,8 @@
 namespace WebSharper.Compiler
 
 open WebSharper.Core.AST
+open System.Collections.Generic
+open WebSharper.Constants
 
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax
@@ -61,6 +63,7 @@ module Bundling =
             MinJs: Content
             MinJsMap: option<Content>
             Imports: Lazy<list<string * list<string>>>
+            Sources: Lazy<list<string * string>>
         }
 
     type private BundleOptions =
@@ -82,7 +85,7 @@ module Bundling =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
-        let sourceMap = false //o.Config.SourceMap
+        let sourceMap = o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
         
         let graph =
@@ -90,19 +93,18 @@ module Bundling =
             |> Seq.append (Seq.singleton o.CurrentMeta.Dependencies)
             |> WebSharper.Core.DependencyGraph.Graph.FromData
 
-        //let mapFileSources = 
-        //    if sourceMap then
-        //        o.RefAssemblies |> Seq.collect (fun a ->
-        //            match a.MapFileForReadable with
-        //            | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
-        //            | _-> []
-        //        )  
-        //        |> Seq.append o.Sources
-        //        |> Array.ofSeq 
-        //    else [||]
+        let allSources = 
+            if sourceMap then
+                o.RefAssemblies |> Seq.collect (fun a ->
+                    a.GetSources() |> Seq.map (fun s -> s.EmbeddedFileName.Replace(EMBEDDED_SOURCES, ""), s.Content)
+                )  
+                |> Seq.append o.Sources
+                |> Array.ofSeq 
+            else [||]
 
         let mutable map = None
         let mutable minmap = None
+        let mutable sources = Dictionary<string, string>()
 
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
         let concatScripts = false //not dce && not sourceMap
@@ -233,12 +235,9 @@ module Bundling =
                         else 
                             WebSharper.Core.JavaScript.Compact
 
-                    let getCodeWriter() =
+                    let codeWriter =
                         if sourceMap then
-                            WebSharper.Core.JavaScript.Writer.CodeWriter(
-                                //sources = mapFileSources,
-                                offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
-                            )
+                            WebSharper.Core.JavaScript.Writer.CodeWriter(true, true)
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
                     let scriptBase = o.Config.ScriptBaseUrl |> Option.defaultValue ""
@@ -248,12 +247,18 @@ module Bundling =
                         |> WebSharper.Compiler.JavaScriptPackager.addLoadedModules (List.ofSeq toLoad) scriptBase o.IsExtraBundle
                         |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript pref 
                         |> fun (program, jsx) ->
-                            WebSharper.Compiler.JavaScriptPackager.programToString pref getCodeWriter program jsx
+                            WebSharper.Compiler.JavaScriptPackager.programToString pref (fun () -> codeWriter) program jsx
                     if sourceMap then
                         if mode = BundleMode.JavaScript then
                             map <- m
                         else
                             minmap <- m
+
+                    let sourcesFound = codeWriter.GetSourceFiles() |> HashSet
+
+                    for (name, content) in allSources do
+                        if sourcesFound.Contains name then
+                            sources[name] <- content
 
                     writer.WriteLine js
 
@@ -307,6 +312,13 @@ module Bundling =
             |> List.groupBy fst
             |> List.map (fun (a, jss) -> a, jss |> List.map snd)
 
+        let sources =
+            lazy
+            if sourceMap then
+                javaScript |> ignore
+                sources |> Seq.map (fun kv -> kv.Key, kv.Value) |> Seq.toList
+            else []
+
         {
             Css = Some css
             HeadHtml = Some htmlHeaders
@@ -316,6 +328,7 @@ module Bundling =
             MinJs = minifiedJavaScript
             MinJsMap = minifiedMapping
             Imports = imports
+            Sources = sources
         }
 
     let private (==) s1 s2 =
@@ -402,7 +415,7 @@ module Bundling =
             let writeMapped (ext: string) (c: Content) m =
                 write ext c
                 m |> Option.iter (fun mc ->
-                    let mapExt = ext.Replace(".js", ".map")
+                    let mapExt = ext + ".map"
                     write mapExt mc
                     File.AppendAllLines(
                         Path.Combine(outputDir, fileName + ext),
@@ -415,6 +428,11 @@ module Bundling =
             Option.iter (write ".head.js") bundle.HeadJs
             writeMapped ".js" bundle.Js bundle.JsMap
             writeMapped ".min.js" bundle.MinJs bundle.MinJsMap
+            for (f, s) in bundle.Sources.Value do
+                let loc = Path.Combine(outputDir, "Source", f)
+                System.IO.Directory.CreateDirectory(Path.GetDirectoryName(loc)) |> ignore 
+                File.WriteAllText(loc, s)    
+
         | None -> ()
 
         match config.ProjectType, config.JSOutputPath with

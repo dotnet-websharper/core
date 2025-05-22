@@ -29,6 +29,9 @@ module EmbeddedResources =
     [<Literal>]
     let EMBEDDED_RUNTIME_METADATA = "WebSharper.runtime.meta"
 
+    [<Literal>]
+    let EMBEDDED_SOURCES = "../Source/"
+
 [<AutoOpen>]
 module RuntimeSettings =
     

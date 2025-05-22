@@ -107,6 +107,19 @@ module AssemblyUtility =
             | O.TypeScriptDeclaration -> ReadAllScriptResources def (fun n -> n.EndsWith(".d.ts"))
         else Array.empty
 
+    let ParseAllMapResources (def: Mono.Cecil.AssemblyDefinition) (t: O) =
+        if IsWebSharperAssembly def then
+            match t with 
+            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js.map") || n.EndsWith(".jsx.map"))
+            | O.TypeScript -> ReadAllScriptResources def (fun n -> (n.EndsWith(".ts.map") && not (n.EndsWith(".d.ts.map")) || n.EndsWith(".tsx.map")))
+            | O.TypeScriptDeclaration -> [||]
+        else Array.empty
+
+    let ParseAllSources (def: Mono.Cecil.AssemblyDefinition) =
+        if IsWebSharperAssembly def then
+            ReadAllScriptResources def (fun n -> n.StartsWith(EMBEDDED_SOURCES))
+        else Array.empty
+
 type Assembly =
     {
         Debug : option<Symbols>
@@ -133,6 +146,14 @@ type Assembly =
     member this.GetResScripts() =
         ParseWebResources this.Definition
         |> Seq.filter (fun r -> r.IsScript)
+
+    member this.GetMapFiles (t: O) =
+        ParseAllMapResources this.Definition t
+        |> Seq.ofArray
+
+    member this.GetSources() =
+        ParseAllSources this.Definition
+        |> Seq.ofArray
 
     member this.GetContents() =
         ParseWebResources this.Definition
@@ -166,6 +187,15 @@ type Assembly =
 
     member this.HasWebSharperMetadata =
         HasWebSharperMetadata this.Definition
+
+    member this.EmbeddedSourceFiles =
+        this.Definition.MainModule.Resources
+        |> Seq.choose (function
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name.StartsWith EMBEDDED_SOURCES ->
+                use reader = new StreamReader(r.GetResourceStream())
+                Some (r.Name, reader.ReadToEnd())
+            | _ -> None)
+        |> Seq.toArray 
 
     static member Create(def, ?loadPath, ?symbols) =
         {
