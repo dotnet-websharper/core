@@ -260,7 +260,7 @@ If the value is `true`, WebSharper errors for not finding a type or method in Ja
 
 **Type**: bool (default is `false`)
 
-Enable source maps for the generated JavaScript code. This is useful for debugging purposes, as it allows you to see the original F#/C# code in the browser's developer tools instead of the compiled JavaScript.
+Enable source maps for the generated JavaScript code. This is useful for debugging purposes, as it allows you to see the original F#/C# code in the browser's developer tools instead of the compiled JavaScript. This is currently available for non-[prebundle](#prebundle) `web` projects and `spa` projects.
 
 <a name="stubInterfaces"></a>
 ## "stubInterfaces"
