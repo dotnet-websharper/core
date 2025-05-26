@@ -1,0 +1,519 @@
+{
+  "id": "https://websharper.com/wsconfig.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for WebSharper wsconfig.json configuration file",
+  "type": "object",
+  "properties": {
+    "project": { "$ref": "#/$defs/project" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "project": { "enum": [ "library", "binding" ] },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "project": { "const": "microservice" },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "project": { "const": "web" },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "sourceMap": { "$ref": "#/$defs/sourceMap" },
+        "downloadResources": { "$ref": "#/$defs/downloadResources" },
+        "outputDir": { "$ref": "#/$defs/outputDir" },
+        "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "preBundle": { "$ref": "#/$defs/preBundle" },
+        "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "preBundle": { "$ref": "#/$defs/preBundle" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "preBundle": { "$ref": "#/$defs/preBundle" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "project": { "const": "proxy" },
+        "proxyTargetName": { "$ref": "#/$defs/proxyTargetName" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "project": { "const": "html" },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "outputDir": { "$ref": "#/$defs/outputDir" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "project": { "const": "spa" },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "javascriptExport": { "$ref": "#/$defs/javascriptExport" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "outputDir": { "$ref": "#/$defs/outputDir" },
+        "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
+        "sourceMap": { "$ref": "#/$defs/sourceMap" },
+        "dce": { "$ref": "#/$defs/dce" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "dce": { "$ref": "#/$defs/dce" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "dce": { "$ref": "#/$defs/dce" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },      
+    {
+      "properties": {
+        "project": { "const": "bundleOnly" },
+        "javascript": { "$ref": "#/$defs/javascript" },
+        "javascriptExport": { "$ref": "#/$defs/javascriptExport" },
+        "warnOnly": { "$ref": "#/$defs/warnOnly" },
+        "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+        "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "jsOutput": { "$ref": "#/$defs/jsOutput" },
+        "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+        "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+        "buildService": { "$ref": "#/$defs/buildService" },
+        "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "$schema": { "$ref": "#/$defs/$schema" },
+        "outputDir": { "$ref": "#/$defs/outputDir" },
+        "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
+        "sourceMap": { "$ref": "#/$defs/sourceMap" },
+        "dts": { "$ref": "#/$defs/dts" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "dce": { "$ref": "#/$defs/dce" },
+        "debug": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "dce": { "$ref": "#/$defs/dce" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }
+          },
+          "additionalProperties": false
+        },
+        "release": {
+          "type": "object",
+          "properties": {
+            "outputDir": { "$ref": "#/$defs/outputDir" },
+            "dce": { "$ref": "#/$defs/dce" },
+            "warnOnly": { "$ref": "#/$defs/warnOnly" },
+            "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
+            "jsOutput": { "$ref": "#/$defs/jsOutput" },
+            "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
+            "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
+            "buildService": { "$ref": "#/$defs/buildService" },
+            "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "dts": { "$ref": "#/$defs/dts" },
+            "ts": { "$ref": "#/$defs/ts" }   
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "project": {
+      "enum": [ "library", "web", "binding", "html", "spa", "bundleOnly", "proxy", "microservice" ],
+      "description": "The WebSharper project type.",
+      "default": "library"
+    },
+    "javascript": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ],
+      "description": "If true, marks the whole project for JavaScript compilation. As a file/type name array, marks the given files for JavaScript compilation.",
+      "default": false
+    },
+    "javascriptExport": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "boolean" },
+              { "type": "string" }
+            ]
+          }
+        }
+      ],
+      "description": "If true, marks the whole project for JavaScript compilation and export. As a file/type name array, marks the given files or types for JavaScript compilation and export.",
+      "default": false
+    },
+    "warnOnly": {
+      "type": "boolean",
+      "description": "If true, WebSharper compiler errors will be treated as warnings.",
+      "default": false
+    },
+    "singleNoJSErrors": {
+      "type": "boolean",
+      "description": "If true, WebSharper gives an error only the first occurrence of every type/method that is unsupported for the client side.",
+      "default": false
+    },
+    "useJavaScriptSymbol": {
+      "type": "boolean",
+      "description": "If true, WebSharper includes the JAVASCRIPT conditional symbol when compiling for the client-side.",
+      "default": false
+    },
+    "jsOutput": {
+      "type": "string",
+      "description": "Provide a path to a file to write the .js output for the project."
+    },
+    "minJsOutput": {
+      "type": "string",
+      "description": "Provide a path to a file to write the .min.js output for the project."
+    },
+    "analyzeClosures": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "enum": [ "moveToTop" ] }
+      ],
+      "description": "Enable warnings on possible memory leaks due to unnecessary closure capture; see http://point.davidglasser.net/2013/06/27/surprising-javascript-memory-leak.html. \"moveToTop\" moves all non-capturing lambdas to top level automatically (experimental).",
+      "default": false
+    },
+    "buildService": {
+      "type": "boolean",
+      "description": "If false, WebSharper compiler tool does not uses compilation service, but executes compilation in-process.",
+      "default": false
+    },
+    "buildServiceLogging": {
+      "type": "boolean",
+      "description": "If false, WebSharper compiler service will not create a log file.",
+      "default": false
+    },
+    "dts": {
+      "type": "boolean",
+      "description": "If true, WebSharper creates TypeScript declaration output (experimental).",
+      "default": true
+    },
+    "ts": {
+      "type": "boolean",
+      "description": "If true, WebSharper creates full TypeScript output (experimental).",
+      "default": false
+    },
+    "stubinterfaces": {
+      "type": "boolean",
+      "description": "If true, all interfaces in this project have Stub behavior by default.",
+      "default": false
+    },
+    "preBundle": {
+      "type": "boolean",
+      "description": "If true, sitelets create pre-calculated bundles.",
+      "default": false
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "proxyTargetName": {
+      "type": "string",
+      "description": "Assembly name of the proxied assembly."
+    },
+    "outputDir": {
+      "type": "string",
+      "description": "The output directory.",
+      "default": "."
+    },
+    "scriptBaseUrl": {
+      "type": "string",
+      "description": "The output directory for webworker scripts. This is set by default to /Scripts/WebSharper/ for runtime sitelets, /Scripts/ for Html sitelets and /Content/ for SPAs"
+    },
+    "sourceMap": {
+      "type": "boolean",
+      "description": "If true, the compiler will include source maps and the required source files in a WebSharper assembly.",
+      "default": false
+    },
+    "dce": {
+      "type": "boolean",
+      "description": "Enable dead code elimination.",
+      "default": true
+    },
+    "downloadResources": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "enum": [ "warnonly" ] }
+      ],
+      "description": "If true, WebSharper downloads all remote js/css resources defined in the current project and all references. If set to 'warnonly' then only warnings are given for failed downloads during compile time.",
+      "default": false
+    },
+    "runtimeMetadata": {
+      "enum": [ "inlines", "notinlines", "full", "noexpressions" ],
+      "description": "Specifies what compliled expressions to use for WebSharper runtime. Only needed if the WebSharper compiler is invoked by the server to produce js code output on-the-fly.",
+      "default": "noexpressions"
+    }
+  }
+}
