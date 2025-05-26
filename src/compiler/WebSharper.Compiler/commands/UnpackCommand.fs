@@ -184,7 +184,7 @@ module UnpackCommand =
                         writeText script r.FileName r.Content false
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
-            if cmd.UnpackSourceMap && not cmd.WebResourcesOnly then
+            if cmd.UnpackSourceMap && not (cmd.WebResourcesOnly && not isCurrentAsm) then
                 if cmd.UnpackTypeScript then 
                     for m in a.GetMapFiles(O.TypeScript) do
                         writeText script m.FileName m.Content false

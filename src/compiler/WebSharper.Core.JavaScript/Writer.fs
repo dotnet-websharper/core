@@ -908,11 +908,11 @@ type CodeWriter(?sourceMap: bool, ?isBundle: bool) =
                 lastFileIndex <- fileIndex   
                 lastFileName <- fileName
         
-            let sourceLine = if start then pos.Line - 1 else pos.EndLine - 1
+            let sourceLine = max 0 (if start then pos.Line - 1 else pos.EndLine - 1)
             mappings |> encodeBase64VLQ (sourceLine - lastSourceLine)
             lastSourceLine <- sourceLine
         
-            let sourceColumn = if start then pos.Column else pos.EndColumn
+            let sourceColumn = max 0 (if start then pos.Column - 1 else pos.EndColumn - 1)
             mappings |> encodeBase64VLQ (sourceColumn - lastSourceColumn)
             lastSourceColumn <- sourceColumn
 

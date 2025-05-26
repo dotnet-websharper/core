@@ -156,7 +156,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 )
 
             let js, currentMeta, rMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem (config.ProjectType = None) prebundle isSitelet
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem refs (config.ProjectType = None) prebundle isSitelet
 
             match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
             | None, Some true, Some outputDir ->

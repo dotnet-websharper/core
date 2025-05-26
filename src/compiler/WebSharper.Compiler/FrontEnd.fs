@@ -176,7 +176,7 @@ let GetDepsFromJSExports (jsExport: JsExport list) entryPointNode (graph: WebSha
         |> graph.GetDependencies
     nodes
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) (refAssemblies: Assembly list) isLibrary prebundle isSitelet =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -246,6 +246,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         | None ->
             res.Add(name, [||])
 
+    let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+
     let rMeta =
         match runtimeMeta, comp with
         | Some (rm, refMetas), Some comp ->
@@ -257,7 +259,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 )
             let meta = 
                 refMetas |> Seq.map refreshAllIds
-                |> Seq.append (Seq.singleton current)
+                |> Seq.append (Seq.singleton currentPosFixed)
                 |> M.Info.UnionWithoutDependencies
 
             let deps = graph.GetData() 
@@ -268,15 +270,36 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 if prebundle then
                     let output = if ts then O.TypeScript else O.JavaScript 
                     let ext = if ts then ".ts" else ".js"
+                    let sourcesUsed = HashSet()
                     let bundles =
                         JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName output
                         |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
                             let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap output WebSharper.Core.JavaScript.Readable addrMap
-                            let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter program false
-                            logger.TimedStage (sprintf "Writing prebundle %s.js" bname)
-                            bname, bname + ext, js, trAddrMap
+                            let codeWriter = 
+                                WebSharper.Core.JavaScript.Writer.CodeWriter(sourceMap)
+                            let js, map, isJsx = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable (fun () -> codeWriter) program false
+                            let x = if isJsx then "x" else ""
+                            if sourceMap then
+                                codeWriter.GetSourceFiles() |> Array.iter (sourcesUsed.Add >> ignore)
+                                addRes (bname + ext + x + ".map") None (Some (getBytes map.Value))
+                            logger.TimedStage (sprintf "Writing prebundle %s.js%s" bname x)
+                            bname, bname + ext + x, js, trAddrMap
                         )
                         |> Array.ofSeq
+                    if sourceMap then
+                        let allSources = 
+                            if sourceMap then
+                                refAssemblies |> Seq.collect (fun a ->
+                                    a.GetSources() |> Seq.map (fun s -> s.EmbeddedFileName.Replace(EMBEDDED_SOURCES, ""), s.Content)
+                                )  
+                                |> Seq.append sources
+                                |> Array.ofSeq 
+                            else [||]
+
+                        allSources |> Array.filter (fun (n, s) -> sourcesUsed.Contains n) 
+                        |> Array.iter (fun (name, contents) ->
+                            addRes (EMBEDDED_SOURCES + name) None (Some (getBytes contents))
+                        )
                     //if dts then
                     //    JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName O.TypeScriptDeclaration
                     //    |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
@@ -351,8 +374,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         logger.TimedStage "Serializing metadata"
     
-    let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-
     match rMeta with
     | Some (_, Some bundles) ->
         for bname, bFileName, bundleText, _ in bundles do
@@ -450,16 +471,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, rMeta |> Option.map fst, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) isLibrary prebundle isSitelet =
-    let jsOpt, currentPosFixed, rMeta, sources, res = CreateResources logger comp refMeta current sourceMap dts ts dce closures runtimeMeta a isLibrary prebundle isSitelet
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) (refAssemblies: Assembly list) isLibrary prebundle isSitelet =
+    let jsOpt, currentPosFixed, rMeta, sources, res = CreateResources logger comp refMeta current sourceMap dts ts dce closures runtimeMeta a refAssemblies isLibrary prebundle isSitelet
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, rMeta, sources, res
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (assembly : Assembly) isLibrary prebundle isSitelet =
-    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts dce closures runtimeMeta assembly.Raw isLibrary prebundle isSitelet
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures runtimeMeta (assembly : Assembly) (refAssemblies: Assembly list) isLibrary prebundle isSitelet =
+    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts dce closures runtimeMeta assembly.Raw refAssemblies isLibrary prebundle isSitelet
 
 let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) dts ts (runtimeMeta: option<M.MetadataOptions * M.Info list>) outputDir =
     match comp, runtimeMeta with
