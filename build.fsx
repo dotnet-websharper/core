@@ -312,7 +312,7 @@ module WSFake =
         Printf.ksprintf (fun v ->
             Trace.tracefn "==== Building project v%s ===="  v
             Paket.SemVer.Parse v
-        ) "%i.%i.%i.%s%s-net8" baseVersion.Major baseVersion.Minor patch build
+        ) "%i.%i.%i.%s%s" baseVersion.Major baseVersion.Minor patch build
             (match baseVersion.PreRelease with Some r -> "-" + r.Origin | None -> "")
 
     let LazyVersionFrom packageName =
