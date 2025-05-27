@@ -76,10 +76,8 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
         | e ->
             // If the processes cannot be queried, because of insufficient rights, the Mutex in service will handle
             // not running 2 instances
-            nLogger.Error(e, "Could not read running processes of wsfscservice.")
             [||]
 
-    nLogger.Debug(sprintf "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length)
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
@@ -95,7 +93,6 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden
         proc <- Process.Start(startInfo)
-        nLogger.Debug(sprintf "Started service PID=%d" proc.Id)
 
     // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
     // Call that with the compilation args for compilation.
@@ -123,7 +120,6 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
                             return i |> Some
                         | x -> 
                             let unrecognizedMessageErrorCode = -13311
-                            nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
                 clientPipe.Write(System.BitConverter.GetBytes(ms.Length), 0, 4) // prepend with message length
@@ -139,11 +135,9 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
                 let! errorCode = readingMessages clientPipe printResponse clientError
                 match errorCode with
                 | Some -12211 ->
-                    nLogger.Error(sprintf "Error while parsing project parameters (%i)" unexpectedFinishErrorCode)
                     return -12211
                 | Some x -> return x
                 | None -> 
-                    nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
                     return unexpectedFinishErrorCode
                 }
             try
@@ -153,7 +147,6 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
                 cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
                 retryErrorCode
             | _ -> 
-                nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
                 unexpectedFinishErrorCode
         else
             let cannotConnectErrorCode = -14411
@@ -162,8 +155,6 @@ let sendCompileCommand args projectDir (cLogger: ConsoleLogger) =
             
  
 
-    nLogger.Debug "WebSharper compilation arguments:"
-    args |> Array.iter (fun x -> nLogger.Debug("    " + x))
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     try
