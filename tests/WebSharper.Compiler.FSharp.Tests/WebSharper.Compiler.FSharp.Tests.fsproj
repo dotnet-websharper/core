@@ -13,10 +13,10 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\WebSharper.Compiler.dll" />
-    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\WebSharper.Compiler.FSharp.dll" />
-    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\wsfsc.dll" />
-    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\wsfscservice.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net8.0\WebSharper.Compiler.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net8.0\WebSharper.Compiler.FSharp.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net8.0\wsfsc.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net8.0\wsfscservice.dll" />
   </ItemGroup>
   <Import Project="..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />

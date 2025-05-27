@@ -99,7 +99,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 s.Replace(@"net6.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
                     ).Replace(@"net6.0/.NETCoreApp,Version=v6.0.AssemblyAttributes.fs", 
-                        @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
+                        @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs"
+                        ).Replace(@"net8.0\.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                            @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
+                            ).Replace(@"net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.fs", 
+                                @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
         MakeDummyDll config.AssemblyFile thisName
