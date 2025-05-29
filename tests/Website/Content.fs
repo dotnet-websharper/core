@@ -101,6 +101,9 @@ let TestQueryPage (ctx: Context<_>) (a: int, b: string) =
 
 let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
     let t12 = (1, 2)
+    let u = Client.SimpleUnionB "one"
+    let l = [ 1 ]
+    let r = { Client.A = 1 }
     let jsonBaseUri =
         Tests.Json.String ""
         |> ParseRequestResult.Success
@@ -126,6 +129,9 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                 yield Web.InlineControl ( WebSharper.Collections.Tests.Main.RunTests() ) :> Web.Control
                 yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
                 yield Web.InlineControl ( Client.ClientSideTupleTest t12 ) :> Web.Control
+                yield Web.InlineControl ( Client.ClientSideUnionTest u ) :> Web.Control
+                yield Web.InlineControl ( Client.ClientSideListTest l ) :> Web.Control
+                yield Web.InlineControl ( Client.ClientSideRecordTest r ) :> Web.Control
                 yield Web.InlineControl ( WebSharper.Html5.Tests.Main.RunTests true ) :> Web.Control
                 yield Web.InlineControl ( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests ) :> Web.Control
                 if runServerTests then

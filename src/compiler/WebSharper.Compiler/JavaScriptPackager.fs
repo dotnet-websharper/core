@@ -276,7 +276,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
         match content with
         | Bundle (_, SiteletBundle exportedTypes, _) ->
             let bundleExport() =
-                bundleExports.Add(addr, id)
+                bundleExports[addr] <- id
                 ExportDecl(false, statement)
             let ignoreVar() =
                 match statement with

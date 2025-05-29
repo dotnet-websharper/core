@@ -38,5 +38,53 @@ let ClientSideTupleTest (x, y) =
     |]
 
 [<JavaScript>]
+type SimpleUnion =
+    | SimpleUnionA of int
+    | SimpleUnionB of string
+
+    override this.ToString() =
+        match this with
+        | SimpleUnionA i -> sprintf "SimpleUnionA(%d)" i
+        | SimpleUnionB s -> sprintf "SimpleUnionB(%s)" s
+
+[<JavaScript>]
+let ClientSideUnionTest x =
+    Runner.RunTests [|
+        TestCategory "ClientSide" {
+            Test "Passing union" {
+                equal x (SimpleUnionB "one")
+                equal (x.ToString()) "SimpleUnionB(one)"
+            }
+        }
+    |]
+
+[<JavaScript>]
+let ClientSideListTest x =
+    Runner.RunTests [|
+        TestCategory "ClientSide" {
+            Test "Passing list" {
+                equal (x |> List.toArray) [| 1 |]
+            }
+        }
+    |]
+
+[<JavaScript>]
+type SimpleRecord =
+    { A: int }
+
+    override this.ToString() =
+        "Hello" + string this.A
+
+[<JavaScript>]
+let ClientSideRecordTest x =
+    Runner.RunTests [|
+        TestCategory "ClientSide" {
+            Test "Passing record" {
+                equal (x.ToString()) "Hello1"
+            }
+        }
+    |]
+
+[<JavaScript>]
 let InitSPA(where: string) =
     Console.Log($"Hello world from {where}!")

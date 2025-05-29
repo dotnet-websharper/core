@@ -76,6 +76,11 @@ type Control() =
 
     static member EncodeClientObject(meta: Metadata.Info, json: Json.Provider, value: obj) = 
         let t = value.GetType()
+        let t = 
+            if FSharp.Reflection.FSharpType.IsUnion t && t.DeclaringType = t.BaseType then
+                t.BaseType
+            else
+                t
         let typ = Core.AST.Reflection.ReadType t
         let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
         let deserializer =

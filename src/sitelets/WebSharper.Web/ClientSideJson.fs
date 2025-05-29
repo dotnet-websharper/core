@@ -209,7 +209,7 @@ module Provider =
             let e = decEl()
             Set.ofArray(Array.map e (a :?> obj[]))
 
-    let DecodeRecord (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
+    let DecodeRecord (t: obj -> 'T) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             let o = New []
@@ -231,9 +231,9 @@ module Provider =
                     if x?(name) ===. JS.Undefined then
                         o?(name) <- (dec () x?(name))
                 | _ -> failwith "Invalid field option kind")
-            if t ===. JS.Undefined then o else Create t o
+            if t ===. JS.Undefined then o else t o
 
-    let DecodeClass (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) (subClassDecoders: (unit -> obj -> 'T)[]) : (unit -> obj -> 'T) =
+    let DecodeClass (t: obj -> 'T) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) (subClassDecoders: (unit -> obj -> 'T)[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             subClassDecoders
@@ -247,7 +247,7 @@ module Provider =
                 DecodeRecord t fields () x
             )
 
-    let DecodeUnion (t: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
+    let DecodeUnion (t: obj -> 'T) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
@@ -281,7 +281,7 @@ module Provider =
                                 then Some (dec () x?(``to``))
                                 else None
                         | _ -> failwith "Invalid field option kind")
-                if t ===. JS.Undefined then o else Create t o
+                if t ===. JS.Undefined then o else t o
             else x :?> 'T // [<Constant>]
 
     let DecodeArray (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =
@@ -585,7 +585,8 @@ module Macro =
                         | Some cls -> 
                             addTypeDep td 
                             if cls.HasWSPrototype then
-                                GlobalAccess cls.Address
+                                let o = Id.New(mut = false, name = "o")
+                                Lambda([o], None, CopyCtor(td, Var o))
                             else Undefined
                         | _ -> Undefined
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
@@ -714,7 +715,8 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address
+                                    let o = Id.New(mut = false, name = "o")
+                                    Lambda([o], None, CopyCtor(td, Var o))
                                 else
                                     Undefined
                             | _ -> Undefined
@@ -828,7 +830,8 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td 
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address
+                                    let o = Id.New(mut = false, name = "o")
+                                    Lambda([o], None, CopyCtor(td, Var o))
                                 else Undefined
                             | _ -> Undefined
                         if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->

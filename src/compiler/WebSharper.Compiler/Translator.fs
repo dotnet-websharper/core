@@ -830,15 +830,29 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             for t, pos, bundleNames in comp.TypesNeedingDeserialization do
                 // call JSON macro to create deserializers
                 try
-                    let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ]))
+                    let x = Id.New(mut = false, name = "x", typ = t)
+                    let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Var x ]))
                     let toJS = DotNetToJavaScript(comp)
-                    toJS.TransformExpression(decodeExpr) |> ignore
-                    let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry t ]
-                    match comp.GetMacroEntries(key) with
-                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                    let trExpr = toJS.TransformExpression(decodeExpr)
+                    let icomp = comp :> M.ICompilation
+                    match icomp.GetJsonMetadataEntry(false, t) with
+                    | Some (M.JsonSerializer (gtd, gm)) ->
                         comp.AddQuotedMethod(gtd, gm, bundleNames)
                     | _ -> 
-                        ()
+                        match trExpr with
+                        | I.Var _ ->
+                            // identity function, no need to create a macro entry
+                            ()
+                        | _ ->
+                            // we need to create generated code and a macro entry for the runtime to find it
+                            let gtd, gm, _ = icomp.NewGenerated("DecodeJson_" + t.DisplayName)
+                            let gv = icomp.NewGeneratedVar("Decoder_" + t.DisplayName)
+                            let v = Var gv
+                            let e = Lambda ([x], None, decodeExpr)
+                            let b = Lambda ([], None, Conditional(v, v, VarSet(gv, e)))
+                            icomp.AddGeneratedCode(gm, b)
+                            icomp.AddJsonMetadataEntry(false, t, M.JsonSerializer (gtd, gm))
+                            comp.AddQuotedMethod(gtd, gm, bundleNames)
                 with e ->
                     let msg = sprintf "Error during creating deserializer for type %s: %s" t.AssemblyQualifiedName e.Message
                     comp.AddError(None, SourceError msg)

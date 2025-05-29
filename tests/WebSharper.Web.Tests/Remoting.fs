@@ -77,6 +77,10 @@ module Server =
         | Single of 'a
         | TwinLeadAndTrail of LeadAndTrail<'a>
     
+    type SimpleUnion =
+        | SimpleUnionA of int
+        | SimpleUnionB of string
+
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -381,6 +385,13 @@ module Server =
     [<Remote>]
     let f31 (x: int, a: int, b: int) =
         {| x = x; y = {| a = a; b = b |} |}
+        |> async.Return
+
+    [<Remote>]
+    let f32 (x: SimpleUnion) =
+        match x with
+        | SimpleUnionA 1 -> SimpleUnionB "one"
+        | x -> x
         |> async.Return
 
     [<Remote>]
@@ -711,6 +722,15 @@ module Remoting =
                 let! (Server.Record r) = Server.f18 (Server.Record {a = 3; b = "xyz"})
                 equal r.a 4
                 equal r.b "xyz_"
+            }
+
+            Test "Simple union" {
+                let! r = Server.f32 (Server.SimpleUnionA 1)
+                let v =
+                    match r with
+                    | Server.SimpleUnionB x -> x
+                    | _ -> ""
+                equal v "one"
             }
 
             Test "Empty Map" {
