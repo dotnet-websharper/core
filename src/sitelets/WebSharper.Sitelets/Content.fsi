@@ -86,6 +86,13 @@ type Content<'Endpoint> =
         * ?WriteBody: (System.IO.Stream -> Task)
         -> Async<Content<'Endpoint>>
 
+/// A simple counter for generating unique IDs for Controls.
+type UniqueIdSource =
+    
+    new : unit -> UniqueIdSource
+
+    interface IUniqueIdSource
+
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
@@ -212,6 +219,12 @@ type ContextExtensions =
     static member GetResourcesAndScripts
         : this: Web.Context
         * controls: seq<#IRequiresResources>
+        -> string
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetResourcesAndScripts
+        : this: Web.Context
+        * requires: seq<ClientCode>
         -> string
 
 open System.Runtime.InteropServices

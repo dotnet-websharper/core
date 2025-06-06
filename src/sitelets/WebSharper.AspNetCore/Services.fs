@@ -33,19 +33,19 @@ open WebSharper.Constants
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.Logging
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Html
+open System.IO
+open WebSharper.Core.Resources
 
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
-[<AllowNullLiteral>]
-type IWebSharperService =
-    abstract GetWebSharperMeta : siteletAssembly: Assembly * logger: ILogger -> (M.Info * Graph * Json.Provider) 
-    abstract DefaultAssembly : Assembly 
-
 type WebSharperService(defaultAssembly) =
 
     let metaCache = Dictionary<Assembly, M.Info * Graph * Json.Provider>()
-    
+    let mutable options = Unchecked.defaultof<WebSharperOptions>
+
     interface IWebSharperService with
         member this.GetWebSharperMeta (siteletAssembly: Assembly, logger: ILogger) =
 
@@ -79,12 +79,11 @@ type WebSharperService(defaultAssembly) =
                 res
 
         member this.DefaultAssembly = defaultAssembly
-            
-/// Define the sitelet to serve by WebSharper.
-[<AllowNullLiteral>]
-type ISiteletService =
-    abstract Sitelet : Sitelet<obj>
 
+        member this.WebSharperOptions 
+            with get() = options
+            and set v = options <- v  
+            
 /// Define the default sitelet to serve by WebSharper.
 [<AbstractClass>]
 type SiteletService<'T when 'T : equality>() =
@@ -98,17 +97,26 @@ type DefaultSiteletService<'T when 'T : equality>(sitelet: Sitelet<'T>) =
 
     override this.Sitelet = sitelet
 
-/// Define a remoting handler to serve by WebSharper.
-type IRemotingService =
-    abstract Handler : obj
-
-/// Define a remoting handler to serve by WebSharper.
-type IRemotingService<'T> =
-    inherit IRemotingService
-
 type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
     interface IRemotingService<'THandler> with
         member this.Handler = (box handler)
+
+type WebSharperContentService(httpCtx: IHttpContextAccessor, wsService: IWebSharperService) =
+    let ctx = Context.GetOrMakeSimple httpCtx.HttpContext wsService.WebSharperOptions
+    let requires = ResizeArray()
+    let uidSource = UniqueIdSource()
+    
+    interface IWebSharperContentService with
+        member this.Head() =
+            HtmlString(ctx.GetResourcesAndScripts(requires))
+        
+        member this.Render(node) =
+            requires.AddRange(node.Requires(ctx.Metadata, ctx.Json, uidSource))
+
+            use sw = new StringWriter()
+            use tw = new HtmlTextWriter(sw)
+            node.Write(ctx, tw)
+            HtmlString(sw.ToString())
 
 [<Extension>]
 type ServiceExtensions =
@@ -177,3 +185,10 @@ type ServiceExtensions =
         this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<'THandler>(handler)
             .AddSingleton<IRemotingService<'THandler>>(RemotingService handler)
+
+    /// <summary>
+    /// Adds a service allow embedding WebSharper content into Razor pages.
+    /// </summary>
+    [<Extension>]
+    static member AddWebSharperContent(this: IServiceCollection) =
+        this.AddScoped<IWebSharperContentService, WebSharperContentService>()

@@ -1,4 +1,5 @@
 Microsoft.AspNetCore.Mvc.Abstractions
+Microsoft.AspNetCore.Html.Abstractions
 Microsoft.AspNetCore.Hosting.Abstractions
 Microsoft.AspNetCore.Authentication.Abstractions
 System.Configuration.ConfigurationManager

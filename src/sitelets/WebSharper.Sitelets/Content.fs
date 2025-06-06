@@ -48,6 +48,13 @@ type Content<'Endpoint> =
         | CustomContent x -> CustomContent (fun ctx -> x (Context.Map unbox ctx))
         | CustomContentAsync x -> CustomContentAsync (fun ctx -> x (Context.Map unbox ctx))
 
+type UniqueIdSource() =
+    let mutable i = 0
+    interface IUniqueIdSource with
+        member this.NewId() =
+            i <- i + 1
+            string i
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
     open System
@@ -77,24 +84,11 @@ module Content =
                 | '\'' -> "&#39;"
                 | _ -> failwith "unreachable"))
 
-    let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =
-        let uniqueIdSource =
-            let mutable i = 0
-            { new IUniqueIdSource with
-                override this.NewId() =
-                    i <- i + 1
-                    string i
-            }
-        
-        // Resolve resources for the set of types and this assembly
-        let requiresAndCode =
-            controls
-            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
-            |> Array.ofSeq
-        
+    let writeRequires (ctx: Web.Context) (requiresAndCode: seq<ClientCode>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =        
         let requires =  
             requiresAndCode
-            |> Array.choose (function ClientRequire n -> Some n | _ -> None) 
+            |> Seq.choose (function ClientRequire n -> Some n | _ -> None) 
+            |> Array.ofSeq
 
         if requires.Length > 0 then
 
@@ -330,6 +324,17 @@ module Content =
         else    
             None, None
 
+    let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =
+        let uniqueIdSource = UniqueIdSource()
+        
+        // Resolve resources for the set of types and this assembly
+        let requiresAndCode =
+            controls
+            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
+            |> Array.ofSeq
+
+        writeRequires ctx requiresAndCode tw
+
     open Microsoft.FSharp.Quotations
     open WebSharper.Web.ClientSideInternals
 
@@ -423,6 +428,14 @@ module Content =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
         let activation, bundleNames = writeResources ctx controls (fun _ -> tw)
+        if Option.isSome activation then
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+        w.ToString()
+
+    let getResourcesAndScriptsOfRequires ctx requires =
+        use w = new StringWriter()
+        use tw = new HtmlTextWriter(w, " ")
+        let activation, bundleNames = writeRequires ctx requires (fun _ -> tw)
         if Option.isSome activation then
             tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
@@ -696,8 +709,12 @@ type ContextExtensions =
         Content.getSeparateResourcesAndScripts this controls
 
     [<System.Runtime.CompilerServices.Extension>]
-    static member GetResourcesAndScripts(this, controls) =
+    static member GetResourcesAndScripts(this, controls: seq<#IRequiresResources>) =
         Content.getResourcesAndScripts this controls
+
+    [<System.Runtime.CompilerServices.Extension>]
+    static member GetResourcesAndScripts(this, requires: seq<ClientCode>) =
+        Content.getResourcesAndScriptsOfRequires this requires
 
 open Microsoft.FSharp.Quotations.Patterns
 module R = WebSharper.Core.AST.Reflection

@@ -10,7 +10,6 @@
     <Compile Include="Context.fs" />
     <Compile Include="ClientSideJson.fs" />
     <Compile Include="TypedJsonProxy.fs" />
-    <Compile Include="Shared.fs" />
     <Compile Include="ResourceContext.fs" />
     <Compile Include="RpcModule.fs" />
     <Compile Include="Node.fs" />

@@ -124,9 +124,6 @@ type Control() =
             | _ ->
                 failwithf "address not found for deserializer for Web.Control type %s" (this.GetType().AssemblyQualifiedName)
 
-    member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
-        writer.WriteLine("<div ws-{0}></div>", this.ID)
-
 open WebSharper.JavaScript
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
