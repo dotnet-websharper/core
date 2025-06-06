@@ -86,5 +86,19 @@ let ClientSideRecordTest x =
     |]
 
 [<JavaScript>]
+type SimpleClass(strings: string[]) =
+    member this.Strings = strings
+
+[<JavaScript>]
+let ClientSideClassTest (x: SimpleClass) =
+    Runner.RunTests [|
+        TestCategory "ClientSide" {
+            Test "Passing class" {
+                equal (x.Strings) [| "Hello"; "world" |]
+            }
+        }
+    |]
+
+[<JavaScript>]
 let InitSPA(where: string) =
     Console.Log($"Hello world from {where}!")

@@ -1804,29 +1804,7 @@ let packageLibraryBundle (current: M.Info) (jsExport: JsExport list) output =
     
     reexports |> List.ofSeq
 
-let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
-
-    let all = ResizeArray()
-    let bundles = Dictionary()
-    bundles.Add("all", all) 
-    
-    let addToBundles names item =
-        all.Add(item)
-        for n in names do
-            match bundles.TryFind(n) with
-            | None -> 
-                let b = ResizeArray()
-                b.Add(item)
-                bundles.Add(n, b)
-            | Some b ->
-                b.Add(item)
-
-    for qi in runtimeMeta.Quotations.Values do
-        (qi.TypeDefinition, qi.Method) |> addToBundles qi.PreBundles
-    
-    for qm in runtimeMeta.QuotedMethods do
-        qm.Key |> addToBundles qm.Value
-
+module Definitions =
     let iControlBody =
         TypeDefinition {
             Assembly = "WebSharper.StdLib"
@@ -1857,18 +1835,41 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
             Generics = 0
         }
 
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
+
+    let all = ResizeArray()
+    let bundles = Dictionary()
+    bundles.Add("all", all) 
+    
+    let addToBundles names item =
+        all.Add(item)
+        for n in names do
+            match bundles.TryFind(n) with
+            | None -> 
+                let b = ResizeArray()
+                b.Add(item)
+                bundles.Add(n, b)
+            | Some b ->
+                b.Add(item)
+
+    for qi in runtimeMeta.Quotations.Values do
+        (qi.TypeDefinition, qi.Method) |> addToBundles qi.PreBundles
+    
+    for qm in runtimeMeta.QuotedMethods do
+        qm.Key |> addToBundles qm.Value
+
     for wc in runtimeMeta.WebControls do
-        (wc.Key.TypeDefinition, getBody) |> addToBundles wc.Value    
+        (wc.Key.TypeDefinition, Definitions.getBody) |> addToBundles wc.Value    
 
     let results = ResizeArray()
 
     for b in bundles do
         let nodes =
             seq {
-                yield M.AbstractMethodNode (iControlBody, replaceInDom)
-                yield M.AbstractMethodNode (webControl, getBody)
+                yield M.AbstractMethodNode (Definitions.iControlBody, Definitions.replaceInDom)
+                yield M.AbstractMethodNode (Definitions.webControl, Definitions.getBody)
                 for td, m in b.Value do
-                    if m = getBody then
+                    if m = Definitions.getBody then
                         yield M.TypeNode td
                     else
                         yield M.MethodNode (td, m)    
@@ -1884,7 +1885,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
 
         let exportedTypes = Dictionary<TypeDefinition, ISet<Method>>()
         for td, m in b.Value do
-            if m = getBody then    
+            if m = Definitions.getBody then    
                 exportedTypes[td] <- null
             else
                 match exportedTypes.TryGetValue(td) with
@@ -1899,3 +1900,21 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
 
     results
     
+let getTrimmedGraph (meta: M.Info) (graph: DependencyGraph.Graph) =
+    let nodes = HashSet() 
+    nodes.Add(M.AbstractMethodNode (Definitions.iControlBody, Definitions.replaceInDom)) |> ignore
+    nodes.Add(M.AbstractMethodNode (Definitions.webControl, Definitions.getBody)) |> ignore
+    for qi in meta.Quotations.Values do
+        nodes.Add(M.MethodNode (qi.TypeDefinition, qi.Method)) |> ignore
+    for t, m in meta.QuotedMethods.Keys do
+        nodes.Add(M.MethodNode (t, m)) |> ignore
+    for t in meta.WebControls.Keys do
+        let rec addWithGenerics t =
+            match t with 
+            | AST.ConcreteType ct ->
+                nodes.Add(M.TypeNode ct.Entity) |> ignore
+                for p in ct.Generics do
+                    addWithGenerics p
+            | _ -> ()
+        addWithGenerics t
+    graph.GetTrimmedData(nodes)                            

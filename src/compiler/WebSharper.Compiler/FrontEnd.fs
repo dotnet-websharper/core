@@ -262,7 +262,11 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 |> Seq.append (Seq.singleton currentPosFixed)
                 |> M.Info.UnionWithoutDependencies
 
-            let deps = graph.GetData() 
+            let deps = 
+                if rm <> M.DiscardExpressions then
+                    graph.GetData() 
+                else
+                    JavaScriptPackager.getTrimmedGraph meta graph
 
             logger.TimedStage "Computing metadata"
 

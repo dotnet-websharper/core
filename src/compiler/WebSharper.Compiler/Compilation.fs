@@ -558,24 +558,7 @@ type Compilation(meta: Info, ?hasGraph) =
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = 
                 if hasGraph then 
-                    if keepTypes then
-                        graph.GetData() 
-                    else
-                        let nodes = HashSet() 
-                        for qi in quotations.Values do
-                            nodes.Add(MethodNode (qi.TypeDefinition, qi.Method)) |> ignore
-                        for t, m in quotedMethods.Keys do
-                            nodes.Add(MethodNode (t, m)) |> ignore
-                        for t in webControls.Keys do
-                            let rec addWithGenerics t =
-                                match t with 
-                                | ConcreteType ct ->
-                                    nodes.Add(TypeNode ct.Entity) |> ignore
-                                    for p in ct.Generics do
-                                        addWithGenerics p
-                                | _ -> ()
-                            addWithGenerics t
-                        graph.GetTrimmedData(nodes)                            
+                    graph.GetData() 
                 else 
                     GraphData.Empty
             Interfaces = if keepTypes then interfaces :> IDictionary<_,_> else Map.empty

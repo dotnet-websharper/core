@@ -11,6 +11,7 @@
     <Content Include="Main.html" CopyToPublishDirectory="Always" />
     <Content Include="spatest.html" CopyToPublishDirectory="Always" />
     <None Include="wsconfig.json" />
+    <Compile Remove="**\Source\**" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
