@@ -127,9 +127,9 @@ type ServiceExtensions =
     /// </summary>
     [<Extension>]
     static member AddWebSharper(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Assembly)>] defaultAssembly: Assembly) =
-        let defaultAssembly = 
-            if isNull defaultAssembly then Assembly.GetCallingAssembly() else defaultAssembly
         if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
+            let defaultAssembly = 
+                if isNull defaultAssembly then Assembly.GetCallingAssembly() else defaultAssembly
             this.AddSingleton<IWebSharperService>(WebSharperService(defaultAssembly)) |> ignore
         this
 
@@ -191,4 +191,5 @@ type ServiceExtensions =
     /// </summary>
     [<Extension>]
     static member AddWebSharperContent(this: IServiceCollection) =
-        this.AddScoped<IWebSharperContentService, WebSharperContentService>()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
+            .AddScoped<IWebSharperContentService, WebSharperContentService>()
