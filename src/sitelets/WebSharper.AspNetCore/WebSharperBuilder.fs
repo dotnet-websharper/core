@@ -46,18 +46,23 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _logger = None
     let mutable _authScheme = None
     let mutable _useSitelets = true
+    let mutable _discoverSitelet = false
     let mutable _useRemoting = true
     let mutable _useExtension = fun _ _ -> ()
     let mutable _rpcHeaders : (string * string) array = [||]
 
     /// <summary>Defines the sitelet to serve.</summary>
-    /// <remarks>
-    /// Using <c>AddSitelet</c> in <c>ConfigureServices</c> is preferred.
-    /// </remarks>
     member this.Sitelet<'T when 'T : equality>(sitelet: Sitelet<'T>) =
         if not _useSitelets then
             failwith "Do not call WebSharperBuilder.Sitelet with UseSitelets(false) or UseWebSharperRemoting"
         _sitelet <- Some (Sitelet.Box sitelet)
+        this
+
+    /// <summary>Serves the sitelet marked by Website attribute.</summary>
+    member this.DiscoverSitelet() =
+        if not _useSitelets then
+            failwith "Do not call WebSharperBuilder.DiscoverSitelet with UseSitelets(false) or UseWebSharperRemoting"
+        _discoverSitelet <- true
         this
 
     /// <summary>Specifies which assembly contains the runtime metadata for the sitelet (WebSharper project type: web).</summary>
@@ -155,16 +160,17 @@ type WebSharperBuilder(services: IServiceProvider) =
             )
 
         let hostingEnvironment =
+            lazy
             services.GetRequiredService<IHostingEnvironment>()
 
         let contentRootPath = 
             _contentRootPath |> Option.defaultWith (fun () ->
-                hostingEnvironment.ContentRootPath
+                hostingEnvironment.Value.ContentRootPath
             )
 
         let webRootPath = 
             _webRootPath |> Option.defaultWith (fun () ->
-                hostingEnvironment.WebRootPath
+                hostingEnvironment.Value.WebRootPath
             )
 
         let logger =
@@ -175,6 +181,7 @@ type WebSharperBuilder(services: IServiceProvider) =
             )
 
         let siteletAssembly = 
+            lazy
             _siteletAssembly |> Option.defaultWith (fun () -> wsService.DefaultAssembly)
 
         let metadata, dependencies, json =
@@ -182,7 +189,7 @@ type WebSharperBuilder(services: IServiceProvider) =
             | Some m ->
                 m, Graph.FromData m.Dependencies, J.Provider.Create()
             | None ->
-                wsService.GetWebSharperMeta(siteletAssembly, logger)
+                wsService.GetWebSharperMeta(siteletAssembly.Value, logger)
 
         let timedInfo (message: string) action =
             if logger.IsEnabled(LogLevel.Information) then
@@ -201,16 +208,20 @@ type WebSharperBuilder(services: IServiceProvider) =
                 | :? ISiteletService as s -> 
                     Some s.Sitelet
                 | _ ->
-                    let s =
-                        timedInfo "Sitelet discovered via reflection " (fun () -> 
-                            WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly
-                        )
-                    match s with
-                    | None ->
-                        failwithf "Failed to discover sitelet in assembly %s. Mark a static property/value with the Website attribute or specify sitelet via WebSharperBuilder.Sitelet." siteletAssembly.FullName
-                    | res ->
-                        logger.LogWarning("WebSharper sitelet loaded via reflection. It is recommended to pass sitelet object instead in WebSharperBuilder.UseSitelet.")
-                        res
+                    if _discoverSitelet then
+                        let s =
+                            timedInfo "Sitelet discovered via reflection " (fun () -> 
+                                WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly.Value
+                            )
+                        match s with
+                        | None ->
+                            failwithf "Failed to discover sitelet in assembly %s. Mark a static property/value with the Website attribute or specify sitelet via WebSharperBuilder.Sitelet." siteletAssembly.Value.FullName
+                        | res ->
+                            logger.LogWarning("WebSharper sitelet loaded via reflection. It is recommended to pass sitelet object instead in WebSharperBuilder.UseSitelet.")
+                            res
+                    else
+                        _useSitelets <- false
+                        None
             )
 
         let options =

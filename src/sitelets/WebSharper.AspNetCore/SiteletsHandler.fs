@@ -178,10 +178,13 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
             let options =
-                WebSharperBuilder(httpCtx.RequestServices)
-                    .Sitelet(sitelet)
-                    .UseRemoting(false)
-                    .Build()
+                match httpCtx.RequestServices.GetService(typeof<IWebSharperService>) with
+                | :? IWebSharperService as s -> s.WebSharperOptions
+                | _ ->
+                    WebSharperBuilder(httpCtx.RequestServices)
+                        .Sitelet(sitelet)
+                        .UseRemoting(false)
+                        .Build()
             let ctx = Context.GetOrMake httpCtx options sitelet
 
             let handleRouterResult r =

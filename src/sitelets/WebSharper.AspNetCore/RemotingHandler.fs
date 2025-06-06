@@ -120,9 +120,12 @@ let HttpHandler () : RemotingHttpHandler =
                 | _ -> null
             
             let options =
-                WebSharperBuilder(httpCtx.RequestServices)
-                    .UseSitelets(false)
-                    .Build()
+                match httpCtx.RequestServices.GetService(typeof<IWebSharperService>) with
+                | :? IWebSharperService as s -> s.WebSharperOptions
+                | _ ->
+                    WebSharperBuilder(httpCtx.RequestServices)
+                        .UseSitelets(false)
+                        .Build()
             let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
             if server.IsRemotingRequest httpCtx.Request.Path then
             
