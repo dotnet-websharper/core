@@ -137,6 +137,7 @@ type ServiceExtensions =
     /// Add a sitelet service to be loaded on startup with <c>UseWebSharper</c>.
     /// </summary>
     [<Extension>]
+    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead.">]
     static member AddSitelet<'TImplementation
             when 'TImplementation :> ISiteletService
             and 'TImplementation : not struct>
@@ -148,6 +149,7 @@ type ServiceExtensions =
     /// Add a sitelet to be loaded on startup with <c>UseWebSharper</c>.
     /// </summary>
     [<Extension>]
+    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead.">]
     static member AddSitelet<'T when 'T : equality>
             (this: IServiceCollection, sitelet: Sitelet<'T>) =
         this.AddWebSharper(Assembly.GetCallingAssembly())

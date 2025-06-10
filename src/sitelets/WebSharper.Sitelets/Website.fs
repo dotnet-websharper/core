@@ -23,9 +23,11 @@ namespace WebSharper.Sitelets
 open System
 open System.Reflection
 open System.Web
+open WebSharper
 
 /// Define a Sitelets website. This interface must be
 /// implemented by the type passed to WebsiteAttribute.
+[<JavaScript false>]
 type IWebsite<'Action when 'Action : equality> =
     abstract Actions : seq<'Action>
     abstract Sitelet : Sitelet<'Action>
@@ -38,6 +40,7 @@ module internal Specialization =
     open System
 
     /// Represents a generic algorithm.
+    [<JavaScript false>]
     type IGeneric<'T1,'T2> =
 
         /// Runs the computation. Note the generic 'T3 argument.

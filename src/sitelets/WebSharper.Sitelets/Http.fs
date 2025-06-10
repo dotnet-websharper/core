@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+open WebSharper
+
 /// Defines HTTP-related functionality.
 module Http =
     open System
@@ -105,6 +107,7 @@ module Http =
 
     /// Represents parameter collections.
     [<AllowNullLiteral>]
+    [<JavaScript false>]
     type ParameterCollection =
         abstract Item: string -> option<string> 
         abstract ToList: unit -> list<string * string> 
@@ -134,6 +137,7 @@ module Http =
                 Map.toList m
         }
 
+    [<JavaScript false>]
     type IPostedFile =
         abstract Key : string
         abstract ContentLength : int

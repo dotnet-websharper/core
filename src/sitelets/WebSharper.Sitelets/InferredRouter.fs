@@ -468,6 +468,7 @@ module internal ServerInferredOperators =
             IExplicitMethods = Set.empty
         }
 
+    [<JavaScript false>]
     type IOptionConverter =
         abstract Get: obj -> obj option
         abstract Some: obj -> obj

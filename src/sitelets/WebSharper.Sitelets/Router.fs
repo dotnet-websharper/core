@@ -455,6 +455,7 @@ module internal List =
         | sh :: sr, lh :: lr when sh = lh -> startsWith sr lr
         | _ -> None
 
+[<Name "">]
 type IRouter<'T> =
     abstract Route : Http.Request -> option<'T>
     abstract Link : 'T -> option<System.Uri>
