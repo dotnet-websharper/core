@@ -454,7 +454,7 @@ let translate isBundle (source: string) =
     
     else
 
-        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" false None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
         for (file, p) in pkg do
             printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))
@@ -527,14 +527,11 @@ open System.Collections.Generic
 
 [<JavaScript>]
 module Test =
-    type IValue<'T> =
-        abstract member Value : 'T with get
     
     let test() =
-        let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
-
-        let i = { new IValue<int> with member this.Value = 4 }
-        !!i
+        async {
+            return 1
+        }
 
 """
 
