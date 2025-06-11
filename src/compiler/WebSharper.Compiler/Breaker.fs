@@ -291,6 +291,8 @@ let rec removeLets expr =
     | Let (var, value, I.Function ([x], None, _, (I.ExprStatement(I.Application (I.Var f, [I.Var y], _)) | I.Return(I.Application (I.Var f, [I.Var y], _)))))
         when f = var && x = y ->
             value
+    | Let (var, I.Value Null, c) ->
+        SubstituteVar(var, Value Null).TransformExpression(c)
     | Let(a, b, I.Var c) when a = c ->
         b
     | Let(a, I.Var b, c) 
