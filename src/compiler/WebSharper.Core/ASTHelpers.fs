@@ -447,7 +447,10 @@ module TSType =
     let (|Basic|_|) = function
         | TSType.Named [ x ] -> Some x
         | _ -> None
-    
+    let OfVar x = TSType.Imported (x, [])
+    let (|OfVar|_|) = function
+        | TSType.Imported (x, []) -> Some x
+        | _ -> None
     let Object = Basic "object"
     let (|Object|_|) = function
         | Basic "object" -> Some ()

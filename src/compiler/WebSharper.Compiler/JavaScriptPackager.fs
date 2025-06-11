@@ -638,18 +638,16 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
         | false, _ -> ()
         | true, (currentClassAddr, classId, outerClassId) ->
 
-        let className = classId.Name.Value
-
         let isUnion =
             match ct with
             | M.FSharpUnionInfo _ -> true
             | _ -> false
-        let className_T, classId_T = 
+        let classId_T = 
             if isUnion && c.HasWSPrototype then 
-                let tn = className + "_T"
-                tn, Id.New(tn, str = true)
+                let tn = classId.Name.Value + "_T"
+                Id.New(tn, str = true)
             else    
-                className, classId
+                classId
 
         let gsArr = Array.ofList c.Generics
         let bTr() = bodyTransformer(gsArr)   
@@ -705,7 +703,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
         let thisTSTypeOrUnion =
             lazy 
             if isUnion && c.HasWSPrototype then 
-                TSType.Basic className |> addGenerics cgen 
+                TSType.OfVar classId |> addGenerics cgen 
             else
                 thisTSType.Value
 
@@ -1212,6 +1210,18 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             //addStatement <| export false (VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
 
+            if members.Count > 0 then
+                let maxFieldLength = 
+                    u.Cases |> Seq.map (fun c ->
+                        match c.Kind with
+                        | M.NormalFSharpUnionCase fs -> List.length fs
+                        | _ -> 0
+                    ) |> Seq.max
+
+                members.Add <| ClassProperty(propInfo false false false, "$", TSType.Any, None)
+                for i in 0 .. maxFieldLength - 1 do
+                    members.Add <| ClassProperty(propInfo false false false, "$" + string i, TSType.Any, None)
+            
             if output <> O.JavaScript then
                 
                 let ucTypes = ResizeArray()

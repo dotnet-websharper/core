@@ -2,7 +2,7 @@ export function Create<T extends object, U>(ctor: { prototype: T }, copyFrom: U)
   return Object.assign(Object.create(ctor.prototype), copyFrom);
 }
 
-export function Clone(obj) {
+export function Clone<T>(obj: T): T {
   return Object.assign(Object.create(Object.getPrototypeOf(obj)), obj);
 }
 
