@@ -1300,21 +1300,22 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 false
 
         let packageLazyClass classDecl classExpr =
+            let withLazy() =
+                Block [
+                    VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
+                    if output = O.TypeScript then
+                        Alias(outerClassId, cgen, TSType.Typeof outerClassId |> addGenerics cgen)
+                    exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))              
+                ]
             if isSingleType then
                 let withoutLazy =
                     classDecl
                     |> bTr().TransformStatement 
                     |> SubstituteVar(outerClassId, Var classId).TransformStatement
                     |> exportWithBundleSupport true typ None currentClassAddr outerClassId
-                let withLazy =
-                    Block [
-                        VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-                        exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))              
-                    ]
-                addStatement <| LazyClass(withoutLazy, withLazy)    
+                addStatement <| LazyClass(withoutLazy, withLazy())    
             else
-                addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-                addStatement <| exportWithBundleSupport true typ None currentClassAddr outerClassId (ExprStatement(Var outerClassId))                
+                addStatement <| withLazy()                
 
         let packageClass classDecl = 
             let trClassDecl =
@@ -1327,7 +1328,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
                     ClassStatic (VarSetStatement(outerClassId, Cast(TSType.Any, setInstance(JSThis)))) 
-                    :: List.ofSeq members)
+                    :: List.ofSeq members, cgen, bgen)
             let implements =
                 if output = O.JavaScript then [] else
                 c.Implements |> List.map (tsTypeOfConcrete gsArr)

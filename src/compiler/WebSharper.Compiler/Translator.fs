@@ -1890,7 +1890,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             ClassMethod(instanceInfo kind, name, pars, thisVar, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                 )
-            New(ClassExpr(None, Some (GlobalAccess addr), Option.toList trCtor @ trOvr), [], [])
+            let bgen =
+                match typ with
+                | ConcreteType t -> t.Generics |> List.map comp.TypeTranslator.TSTypeOf
+                | _ -> []
+            New(ClassExpr(None, Some (GlobalAccess addr), Option.toList trCtor @ trOvr, [], bgen), [], [])
         | _ -> 
             let obj =                
                 Object (

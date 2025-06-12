@@ -207,7 +207,7 @@ let ExprDefs =
             , "Temporary - A hole in an expression for inlining"
         "Cast", [ TSType, "targetType"; Expr, "expression" ]
             , "TypeScript - type cast <...>..."
-        "ClassExpr", [ Option Id, "classId"; Option Expr, "baseClass"; List Statement, "members" ]
+        "ClassExpr", [ Option Id, "classId"; Option Expr, "baseClass"; List Statement, "members"; List TSType, "generics"; List TSType, "baseGenerics" ]
             , "JavaScript - class { ... }"
         "ObjectExpr", [ Type, "objectType"; Option Expr, "constructor"; List (Tuple [NonGenericTypeDefinition; NonGenericMethod; Expr]), "overrides" ]
             , ".NET - F# object expression"

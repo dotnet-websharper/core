@@ -413,10 +413,15 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
     | Cast (t, e) ->
         J.Cast(transformType env t, trE e)
-    | ClassExpr (n, b, m) ->
+    | ClassExpr (n, b, m, g, bg) ->
         let innerEnv = env.NewInner()
-        let jn = n |> Option.map (defineId innerEnv)
-        J.ClassExpr(jn, Option.map trE b, [], List.map (transformMember innerEnv) m)
+        let jn = n |> Option.map (fun n -> (defineId innerEnv n).WithGenerics(transformGenerics env g))
+        let trB =
+            match b with
+            | Some b -> 
+                Some (trE b, transformGenerics env bg)
+            | None -> None
+        J.ClassExpr(jn, trB, [], List.map (transformMember innerEnv) m)
     | GlobalAccess a ->
         match a.Module with     
         | ImportedModule g when g.IsGlobal() ->
@@ -726,6 +731,8 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
             )
             |> String.concat ","
         ) + "}"
+    | TSType.Typeof i ->
+        "typeof " + (transformId env i).Name
     |> fun n -> J.Id.New(n, typn = true)
 
 and transformType (env: Environment) (typ: TSType) =

@@ -957,6 +957,7 @@ type [<RequireQualifiedAccess>] TSType =
     | TypeGuard of Id * TSType
     | ObjectOf of TSType
     | TypeLiteral of list<string * MemberKind * TSType> 
+    | Typeof of Id
 
     member this.SubstituteGenerics (gs : TSType[]) =
         let inline tr (p:TSType) = p.SubstituteGenerics gs
@@ -965,6 +966,7 @@ type [<RequireQualifiedAccess>] TSType =
         | Named _
         | Imported _
         | Importing _
+        | Typeof _
             -> this
         | Param i -> gs.[i]
         | Generic (e, g) -> Generic (tr e, List.map tr g)
@@ -985,6 +987,7 @@ type [<RequireQualifiedAccess>] TSType =
         | Named _
         | Imported _
         | Param _
+        | Typeof _
             -> this
         | Importing m  -> resolve m
         | Generic (e, g) -> Generic (tr e, List.map tr g)
@@ -1024,6 +1027,7 @@ type [<RequireQualifiedAccess>] TSType =
                 )
                 |> String.concat ","
             ) + "}"
+        | Typeof i -> "typeof " + string i
 
 type MethodInfo =
     {

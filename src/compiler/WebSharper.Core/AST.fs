@@ -243,7 +243,7 @@ and Expression =
     /// TypeScript - type cast <...>...
     | Cast of TargetType:TSType * Expression:Expression
     /// JavaScript - class { ... }
-    | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement>
+    | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType>
     /// .NET - F# object expression
     | ObjectExpr of ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression>
     /// JavaScript verbatim code
@@ -514,8 +514,8 @@ type Transformer() =
     abstract TransformCast : TargetType:TSType * Expression:Expression -> Expression
     override this.TransformCast (a, b) = Cast (a, this.TransformExpression b)
     /// JavaScript - class { ... }
-    abstract TransformClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
-    override this.TransformClassExpr (a, b, c) = ClassExpr (Option.map this.TransformId a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
+    abstract TransformClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> Expression
+    override this.TransformClassExpr (a, b, c, d, e) = ClassExpr (Option.map this.TransformId a, Option.map this.TransformExpression b, List.map this.TransformStatement c, d, e)
     /// .NET - F# object expression
     abstract TransformObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> Expression
     override this.TransformObjectExpr (a, b, c) = ObjectExpr (a, Option.map this.TransformExpression b, List.map (fun (a, b, c) -> a, b, this.TransformExpression c) c)
@@ -694,7 +694,7 @@ type Transformer() =
         | New (a, b, c) -> this.TransformNew (a, b, c)
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
-        | ClassExpr (a, b, c) -> this.TransformClassExpr (a, b, c)
+        | ClassExpr (a, b, c, d, e) -> this.TransformClassExpr (a, b, c, d, e)
         | ObjectExpr (a, b, c) -> this.TransformObjectExpr (a, b, c)
         | Verbatim (a, b, c) -> this.TransformVerbatim (a, b, c)
     abstract TransformStatement : Statement -> Statement
@@ -904,8 +904,8 @@ type Visitor() =
     abstract VisitCast : TargetType:TSType * Expression:Expression -> unit
     override this.VisitCast (a, b) = (); this.VisitExpression b
     /// JavaScript - class { ... }
-    abstract VisitClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> unit
-    override this.VisitClassExpr (a, b, c) = Option.iter this.VisitId a; Option.iter this.VisitExpression b; List.iter this.VisitStatement c
+    abstract VisitClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> unit
+    override this.VisitClassExpr (a, b, c, d, e) = Option.iter this.VisitId a; Option.iter this.VisitExpression b; List.iter this.VisitStatement c; (); ()
     /// .NET - F# object expression
     abstract VisitObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> unit
     override this.VisitObjectExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter (fun (a, b, c) -> this.VisitExpression c) c
@@ -1082,7 +1082,7 @@ type Visitor() =
         | New (a, b, c) -> this.VisitNew (a, b, c)
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
-        | ClassExpr (a, b, c) -> this.VisitClassExpr (a, b, c)
+        | ClassExpr (a, b, c, d, e) -> this.VisitClassExpr (a, b, c, d, e)
         | ObjectExpr (a, b, c) -> this.VisitObjectExpr (a, b, c)
         | Verbatim (a, b, c) -> this.VisitVerbatim (a, b, c)
     abstract VisitStatement : Statement -> unit
@@ -1187,7 +1187,7 @@ module IgnoreSourcePos =
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
-    let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Verbatim|_|) x = match ignoreExprSourcePos x with Verbatim (a, b, c) -> Some (a, b, c) | _ -> None
     let ignoreStatementSourcePos expr =
@@ -1290,7 +1290,7 @@ module Debug =
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + string a + ")"
         | Cast (a, b) -> "Cast" + "(" + string a + ", " + PrintExpression b + ")"
-        | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
+        | ClassExpr (a, b, c, d, e) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ", " + "[" + String.concat "; " (List.map string e) + "]" + ")"
         | ObjectExpr (a, b, c) -> "ObjectExpr" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) c) + "]" + ")"
         | Verbatim (a, b, c) -> "Verbatim" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + string c + ")"
     and PrintStatement x =

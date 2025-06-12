@@ -959,8 +959,8 @@ let rec breakExpr expr : Broken<BreakResult> =
                 ObjectExpr (typ, None, brMem)
 
         )
-    | ClassExpr(name, baseCls, mem) ->
-        ClassExpr(name, baseCls, mem |> List.map BreakStatement) |> broken
+    | ClassExpr(name, baseCls, mem, cgen, bgen) ->
+        ClassExpr(name, baseCls, mem |> List.map BreakStatement, cgen, bgen) |> broken
     | Verbatim(stringParts, holes, isJSX) ->
         let brHoles =
             holes 
