@@ -509,7 +509,7 @@ let Auto<'A>() : Generator<'A> =
 [<JavaScript>]
 type Sample<'A> (data: list<'A>) =
 
-    static member Make<'A> generator count =
+    static member Make generator count =
         new Sample<'A>(generator, count)
 
     member this.Data = data

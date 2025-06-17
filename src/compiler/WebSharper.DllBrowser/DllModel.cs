@@ -183,6 +183,7 @@ namespace WebSharper.DllBrowser
                     sb.AppendLine(m.Key.Value.ToString());
                     sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
                     sb.Append("  Optimizations: ").AppendLine(m.Value.Optimizations.ToString().Replace("\n", ""));
+                    sb.Append("  Generics: ").AppendLine(m.Value.Generics.ToString().Replace("\n", ""));
                     sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                     sb.AppendLine();
                 }

@@ -1027,16 +1027,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 |> List.indexed |> List.choose (fun (i, c) ->
                     if i >= gcArr.Length then None else //TODO make sure we always have generics
                     match gcArr.[i].Type with
-                    | Some _ -> None
+                    | Some t -> Some t
                     | _ -> Some (comp.TypeTranslator.TSTypeOf c)
                 )
             else 
-                let cg = typ.Generics.Length
+                //let cg = typ.Generics.Length
                 meth.Generics 
                 |> List.indexed |> List.choose (fun (i, c) ->
-                    if i + cg >= gcArr.Length then None else //TODO make sure we always have generics
-                    match gcArr.[i + cg].Type with  
-                    | Some _ -> None
+                    if i >= gcArr.Length then None else //TODO make sure we always have generics
+                    match gcArr.[i].Type with  
+                    | Some t -> Some t
                     | _ -> Some (comp.TypeTranslator.TSTypeOf c)
                 )
         let staticCall func =
