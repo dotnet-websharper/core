@@ -509,5 +509,9 @@ module TSType =
             TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.LazyExtensionsProxy.LazyRecord`1" }), [TSType.Param 0])
         | "$wstype(../WebSharper.StdLib/System.Collections.Generic.IEnumerable`1)" ->
             TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "System.Collections.Generic.IEnumerable`1" }), [TSType.Param 0])
+        | "$import(BigNumber, mathjs)" ->
+            TSType.Importing (Address.Import "" (Some "BigNumber", "mathjs"))
+        | "$import(Complex, mathjs)" ->
+            TSType.Importing (Address.Import "" (Some "Complex", "mathjs"))
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))
