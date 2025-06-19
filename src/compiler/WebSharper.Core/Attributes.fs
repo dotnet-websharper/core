@@ -398,3 +398,8 @@ type FormDataAttribute =
 [<Sealed; U(T.Property ||| T.Class ||| T.Field ||| T.Method)>]
 type WildcardAttribute() =
     inherit A()
+
+/// Marks the assembly as containing a GEN function for a given file extension.
+[<Sealed; U(T.Assembly)>]
+type FSharpSourceGeneratorAttribute(ext: string) =
+    inherit A()
