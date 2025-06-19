@@ -79,7 +79,7 @@ Generally, expressions stick to their .NET semantics, for example loops over col
 ### Structured types
 
 - F# tuples and .NET `ValueTuple`s both get translated to JavaScript `Array`.
-- F# unions (including `option` and `list`) are translated to classes or plain objects with property `$` containing the union case index, while properties `$1`, `$2`, etc. are matching the union fields. If the union type has no members, then it will be translated to a plain object, otherwise a class. The `Prototype` attribute can be used to override this, `[<Prototype>]` will force the output to be a JavaScript class, while `[<Prototype(false)>]` will force the output to be a plain object and translate methods to functions. A constructor function or static member is emitted for each union case.
+- F# unions (including `option` and `list`) are translated to classes or plain objects with property `$` containing the union case index, while properties `$0`, `$1`, etc. are matching the union fields. If the union type has no members, then it will be translated to a plain object, otherwise a class. The `Prototype` attribute can be used to override this, `[<Prototype>]` will force the output to be a JavaScript class, while `[<Prototype(false)>]` will force the output to be a plain object and translate methods to functions. A constructor function or static member is emitted for each union case.
   F# code:
   ```fsharp
   [<JavaScript>]
@@ -172,6 +172,7 @@ Classes are translated to JavaScript classes. Overloads are supported by automat
 
 F# code:
 ```fsharp
+[<JavaScript>]
 type BaseClass(x) =
     let mutable x = x
     new() = BaseClass(0)
@@ -181,6 +182,7 @@ type BaseClass(x) =
     abstract Incr: unit -> unit
     default this.Incr() = this.Incr(1)
 
+[<JavaScript>]
 type SubClass(x) =
     inherit BaseClass(x)
     override this.Incr() = base.Incr(2)
