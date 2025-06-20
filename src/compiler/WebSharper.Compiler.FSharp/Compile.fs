@@ -70,6 +70,62 @@ let handleCommandResult logger config warnSettings stageName exitContext cmdRes 
     logger.TimedStage stageName
     res
 
+let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
+    let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
+    let isSupportedFile (f: string) =
+        f.EndsWith ".fs" || f.EndsWith ".fsi" || f.EndsWith ".fsx" || f.EndsWith ".fsscript" || f.EndsWith ".ml" || f.EndsWith ".mli"
+    let unsupportedFiles = sourceFiles |> Array.filter (fun f -> not (isSupportedFile f))
+    if unsupportedFiles.Length > 0 then
+        let aR = createAssemblyResolver config    
+        aR.Wrap <| fun () ->
+            let transformedFiles =  
+                let generators = System.Collections.Generic.Dictionary()
+                sourceFiles |> Array.collect (fun f ->
+                    if isSupportedFile f then
+                        [| f |]
+                    else
+                        let ext = (Path.GetExtension f).TrimStart('.')
+                        // search for generator method in references
+                        let generator =
+                            match generators.TryGetValue ext with
+                            | true, g -> g
+                            | _ ->
+                                let g =
+                                    config.References |> Array.tryPick (fun r ->
+                                        let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(r)
+                                        if asm.CustomAttributes |> Seq.exists (fun a -> a.AttributeType.FullName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.ConstructorArguments[0].Value = ext) then
+                                            let genFunc =
+                                                asm.MainModule.Types
+                                                |> Seq.tryPick (fun t ->
+                                                    t.Methods |> Seq.tryFind (fun m -> m.Name = "GEN" && m.IsStatic && m.Parameters.Count = 1 && m.Parameters.[0].ParameterType.FullName = "System.String")
+                                                )
+                                                |> Option.map (fun m -> r, m)
+                                            if Option.isNone genFunc then
+                                                PrintGlobalError logger (sprintf "No generator method found for extension %s in assembly %s" ext r)
+                                            genFunc
+                                        else
+                                            None
+                                    )
+                                if Option.isNone g then
+                                    PrintGlobalError logger (sprintf "No generator found for extension %s" ext)
+                                generators[ext] <- g
+                                g
+                        match generator with
+                        | Some (an, gen) ->
+                            let fullPath = Path.Combine(config.ProjectDir, f)
+                            // load generator method with Reflection
+                            let genFunc = System.Reflection.Assembly.LoadFile(an).GetType(gen.DeclaringType.FullName).GetMethod("GEN", [| typeof<string> |])
+                            let res = genFunc.Invoke(null, [| fullPath |]) :?> string[]
+                            res
+                        | None ->
+                            [||]
+                
+                )
+            let otherArgs = config.CompilerArgs[1 ..] |> Array.filter (fun a -> a.StartsWith "-")
+            { config with CompilerArgs = Array.concat [| [| config.CompilerArgs[0] |]; otherArgs;  transformedFiles |] }
+    else
+        config
+
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
     
@@ -109,6 +165,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let checker = checkerFactory()
     
+    let config = RunFSharpSourceGeneration logger config
+
     let isBundleOnly = config.ProjectType = Some BundleOnly
 
     let jsCompilerArgs =

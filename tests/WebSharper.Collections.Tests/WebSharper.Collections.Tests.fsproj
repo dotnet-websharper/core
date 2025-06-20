@@ -19,6 +19,7 @@
     <Compile Include="InternalProxy.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="SplitProxy.fs" />
+    <Compile Include="FSharpSourceGeneratorTest.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
