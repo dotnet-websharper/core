@@ -99,7 +99,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                 |> Seq.tryPick (fun t ->
                                                     t.Methods |> Seq.tryFind (fun m -> m.Name = "GEN" && m.IsStatic && m.Parameters.Count = 1 && m.Parameters.[0].ParameterType.FullName = "System.String")
                                                 )
-                                                |> Option.map (fun m -> r, m)
+                                                |> Option.map (fun m -> asm.FullName, m)
                                             if Option.isNone genFunc then
                                                 PrintGlobalError logger (sprintf "No generator method found for extension %s in assembly %s" ext r)
                                             genFunc
@@ -111,10 +111,12 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                 generators[ext] <- g
                                 g
                         match generator with
-                        | Some (an, gen) ->
+                        | Some (asmName, gen) ->
                             let fullPath = Path.Combine(config.ProjectDir, f)
                             // load generator method with Reflection
-                            let genFunc = System.Reflection.Assembly.LoadFile(an).GetType(gen.DeclaringType.FullName).GetMethod("GEN", [| typeof<string> |])
+                            let genFunc = 
+                                let fqn = gen.DeclaringType.FullName + ", " + asmName
+                                System.Type.GetType(fqn, true).GetMethod("GEN", [| typeof<string> |])
                             let res = genFunc.Invoke(null, [| fullPath |]) :?> string[]
                             res
                         | None ->
