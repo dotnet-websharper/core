@@ -269,7 +269,7 @@ let startListening() =
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
                 let! _ = readingMessages serverPipe handleMessage ignore
-                serverPipe.Close()
+                serverPipe.Dispose()
             with
             | ex ->
                 nLogger.Error(ex, "Error in handleMessage loop")
@@ -277,22 +277,25 @@ let startListening() =
 
     // start listening. When Client connects, spawn a message processor and start another listen
     let rec pipeListener token = async {
-        let serverPipe = new NamedPipeServerStream( 
-                          pipeName, // name of the pipe,
-                          PipeDirection.InOut, // diretcion of the pipe 
-                          NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
-                          PipeTransmissionMode.Byte, // using Byte for Linux support
-                          PipeOptions.WriteThrough // the operation will not return the control until the write is completed
-                          ||| PipeOptions.Asynchronous)
+        try
+            let serverPipe = new NamedPipeServerStream( 
+                              pipeName, // name of the pipe,
+                              PipeDirection.InOut, // diretcion of the pipe 
+                              NamedPipeServerStream.MaxAllowedServerInstances, // max number of server instances
+                              PipeTransmissionMode.Byte, // using Byte for Linux support
+                              PipeOptions.WriteThrough // the operation will not return the control until the write is completed
+                              ||| PipeOptions.Asynchronous)
 
-        if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-            let currentPermissions = System.IO.File.GetUnixFileMode pipeName
-            System.IO.File.SetUnixFileMode(
-                pipeName, currentPermissions ||| System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
+            if not <| RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+                let currentPermissions = System.IO.File.GetUnixFileMode pipeName
+                System.IO.File.SetUnixFileMode(
+                    pipeName, currentPermissions ||| System.IO.UnixFileMode.OtherWrite ||| System.IO.UnixFileMode.OtherRead)
         
-        do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
-        serverPipe.ReadMode <- PipeTransmissionMode.Byte
-        Async.Start (handOverPipe serverPipe token, token)
+            do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
+            serverPipe.ReadMode <- PipeTransmissionMode.Byte
+            Async.Start (handOverPipe serverPipe token, token)
+        with ex ->
+            nLogger.Error(ex, "Error in pipeListener loop")
         do! pipeListener token
         }
 

@@ -174,6 +174,6 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
             cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
             raise <| PipeException()
     with
-    | :? System.TimeoutException ->
+    | _ ->
         cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
         raise <| PipeException()
