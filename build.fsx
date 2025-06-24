@@ -133,6 +133,17 @@ Target.create "Prepare" <| fun _ ->
             WorkingDirectory = "./tests/Web/"
         }
 
+let stopService() =
+    try
+        Process.GetProcessesByName("wsfscservice")
+        |> Array.iter (fun x -> 
+            if x.MainModule.FileName.StartsWith(__SOURCE_DIRECTORY__) then
+                x.Kill()
+        )
+        |> ignore
+    with
+    | _ -> ()
+
 let targets =
     MakeTargets {
         WSTargets.Default (fun () -> computedVersion) with
@@ -143,6 +154,7 @@ let targets =
                     //BuildAction.Custom (publish [ Some "win-x64" ])
                     BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
                     BuildAction.Projects ["WebSharper.sln"]
+                    BuildAction.Custom (fun _ -> stopService())
                 ]
             Attributes =
                 [
@@ -155,6 +167,14 @@ let targets =
     }
 
 targets.AddPrebuild "Prepare"
+
+Target.create "WS-Stop" <| fun _ -> stopService()
+    
+"WS-Stop"
+    ?=> "WS-Clean"
+
+"WS-Stop"
+    ==> "WS-Update"
 
 Target.create "Build" <| fun o ->
     BuildAction.Multiple [
