@@ -395,6 +395,22 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let f33 (x: char) =
+        if x = 'a' then
+            'b'
+        else 
+            x
+        |> async.Return
+
+    [<Remote>]
+    let f34 (x: System.DateTimeKind) =
+        if x = System.DateTimeKind.Unspecified then
+            System.DateTimeKind.Utc
+        else 
+            x
+        |> async.Return
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -731,6 +747,16 @@ module Remoting =
                     | Server.SimpleUnionB x -> x
                     | _ -> ""
                 equal v "one"
+            }
+
+            Test "Char" {
+                let! r = Server.f33 'a'
+                equal r 'b'
+            }
+
+            Test "Enum" {
+                let! r = Server.f34 System.DateTimeKind.Unspecified
+                equal r System.DateTimeKind.Utc
             }
 
             Test "Empty Map" {

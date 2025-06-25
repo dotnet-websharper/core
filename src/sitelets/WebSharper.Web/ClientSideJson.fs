@@ -429,13 +429,17 @@ module Macro =
                     if isIdent itemEncoder then
                         ok ident.Value
                     else
-                        encode t >>= fun e ->
+                        itemEncoder >>= fun e ->
                         ok (call "Array" [e])
                 | ArrayType _ ->
                     fail "JSON serialization for multidimensional arrays is not supported."
                 | TSType (TSType.ArrayOf t) ->
-                    encode (TSType t) >>= fun e ->
-                    ok (call "Array" [e])
+                    let itemEncoder = encode (TSType t)
+                    if isIdent itemEncoder then
+                        ok ident.Value
+                    else
+                        itemEncoder >>= fun e ->
+                        ok (call "Array" [e])
                 | VoidType
                 | TSType (TSType.Number | TSType.String | TSType.Null | TSType.Void)
                 | C (T ("Microsoft.FSharp.Core.Unit"
