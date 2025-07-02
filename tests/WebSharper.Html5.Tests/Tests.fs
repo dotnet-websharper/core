@@ -426,13 +426,13 @@ let InnerWorker(self: DedicatedWorkerGlobalScope) =
     let innerWorker =
         try
             new Worker(fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     self.PostMessage(GlobalFunction2(As<string> e.Data))
             )
         with e -> Console.Log(e); Unchecked.defaultof<_>
-    innerWorker.Onmessage <- fun e ->
+    innerWorker.OnMessage <- fun e ->
         self.PostMessage(e.Data)
-    self.Onmessage <- fun e ->
+    self.OnMessage <- fun e ->
         innerWorker.PostMessage(e.Data)
 
 [<JavaScript>]
@@ -463,7 +463,7 @@ let WebWorkerTests =
             let blobUrl = URL.CreateObjectURL(blob)
             let worker = new Worker(blobUrl)
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e ->
+                worker.OnMessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
             equal res "The worker replied: [worker] Hello world!"
@@ -471,11 +471,11 @@ let WebWorkerTests =
 
         Test "Macro" {
             let worker = new Worker(fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     self.PostMessage(GlobalFunction(As<string> e.Data))
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e ->
+                worker.OnMessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
             worker.Terminate()
@@ -499,11 +499,11 @@ let WebWorkerTests =
 
         Test "Macro with custom name" {
             let worker = new Worker("my-worker", fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     self.PostMessage(GlobalFunction(As<string> e.Data))
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e ->
+                worker.OnMessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
             worker.Terminate()
@@ -514,7 +514,7 @@ let WebWorkerTests =
             let worker = new Worker(InnerWorker)
             let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
             let! res = AsyncContinuationTimeout err <| fun ok ->
-                worker.Onmessage <- fun e ->
+                worker.OnMessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
             equal res "The worker replied: [worker2] Hello world!"
@@ -522,33 +522,33 @@ let WebWorkerTests =
 
         Skip "JavaScriptExport inclusion" {
             let worker = new Worker("withJsExport", true, fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     JS.Global?WebSharper?Html5?Tests?Main?ExportedFunction() |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e -> ok (e.Data :?> string)
+                worker.OnMessage <- fun e -> ok (e.Data :?> string)
                 worker.PostMessage(())
             worker.Terminate()
             equalMsg res "exported function" "true includes js exports"
 
             let worker = new Worker("withoutJsExport", false, fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     GlobalExists JS.Global ["WebSharper"; "Html5"; "Tests"; "Main"; "ExportedFunction"]
                     |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
                 worker.PostMessage(())
             worker.Terminate()
             equalMsg res "false" "false doesn't include js exports"
 
             let worker = new Worker("unspecifiedJsExport", fun self ->
-                self.Onmessage <- fun e ->
+                self.OnMessage <- fun e ->
                     GlobalExists JS.Global ["WebSharper"; "Html5"; "Tests"; "Main"; "ExportedFunction"]
                     |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
                 worker.PostMessage(())
             worker.Terminate()
             equalMsg res "false" "default doesn't include js exports"
