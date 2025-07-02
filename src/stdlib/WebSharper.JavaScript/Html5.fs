@@ -2995,9 +2995,9 @@ module internal WebWorkers =
         |> WithTSType "any"
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>
-            |> ObsoleteWithMessage "Use OnMesssage instead"
-            "onmessage"  =@ General.MessageEvent ^-> T<unit>
-            |> WithSourceName "OnMesssage"
+            |> ObsoleteWithMessage "Use OnMessage instead"
+            "onmessage" =@ General.MessageEvent ^-> T<unit>
+            |> WithSourceName "OnMessage"
             "onmessageerror" =@ General.MessageEvent ^-> T<unit>
             |> ObsoleteWithMessage "Use OnMessageError instead"
             "onmessageerror" =@ General.MessageEvent ^-> T<unit>
