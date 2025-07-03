@@ -22,6 +22,9 @@ namespace WebSharper
 
 open System
 
+/// Marks an embedded file name to be unpacked for web projects.
+/// Mime type application/javascript or text/javascript will be unpacked to Scripts folder,
+/// otherwise into Contents folder.
 [<Sealed; AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)>]
 type WebResourceAttribute(filename: string, mime: string) =
     inherit Attribute()

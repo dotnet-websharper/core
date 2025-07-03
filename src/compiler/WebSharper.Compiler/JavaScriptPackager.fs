@@ -1451,6 +1451,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             | Bundle (_, (OnLoadIfExists | ForceOnLoad | ForceImmediate), _) -> true
             | _ -> false
 
+        let isWorkerBundle =
+            match content with
+            | Bundle (_, ForceImmediate, _) -> true
+            | _ -> false
+
         for KeyValue(m, i) in imports do
             if not (currentScope.Contains(m)) then
                 let defaultImport =
@@ -1474,14 +1479,20 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     | O.JavaScript -> ".js"
                     | _ -> ""
                 let fromModule =
-                    if m.Assembly = "" then
-                        m.Name
-                    elif isSPABundleType then
-                        "./" + m.Assembly + "/" + m.Name + ext  
-                    elif flattened || m.Assembly = asmName then
-                        "./" + m.Name + ext  
+                    if isWorkerBundle then
+                        if m.Assembly = "" then
+                            m.Name
+                        else
+                            "../" + m.Assembly + "/" + m.Name + ext  
                     else
-                        "../" + m.Assembly + "/" + m.Name + ext  
+                        if m.Assembly = "" then
+                            m.Name
+                        elif isSPABundleType then
+                            "./" + m.Assembly + "/" + m.Name + ext  
+                        elif flattened || m.Assembly = asmName then
+                            "./" + m.Name + ext  
+                        else
+                            "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
         {
             Statements = List.ofSeq (Seq.concat [ declarations; statements ])
@@ -1615,32 +1626,40 @@ let getImportedModules (pkg: Statement list) =
 
 let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statement list) =
     if List.isEmpty urls then
-        let start = Id.New("Start")
-        
-        let runtimeLoc = if skipAssemblyDir then "../"  else "./"
-        
-        [
-            Import (None, None, ["Start", start], runtimeLoc + "WebSharper.Core.JavaScript/Runtime.js")
-            yield! pkg
-            ExprStatement(ApplAny(Var start, []))
-        ]
+        if skipAssemblyDir then
+            pkg
+        else
+            let start = Id.New("Start")
+                
+            [
+                Import (None, None, ["Start", start], "../WebSharper.Core.JavaScript/Runtime.js")
+                yield! pkg
+                ExprStatement(ApplAny(Var start, []))
+            ]
     else
         let runtime = Id.New("Runtime")
         let loadScript = Id.New("LoadScript")
-        let start = Id.New("Start")
         
-        let runtimeLoc = if skipAssemblyDir then "../"  else "./"
-        
-        [
-            Import (Some runtime, None, ["LoadScript", loadScript; "Start", start], runtimeLoc + "WebSharper.Core.JavaScript/Runtime.js")
-            ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         
-            if skipAssemblyDir then 
+        if skipAssemblyDir then
+            [
+                Import (Some runtime, None, ["LoadScript", loadScript], "../WebSharper.Core.JavaScript/Runtime.js")
+                ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         
                 ExprStatement(ItemSet(Var runtime, Value (String "ScriptSkipAssemblyDir"), Value (Bool true)))
-            for url in urls do 
-                ExprStatement(ApplAny(Var loadScript, [ Value (String url) ]))
-            yield! pkg
-            ExprStatement(ApplAny(Var start, []))
-        ]
+                for url in urls do 
+                    ExprStatement(ApplAny(Var loadScript, [ Value (String ("../" + url)) ]))
+                yield! pkg
+            ]
+        else
+            let start = Id.New("Start")
+        
+            [
+                Import (Some runtime, None, ["LoadScript", loadScript; "Start", start], "./WebSharper.Core.JavaScript/Runtime.js")
+                ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         
+                for url in urls do 
+                    ExprStatement(ApplAny(Var loadScript, [ Value (String url) ]))
+                yield! pkg
+                ExprStatement(ApplAny(Var start, []))
+            ]
 
 let transformProgramWithJSX output pref statements =
     statements |> JavaScriptWriter.transformProgram output pref
