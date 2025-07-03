@@ -15,6 +15,8 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj" />
   </ItemGroup>
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />

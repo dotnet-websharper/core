@@ -1934,7 +1934,7 @@ type WebWorker() =
             let path = 
                 Appl(
                     GlobalAccess (Address.Runtime "ScriptPath"),
-                    [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
+                    [!~(Literal.String "workers"); !~(Literal.String (filename))],
                     NonPure, Some 2)
             let options = Object [ "type", MemberKind.Simple, !~(Literal.String "module") ]
             Ctor(worker, workerCtor, [path; options])

@@ -350,7 +350,7 @@ module Bundling =
                 let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard")
                 Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let webResourceTy =
-                let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")
+                let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core")
                 Mono.Cecil.TypeReference("WebSharper", "WebResourceAttribute", wsCoreJs.Raw.MainModule, wsCoreJs.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let ctor = Mono.Cecil.MethodReference(".ctor", webResourceTy, webResourceTy) |> assem.Raw.MainModule.ImportReference
             ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
@@ -382,12 +382,9 @@ module Bundling =
                 }
                 let bundleFiles =
                     [
-                        yield bname + ".js", bundle.Js
-                        yield bname + ".min.js", bundle.MinJs
+                        yield "../workers/" + bname + ".js", bundle.Js
                         if bundle.JsMap.IsSome then
-                            yield bname + ".map", bundle.JsMap.Value
-                        if bundle.MinJsMap.IsSome then
-                            yield bname + ".min.map", bundle.MinJsMap.Value
+                            yield "../workers/" + bname + ".map", bundle.JsMap.Value
                     ]
                 yield! bundleFiles
                 match assem with
@@ -491,7 +488,7 @@ module Bundling =
                         let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
                         let findScript name = 
                             name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
-                        asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
+                        asm.Name, [findScript ("../workers/" + b.FileName)]
                 )
                 |> Seq.append (
                     b.Imports.Value 
@@ -511,6 +508,7 @@ module Bundling =
                 System.IO.Directory.CreateDirectory(baseDir) |> ignore
                 for filename, content in bundle do
                     let path = Path.Combine(baseDir, filename)
+                    System.IO.Directory.CreateDirectory (Path.GetDirectoryName path) |> ignore
                     System.IO.File.WriteAllText(path, content)
         | None -> ()
 
