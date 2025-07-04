@@ -244,9 +244,6 @@ let inlineScript (html: HtmlTextWriter) isModule (text: string) =
         html.Write(text)
         html.RenderEndTag()
 
-let thisAssemblyToken =
-    typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
-
 type Rendering with
 
     member r.Emit(mkHtml: RenderLocation -> HtmlTextWriter, mt, ?defaultToHttp) =
@@ -278,10 +275,14 @@ type Kind =
     | Basic of string
     | Complex of string * list<string>
 
-let tryFindWebResource (t: Type) (spec: string) =
-    let ok name = name = spec || (name.StartsWith spec && name.EndsWith spec)
+let tryFindWebResource (t: Type) (asmName: string) (spec: string) =
     t.Assembly.GetManifestResourceNames()
-    |> Seq.tryFind ok
+    |> Seq.tryPick (fun name ->
+        if name = spec || name = asmName + "." + spec then
+            Some spec
+        else
+            None
+    )
 
 let tryGetUriFileName (u: string) =
     if u.StartsWith "http:" || u.StartsWith "https:" || u.StartsWith "//" then
@@ -297,6 +298,8 @@ type BaseResource(kind: Kind) as this =
         
     let self = this.GetType()
     let name = self.FullName
+    let asm = self.Assembly
+    let asmName = asm.GetName().Name
 
     let isLocal (ctx: Context) =
         ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES 
@@ -308,21 +311,18 @@ type BaseResource(kind: Kind) as this =
     new (b: string, x: string, [<System.ParamArray>] xs: string []) =
         new BaseResource(Complex(b, x :: List.ofArray xs))
 
-    member this.GetLocalName() =
-        name.Replace('+', '.').Split('`').[0]
-
     interface IExternalScriptResource with
         member this.Urls ctx =
             let dHttp = ctx.DefaultToHttp
             let localFolder f =
-                ctx.WebRoot +  "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
+                ctx.WebRoot +  "Scripts/WebSharper/" + asmName + "/" + f
             match kind with
             | Basic spec ->
                 if spec.EndsWith ".css" then [||] else
                 match ctx.GetSetting name with
                 | Some url -> [|url|]
                 | None ->
-                    match tryFindWebResource self spec with
+                    match tryFindWebResource self asmName spec with
                     | Some _ -> [||]
                     | None ->
                         if isLocal ctx then
@@ -353,7 +353,7 @@ type BaseResource(kind: Kind) as this =
             let dHttp = ctx.DefaultToHttp
             let localFolder isCss f =
                 ctx.WebRoot + 
-                (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
+                (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + asmName + "/" + f
             match kind with
             | Basic spec ->
                 let mt = 
@@ -364,7 +364,7 @@ type BaseResource(kind: Kind) as this =
                     match ctx.GetSetting name with
                     | Some url -> RenderLink url
                     | None ->
-                        match tryFindWebResource self spec with
+                        match tryFindWebResource self asmName spec with
                         | Some e -> Rendering.GetWebResourceRendering(ctx, self, e)
                         | None ->
                             if isLocal ctx then
@@ -412,9 +412,8 @@ type BaseResource(kind: Kind) as this =
                     )
                 if List.isEmpty urls |> not then
                     use wc = new System.Net.WebClient()    
-                    let localName = this.GetLocalName()
-                    let cssDir = Path.Combine (path, "Content", "WebSharper", localName)
-                    let jsDir = Path.Combine (path, "Scripts", "WebSharper", localName)
+                    let cssDir = Path.Combine (path, "Content", "WebSharper", asmName)
+                    let jsDir = Path.Combine (path, "Scripts", "WebSharper", asmName)
                     for url, f in urls do
                         let localDir = if f.EndsWith ".css" then cssDir else jsDir
                         let localPath = Path.Combine(localDir, f)
@@ -435,8 +434,8 @@ type BaseResource(kind: Kind) as this =
 
         member this.GetImports() = 
             let getPath spec =
-                match tryFindWebResource self spec with 
-                | Some f -> "./" + this.GetLocalName() + "/" + f
+                match tryFindWebResource self asmName spec with 
+                | Some f -> "./" + asmName + "/" + f
                 | _ -> spec
             
             match kind with

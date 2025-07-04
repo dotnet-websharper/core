@@ -94,8 +94,6 @@ module UnpackCommand =
             | errors -> C.ParseFailed errors
         | _ -> C.NotRecognized
 
-    let private localResTyp = typeof<Re.IDownloadableResource>
-
     let Exec env cmd =
         let errors = ResizeArray()
         let baseDir =

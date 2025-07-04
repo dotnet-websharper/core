@@ -11,6 +11,7 @@
     <Compile Include="StubInterfaces.fs" />
     <Compile Include="Import.fs" />
     <Compile Include="Main.fs" />
+    <EmbeddedResource Include="sayHiNonModule.js" />
     <EmbeddedResource Include="sayHi.js" />
     <None Include="paket.references" />
     <Content Include="wsconfig.json" />

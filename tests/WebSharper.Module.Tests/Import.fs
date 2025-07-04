@@ -47,6 +47,13 @@ type MyClassInline [<Inline "new $import()">] () =
 [<Import ("sayHi", "./sayHi.js")>]
 let sayHiFunc (str: string) = X<string> 
 
+type SayHiNonModule() =
+    inherit Core.Resources.BaseResource("sayHiNonModule.js")
+
+[<Require(typeof<SayHiNonModule>)>]
+[<Inline "sayHiNonModule($str)">]
+let sayHiNonModuleFunc (str: string) = X<string> 
+
 [<Import "is-sorted">]
 let isSorted (array: 'T[]) = X<bool> 
 
@@ -121,6 +128,10 @@ let Tests =
 
         Test "Import attribute on function" {
             equal (sayHiFunc "World") "Hello, World!"
+        }
+
+        Test "Non-module resource defined in F#" {
+            equal (sayHiNonModuleFunc "World") "Hello, World!"
         }
 
         Test "WIG Import" {
