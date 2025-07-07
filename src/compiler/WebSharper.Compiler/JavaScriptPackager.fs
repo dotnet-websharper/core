@@ -1624,15 +1624,15 @@ let getImportedModules (pkg: Statement list) =
     |> Seq.distinct
     |> Seq.toList
 
-let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statement list) =
+let addLoadedModules (urls: string list) scriptBase isExtraBundle (pkg: Statement list) =
     if List.isEmpty urls then
-        if skipAssemblyDir then
+        if isExtraBundle then
             pkg
         else
             let start = Id.New("Start")
                 
             [
-                Import (None, None, ["Start", start], "../WebSharper.Core.JavaScript/Runtime.js")
+                Import (None, None, ["Start", start], "./WebSharper.Core.JavaScript/Runtime.js")
                 yield! pkg
                 ExprStatement(ApplAny(Var start, []))
             ]
@@ -1640,7 +1640,7 @@ let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statem
         let runtime = Id.New("Runtime")
         let loadScript = Id.New("LoadScript")
         
-        if skipAssemblyDir then
+        if isExtraBundle then
             [
                 Import (Some runtime, None, ["LoadScript", loadScript], "../WebSharper.Core.JavaScript/Runtime.js")
                 ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         

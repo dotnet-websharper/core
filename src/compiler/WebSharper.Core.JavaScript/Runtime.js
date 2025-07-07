@@ -251,11 +251,12 @@ export function MarkReadOnly(arr) {
   return arr;
 }
 
-const Runtime = {
+const Runtime = globalThis.WebSharperRuntime || {
   ScriptBasePath: "./",
   ScriptSkipAssemblyDir: false
 }
 
+globalThis.WebSharperRuntime = Runtime;
 export default Runtime;
 
 export function ScriptPath(a, f) {
