@@ -1929,7 +1929,6 @@ type WebWorker() =
                     Let(self, Global[], body)
                 | e ->
                     Appl(e, [Global []], NonPure, Some 1)
-            // TODO: .min?
             let filename = c.Compilation.AddBundle(name, ExprStatement e, includeJsExports).FileName
             let path = 
                 Appl(
