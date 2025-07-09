@@ -51,6 +51,7 @@
     <Compile Include="Seq.fs" />
     <Compile Include="Stack.fs" />
     <Compile Include="String.fs" />
+    <Compile Include="StringBuilder.fs" />
     <Compile Include="Task.fs" />
     <Compile Include="TimeSpan.fs" />
     <Compile Include="ValueOption.fs" />
