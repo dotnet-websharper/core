@@ -600,9 +600,9 @@ let WebWorkerTests =
     }
 
 [<JavaScript>]
-let RunTests includeWebWorker =
+let RunTests() =
     Runner.RunTests [|
         Tests
         JSBindings.Tests
-        if includeWebWorker then WebWorkerTests
+        WebWorkerTests
     |]

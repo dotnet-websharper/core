@@ -3,19 +3,27 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <!-- The following has an extra .. because it's only used in single-target mode -->
-    <WebSharperBundleOutputDir>..\..\..\tests\WebSharper.SPA.Tests\Content</WebSharperBundleOutputDir>
     <Tests>True</Tests>
+    <StartAction>Program</StartAction>
+    <StartProgram>dotnet</StartProgram>
+    <StartArguments>serve</StartArguments>
+    <StartWorkingDirectory>$(MSBuildThisFileDirectory)wwwroot</StartWorkingDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="esbuild.config.mjs" />
+    <Content Include="package.json" />
     <Compile Include="File1.fs" />
     <Compile Include="File2.fs" />
     <Compile Include="Main.fs" />
-    <Content Include="index.html" />
-    <Content Include="Web.config" />
+    <Content Include="wwwroot/testUrlResource.css" />
+    <Content Include="wwwroot/index.html" />
     <None Include="paket.references" />
     <None Include="wsconfig.json" />
   </ItemGroup>
+  <Target Name="ESBuildBundle" AfterTargets="WebSharperCompile">
+    <Exec Command="npm install" />
+    <Exec Command="node ./esbuild.config.mjs" />
+  </Target>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
@@ -25,6 +33,7 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />

@@ -35,7 +35,7 @@ let Main() =
         WebSharper.Tests.Main.RunTests false true
         WebSharper.Collections.Tests.Main.RunTests()
         WebSharper.CSharp.Tests.Tests.RunTests()
-        WebSharper.Html5.Tests.Main.RunTests false
+        WebSharper.Html5.Tests.Main.RunTests()
         WebSharperWebTestsMain.RunTests "" false
     ]
 

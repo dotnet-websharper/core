@@ -653,8 +653,7 @@ let SetDefaultProjectFile isFSharp wsArgs =
 
 let SetScriptBaseUrl wsArgs =
     match wsArgs.ProjectType, wsArgs.ScriptBaseUrl with
-    | Some (Bundle | BundleOnly), None -> { wsArgs with ScriptBaseUrl = Some "/Content/" }
-    | Some Html, None -> { wsArgs with ScriptBaseUrl = Some "/Scripts/" }
+    | Some (Bundle | BundleOnly | Html), None -> { wsArgs with ScriptBaseUrl = Some "/Scripts/" }
     | _ -> wsArgs
 
 let SetDefaultOutputDir wsArgs =

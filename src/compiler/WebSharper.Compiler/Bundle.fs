@@ -491,21 +491,20 @@ module Bundling =
                         asm.Name, [findScript ("../workers/" + b.FileName)]
                 )
                 |> Seq.append (
-                    b.Imports.Value 
-                    |> Seq.collect (fun (a, jss) ->
-                        let asm = refAssemblies |> List.find (fun asm -> asm.Name = a)
-                        let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
-                        let findScript name = 
-                            name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
-                        jss
-                        |> Seq.map (fun js ->
-                            asm.Name, [findScript js]
-                        )
+                    refAssemblies
+                    |> Seq.collect (fun asm ->
+                        let scripts = asm.GetResScripts() |> List.ofSeq
+                        if List.isEmpty scripts then
+                            []
+                        else
+                            [
+                                asm.Name,
+                                scripts |> List.map (fun js -> js.FileName, js.Content )
+                            ]
                     )
                 )
             for asmName, bundle in extraBundleFiles do
                 let baseDir = Path.Combine(outDir, asmName)
-                System.IO.Directory.CreateDirectory(baseDir) |> ignore
                 for filename, content in bundle do
                     let path = Path.Combine(baseDir, filename)
                     System.IO.Directory.CreateDirectory (Path.GetDirectoryName path) |> ignore
