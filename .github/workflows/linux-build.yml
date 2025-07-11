@@ -1,0 +1,31 @@
+name: Build WebSharper Core on Ubuntu
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+    
+    env: 
+      BUILD_NUMBER: ${{ github.run_number }}
+      SKIP_CORE_TESTING: true
+    
+    steps:
+
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v2.1.1
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install esbuild
+      run: npm i -g esbuild
+        
+    # - name: Install Paket as global tool
+    #   run: dotnet tool install paket --global
+
+    - name: Build WS Core
+      run: ./build.sh CI-Release
