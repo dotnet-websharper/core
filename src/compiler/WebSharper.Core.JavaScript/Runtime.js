@@ -251,11 +251,12 @@ export function MarkReadOnly(arr) {
   return arr;
 }
 
-const Runtime = {
+const Runtime = globalThis.WebSharperRuntime || {
   ScriptBasePath: "./",
   ScriptSkipAssemblyDir: false
 }
 
+globalThis.WebSharperRuntime = Runtime;
 export default Runtime;
 
 export function ScriptPath(a, f) {
@@ -281,7 +282,11 @@ export function LoadScript(u) {
     xhr.open("GET", u, false);
     xhr.send(null);
     scriptsLoaded.push(u.toLowerCase());
-    globalThis.eval(xhr.responseText);
+    if (xhr.status == 200) {
+      globalThis.eval(xhr.responseText);
+    } else {
+      console.error("LoadScript failed:", u, xhr.statusText)
+    }
   }
 }
 

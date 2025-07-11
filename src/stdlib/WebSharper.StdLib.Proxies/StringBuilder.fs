@@ -9,124 +9,235 @@ module StringBuilder =
 
     [<Proxy(typeof<StringBuilder>)>]
     type StringBuilderProxy() =
-        let lines = WebSharper.JavaScript.Array()
-        let mutable currentLine = ""
+        let mutable strings = [||]
+        
+        new (init: string) as this = StringBuilderProxy() then this.Append(init) |> ignore
+
         member this.Append(part: string) =
-            currentLine <- currentLine + part
+            strings.JS.Push(part) |> ignore
             this |> As<System.Text.StringBuilder>
+        
+        [<Inline>]
         member this.Append(part: int) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: int64) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: int16) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: int8) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: uint) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: uint64) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: uint16) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: uint8) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: single) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: double) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: obj) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: bool) =
-            currentLine <- currentLine + string part
-            this |> As<System.Text.StringBuilder>
+            this.Append(string part)
+        
+        [<Inline>]
         member this.Append(part: char) =
-            currentLine <- currentLine + string part
+            this.Append(string part)
+        
+        member this.AppendLine(part: string) =
+            strings.JS.Push(part) |> ignore
+            strings.JS.Push("\n") |> ignore
             this |> As<System.Text.StringBuilder>
-        member this.AppendLine(part) =
-            currentLine <- currentLine + part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+        
+        [<Inline>]
         member this.AppendLine(part: int) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: int64) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: int16) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: int8) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: uint) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: uint64) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: uint16) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: uint8) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: bool) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: obj) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: double) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: single) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
+        [<Inline>]
         member this.AppendLine(part: char) =
-            currentLine <- currentLine + string part
-            lines.Push(currentLine) |> ignore
-            currentLine <- ""
-            this |> As<System.Text.StringBuilder>
+            this.AppendLine(string part)
+        
         override this.ToString() =
-            if currentLine <> "" then
-                lines.Push(currentLine) |> ignore
-            lines.Join("\n")
+            let res = strings.JS.Join("")
+            strings <- [| res |]
+            res
+
+        member this.Chars
+            with get i =
+                let s = this.ToString()
+                s[i]
+            and set i (v: char) =
+                let s = this.ToString()
+                if i < 0 || i >= s.Length then 
+                    raise (System.ArgumentOutOfRangeException())
+                let ns = s.JS.Slice(0, i) + string v + s.JS.Slice(i + 1)
+                strings <- [| ns |]
+
+        member this.Clear() =
+            strings <- [||]
+            this |> As<System.Text.StringBuilder>
+
+        member this.Insert(i: int, part: string) =
+            let s = this.ToString()
+            if i < 0 || i > s.Length then 
+                raise (System.ArgumentOutOfRangeException())
+            let ns = s.JS.Slice(0, i) + part + s.JS.Slice(i)
+            strings <- [| ns |]
+            this |> As<System.Text.StringBuilder>
+
+        [<Inline>]
+        member this.Insert(i: int, part: int) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: int64) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: int16) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: int8) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: uint) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: uint64) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: uint16) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: uint8) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: single) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: double) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: obj) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: bool) =
+            this.Insert(i, string part)
+        
+        [<Inline>]
+        member this.Insert(i: int, part: char) =
+            this.Insert(i, string part)
+
+        member this.Remove(i: int, l: int) =
+            let s = this.ToString()
+            if i < 0 || l < 0 || i + l > s.Length then 
+                raise (System.ArgumentOutOfRangeException())
+            let ns = s.JS.Slice(0, i) + s.JS.Slice(i + l)
+            strings <- [| ns |]
+            this |> As<System.Text.StringBuilder>    
+            
+        member this.Replace(search: string, replace: string) =
+            let s = this.ToString()
+            let ns = s.Replace(search, replace)
+            strings <- [| ns |]
+            this |> As<System.Text.StringBuilder>    
+
+        [<Inline>]
+        member this.Replace(search: char, replace: char) =
+            this.Replace(string search, string replace)
+
+        member this.Replace(search: string, replace: string, i: int, l: int) =
+            let s = this.ToString()
+            if i < 0 || l < 0 || i + l > s.Length then 
+                raise (System.ArgumentOutOfRangeException())
+            let ns = s.JS.Slice(0, i) + s.JS.Slice(i, l).Replace(search, replace) + s.JS.Slice(i + l)
+            strings <- [| ns |]
+            this |> As<System.Text.StringBuilder>    
+
+        [<Inline>]
+        member this.Replace(search: char, replace: char, i: int, l: int) =
+            this.Replace(string search, string replace, i, l)
+
+        member this.Length =
+            strings |> Array.sumBy (fun s -> s.Length)
 
 
 

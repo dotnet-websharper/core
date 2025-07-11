@@ -1,5 +1,5 @@
 {
   "Project": "BundleOnly",
-  "OutputDir": "Content",
+  "OutputDir": "build",
   "DownloadResources": true
 }

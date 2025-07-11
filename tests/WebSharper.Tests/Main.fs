@@ -81,6 +81,7 @@ let RunTests runServerSide autoStart =
         Seq.Tests
         Stack.Tests
         String.Tests
+        StringBuilder.Tests
         Task.Tests
         TimeSpan.Tests
         ValueOption.Tests

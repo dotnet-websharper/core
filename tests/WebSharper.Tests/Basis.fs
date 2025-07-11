@@ -795,4 +795,13 @@ let Tests =
             isTrue (testIsNegativePattern -5)
             isFalse (testIsNegativePattern 5)       
         }
+
+        Test "Convert.ToBoolean" {
+            equalMsg true (System.Convert.ToBoolean("true")) ""
+            equal true (System.Convert.ToBoolean(1))
+            equal true (System.Convert.ToBoolean(1.))
+            equal false (System.Convert.ToBoolean("false"))
+            equal false (System.Convert.ToBoolean(0))
+            equal false (System.Convert.ToBoolean(0.))
+        }
     }

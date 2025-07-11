@@ -543,7 +543,7 @@ let WebWorkerTests =
             equal res "The worker replied: [worker] Hello world!"
         }
 
-        Skip "Macro with nested worker" {
+        Test "Macro with nested worker" {
             let worker = new Worker(InnerWorker)
             let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
             let! res = AsyncContinuationTimeout err <| fun ok ->
@@ -600,9 +600,9 @@ let WebWorkerTests =
     }
 
 [<JavaScript>]
-let RunTests includeWebWorker =
+let RunTests() =
     Runner.RunTests [|
         Tests
         JSBindings.Tests
-        if includeWebWorker then WebWorkerTests
+        WebWorkerTests
     |]

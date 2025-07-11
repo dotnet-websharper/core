@@ -33,3 +33,5 @@ websharper.log
 /tests/WebSharper.StaticHtml.Tests/build
 /tests/WebSharper.CSharp.StaticHtml.Tests/build
 /tests/WebSharper.Library.Tests/build
+/tests/WebSharper.SPA.Tests/build
+/tests/WebSharper.SPA.Tests/wwwroot/Scripts
