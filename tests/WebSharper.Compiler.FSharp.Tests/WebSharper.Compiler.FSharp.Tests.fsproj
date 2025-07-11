@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <PackageId>WebSharper.Compiler.FSharp.Tests</PackageId>
     <IsPackable>false</IsPackable>
     <SignAssembly>false</SignAssembly>
     <GenerateProgramFile>false</GenerateProgramFile>

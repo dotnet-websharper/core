@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
+    <PackageId>WebSharper.CSharp.Analyzer.Tests</PackageId>
     <IsPackable>false</IsPackable>
     <SignAssembly>false</SignAssembly>
     <GenerateProgramFile>false</GenerateProgramFile>

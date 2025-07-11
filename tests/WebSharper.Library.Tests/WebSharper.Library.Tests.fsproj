@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>WebSharper.Library.Tests</PackageId>
     <IncludeWebSharperVersionFile>False</IncludeWebSharperVersionFile>
     <Tests>True</Tests>
   </PropertyGroup>

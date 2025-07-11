@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>WebSharper.Compiler.FSharp</PackageId>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

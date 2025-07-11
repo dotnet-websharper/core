@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <PackageId>WebSharper.Tests</PackageId>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->

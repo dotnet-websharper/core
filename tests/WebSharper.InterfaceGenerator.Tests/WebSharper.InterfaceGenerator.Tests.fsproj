@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>WebSharper.InterfaceGenerator.Tests</PackageId>
     <WebSharperProject>binding</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>

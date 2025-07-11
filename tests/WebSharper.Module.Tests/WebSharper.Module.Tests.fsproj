@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>WebSharper.Module.Tests</PackageId>
     <WebSharperProject>Library</WebSharperProject>
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>

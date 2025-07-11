@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <PackageId>WebSharper.InterfaceGenerator.Tests.LatestFSharp</PackageId>
     <WebSharperProject>binding</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>

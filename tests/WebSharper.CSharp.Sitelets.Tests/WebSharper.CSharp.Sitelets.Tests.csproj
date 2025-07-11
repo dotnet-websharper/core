@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <PackageId>WebSharper.CSharp.Sitelets.Tests</PackageId>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <WebSharperProject>Library</WebSharperProject>
     <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>

@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <PackageId>WebSharper.FSharp.Service</PackageId>
     <TargetFramework>net8.0</TargetFramework>
     <Name>wsfscservice</Name>
     <FSharpTool>True</FSharpTool>
