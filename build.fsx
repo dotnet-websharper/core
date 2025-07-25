@@ -108,30 +108,30 @@ Target.create "Prepare" <| fun _ ->
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
-    // make minified scripts
-    let needsBuilding input output =
-        let i = FileInfo(input)
-        let o = FileInfo(output)
-        not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
-    let minify (path: string) =
-        let out = Path.ChangeExtension(path, ".min.js")
-        if needsBuilding path out then
-            let raw = File.ReadAllText(path)
-            let mjs = NUglify.Uglify.Js(raw).Code
-            File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
-            stdout.WriteLine("Written {0}", out)
-    minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
+    //// make minified scripts
+    //let needsBuilding input output =
+    //    let i = FileInfo(input)
+    //    let o = FileInfo(output)
+    //    not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
+    //let minify (path: string) =
+    //    let out = Path.ChangeExtension(path, ".min.js")
+    //    if needsBuilding path out then
+    //        let raw = File.ReadAllText(path)
+    //        let mjs = NUglify.Uglify.Js(raw).Code
+    //        File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
+    //        stdout.WriteLine("Written {0}", out)
+    //minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
 
-    // install TypeScript
-    Npm.install <| fun o -> 
-        { o with 
-            WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
-        }
+    //// install TypeScript
+    //Npm.install <| fun o -> 
+    //    { o with 
+    //        WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
+    //    }
 
-    Npm.install <| fun o -> 
-        { o with 
-            WorkingDirectory = "./tests/Web/"
-        }
+    //Npm.install <| fun o -> 
+    //    { o with 
+    //        WorkingDirectory = "./tests/Web/"
+    //    }
 
 let stopService() =
     try

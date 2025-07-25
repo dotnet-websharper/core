@@ -23,8 +23,8 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <AssemblyName Condition="'$(Name)' != ''">$(Name)</AssemblyName>
-    <RootNamespace Condition="'$(Name)' != ''">$(Name)</RootNamespace>
+    <!--<AssemblyName Condition="'$(Name)' != ''">$(Name)</AssemblyName>
+    <RootNamespace Condition="'$(Name)' != ''">$(Name)</RootNamespace>-->
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' And $(Signed) != 'False' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' And $(Signed) != 'False' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
