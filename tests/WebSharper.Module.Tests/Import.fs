@@ -74,36 +74,36 @@ let Tests =
     TestCategory "Import" {
 
         Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "./sayHi.js")
+            let sayHi = JS.Import<string -> string>("sayHi", "./lib/sayHi.js")
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import default" {
-            let sayHiClass = JS.Import<obj>("default", "./sayHi.js")
+            let sayHiClass = JS.Import<obj>("default", "./lib/sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDefault" {
-            let sayHiClass = JS.ImportDefault<obj>("./sayHi.js")
+            let sayHiClass = JS.ImportDefault<obj>("./lib/sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import *" {
-            let sayHiModule = JS.Import<obj>("*", "./sayHi.js")
+            let sayHiModule = JS.Import<obj>("*", "./lib/sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportAll" {
-            let sayHiModule = JS.ImportAll<obj>("./sayHi.js")
+            let sayHiModule = JS.ImportAll<obj>("./lib/sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("../WebSharper.Module.Tests/sayHi.js") |> Promise.AsAsync
+            let! sayHiModule = JS.ImportDynamic("../WebSharper.Module.Tests/lib/sayHi.js") |> Promise.AsAsync
             let sayHi = As<string -> string>(sayHiModule?sayHi)
             equal (sayHi "World") "Hello, World!"
         }
