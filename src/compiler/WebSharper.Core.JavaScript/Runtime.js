@@ -17,7 +17,7 @@ export function Lazy(factory) {
     }
     return instance;
   }
-  let res = new Proxy(Function(), {
+  let res = new Proxy(function () { }, {
     get(_, key) {
       if (key == forceSymbol) {
         getInstance();

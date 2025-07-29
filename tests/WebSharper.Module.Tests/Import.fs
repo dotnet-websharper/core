@@ -27,28 +27,28 @@ open WebSharper.Testing
 [<JavaScript>]
 let mA, mB = 1, 2
 
-[<Import "./sayHi.js">]
+[<Import "./lib/sayHi.js">]
 type MyClassNoStub() =
     member this.sayHiInst(user: string) = X<string>
     static member sayHiStatic(user: string) = X<string>
 
-[<Stub; Import "./sayHi.js">]
+[<Stub; Import "./lib/sayHi.js">]
 type MyClassStub() =
     member this.sayHiInst(user: string) = X<string>
     static member sayHiStatic(user: string) = X<string>
 
-[<Import "./sayHi.js">]
+[<Import "./lib/sayHi.js">]
 type MyClassInline [<Inline "new $import()">] () =
     [<Inline "$this.sayHiInst($user)">]
     member this.sayHiInst(user: string) = X<string>
     [<Inline "$import.sayHiStatic($user)">]
     static member sayHiStatic(user: string) = X<string>
 
-[<Import ("sayHi", "./sayHi.js")>]
+[<Import ("sayHi", "./lib/sayHi.js")>]
 let sayHiFunc (str: string) = X<string> 
 
 type SayHiNonModule() =
-    inherit Core.Resources.BaseResource("sayHiNonModule.js")
+    inherit Core.Resources.BaseResource("lib/sayHiNonModule.js")
 
 [<Require(typeof<SayHiNonModule>)>]
 [<Inline "sayHiNonModule($str)">]
@@ -74,36 +74,36 @@ let Tests =
     TestCategory "Import" {
 
         Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "./sayHi.js")
+            let sayHi = JS.Import<string -> string>("sayHi", "./lib/sayHi.js")
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import default" {
-            let sayHiClass = JS.Import<obj>("default", "./sayHi.js")
+            let sayHiClass = JS.Import<obj>("default", "./lib/sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDefault" {
-            let sayHiClass = JS.ImportDefault<obj>("./sayHi.js")
+            let sayHiClass = JS.ImportDefault<obj>("./lib/sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import *" {
-            let sayHiModule = JS.Import<obj>("*", "./sayHi.js")
+            let sayHiModule = JS.Import<obj>("*", "./lib/sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportAll" {
-            let sayHiModule = JS.ImportAll<obj>("./sayHi.js")
+            let sayHiModule = JS.ImportAll<obj>("./lib/sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("../WebSharper.Module.Tests/sayHi.js") |> Promise.AsAsync
+            let! sayHiModule = JS.ImportDynamic("../WebSharper.Module.Tests/lib/sayHi.js") |> Promise.AsAsync
             let sayHi = As<string -> string>(sayHiModule?sayHi)
             equal (sayHi "World") "Hello, World!"
         }

@@ -13,6 +13,10 @@
     <Compile Include="assemblyResolution/AssemblyResolver.fs" />
     <Compile Include="FileSystem.fsi" />
     <Compile Include="FileSystem.fs" />
+    <Compile Include="PathUtility.fsi" />
+    <Compile Include="PathUtility.fs" />
+    <Compile Include="Extra.fsi" />
+    <Compile Include="Extra.fs" />
     <Compile Include="Utility.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="AttributeReader.fs" />

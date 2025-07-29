@@ -39,7 +39,7 @@ module H = WebSharper.Compiler.HtmlCommand
 module Http = WebSharper.Sitelets.Http
 module J = WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
-module P = PathUtility
+module P = WebSharper.Compiler.PathUtility
 //module Re = WebSharper.Core.Reflection
 module R = WebSharper.Core.Resources
 

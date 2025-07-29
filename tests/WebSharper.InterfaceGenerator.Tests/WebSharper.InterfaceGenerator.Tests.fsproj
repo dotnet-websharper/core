@@ -5,12 +5,10 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="extra.files" />
     <Compile Include="Main.fs" />
     <EmbeddedResource Include="IWIGTest.d.ts" />
-    <EmbeddedResource Include="WIGtest.js" />
-    <EmbeddedResource Include="WIGtest2.js" />
-    <EmbeddedResource Include="WIGtest3.js" />
-    <EmbeddedResource Include="WIGtest4.js" />
+    <None Include="WIGtest*.js" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
