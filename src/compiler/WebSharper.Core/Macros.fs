@@ -110,9 +110,8 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
             else
                 x, y, id
         let resm =
-            if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) &&
-                isIn bigIntegralTypes t then
-                    Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
+            if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) && isIn bigIntegralTypes t then
+                Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
             elif op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
                 then (a ^/ b) ^>> !~(Int 0) |> MacroOk
@@ -169,15 +168,17 @@ type Arith() =
                 else
                     traitCallOp c c.Arguments
             | t :: _ ->
-                let isEnum = 
+                let isEnum() = 
                     match t with
                     | ConcreteType { Entity = td; Generics = [] } ->
                         match c.Compilation.GetCustomTypeInfo td with
                         | M.EnumInfo _ -> true
                         | _ -> false
                     | _ -> false
+                if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) && isIn bigIntegralTypes t then
+                    Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
                 // enums have underlying types supporting bitwise operations
-                if isEnum || isIn scalarTypes t then
+                elif isEnum() || isIn scalarTypes t then
                     Binary(a, op, b) |> MacroOk
                 else
                     traitCallOp c c.Arguments

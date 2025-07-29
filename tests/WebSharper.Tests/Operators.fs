@@ -302,6 +302,20 @@ let Tests =
             equal (u1 <<< 1).Value ((5 <<< 1) + 1)
         }
 
+        Test "<<<" {
+            equal (20y <<< 2) 80y
+            equal (20s <<< 8) 5120s
+            equal (20 <<< 16) 1310720
+            equal (20L <<< 32) 85899345920L
+        }
+
+        Test ">>>" {
+            equal (80y >>> 2) 20y
+            equal (5120s >>> 8) 20s
+            equal (1310720 >>> 16) 20
+            equal (85899345920L >>> 32) 20L
+        }
+
         Test "custom trigonometric function" {
             let u1 = IntWithAdd(5)
             equal (sin u1).Value 3
