@@ -4,12 +4,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="PathUtility.fsi" />
-    <Compile Include="PathUtility.fs" />
     <Compile Include="Output.fsi" />
     <Compile Include="Output.fs" />
-    <Compile Include="Extra.fsi" />
-    <Compile Include="Extra.fs" />
     <Compile Include="HtmlCommand.fs" />
     <None Include="paket.references" />
   </ItemGroup>

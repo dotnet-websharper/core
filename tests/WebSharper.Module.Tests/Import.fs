@@ -27,28 +27,28 @@ open WebSharper.Testing
 [<JavaScript>]
 let mA, mB = 1, 2
 
-[<Import "./sayHi.js">]
+[<Import "./lib/sayHi.js">]
 type MyClassNoStub() =
     member this.sayHiInst(user: string) = X<string>
     static member sayHiStatic(user: string) = X<string>
 
-[<Stub; Import "./sayHi.js">]
+[<Stub; Import "./lib/sayHi.js">]
 type MyClassStub() =
     member this.sayHiInst(user: string) = X<string>
     static member sayHiStatic(user: string) = X<string>
 
-[<Import "./sayHi.js">]
+[<Import "./lib/sayHi.js">]
 type MyClassInline [<Inline "new $import()">] () =
     [<Inline "$this.sayHiInst($user)">]
     member this.sayHiInst(user: string) = X<string>
     [<Inline "$import.sayHiStatic($user)">]
     static member sayHiStatic(user: string) = X<string>
 
-[<Import ("sayHi", "./sayHi.js")>]
+[<Import ("sayHi", "./lib/sayHi.js")>]
 let sayHiFunc (str: string) = X<string> 
 
 type SayHiNonModule() =
-    inherit Core.Resources.BaseResource("sayHiNonModule.js")
+    inherit Core.Resources.BaseResource("lib/sayHiNonModule.js")
 
 [<Require(typeof<SayHiNonModule>)>]
 [<Inline "sayHiNonModule($str)">]

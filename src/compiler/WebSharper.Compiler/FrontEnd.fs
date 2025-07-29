@@ -551,6 +551,56 @@ let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
             a.MainModule.AssemblyReferences.Add n
     )
 
+let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files: string[]) =
+
+    let a = assembly.Raw
+
+    let webResourceCtor =
+        lazy
+            typeof<WebSharper.WebResourceAttribute>.GetConstructor([| typeof<string>; typeof<string> |])
+            |> a.MainModule.ImportReference
+
+    for file in files do
+        let attr = Mono.Cecil.CustomAttribute(webResourceCtor.Value)
+        attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, file))
+        let mime =
+            if file.EndsWith(".js") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
+                "application/javascript"
+            elif file.EndsWith(".css") then
+                "text/css"
+            else
+                ""
+        attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, mime))
+        a.CustomAttributes.Add(attr)
+        
+        let contents =             
+            try
+                File.ReadAllBytes (System.IO.Path.Combine (projectDir, file))
+            with e ->
+                raise (exn (sprintf "Failed to read resource file %s: %s" file e.Message))
+
+        a.MainModule.Resources.Add(Mono.Cecil.EmbeddedResource(file, Mono.Cecil.ManifestResourceAttributes.Public, contents))
+
+let HandleExtraFiles (assembly : Assembly option) (assemblyName: string) (projectFile: string) (outputDir: string option) (isBundle: bool) = 
+    let projectDir = Path.GetDirectoryName projectFile
+    
+    let asmOutputDir =
+        outputDir |> Option.map (fun d ->
+            if isBundle then
+                Path.Combine(d, "Scripts", assemblyName) 
+            else
+                Path.Combine(d, "Scripts", "WebSharper", assemblyName)
+        )
+    match assembly, outputDir with
+    | None, None -> ()
+    | _ ->
+        let embeds = Extra.ProcessFiles projectDir outputDir asmOutputDir
+    
+        match assembly with
+        | Some asm ->
+            AddWebResourceAnnotations asm projectDir embeds
+        | _ -> ()
+
 /// Represents a resource content file.
 type ResourceContent =
     {

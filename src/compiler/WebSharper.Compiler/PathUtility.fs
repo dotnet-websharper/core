@@ -18,8 +18,7 @@
 //
 // $end{copyright}
 
-/// Implements offline sitelet HTML generation.
-namespace WebSharper.Sitelets.Offline
+namespace WebSharper.Compiler
 
 open System
 open System.Collections
@@ -27,7 +26,7 @@ open System.Collections.Generic
 open System.IO
 
 [<AutoOpen>]
-module internal PathUtility =
+module PathUtility =
 
     let isInvalidPathChar =
         HashSet(Path.GetInvalidPathChars()).Contains

@@ -41,10 +41,10 @@ type HtmlCommand() =
             let aR = AssemblyResolver.Create()
             Directory.CreateDirectory options.OutputDirectory |> ignore
             // process extra.files
-            Extra.CopyFiles
-                options.ProjectDirectory
-                options.OutputDirectory
-            options.Logger.TimedStage "Finished copying extra.files"
+            //WebSharper.Compiler.Extra.CopyFiles
+            //    options.ProjectDirectory
+            //    options.OutputDirectory
+            //options.Logger.TimedStage "Finished copying extra.files"
             let scriptDir =
                 System.IO.Path.Combine(options.OutputDirectory, "Scripts")
                 |> Directory.CreateDirectory

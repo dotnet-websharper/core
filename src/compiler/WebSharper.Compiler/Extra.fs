@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Sitelets.Offline.Extra
+module WebSharper.Compiler.Extra
 
 open System
 open System.Collections.Generic
@@ -169,3 +169,45 @@ let CopyFiles (dir: string) (dest: string) =
                 stderr.WriteLine("Invalid pattern: {0}", line)
     else
         stdout.WriteLine("No extra.files specified. Skipping...")
+
+let ProcessFiles (dir: string) (plainDest: string option) (asmDest: string option) =
+    let extras = Path.Combine(dir, "extra.files")
+    let embed = ResizeArray()
+    if File.Exists(extras) then
+        for line in readLines extras do
+            if line.StartsWith("{") && line.EndsWith("}") then
+                let line = line.[1..line.Length - 2]
+                match P.TryParsePattern(line) with
+                | Some p ->
+                    findEntries dir p
+                    |> Seq.iter (fun e ->
+                        asmDest |> Option.iter (fun d ->
+                            e |> copyEntryTo dir d
+                        )
+                        embed.Add(P.ToAbsolute "" e.Path)
+                    )
+                | None ->
+                    stderr.WriteLine("Invalid pattern: {0}", line)
+            else
+                plainDest |> Option.iter (fun d ->
+                    match P.TryParsePattern(line) with
+                    | Some p ->
+                        findEntries dir p
+                        |> Seq.iter (copyEntryTo dir d)
+                    | None ->
+                        stderr.WriteLine("Invalid pattern: {0}", line)
+                )
+    embed.ToArray()
+
+let FindAllFiles (dir: string) (paths: string list) =
+     [
+        for line in paths do
+            match P.TryParsePattern(line) with
+            | Some p ->
+                for e in findEntries dir p do
+                    match e with
+                    | FileEntry f -> yield P.ToAbsolute "" f
+                    | DirectoryEntry _ -> ()
+            | None ->
+                stderr.WriteLine("Invalid pattern: {0}", line)
+     ]

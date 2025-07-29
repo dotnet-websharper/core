@@ -469,6 +469,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
     let cmp = InterfaceGenerator.Compiler.Create(logger)
     // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
     let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
+    FrontEnd.HandleExtraFiles (Some out.Assembly) name.Name config.ProjectFile config.OutputDir false
     out.Save config.AssemblyFile
     logger.TimedStage "Writing final dll"
 
