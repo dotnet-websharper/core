@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
+    <AssemblyName>wsfsc</AssemblyName>
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <FSharpTool>True</FSharpTool>

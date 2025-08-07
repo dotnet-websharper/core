@@ -108,30 +108,30 @@ Target.create "Prepare" <| fun _ ->
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
-    // make minified scripts
-    let needsBuilding input output =
-        let i = FileInfo(input)
-        let o = FileInfo(output)
-        not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
-    let minify (path: string) =
-        let out = Path.ChangeExtension(path, ".min.js")
-        if needsBuilding path out then
-            let raw = File.ReadAllText(path)
-            let mjs = NUglify.Uglify.Js(raw).Code
-            File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
-            stdout.WriteLine("Written {0}", out)
-    minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
+    //// make minified scripts
+    //let needsBuilding input output =
+    //    let i = FileInfo(input)
+    //    let o = FileInfo(output)
+    //    not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
+    //let minify (path: string) =
+    //    let out = Path.ChangeExtension(path, ".min.js")
+    //    if needsBuilding path out then
+    //        let raw = File.ReadAllText(path)
+    //        let mjs = NUglify.Uglify.Js(raw).Code
+    //        File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
+    //        stdout.WriteLine("Written {0}", out)
+    //minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
 
-    // install TypeScript
-    Npm.install <| fun o -> 
-        { o with 
-            WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
-        }
+    //// install TypeScript
+    //Npm.install <| fun o -> 
+    //    { o with 
+    //        WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
+    //    }
 
-    Npm.install <| fun o -> 
-        { o with 
-            WorkingDirectory = "./tests/Web/"
-        }
+    //Npm.install <| fun o -> 
+    //    { o with 
+    //        WorkingDirectory = "./tests/Web/"
+    //    }
 
 let stopService() =
     try
@@ -240,7 +240,7 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
 
 Target.create "RunSPATestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
-        Trace.log "Chutzpah testing for SPA skipped"
+        Trace.log "QUnit Puppeteer testing for SPA skipped"
     else
     // TODO resolve cross site issues for automatic testing
     ()
@@ -254,18 +254,21 @@ Target.create "RunSPATestsRelease" <| fun _ ->
     //    failwith "Chutzpah test run failed for SPA tests"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
-    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false || not <| System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
-        Trace.log "Chutzpah testing skipped"
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "QUnit Puppeteer testing skipped"
     else
 
     Trace.log "Starting Web test project"
     let mutable startedOk = false
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
+    let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net9.0/Web.dll"
+    let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
+
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net9.0\Web.exe"
-    webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
-    webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
+    webTestsProc.StartInfo.FileName <- "dotnet"
+    webTestsProc.StartInfo.Arguments <- $"exec \"{webDll}\" --server.urls https://localhost:44336"
+    webTestsProc.StartInfo.WorkingDirectory <- webDir
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
     
@@ -282,22 +285,29 @@ Target.create "RunMainTestsRelease" <| fun _ ->
             failwith "Starting Web test project failed."    
     )
 
-    webTestsProc.Start()
+    webTestsProc.Start() |> ignore
     webTestsProc.BeginOutputReadLine()
-    started.WaitOne()
-    Thread.Sleep(5000)
+    started.WaitOne() |> ignore
+    
+    Thread.Sleep(1000)
+
+    Npm.install id
+
+    let node =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+            @"C:\Program Files\nodejs\node.exe"
+        else
+            "node"
 
     let res =
-        Shell.Exec(
-            "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "https://localhost:44336/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
-        )
+        Shell.Exec(node, "runtests.js")
+
     webTestsProc.Kill()
     if res <> 0 then
-        failwith "Chutzpah test run failed"
+        failwith "QUnit Puppeteer test run failed"
 
 "WS-BuildRelease"
-    ?=> "RunSPATestsRelease"
+//    ?=> "RunSPATestsRelease"
     ==> "RunMainTestsRelease"
     ?=> "WS-Package"
 

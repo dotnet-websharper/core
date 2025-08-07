@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36310.24 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.DllBrowser", "src\compiler\WebSharper.DllBrowser\WebSharper.DllBrowser.csproj", "{FF963F8E-F01A-B862-1464-46F06959695D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{D3412CE3-3080-950B-3E00-F8D5B87C5A0A}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{636304E9-5CCD-8BF7-EE5C-0C40EBF8AAED}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{24AEFA99-B740-C858-FB5F-702CDF8638B5}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{3220F3FD-DBD2-44CD-A0A6-D1F416803856}"
+EndProject
+Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "WebSharper.TypeScriptParser", "src\compiler\WebSharper.TypeScriptParser\WebSharper.TypeScriptParser.njsproj", "{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FF963F8E-F01A-B862-1464-46F06959695D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF963F8E-F01A-B862-1464-46F06959695D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF963F8E-F01A-B862-1464-46F06959695D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF963F8E-F01A-B862-1464-46F06959695D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3412CE3-3080-950B-3E00-F8D5B87C5A0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3412CE3-3080-950B-3E00-F8D5B87C5A0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3412CE3-3080-950B-3E00-F8D5B87C5A0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3412CE3-3080-950B-3E00-F8D5B87C5A0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{636304E9-5CCD-8BF7-EE5C-0C40EBF8AAED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{636304E9-5CCD-8BF7-EE5C-0C40EBF8AAED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{636304E9-5CCD-8BF7-EE5C-0C40EBF8AAED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{636304E9-5CCD-8BF7-EE5C-0C40EBF8AAED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24AEFA99-B740-C858-FB5F-702CDF8638B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24AEFA99-B740-C858-FB5F-702CDF8638B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24AEFA99-B740-C858-FB5F-702CDF8638B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24AEFA99-B740-C858-FB5F-702CDF8638B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3220F3FD-DBD2-44CD-A0A6-D1F416803856}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3220F3FD-DBD2-44CD-A0A6-D1F416803856}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3220F3FD-DBD2-44CD-A0A6-D1F416803856}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3220F3FD-DBD2-44CD-A0A6-D1F416803856}.Release|Any CPU.Build.0 = Release|Any CPU
+		{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{207E2FF8-4C4C-4A8F-AE94-8A9885628C1A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6C915759-4421-42AC-9D70-9D109641A043}
+	EndGlobalSection
+EndGlobal

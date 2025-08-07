@@ -895,54 +895,23 @@ let listOfArrayDef =
         Generics = 1      
     }
 
-let getFieldsList q =
-    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
-        td.Value.FullName = "WebSharper.JavaScript.Pervasives"
-        && m.Value.MethodName = "op_EqualsGreater"
-    let rec getFieldsListTC l q =
-        let trItem i =
-            match IgnoreExprSourcePos i with    
-            | NewArray [I.Value (String n); v] -> Some (n, v)
-            | Call (_, td, m, [I.Value (String n); v])
-                when ``is (=>)`` td.Entity m.Entity -> Some(n, v)
-            | _ -> None
-        let tryMap f l = 
-            List.foldBack (fun i s ->
-                match s with
-                | None -> None
-                | Some sv ->
-                    match f i with
-                    | Some fi -> Some (fi :: sv)
-                    | None -> None
-            ) l (Some [])
-        match IgnoreExprSourcePos q with
-        | NewUnionCase (_, _, [I.NewArray [I.Value (String n); v]; t]) ->
-            getFieldsListTC ((n, v) :: l) t         
-        | NewUnionCase (_, _, [I.Call (_, td, m, [I.Value (String n); v]); t])
-            when ``is (=>)`` td.Entity m.Entity ->
-            getFieldsListTC ((n, v) :: l) t         
-        | NewUnionCase (_, _, []) -> Some (l |> List.rev) 
-        | Call(None, td, m, [ I.NewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
-            items |> tryMap trItem
-        | NewArray (items) ->
-            items |> tryMap trItem
-        | _ -> None
-    getFieldsListTC [] q
-
 [<Sealed>]
 type New() =
     inherit Macro()
-
-    let translate = function
-        | [x] -> 
-            match getFieldsList x with
-            | Some xl ->
-                MacroOk <| Object (xl |> List.map (fun (n, v) -> n, MemberKind.Simple, v))
-            | _ -> MacroFallback
+    override this.NeedsTranslatedArguments = true
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [I.NewArray items] ->
+            let items, isOk =
+                (true, items)
+                ||> List.mapFold (fun isOk item ->
+                    match isOk, item with
+                    | true, I.NewArray [I.Value (String key); e] -> (key, MemberKind.Simple, e), true
+                    | _ -> ("", MemberKind.Simple, Undefined), false
+                )
+            if isOk then MacroOk (Object items) else MacroFallback
+        | [_] -> MacroFallback
         | _ -> MacroError "New macro Error"
-
-    override this.TranslateCall(c) = translate c.Arguments
-    override this.TranslateCtor(c) = translate c.Arguments
 
 //type FST = Reflection.FSharpType
 

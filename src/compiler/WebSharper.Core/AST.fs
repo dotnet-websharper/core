@@ -142,7 +142,7 @@ and Expression =
     | Var of Variable:Id
     /// Contains a literal value
     | Value of Value:Literal
-    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be `NoSideEffect` if the function call can be omitted if the result is not used, and `Pure` when the function is deterministic. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     | Application of Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo
     /// Function declaration
     | Function of Parameters:list<Id> * ThisVar:option<Id> * Return:option<Type> * Body:Statement
@@ -150,13 +150,13 @@ and Expression =
     | VarSet of Variable:Id * Value:Expression
     /// Sequential evaluation of expressions, value is taken from the last
     | Sequential of Expressions:list<Expression>
-    /// Creating a new array
+    /// Creating a new tuple in .NET, array expression in JavaScript
     | NewTuple of Items:list<Expression> * TupleType:list<Type>
-    /// Conditional operation
+    /// Conditional operator
     | Conditional of Condition:Expression * WhenTrue:Expression * WhenFalse:Expression
-    /// Indexer get without side effects
+    /// JavaScript object property get
     | ItemGet of Object:Expression * Item:Expression * Pure:Purity
-    /// Indexer set
+    /// JavaScript object property set
     | ItemSet of Object:Expression * Item:Expression * Value:Expression
     /// Binary operation
     | Binary of Left:Expression * Operator:BinaryOperator * Right:Expression
@@ -168,11 +168,11 @@ and Expression =
     | MutatingUnary of Operator:MutatingUnaryOperator * Expression:Expression
     /// Original source location for an expression
     | ExprSourcePos of Range:SourcePos * Expression:Expression
-    /// JavaScript - the this value
+    /// JavaScript `this` value
     | JSThis
     /// Refers to the base class from an instance method, `super` in JavaScript
     | Base
-    /// .NET - Method call
+    /// .NET method call
     | Call of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression>
     /// Temporary - Partial application, workaround for FCS issue #414
     | CallNeedingMoreArgs of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression>
@@ -180,45 +180,45 @@ and Expression =
     | CurriedApplication of Func:Expression * Arguments:list<bool * Expression>
     /// Temporary - optimized curried or tupled F# function argument
     | OptimizedFSharpArg of FuncVar:Expression * Opt:FuncArgOptimization
-    /// .NET - Constructor call
+    /// .NET constructor call
     | Ctor of TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression>
-    /// .NET - Chained or base constructor call
+    /// .NET chained or base constructor call
     | ChainedCtor of IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression>
-    /// .NET - Creating an object from a plain object
+    /// .NET creating an object from a plain object, used for F# records/unions
     | CopyCtor of TypeDefinition:TypeDefinition * Object:Expression
-    /// .NET - Field getter
+    /// .NET field getter
     | FieldGet of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string
-    /// .NET - Field setter
+    /// .NET field setter
     | FieldSet of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string * Value:Expression
-    /// .NET - An immutable value definition used only in expression body
+    /// .NET immutable value definition used only in expression body
     | Let of Identifier:Id * Value:Expression * Body:Expression
-    /// .NET - An expression-level variable declaration
+    /// .NET expression-level variable declaration
     | NewVar of Variable:Id * Value:Expression
-    /// .NET - Null-coalescing
+    /// .NET null-coalescing
     | Coalesce of Expression:Expression * Type:Type * WhenNull:Expression
-    /// .NET - Type check, returns bool
+    /// .NET type check, returns bool
     | TypeCheck of Expression:Expression * Type:Type
-    /// .NET - Type coercion
+    /// .NET type coercion
     | Coerce of Expression:Expression * FromType:Type * ToType:Type
-    /// .NET - Creates a new delegate
+    /// .NET delegate construction
     | NewDelegate of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method>
-    /// .NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement
+    /// .NET statement inside an expression. Optional result should be an identifier for a variable which is not explicitly defined inside the statement
     | StatementExpr of Statement:Statement * Result:option<Id>
-    /// .NET - F# let rec
+    /// F# `let rec`
     | LetRec of Bindings:list<Id * Expression> * Body:Expression
-    /// .NET - F# record constructor
+    /// F# record constructor
     | NewRecord of TypeDefinition:Concrete<TypeDefinition> * Fields:list<Expression>
-    /// .NET - F# union case constructor
+    /// F# union case constructor
     | NewUnionCase of TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Fields:list<Expression>
-    /// .NET - F# union case test
+    /// F# union case test
     | UnionCaseTest of Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string
-    /// .NET - F# union case field getter
+    /// F# union case field getter
     | UnionCaseGet of Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Field:string
-    /// .NET - F# union case tag getter
+    /// F# union case tag getter
     | UnionCaseTag of Expression:Expression * TypeDefinition:Concrete<TypeDefinition>
-    /// .NET - F# successful match
+    /// F# successful match
     | MatchSuccess of Index:int * Captures:list<Expression>
-    /// .NET - Method call
+    /// F# trait call (use of type member within functions with statically resolved type parameters)
     | TraitCall of ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression>
     /// Temporary - C# await expression
     | Await of Expression:Expression
@@ -236,15 +236,15 @@ and Expression =
     | SideeffectingImport of Address:Address
     /// A global or imported value setter
     | GlobalAccessSet of Address:Address * Value:Expression
-    /// JavaScript 'new' call
+    /// JavaScript `new` call
     | New of Func:Expression * Param:list<TSType> * Arguments:list<Expression>
     /// Temporary - A hole in an expression for inlining
     | Hole of Index:int
-    /// TypeScript - type cast <...>...
+    /// TypeScript type cast `<...>...`
     | Cast of TargetType:TSType * Expression:Expression
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` expression
     | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType>
-    /// .NET - F# object expression
+    /// F# object expression
     | ObjectExpr of ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression>
     /// JavaScript verbatim code
     | Verbatim of StringParts:list<string> * Holes:list<Expression> * IsJSX:bool
@@ -275,9 +275,9 @@ and Expression =
 and Statement =
     /// Empty statement
     | Empty
-    /// JavaScript break statement
+    /// break statement
     | Break of Label:option<Id>
-    /// JavaScript continue statement
+    /// continue statement
     | Continue of Label:option<Id>
     /// Expression as statement
     | ExprStatement of Expression:Expression
@@ -289,65 +289,65 @@ and Statement =
     | VarDeclaration of Variable:Id * Value:Expression
     /// Function declaration
     | FuncDeclaration of FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Body:Statement * Generics:list<TSType>
-    /// 'while' loop
+    /// `while` loop
     | While of Condition:Expression * Body:Statement
-    /// 'do..while' loop
+    /// `do ... while` loop
     | DoWhile of Body:Statement * Condition:Expression
-    /// 'for' loop
+    /// `for` loop
     | For of Initializer:option<Expression> * Condition:option<Expression> * Step:option<Expression> * Body:Statement
-    /// JavaScript 'for .. in' loop
+    /// JavaScript `for ... in` loop
     | ForIn of Variable:Id * Object:Expression * Body:Statement
-    /// JavaScript 'switch' expression
+    /// JavaScript `switch` expression
     | Switch of Expression:Expression * Cases:list<option<Expression> * Statement>
-    /// 'if' statement
+    /// `if` statement
     | If of Condition:Expression * ThenStatement:Statement * ElseStatement:Statement
-    /// 'throw' statement
+    /// F# `raise` or C#/JavaScript `throw` statement
     | Throw of Expression:Expression
-    /// 'try..with' statement
+    /// `try ... with` statement
     | TryWith of Body:Statement * Variable:option<Id> * CatchStatement:Statement
-    /// 'try..finally' statement
+    /// `try ... finally` statement
     | TryFinally of Body:Statement * FinallyStatement:Statement
     /// Statement with a label
     | Labeled of Label:Id * Statement:Statement
     /// Original source location for a statement
     | StatementSourcePos of Range:SourcePos * Statement:Statement
-    /// Temporary - C# 'goto' statement
+    /// Temporary - C# `goto` statement
     | Goto of Label:Id
     /// Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos
     | Continuation of Label:Id * Expression:Expression
-    /// Temporary - C# 'yield return' statement
+    /// Temporary - C# `yield return` statement
     | Yield of Value:option<Expression>
-    /// Temporary - C# 'switch' statement
+    /// Temporary - C# `switch` statement
     | CSharpSwitch of Expression:Expression * Cases:list<list<option<Expression>> * Statement>
-    /// Temporary - C# 'goto case' statement
+    /// Temporary - C# `goto case` statement
     | GotoCase of CaseExpression:option<Expression>
-    /// .NET - F# tail call position
+    /// F# tail call position
     | DoNotReturn
-    /// JavaScript - import * as ... from ...
+    /// JavaScript `import * as ... from ...` statement
     | Import of DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string
-    /// JavaScript - export
+    /// JavaScript `export` statement
     | ExportDecl of IsDefault:bool * Statement:Statement
-    /// TypeScript - declare ...
+    /// TypeScript `declare ...` statement
     | Declare of Statement:Statement
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` statement
     | Class of ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType>
-    /// JavaScript - class method
+    /// JavaScript class method
     | ClassMethod of Info:ClassMethodInfo * Name:string * Parameters:list<Id> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType
-    /// JavaScript - class method
+    /// JavaScript class constructor
     | ClassConstructor of Parameters:list<Id * Modifiers> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType
-    /// JavaScript - class plain property
+    /// JavaScript class plain property
     | ClassProperty of Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression>
-    /// JavaScript - class static block
+    /// JavaScript class static block
     | ClassStatic of Optional:Statement
-    /// TypeScript - interface { ... }
+    /// TypeScript `interface { ... }` declaration
     | Interface of IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
-    /// TypeScript - type or import alias
+    /// TypeScript `type` or `import` alias
     | Alias of Alias:Id * Generics:list<TSType> * OrigType:TSType
-    /// TypeScript - triple-slash directive
+    /// TypeScript triple-slash directive
     | XmlComment of Xml:string
-    /// Temporary - class during packaging that might need Lazy wrapper
+    /// Temporary - class during packaging that might need `Lazy` wrapper
     | LazyClass of WithoutLazy:Statement * WithLazy:Statement
-    /// Function signature
+    /// TypeScript function signature
     | FuncSignature of FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType>
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
@@ -361,7 +361,7 @@ type Transformer() =
     /// Contains a literal value
     abstract TransformValue : Value:Literal -> Expression
     override this.TransformValue a = Value (a)
-    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be `NoSideEffect` if the function call can be omitted if the result is not used, and `Pure` when the function is deterministic. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> Expression
     override this.TransformApplication (a, b, c) = Application (this.TransformExpression a, List.map this.TransformExpression b, c)
     /// Function declaration
@@ -373,16 +373,16 @@ type Transformer() =
     /// Sequential evaluation of expressions, value is taken from the last
     abstract TransformSequential : Expressions:list<Expression> -> Expression
     override this.TransformSequential a = Sequential (List.map this.TransformExpression a)
-    /// Creating a new array
+    /// Creating a new tuple in .NET, array expression in JavaScript
     abstract TransformNewTuple : Items:list<Expression> * TupleType:list<Type> -> Expression
     override this.TransformNewTuple (a, b) = NewTuple (List.map this.TransformExpression a, b)
-    /// Conditional operation
+    /// Conditional operator
     abstract TransformConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> Expression
     override this.TransformConditional (a, b, c) = Conditional (this.TransformExpression a, this.TransformExpression b, this.TransformExpression c)
-    /// Indexer get without side effects
+    /// JavaScript object property get
     abstract TransformItemGet : Object:Expression * Item:Expression * Pure:Purity -> Expression
     override this.TransformItemGet (a, b, c) = ItemGet (this.TransformExpression a, this.TransformExpression b, c)
-    /// Indexer set
+    /// JavaScript object property set
     abstract TransformItemSet : Object:Expression * Item:Expression * Value:Expression -> Expression
     override this.TransformItemSet (a, b, c) = ItemSet (this.TransformExpression a, this.TransformExpression b, this.TransformExpression c)
     /// Binary operation
@@ -402,13 +402,13 @@ type Transformer() =
     override this.TransformExprSourcePos (a, b) =
         match this.TransformExpression b with
         | ExprSourcePos (_, bt) | bt -> ExprSourcePos (a, bt)
-    /// JavaScript - the this value
+    /// JavaScript `this` value
     abstract TransformJSThis : unit -> Expression
     override this.TransformJSThis () = JSThis 
     /// Refers to the base class from an instance method, `super` in JavaScript
     abstract TransformBase : unit -> Expression
     override this.TransformBase () = Base 
-    /// .NET - Method call
+    /// .NET method call
     abstract TransformCall : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
     override this.TransformCall (a, b, c, d) = Call (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
     /// Temporary - Partial application, workaround for FCS issue #414
@@ -420,64 +420,64 @@ type Transformer() =
     /// Temporary - optimized curried or tupled F# function argument
     abstract TransformOptimizedFSharpArg : FuncVar:Expression * Opt:FuncArgOptimization -> Expression
     override this.TransformOptimizedFSharpArg (a, b) = OptimizedFSharpArg (this.TransformExpression a, b)
-    /// .NET - Constructor call
+    /// .NET constructor call
     abstract TransformCtor : TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> Expression
     override this.TransformCtor (a, b, c) = Ctor (a, b, List.map this.TransformExpression c)
-    /// .NET - Chained or base constructor call
+    /// .NET chained or base constructor call
     abstract TransformChainedCtor : IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> Expression
     override this.TransformChainedCtor (a, b, c, d) = ChainedCtor (a, b, c, List.map this.TransformExpression d)
-    /// .NET - Creating an object from a plain object
+    /// .NET creating an object from a plain object, used for F# records/unions
     abstract TransformCopyCtor : TypeDefinition:TypeDefinition * Object:Expression -> Expression
     override this.TransformCopyCtor (a, b) = CopyCtor (a, this.TransformExpression b)
-    /// .NET - Field getter
+    /// .NET field getter
     abstract TransformFieldGet : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string -> Expression
     override this.TransformFieldGet (a, b, c) = FieldGet (Option.map this.TransformExpression a, b, c)
-    /// .NET - Field setter
+    /// .NET field setter
     abstract TransformFieldSet : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string * Value:Expression -> Expression
     override this.TransformFieldSet (a, b, c, d) = FieldSet (Option.map this.TransformExpression a, b, c, this.TransformExpression d)
-    /// .NET - An immutable value definition used only in expression body
+    /// .NET immutable value definition used only in expression body
     abstract TransformLet : Identifier:Id * Value:Expression * Body:Expression -> Expression
     override this.TransformLet (a, b, c) = Let (this.TransformId a, this.TransformExpression b, this.TransformExpression c)
-    /// .NET - An expression-level variable declaration
+    /// .NET expression-level variable declaration
     abstract TransformNewVar : Variable:Id * Value:Expression -> Expression
     override this.TransformNewVar (a, b) = NewVar (this.TransformId a, this.TransformExpression b)
-    /// .NET - Null-coalescing
+    /// .NET null-coalescing
     abstract TransformCoalesce : Expression:Expression * Type:Type * WhenNull:Expression -> Expression
     override this.TransformCoalesce (a, b, c) = Coalesce (this.TransformExpression a, b, this.TransformExpression c)
-    /// .NET - Type check, returns bool
+    /// .NET type check, returns bool
     abstract TransformTypeCheck : Expression:Expression * Type:Type -> Expression
     override this.TransformTypeCheck (a, b) = TypeCheck (this.TransformExpression a, b)
-    /// .NET - Type coercion
+    /// .NET type coercion
     abstract TransformCoerce : Expression:Expression * FromType:Type * ToType:Type -> Expression
     override this.TransformCoerce (a, b, c) = Coerce (this.TransformExpression a, b, c)
-    /// .NET - Creates a new delegate
+    /// .NET delegate construction
     abstract TransformNewDelegate : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> -> Expression
     override this.TransformNewDelegate (a, b, c) = NewDelegate (Option.map this.TransformExpression a, b, c)
-    /// .NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement
+    /// .NET statement inside an expression. Optional result should be an identifier for a variable which is not explicitly defined inside the statement
     abstract TransformStatementExpr : Statement:Statement * Result:option<Id> -> Expression
     override this.TransformStatementExpr (a, b) = StatementExpr (this.TransformStatement a, Option.map this.TransformId b)
-    /// .NET - F# let rec
+    /// F# `let rec`
     abstract TransformLetRec : Bindings:list<Id * Expression> * Body:Expression -> Expression
     override this.TransformLetRec (a, b) = LetRec (List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) a, this.TransformExpression b)
-    /// .NET - F# record constructor
+    /// F# record constructor
     abstract TransformNewRecord : TypeDefinition:Concrete<TypeDefinition> * Fields:list<Expression> -> Expression
     override this.TransformNewRecord (a, b) = NewRecord (a, List.map this.TransformExpression b)
-    /// .NET - F# union case constructor
+    /// F# union case constructor
     abstract TransformNewUnionCase : TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Fields:list<Expression> -> Expression
     override this.TransformNewUnionCase (a, b, c) = NewUnionCase (a, b, List.map this.TransformExpression c)
-    /// .NET - F# union case test
+    /// F# union case test
     abstract TransformUnionCaseTest : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string -> Expression
     override this.TransformUnionCaseTest (a, b, c) = UnionCaseTest (this.TransformExpression a, b, c)
-    /// .NET - F# union case field getter
+    /// F# union case field getter
     abstract TransformUnionCaseGet : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Field:string -> Expression
     override this.TransformUnionCaseGet (a, b, c, d) = UnionCaseGet (this.TransformExpression a, b, c, d)
-    /// .NET - F# union case tag getter
+    /// F# union case tag getter
     abstract TransformUnionCaseTag : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> -> Expression
     override this.TransformUnionCaseTag (a, b) = UnionCaseTag (this.TransformExpression a, b)
-    /// .NET - F# successful match
+    /// F# successful match
     abstract TransformMatchSuccess : Index:int * Captures:list<Expression> -> Expression
     override this.TransformMatchSuccess (a, b) = MatchSuccess (a, List.map this.TransformExpression b)
-    /// .NET - Method call
+    /// F# trait call (use of type member within functions with statically resolved type parameters)
     abstract TransformTraitCall : ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
     override this.TransformTraitCall (a, b, c, d) = TraitCall (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
     /// Temporary - C# await expression
@@ -504,19 +504,19 @@ type Transformer() =
     /// A global or imported value setter
     abstract TransformGlobalAccessSet : Address:Address * Value:Expression -> Expression
     override this.TransformGlobalAccessSet (a, b) = GlobalAccessSet (a, this.TransformExpression b)
-    /// JavaScript 'new' call
+    /// JavaScript `new` call
     abstract TransformNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> Expression
     override this.TransformNew (a, b, c) = New (this.TransformExpression a, b, List.map this.TransformExpression c)
     /// Temporary - A hole in an expression for inlining
     abstract TransformHole : Index:int -> Expression
     override this.TransformHole a = Hole (a)
-    /// TypeScript - type cast <...>...
+    /// TypeScript type cast `<...>...`
     abstract TransformCast : TargetType:TSType * Expression:Expression -> Expression
     override this.TransformCast (a, b) = Cast (a, this.TransformExpression b)
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` expression
     abstract TransformClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> Expression
     override this.TransformClassExpr (a, b, c, d, e) = ClassExpr (Option.map this.TransformId a, Option.map this.TransformExpression b, List.map this.TransformStatement c, d, e)
-    /// .NET - F# object expression
+    /// F# object expression
     abstract TransformObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> Expression
     override this.TransformObjectExpr (a, b, c) = ObjectExpr (a, Option.map this.TransformExpression b, List.map (fun (a, b, c) -> a, b, this.TransformExpression c) c)
     /// JavaScript verbatim code
@@ -525,10 +525,10 @@ type Transformer() =
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
-    /// JavaScript break statement
+    /// break statement
     abstract TransformBreak : Label:option<Id> -> Statement
     override this.TransformBreak a = Break (Option.map this.TransformId a)
-    /// JavaScript continue statement
+    /// continue statement
     abstract TransformContinue : Label:option<Id> -> Statement
     override this.TransformContinue a = Continue (Option.map this.TransformId a)
     /// Expression as statement
@@ -546,31 +546,31 @@ type Transformer() =
     /// Function declaration
     abstract TransformFuncDeclaration : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Body:Statement * Generics:list<TSType> -> Statement
     override this.TransformFuncDeclaration (a, b, c, d, e) = FuncDeclaration (this.TransformId a, List.map this.TransformId b, Option.map this.TransformId c, this.TransformStatement d, e)
-    /// 'while' loop
+    /// `while` loop
     abstract TransformWhile : Condition:Expression * Body:Statement -> Statement
     override this.TransformWhile (a, b) = While (this.TransformExpression a, this.TransformStatement b)
-    /// 'do..while' loop
+    /// `do ... while` loop
     abstract TransformDoWhile : Body:Statement * Condition:Expression -> Statement
     override this.TransformDoWhile (a, b) = DoWhile (this.TransformStatement a, this.TransformExpression b)
-    /// 'for' loop
+    /// `for` loop
     abstract TransformFor : Initializer:option<Expression> * Condition:option<Expression> * Step:option<Expression> * Body:Statement -> Statement
     override this.TransformFor (a, b, c, d) = For (Option.map this.TransformExpression a, Option.map this.TransformExpression b, Option.map this.TransformExpression c, this.TransformStatement d)
-    /// JavaScript 'for .. in' loop
+    /// JavaScript `for ... in` loop
     abstract TransformForIn : Variable:Id * Object:Expression * Body:Statement -> Statement
     override this.TransformForIn (a, b, c) = ForIn (this.TransformId a, this.TransformExpression b, this.TransformStatement c)
-    /// JavaScript 'switch' expression
+    /// JavaScript `switch` expression
     abstract TransformSwitch : Expression:Expression * Cases:list<option<Expression> * Statement> -> Statement
     override this.TransformSwitch (a, b) = Switch (this.TransformExpression a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) b)
-    /// 'if' statement
+    /// `if` statement
     abstract TransformIf : Condition:Expression * ThenStatement:Statement * ElseStatement:Statement -> Statement
     override this.TransformIf (a, b, c) = If (this.TransformExpression a, this.TransformStatement b, this.TransformStatement c)
-    /// 'throw' statement
+    /// F# `raise` or C#/JavaScript `throw` statement
     abstract TransformThrow : Expression:Expression -> Statement
     override this.TransformThrow a = Throw (this.TransformExpression a)
-    /// 'try..with' statement
+    /// `try ... with` statement
     abstract TransformTryWith : Body:Statement * Variable:option<Id> * CatchStatement:Statement -> Statement
     override this.TransformTryWith (a, b, c) = TryWith (this.TransformStatement a, Option.map this.TransformId b, this.TransformStatement c)
-    /// 'try..finally' statement
+    /// `try ... finally` statement
     abstract TransformTryFinally : Body:Statement * FinallyStatement:Statement -> Statement
     override this.TransformTryFinally (a, b) = TryFinally (this.TransformStatement a, this.TransformStatement b)
     /// Statement with a label
@@ -581,61 +581,61 @@ type Transformer() =
     override this.TransformStatementSourcePos (a, b) =
         match this.TransformStatement b with
         | StatementSourcePos (_, bt) | bt -> StatementSourcePos (a, bt)
-    /// Temporary - C# 'goto' statement
+    /// Temporary - C# `goto` statement
     abstract TransformGoto : Label:Id -> Statement
     override this.TransformGoto a = Goto (this.TransformId a)
     /// Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos
     abstract TransformContinuation : Label:Id * Expression:Expression -> Statement
     override this.TransformContinuation (a, b) = Continuation (this.TransformId a, this.TransformExpression b)
-    /// Temporary - C# 'yield return' statement
+    /// Temporary - C# `yield return` statement
     abstract TransformYield : Value:option<Expression> -> Statement
     override this.TransformYield a = Yield (Option.map this.TransformExpression a)
-    /// Temporary - C# 'switch' statement
+    /// Temporary - C# `switch` statement
     abstract TransformCSharpSwitch : Expression:Expression * Cases:list<list<option<Expression>> * Statement> -> Statement
     override this.TransformCSharpSwitch (a, b) = CSharpSwitch (this.TransformExpression a, List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) b)
-    /// Temporary - C# 'goto case' statement
+    /// Temporary - C# `goto case` statement
     abstract TransformGotoCase : CaseExpression:option<Expression> -> Statement
     override this.TransformGotoCase a = GotoCase (Option.map this.TransformExpression a)
-    /// .NET - F# tail call position
+    /// F# tail call position
     abstract TransformDoNotReturn : unit -> Statement
     override this.TransformDoNotReturn () = DoNotReturn 
-    /// JavaScript - import * as ... from ...
+    /// JavaScript `import * as ... from ...` statement
     abstract TransformImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> Statement
     override this.TransformImport (a, b, c, d) = Import (Option.map this.TransformId a, Option.map this.TransformId b, List.map (fun (a, b) -> a, this.TransformId b) c, d)
-    /// JavaScript - export
+    /// JavaScript `export` statement
     abstract TransformExportDecl : IsDefault:bool * Statement:Statement -> Statement
     override this.TransformExportDecl (a, b) = ExportDecl (a, this.TransformStatement b)
-    /// TypeScript - declare ...
+    /// TypeScript `declare ...` statement
     abstract TransformDeclare : Statement:Statement -> Statement
     override this.TransformDeclare a = Declare (this.TransformStatement a)
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` statement
     abstract TransformClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> Statement
     override this.TransformClass (a, b, c, d, e, f) = Class (this.TransformId a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e, f)
-    /// JavaScript - class method
+    /// JavaScript class method
     abstract TransformClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e, f) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformId d, Option.map this.TransformStatement e, f)
-    /// JavaScript - class method
+    /// JavaScript class constructor
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c, d) = ClassConstructor (List.map (fun (a, b) -> this.TransformId a, b) a, Option.map this.TransformId b, Option.map this.TransformStatement c, d)
-    /// JavaScript - class plain property
+    /// JavaScript class plain property
     abstract TransformClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression> -> Statement
     override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, Option.map this.TransformExpression d)
-    /// JavaScript - class static block
+    /// JavaScript class static block
     abstract TransformClassStatic : Optional:Statement -> Statement
     override this.TransformClassStatic a = ClassStatic (this.TransformStatement a)
-    /// TypeScript - interface { ... }
+    /// TypeScript `interface { ... }` declaration
     abstract TransformInterface : IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformInterface (a, b, c, d) = Interface (this.TransformId a, b, List.map this.TransformStatement c, d)
-    /// TypeScript - type or import alias
+    /// TypeScript `type` or `import` alias
     abstract TransformAlias : Alias:Id * Generics:list<TSType> * OrigType:TSType -> Statement
     override this.TransformAlias (a, b, c) = Alias (this.TransformId a, b, c)
-    /// TypeScript - triple-slash directive
+    /// TypeScript triple-slash directive
     abstract TransformXmlComment : Xml:string -> Statement
     override this.TransformXmlComment a = XmlComment (a)
-    /// Temporary - class during packaging that might need Lazy wrapper
+    /// Temporary - class during packaging that might need `Lazy` wrapper
     abstract TransformLazyClass : WithoutLazy:Statement * WithLazy:Statement -> Statement
     override this.TransformLazyClass (a, b) = LazyClass (this.TransformStatement a, this.TransformStatement b)
-    /// Function signature
+    /// TypeScript function signature
     abstract TransformFuncSignature : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType> -> Statement
     override this.TransformFuncSignature (a, b, c, d) = FuncSignature (this.TransformId a, List.map this.TransformId b, Option.map this.TransformId c, d)
     abstract TransformExpression : Expression -> Expression
@@ -753,7 +753,7 @@ type Visitor() =
     /// Contains a literal value
     abstract VisitValue : Value:Literal -> unit
     override this.VisitValue a = (())
-    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be `NoSideEffect` if the function call can be omitted if the result is not used, and `Pure` when the function is deterministic. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> unit
     override this.VisitApplication (a, b, c) = this.VisitExpression a; List.iter this.VisitExpression b; ()
     /// Function declaration
@@ -765,16 +765,16 @@ type Visitor() =
     /// Sequential evaluation of expressions, value is taken from the last
     abstract VisitSequential : Expressions:list<Expression> -> unit
     override this.VisitSequential a = (List.iter this.VisitExpression a)
-    /// Creating a new array
+    /// Creating a new tuple in .NET, array expression in JavaScript
     abstract VisitNewTuple : Items:list<Expression> * TupleType:list<Type> -> unit
     override this.VisitNewTuple (a, b) = List.iter this.VisitExpression a; ()
-    /// Conditional operation
+    /// Conditional operator
     abstract VisitConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> unit
     override this.VisitConditional (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
-    /// Indexer get without side effects
+    /// JavaScript object property get
     abstract VisitItemGet : Object:Expression * Item:Expression * Pure:Purity -> unit
     override this.VisitItemGet (a, b, c) = this.VisitExpression a; this.VisitExpression b; ()
-    /// Indexer set
+    /// JavaScript object property set
     abstract VisitItemSet : Object:Expression * Item:Expression * Value:Expression -> unit
     override this.VisitItemSet (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
     /// Binary operation
@@ -792,13 +792,13 @@ type Visitor() =
     /// Original source location for an expression
     abstract VisitExprSourcePos : Range:SourcePos * Expression:Expression -> unit
     override this.VisitExprSourcePos (a, b) = (); this.VisitExpression b
-    /// JavaScript - the this value
+    /// JavaScript `this` value
     abstract VisitJSThis : unit -> unit
     override this.VisitJSThis () = ()
     /// Refers to the base class from an instance method, `super` in JavaScript
     abstract VisitBase : unit -> unit
     override this.VisitBase () = ()
-    /// .NET - Method call
+    /// .NET method call
     abstract VisitCall : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression> -> unit
     override this.VisitCall (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
     /// Temporary - Partial application, workaround for FCS issue #414
@@ -810,64 +810,64 @@ type Visitor() =
     /// Temporary - optimized curried or tupled F# function argument
     abstract VisitOptimizedFSharpArg : FuncVar:Expression * Opt:FuncArgOptimization -> unit
     override this.VisitOptimizedFSharpArg (a, b) = this.VisitExpression a; ()
-    /// .NET - Constructor call
+    /// .NET constructor call
     abstract VisitCtor : TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> unit
     override this.VisitCtor (a, b, c) = (); (); List.iter this.VisitExpression c
-    /// .NET - Chained or base constructor call
+    /// .NET chained or base constructor call
     abstract VisitChainedCtor : IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> unit
     override this.VisitChainedCtor (a, b, c, d) = (); (); (); List.iter this.VisitExpression d
-    /// .NET - Creating an object from a plain object
+    /// .NET creating an object from a plain object, used for F# records/unions
     abstract VisitCopyCtor : TypeDefinition:TypeDefinition * Object:Expression -> unit
     override this.VisitCopyCtor (a, b) = (); this.VisitExpression b
-    /// .NET - Field getter
+    /// .NET field getter
     abstract VisitFieldGet : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string -> unit
     override this.VisitFieldGet (a, b, c) = Option.iter this.VisitExpression a; (); ()
-    /// .NET - Field setter
+    /// .NET field setter
     abstract VisitFieldSet : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Field:string * Value:Expression -> unit
     override this.VisitFieldSet (a, b, c, d) = Option.iter this.VisitExpression a; (); (); this.VisitExpression d
-    /// .NET - An immutable value definition used only in expression body
+    /// .NET immutable value definition used only in expression body
     abstract VisitLet : Identifier:Id * Value:Expression * Body:Expression -> unit
     override this.VisitLet (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitExpression c
-    /// .NET - An expression-level variable declaration
+    /// .NET expression-level variable declaration
     abstract VisitNewVar : Variable:Id * Value:Expression -> unit
     override this.VisitNewVar (a, b) = this.VisitId a; this.VisitExpression b
-    /// .NET - Null-coalescing
+    /// .NET null-coalescing
     abstract VisitCoalesce : Expression:Expression * Type:Type * WhenNull:Expression -> unit
     override this.VisitCoalesce (a, b, c) = this.VisitExpression a; (); this.VisitExpression c
-    /// .NET - Type check, returns bool
+    /// .NET type check, returns bool
     abstract VisitTypeCheck : Expression:Expression * Type:Type -> unit
     override this.VisitTypeCheck (a, b) = this.VisitExpression a; ()
-    /// .NET - Type coercion
+    /// .NET type coercion
     abstract VisitCoerce : Expression:Expression * FromType:Type * ToType:Type -> unit
     override this.VisitCoerce (a, b, c) = this.VisitExpression a; (); ()
-    /// .NET - Creates a new delegate
+    /// .NET delegate construction
     abstract VisitNewDelegate : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> -> unit
     override this.VisitNewDelegate (a, b, c) = Option.iter this.VisitExpression a; (); ()
-    /// .NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement
+    /// .NET statement inside an expression. Optional result should be an identifier for a variable which is not explicitly defined inside the statement
     abstract VisitStatementExpr : Statement:Statement * Result:option<Id> -> unit
     override this.VisitStatementExpr (a, b) = this.VisitStatement a; Option.iter this.VisitId b
-    /// .NET - F# let rec
+    /// F# `let rec`
     abstract VisitLetRec : Bindings:list<Id * Expression> * Body:Expression -> unit
     override this.VisitLetRec (a, b) = List.iter (fun (a, b) -> this.VisitId a; this.VisitExpression b) a; this.VisitExpression b
-    /// .NET - F# record constructor
+    /// F# record constructor
     abstract VisitNewRecord : TypeDefinition:Concrete<TypeDefinition> * Fields:list<Expression> -> unit
     override this.VisitNewRecord (a, b) = (); List.iter this.VisitExpression b
-    /// .NET - F# union case constructor
+    /// F# union case constructor
     abstract VisitNewUnionCase : TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Fields:list<Expression> -> unit
     override this.VisitNewUnionCase (a, b, c) = (); (); List.iter this.VisitExpression c
-    /// .NET - F# union case test
+    /// F# union case test
     abstract VisitUnionCaseTest : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string -> unit
     override this.VisitUnionCaseTest (a, b, c) = this.VisitExpression a; (); ()
-    /// .NET - F# union case field getter
+    /// F# union case field getter
     abstract VisitUnionCaseGet : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> * UnionCase:string * Field:string -> unit
     override this.VisitUnionCaseGet (a, b, c, d) = this.VisitExpression a; (); (); ()
-    /// .NET - F# union case tag getter
+    /// F# union case tag getter
     abstract VisitUnionCaseTag : Expression:Expression * TypeDefinition:Concrete<TypeDefinition> -> unit
     override this.VisitUnionCaseTag (a, b) = this.VisitExpression a; ()
-    /// .NET - F# successful match
+    /// F# successful match
     abstract VisitMatchSuccess : Index:int * Captures:list<Expression> -> unit
     override this.VisitMatchSuccess (a, b) = (); List.iter this.VisitExpression b
-    /// .NET - Method call
+    /// F# trait call (use of type member within functions with statically resolved type parameters)
     abstract VisitTraitCall : ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> unit
     override this.VisitTraitCall (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
     /// Temporary - C# await expression
@@ -894,19 +894,19 @@ type Visitor() =
     /// A global or imported value setter
     abstract VisitGlobalAccessSet : Address:Address * Value:Expression -> unit
     override this.VisitGlobalAccessSet (a, b) = (); this.VisitExpression b
-    /// JavaScript 'new' call
+    /// JavaScript `new` call
     abstract VisitNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> unit
     override this.VisitNew (a, b, c) = this.VisitExpression a; (); List.iter this.VisitExpression c
     /// Temporary - A hole in an expression for inlining
     abstract VisitHole : Index:int -> unit
     override this.VisitHole a = (())
-    /// TypeScript - type cast <...>...
+    /// TypeScript type cast `<...>...`
     abstract VisitCast : TargetType:TSType * Expression:Expression -> unit
     override this.VisitCast (a, b) = (); this.VisitExpression b
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` expression
     abstract VisitClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> unit
     override this.VisitClassExpr (a, b, c, d, e) = Option.iter this.VisitId a; Option.iter this.VisitExpression b; List.iter this.VisitStatement c; (); ()
-    /// .NET - F# object expression
+    /// F# object expression
     abstract VisitObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> unit
     override this.VisitObjectExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter (fun (a, b, c) -> this.VisitExpression c) c
     /// JavaScript verbatim code
@@ -915,10 +915,10 @@ type Visitor() =
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
-    /// JavaScript break statement
+    /// break statement
     abstract VisitBreak : Label:option<Id> -> unit
     override this.VisitBreak a = (Option.iter this.VisitId a)
-    /// JavaScript continue statement
+    /// continue statement
     abstract VisitContinue : Label:option<Id> -> unit
     override this.VisitContinue a = (Option.iter this.VisitId a)
     /// Expression as statement
@@ -936,31 +936,31 @@ type Visitor() =
     /// Function declaration
     abstract VisitFuncDeclaration : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Body:Statement * Generics:list<TSType> -> unit
     override this.VisitFuncDeclaration (a, b, c, d, e) = this.VisitId a; List.iter this.VisitId b; Option.iter this.VisitId c; this.VisitStatement d; ()
-    /// 'while' loop
+    /// `while` loop
     abstract VisitWhile : Condition:Expression * Body:Statement -> unit
     override this.VisitWhile (a, b) = this.VisitExpression a; this.VisitStatement b
-    /// 'do..while' loop
+    /// `do ... while` loop
     abstract VisitDoWhile : Body:Statement * Condition:Expression -> unit
     override this.VisitDoWhile (a, b) = this.VisitStatement a; this.VisitExpression b
-    /// 'for' loop
+    /// `for` loop
     abstract VisitFor : Initializer:option<Expression> * Condition:option<Expression> * Step:option<Expression> * Body:Statement -> unit
     override this.VisitFor (a, b, c, d) = Option.iter this.VisitExpression a; Option.iter this.VisitExpression b; Option.iter this.VisitExpression c; this.VisitStatement d
-    /// JavaScript 'for .. in' loop
+    /// JavaScript `for ... in` loop
     abstract VisitForIn : Variable:Id * Object:Expression * Body:Statement -> unit
     override this.VisitForIn (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitStatement c
-    /// JavaScript 'switch' expression
+    /// JavaScript `switch` expression
     abstract VisitSwitch : Expression:Expression * Cases:list<option<Expression> * Statement> -> unit
     override this.VisitSwitch (a, b) = this.VisitExpression a; List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) b
-    /// 'if' statement
+    /// `if` statement
     abstract VisitIf : Condition:Expression * ThenStatement:Statement * ElseStatement:Statement -> unit
     override this.VisitIf (a, b, c) = this.VisitExpression a; this.VisitStatement b; this.VisitStatement c
-    /// 'throw' statement
+    /// F# `raise` or C#/JavaScript `throw` statement
     abstract VisitThrow : Expression:Expression -> unit
     override this.VisitThrow a = (this.VisitExpression a)
-    /// 'try..with' statement
+    /// `try ... with` statement
     abstract VisitTryWith : Body:Statement * Variable:option<Id> * CatchStatement:Statement -> unit
     override this.VisitTryWith (a, b, c) = this.VisitStatement a; Option.iter this.VisitId b; this.VisitStatement c
-    /// 'try..finally' statement
+    /// `try ... finally` statement
     abstract VisitTryFinally : Body:Statement * FinallyStatement:Statement -> unit
     override this.VisitTryFinally (a, b) = this.VisitStatement a; this.VisitStatement b
     /// Statement with a label
@@ -969,61 +969,61 @@ type Visitor() =
     /// Original source location for a statement
     abstract VisitStatementSourcePos : Range:SourcePos * Statement:Statement -> unit
     override this.VisitStatementSourcePos (a, b) = (); this.VisitStatement b
-    /// Temporary - C# 'goto' statement
+    /// Temporary - C# `goto` statement
     abstract VisitGoto : Label:Id -> unit
     override this.VisitGoto a = (this.VisitId a)
     /// Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos
     abstract VisitContinuation : Label:Id * Expression:Expression -> unit
     override this.VisitContinuation (a, b) = this.VisitId a; this.VisitExpression b
-    /// Temporary - C# 'yield return' statement
+    /// Temporary - C# `yield return` statement
     abstract VisitYield : Value:option<Expression> -> unit
     override this.VisitYield a = (Option.iter this.VisitExpression a)
-    /// Temporary - C# 'switch' statement
+    /// Temporary - C# `switch` statement
     abstract VisitCSharpSwitch : Expression:Expression * Cases:list<list<option<Expression>> * Statement> -> unit
     override this.VisitCSharpSwitch (a, b) = this.VisitExpression a; List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) b
-    /// Temporary - C# 'goto case' statement
+    /// Temporary - C# `goto case` statement
     abstract VisitGotoCase : CaseExpression:option<Expression> -> unit
     override this.VisitGotoCase a = (Option.iter this.VisitExpression a)
-    /// .NET - F# tail call position
+    /// F# tail call position
     abstract VisitDoNotReturn : unit -> unit
     override this.VisitDoNotReturn () = ()
-    /// JavaScript - import * as ... from ...
+    /// JavaScript `import * as ... from ...` statement
     abstract VisitImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> unit
     override this.VisitImport (a, b, c, d) = Option.iter this.VisitId a; Option.iter this.VisitId b; List.iter (fun (a, b) -> this.VisitId b) c; ()
-    /// JavaScript - export
+    /// JavaScript `export` statement
     abstract VisitExportDecl : IsDefault:bool * Statement:Statement -> unit
     override this.VisitExportDecl (a, b) = (); this.VisitStatement b
-    /// TypeScript - declare ...
+    /// TypeScript `declare ...` statement
     abstract VisitDeclare : Statement:Statement -> unit
     override this.VisitDeclare a = (this.VisitStatement a)
-    /// JavaScript - class { ... }
+    /// JavaScript `class { ... }` statement
     abstract VisitClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> * BaseGenerics:list<TSType> -> unit
     override this.VisitClass (a, b, c, d, e, f) = this.VisitId a; Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; (); ()
-    /// JavaScript - class method
+    /// JavaScript class method
     abstract VisitClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e, f) = (); (); List.iter this.VisitId c; Option.iter this.VisitId d; Option.iter this.VisitStatement e; ()
-    /// JavaScript - class method
+    /// JavaScript class constructor
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * ThisVar:option<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c, d) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitId b; Option.iter this.VisitStatement c; ()
-    /// JavaScript - class plain property
+    /// JavaScript class plain property
     abstract VisitClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression> -> unit
     override this.VisitClassProperty (a, b, c, d) = (); (); (); Option.iter this.VisitExpression d
-    /// JavaScript - class static block
+    /// JavaScript class static block
     abstract VisitClassStatic : Optional:Statement -> unit
     override this.VisitClassStatic a = (this.VisitStatement a)
-    /// TypeScript - interface { ... }
+    /// TypeScript `interface { ... }` declaration
     abstract VisitInterface : IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitInterface (a, b, c, d) = this.VisitId a; (); List.iter this.VisitStatement c; ()
-    /// TypeScript - type or import alias
+    /// TypeScript `type` or `import` alias
     abstract VisitAlias : Alias:Id * Generics:list<TSType> * OrigType:TSType -> unit
     override this.VisitAlias (a, b, c) = this.VisitId a; (); ()
-    /// TypeScript - triple-slash directive
+    /// TypeScript triple-slash directive
     abstract VisitXmlComment : Xml:string -> unit
     override this.VisitXmlComment a = (())
-    /// Temporary - class during packaging that might need Lazy wrapper
+    /// Temporary - class during packaging that might need `Lazy` wrapper
     abstract VisitLazyClass : WithoutLazy:Statement * WithLazy:Statement -> unit
     override this.VisitLazyClass (a, b) = this.VisitStatement a; this.VisitStatement b
-    /// Function signature
+    /// TypeScript function signature
     abstract VisitFuncSignature : FuncId:Id * Parameters:list<Id> * ThisVar:option<Id> * Generics:list<TSType> -> unit
     override this.VisitFuncSignature (a, b, c, d) = this.VisitId a; List.iter this.VisitId b; Option.iter this.VisitId c; ()
     abstract VisitExpression : Expression -> unit

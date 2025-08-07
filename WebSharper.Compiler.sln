@@ -57,8 +57,6 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp.Service",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.FSharp", "src\compiler\WebSharper.MSBuild.FSharp\WebSharper.MSBuild.FSharp.csproj", "{C433885A-0345-4045-BA8F-C42779C93972}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.DllBrowser", "src\compiler\WebSharper.DllBrowser\WebSharper.DllBrowser.csproj", "{E666B9F7-7307-4256-B243-6646388DE658}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -138,12 +136,6 @@ Global
 		{C433885A-0345-4045-BA8F-C42779C93972}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
 		{C433885A-0345-4045-BA8F-C42779C93972}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C433885A-0345-4045-BA8F-C42779C93972}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E666B9F7-7307-4256-B243-6646388DE658}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -162,7 +154,6 @@ Global
 		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{C433885A-0345-4045-BA8F-C42779C93972} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
-		{E666B9F7-7307-4256-B243-6646388DE658} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C545FE57-9605-4189-B026-940CF23071E1}

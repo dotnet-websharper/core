@@ -1094,6 +1094,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match comp.GetMacroInstance(macro) with
                 | Some m ->
                     try 
+                        let thisObj, args =
+                            if m.NeedsTranslatedArguments then
+                                Option.map this.TransformExpression thisObj, List.map this.TransformExpression args
+                            else thisObj, args
                         m.TranslateCall {
                             This = thisObj
                             DefiningType = typ

@@ -20,7 +20,6 @@ nuget Microsoft.Extensions.DependencyModel 2.0.0
 nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Html.Abstractions 2.0.0
 
-
 nuget System.Net.Http 4.3.0
 nuget FSharp.Core 6.0.0
 
@@ -41,7 +40,7 @@ group includes
     nuget FSharp.Core
 
 group fcs
-    framework: net8.0, netstandard2.0
+    framework: net8.0, net9.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget System.Runtime.Caching ~> 8.0.0
@@ -49,12 +48,8 @@ group fcs
     nuget NLog ~> 4.7.10
     nuget FSharp.Compiler.Service ~> 43.10.100-preview.25277.114
 
-group test
-    source https://api.nuget.org/v3/index.json
-    nuget Chutzpah ~> 4.4.11
-
 group nunit
-    framework: net8.0, net472
+    framework: net9.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2
@@ -65,7 +60,6 @@ group nunit
     nuget Microsoft.VisualStudio.Composition ~> 17.1.20
     nuget FSharp.Core
     nuget System.Runtime.Loader 4.3.0
-
 
 group giraffe
     framework: net9.0

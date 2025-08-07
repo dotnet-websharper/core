@@ -4,11 +4,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Name>wsfscservice</Name>
+    <AssemblyName>wsfscservice</AssemblyName>
     <FSharpTool>True</FSharpTool>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <AssemblyName>wsfscservice</AssemblyName>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
     <RollForward>LatestMajor</RollForward>
 	<ApplicationIcon>../../../tools/WebSharper.ico</ApplicationIcon>

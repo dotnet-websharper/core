@@ -33,6 +33,29 @@ type private TimeSpan     = System.TimeSpan
 let private d = DateTime(2010, 4, 8, 15, 5, 39)
 
 [<JavaScript>]
+let timeZoneOffsetSimple =
+    let offsetMins = Date().GetTimezoneOffset()
+    let offsetHours = -(int offsetMins) / 60;
+    let sign = if offsetHours >= 0 then "+" else "-"
+    sign + string (abs offsetHours)
+
+[<JavaScript>]
+let timeZoneOffsetPadded =
+    let offsetMins = Date().GetTimezoneOffset()
+    let offsetHours = -(int offsetMins) / 60;
+    let sign = if offsetHours >= 0 then "+" else "-"
+    sign + (string (abs offsetHours)).PadLeft(2, '0')
+
+[<JavaScript>]
+let timeZoneOffsetWithMinutes =
+    let offsetMins = Date().GetTimezoneOffset()
+    let totalMins = abs (int offsetMins)
+    let hours = (string (totalMins / 60)).PadLeft(2, '0')
+    let minutes = (string (totalMins % 60)).PadLeft(2, '0')
+    let sign = if offsetMins <= 0 then "+" else "-"
+    sign + hours + ":" + minutes
+
+[<JavaScript>]
 let Tests =
 
     TestCategory "DateTime" {
@@ -358,41 +381,31 @@ let Tests =
             equal (DateTime(2014, 7, 1, 1, 37, 0).ToString("r tt")) "r AM"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r tt")) "r PM"
 
-            // WS has a bug when year is below 100 
-            // See: https://github.com/dotnet-websharper/core/issues/1433
-            // equal (DateTime(1,1,1).ToString("r y")) "r 1"
+            equal (DateTime(1,1,1).ToString("r y")) "r 1"
             equal (DateTime(0900,1,1).ToString("r y")) "r 0"
             equal (DateTime(1900,1,1).ToString("r y")) "r 0"
             equal (DateTime(2009,1,1).ToString("r y")) "r 9"
             equal (DateTime(2019,1,1).ToString("r y")) "r 19"
 
-            // WS has a bug when year is below 100 
-            // See: https://github.com/dotnet-websharper/core/issues/1433
-            // equal (DateTime(1,1,1).ToString("r yy")) "r 01"
+            equal (DateTime(1,1,1).ToString("r yy")) "r 01"
             equal (DateTime(0900,1,1).ToString("r yy")) "r 00"
             equal (DateTime(1900,1,1).ToString("r yy")) "r 00"
             equal (DateTime(2009,1,1).ToString("r yy")) "r 09"
             equal (DateTime(2019,1,1).ToString("r yy")) "r 19"
 
-            // WS has a bug when year is below 100 
-            // See: https://github.com/dotnet-websharper/core/issues/1433
-            // equal (DateTime(1,1,1).ToString("r yyy")) "r 001"
+            equal (DateTime(1,1,1).ToString("r yyy")) "r 001"
             equal (DateTime(0900,1,1).ToString("r yyy")) "r 900"
             equal (DateTime(1900,1,1).ToString("r yyy")) "r 1900"
             equal (DateTime(2009,1,1).ToString("r yyy")) "r 2009"
             equal (DateTime(2019,1,1).ToString("r yyy")) "r 2019"
 
-            // WS has a bug when year is below 100 
-            // See: https://github.com/dotnet-websharper/core/issues/1433
-            // equal (DateTime(1,1,1).ToString("r yyyy")) "r 0001"
+            equal (DateTime(1,1,1).ToString("r yyyy")) "r 0001"
             equal (DateTime(0900,1,1).ToString("r yyyy")) "r 0900"
             equal (DateTime(1900,1,1).ToString("r yyyy")) "r 1900"
             equal (DateTime(2009,1,1).ToString("r yyyy")) "r 2009"
             equal (DateTime(2019,1,1).ToString("r yyyy")) "r 2019"
 
-            // WS has a bug when year is below 100 
-            // See: https://github.com/dotnet-websharper/core/issues/1433
-            // equal (DateTime(1,1,1).ToString("r yyyyy")) "r 00001"
+            equal (DateTime(1,1,1).ToString("r yyyyy")) "r 00001"
             equal (DateTime(0900,1,1).ToString("r yyyyy")) "r 00900"
             equal (DateTime(1900,1,1).ToString("r yyyyy")) "r 01900"
             equal (DateTime(2009,1,1).ToString("r yyyyy")) "r 02009"
@@ -400,18 +413,15 @@ let Tests =
         }
 
         Test "ToString with custom format works (Part #5)" {
-            // Timezone dependent (test is configured for Europe/Paris timezone)
-            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) "r +2"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) $"r {timeZoneOffsetSimple}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z")) "r +2"
  
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zz")) "r +00"
-            // // Timezone dependent (test is configured for Europe/Paris timezone)
-            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) "r +02"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) $"r {timeZoneOffsetPadded}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz")) "r +02"
 
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zzz")) "r +00:00"
-            // // Timezone dependent (test is configured for Europe/Paris timezone)
-            // equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) "r +02:00"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) $"r {timeZoneOffsetWithMinutes}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz")) "r +02:00"
 
             // Time separator
@@ -430,15 +440,15 @@ let Tests =
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r %hh")) "r 44"
 
             // Escape character
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \zz")) "r z+2"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\zz")) "r z+2"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\\zz")) "r \+02"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \zz")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\zz")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\\zz")) ($"r \{timeZoneOffsetPadded}")
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\z\\z")) "r zz"
 
             // Escape character with verbatim string
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \zz""")) "r z+2"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\zz""")) "r \+02"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\\zz""")) "r \z+2"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \zz""")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\zz""")) ($"r \{timeZoneOffsetPadded}")
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\\zz""")) ($"r \z{timeZoneOffsetSimple}")
         }
 
         Test "ToString with custom format works (Part #6)" {
@@ -461,13 +471,13 @@ let Tests =
 
             equal (DateTime(2014, 7, 1, 12, 0, 0).ToString("r hhh hhhhh")) "r 12 12"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r HHH HHHHHHHH")) "r 16 16"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r KK KKK")) "r +02:00+02:00 +02:00+02:00+02:00"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r KK KKK")) $"r {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r mmm mmmm")) "r 37 37"
             equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMMMM MMMMMMMMM")) "r December December"
             equal (DateTime(2014, 7, 1, 16, 37, 31).ToString("r sss ssssss")) "r 31 31"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r ttt ttttttt")) "r PM PM"
             equal (DateTime(2019,1,1).ToString("r yyyyyy yyyyyyyyyy")) "r 002019 0000002019"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz")) "r +02:00 +02:00"
+            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz")) $"r {timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}"
         }
 
         Test "DateTime.ToString without separator works" {
@@ -477,8 +487,8 @@ let Tests =
         Test "DateTime.ToString('O') works" {
             // On .NET the result is "2014-09-11T16:37:02.0000000+02:00"
             // but because of JavaScript date precission we remove some trailing zero
-            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("O")) "2014-09-11T16:37:02.000+02:00"
-            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("o")) "2014-09-11T16:37:02.000+02:00"
+            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("O")) ($"2014-09-11T16:37:02.000{timeZoneOffsetWithMinutes}")
+            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("o")) ($"2014-09-11T16:37:02.000{timeZoneOffsetWithMinutes}")
         }
 
         Test "DateTime.ToString('D') works" {
