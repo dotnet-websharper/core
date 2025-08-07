@@ -113,6 +113,10 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             let extraBundles = 
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            try
+                HandleExtraFiles None comp.AssemblyName config.ProjectFile config.OutputDir true
+            with e ->
+                PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -157,6 +161,15 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let js, currentMeta, rMeta, sources, res =
                 ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem refs (config.ProjectType = None) prebundle isSitelet
+
+            let extraFilesEmbedAssem =
+                match config.ProjectType with
+                | Some (Bundle | Website | Html) -> None
+                | _ -> Some assem
+            try
+                HandleExtraFiles extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+            with e ->
+                PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
 
             match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
             | None, Some true, Some outputDir ->

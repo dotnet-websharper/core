@@ -8,11 +8,11 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="extra.files" />
     <Compile Include="StubInterfaces.fs" />
     <Compile Include="Import.fs" />
     <Compile Include="Main.fs" />
-    <EmbeddedResource Include="sayHiNonModule.js" />
-    <EmbeddedResource Include="sayHi.js" />
+    <None Include="lib/sayHi*.js" />
     <None Include="paket.references" />
     <Content Include="wsconfig.json" />
   </ItemGroup>

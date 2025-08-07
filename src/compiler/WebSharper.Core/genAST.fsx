@@ -103,8 +103,8 @@ let ExprDefs =
             , "Contains a literal value"
         "Application", [ Expr, "func" ; List Expr, "arguments"; ApplicationInfo, "info" ]
             , "Function application with extra information. \
-               The `Purity` field should be true only when the function called has no side effects, so the side effects of \
-               the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
+               The `Purity` field should be `NoSideEffect` if the function call can be omitted if the result is not used, \
+               and `Pure` when the function is deterministic. \
                The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
                and does not use the `this` value."
         "Function", [ List Id, "parameters"; Option Id, "thisVar"; Option Type, "return"; Statement, "body" ]
@@ -114,13 +114,13 @@ let ExprDefs =
         "Sequential", [ List Expr, "expressions" ]
             , "Sequential evaluation of expressions, value is taken from the last"
         "NewTuple", [ List Expr, "items"; List Type, "tupleType" ]
-            , "Creating a new array"
+            , "Creating a new tuple in .NET, array expression in JavaScript"
         "Conditional", [ Expr, "condition"; Expr, "whenTrue"; Expr, "whenFalse" ]  
-            , "Conditional operation"
+            , "Conditional operator"
         "ItemGet", [ Expr, "object";  Expr, "item"; Purity, "pure" ]
-            , "Indexer get without side effects"
+            , "JavaScript object property get"
         "ItemSet", [ Expr, "object"; Expr, "item"; Expr, "value" ]
-            , "Indexer set"
+            , "JavaScript object property set"
         "Binary", [ Expr, "left"; Object "BinaryOperator", "operator"; Expr, "right" ]
             , "Binary operation"
         "MutatingBinary", [ Expr, "left"; Object "MutatingBinaryOperator", "operator"; Expr, "right" ]
@@ -134,11 +134,11 @@ let ExprDefs =
         //"FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
         //    , "Temporary - Method of F# object expressions"
         "JSThis", []
-            , "JavaScript - the this value"
+            , "JavaScript `this` value"
         "Base", []
             , "Refers to the base class from an instance method, `super` in JavaScript"
         "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
-            , ".NET - Method call"
+            , ".NET method call"
         "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , "Temporary - Partial application, workaround for FCS issue #414"
         "CurriedApplication", [ Expr, "func"; List (Bool * Expr), "arguments" ]
@@ -146,45 +146,45 @@ let ExprDefs =
         "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt" ]
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
-            , ".NET - Constructor call"
+            , ".NET constructor call"
         "ChainedCtor", [ Bool, "isBase"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
-            , ".NET - Chained or base constructor call"
+            , ".NET chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
-            , ".NET - Creating an object from a plain object"
+            , ".NET creating an object from a plain object, used for F# records/unions"
         "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field" ]
-            , ".NET - Field getter"
+            , ".NET field getter"
         "FieldSet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"; Expr, "value" ]
-            , ".NET - Field setter"
+            , ".NET field setter"
         "Let", [ Id, "identifier"; Expr, "value"; Expr, "body" ]
-            , ".NET - An immutable value definition used only in expression body"
+            , ".NET immutable value definition used only in expression body"
         "NewVar", [ Id, "variable"; Expr, "value" ]
-            , ".NET - An expression-level variable declaration"
+            , ".NET expression-level variable declaration"
         "Coalesce", [ Expr, "expression"; Type, "type"; Expr, "whenNull" ]
-            , ".NET - Null-coalescing"
+            , ".NET null-coalescing"
         "TypeCheck", [ Expr, "expression"; Type, "type" ]
-            , ".NET - Type check, returns bool"
+            , ".NET type check, returns bool"
         "Coerce", [ Expr, "expression"; Type, "fromType"; Type, "toType" ]
-            , ".NET - Type coercion"
+            , ".NET type coercion"
         "NewDelegate", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method" ]
-            , ".NET - Creates a new delegate"
+            , ".NET delegate construction"
         "StatementExpr", [ Statement, "statement"; Option Id, "result" ]
-            , ".NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement"
+            , ".NET statement inside an expression. Optional result should be an identifier for a variable which is not explicitly defined inside the statement"
         "LetRec", [ List (Id * Expr), "bindings"; Expr, "body" ]
-            , ".NET - F# let rec"
+            , "F# `let rec`"
         "NewRecord", [ TypeDefinition, "typeDefinition"; List Expr, "fields" ]
-            , ".NET - F# record constructor"
+            , "F# record constructor"
         "NewUnionCase", [ TypeDefinition, "typeDefinition"; Str, "unionCase"; List Expr, "fields" ]
-            , ".NET - F# union case constructor"
+            , "F# union case constructor"
         "UnionCaseTest", [ Expr, "expression"; TypeDefinition, "typeDefinition"; Str, "unionCase" ]
-            , ".NET - F# union case test"
+            , "F# union case test"
         "UnionCaseGet", [ Expr, "expression"; TypeDefinition, "typeDefinition"; Str, "unionCase"; Str, "field" ]
-            , ".NET - F# union case field getter"
+            , "F# union case field getter"
         "UnionCaseTag", [ Expr, "expression"; TypeDefinition, "typeDefinition" ]
-            , ".NET - F# union case tag getter"
+            , "F# union case tag getter"
         "MatchSuccess", [ Int, "index"; List Expr, "captures" ]
-            , ".NET - F# successful match" 
+            , "F# successful match" 
         "TraitCall", [ Option Expr, "thisObject"; List Type, "objectType"; Method, "method"; List Expr, "arguments" ]
-            , ".NET - Method call"
+            , "F# trait call (use of type member within functions with statically resolved type parameters)"
         "Await", [ Expr, "expression" ]
             , "Temporary - C# await expression"
         "NamedParameter", [ Int, "ordinal"; Expr, "expression" ]
@@ -202,15 +202,15 @@ let ExprDefs =
         "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
             , "A global or imported value setter"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
-            , "JavaScript 'new' call"
+            , "JavaScript `new` call"
         "Hole", [ Int, "index" ]
             , "Temporary - A hole in an expression for inlining"
         "Cast", [ TSType, "targetType"; Expr, "expression" ]
-            , "TypeScript - type cast <...>..."
+            , "TypeScript type cast `<...>...`"
         "ClassExpr", [ Option Id, "classId"; Option Expr, "baseClass"; List Statement, "members" ]
-            , "JavaScript - class { ... }"
+            , "JavaScript `class { ... }` expression"
         "ObjectExpr", [ Type, "objectType"; Option Expr, "constructor"; List (Tuple [NonGenericTypeDefinition; NonGenericMethod; Expr]), "overrides" ]
-            , ".NET - F# object expression"
+            , "F# object expression"
         "Verbatim", [ List Str, "stringParts"; List Expr, "holes"; Bool, "isJSX" ]
             , "JavaScript verbatim code"
     ]    
@@ -220,9 +220,9 @@ let StatementDefs =
         "Empty", []
             , "Empty statement"
         "Break", [ Option Id, "label" ]
-            , "JavaScript break statement"
+            , "break statement"
         "Continue", [ Option Id, "label" ]
-            , "JavaScript continue statement"
+            , "continue statement"
         "ExprStatement", [ Expr, "expression" ]
             , "Expression as statement"
         "Return", [ Expr, "value" ]
@@ -234,23 +234,23 @@ let StatementDefs =
         "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Option Id, "thisVar"; Statement, "body"; List TSType, "generics" ]
             , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
-            , "'while' loop"
+            , "`while` loop"
         "DoWhile", [ Statement, "body"; Expr, "condition" ]
-            , "'do..while' loop"
+            , "`do ... while` loop"
         "For", [ Option Expr, "initializer"; Option Expr, "condition"; Option Expr, "step"; Statement, "body" ]
-            , "'for' loop"
+            , "`for` loop"
         "ForIn", [ Id, "variable"; Expr, "object"; Statement, "body" ]
-            , "JavaScript 'for .. in' loop"
+            , "JavaScript `for ... in` loop"
         "Switch", [ Expr, "expression"; List (Option Expr * Statement), "cases" ]
-            , "JavaScript 'switch' expression"
+            , "JavaScript `switch` expression"
         "If", [ Expr, "condition"; Statement, "thenStatement"; Statement, "elseStatement" ]
-            , "'if' statement"
+            , "`if` statement"
         "Throw", [ Expr, "expression" ]
-            , "'throw' statement"
+            , "F# `raise` or C#/JavaScript `throw` statement"
         "TryWith", [ Statement, "body"; Option Id, "variable"; Statement, "catchStatement" ]
-            , "'try..with' statement"
+            , "`try ... with` statement"
         "TryFinally", [ Statement, "body"; Statement, "finallyStatement" ]
-            , "'try..finally' statement"
+            , "`try ... finally` statement"
         "Labeled", [ Id, "label"; Statement, "statement" ]
             , "Statement with a label"
         "StatementSourcePos", [ Object "SourcePos", "range"; Statement, "statement" ]
@@ -258,49 +258,49 @@ let StatementDefs =
 
         // C#
         "Goto", [ Id, "label" ]
-            , "Temporary - C# 'goto' statement"
+            , "Temporary - C# `goto` statement"
         "Continuation", [ Id, "label"; Expr, "expression" ]
             , "Temporary - go to next state in state-machine for iterators, async methods, or methods containing gotos"
         "Yield", [ Option Expr, "value" ]
-            , "Temporary - C# 'yield return' statement"
+            , "Temporary - C# `yield return` statement"
         "CSharpSwitch", [ Expr, "expression"; List (List (Option Expr) * Statement), "cases" ]
-            , "Temporary - C# 'switch' statement"
+            , "Temporary - C# `switch` statement"
         "GotoCase", [ Option Expr, "caseExpression" ]
-            , "Temporary - C# 'goto case' statement"
+            , "Temporary - C# `goto case` statement"
 
         // F#
         "DoNotReturn", []
-            , ".NET - F# tail call position"
+            , "F# tail call position"
 
         // JavaScript/TypeScript
         "Import", [ Option Id, "defaultImport"; Option Id, "fullImport"; List (Str * Id), "namedImports" ; Str, "moduleName" ]
-            , "JavaScript - import * as ... from ..."
+            , "JavaScript `import * as ... from ...` statement"
         "ExportDecl", [ Bool, "isDefault"; Statement, "statement" ]
-            , "JavaScript - export"
+            , "JavaScript `export` statement"
         "Declare", [ Statement, "statement" ]
-            , "TypeScript - declare ..."
+            , "TypeScript `declare ...` statement"
         "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics"; List TSType, "baseGenerics" ]
-            , "JavaScript - class { ... }"
+            , "JavaScript `class { ... }` statement"
         "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
-            , "JavaScript - class method"
+            , "JavaScript class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
-            , "JavaScript - class method"
+            , "JavaScript class constructor"
         "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Option Expr, "value" ]
-            , "JavaScript - class plain property"
+            , "JavaScript class plain property"
         "ClassStatic", [ Statement, "optional" ]
-            , "JavaScript - class static block"
+            , "JavaScript class static block"
         "Interface", [ Id, "intfId"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
-            , "TypeScript - interface { ... }"
+            , "TypeScript `interface { ... }` declaration"
         "Alias", [ Id, "alias"; List TSType, "generics"; TSType, "origType" ]
-            , "TypeScript - type or import alias"
+            , "TypeScript `type` or `import` alias"
         "XmlComment", [ Str, "xml" ]
-            , "TypeScript - triple-slash directive"
+            , "TypeScript triple-slash directive"
 
         // Packaging
         "LazyClass", [ Statement, "withoutLazy"; Statement, "withLazy" ]
-            , "Temporary - class during packaging that might need Lazy wrapper"
+            , "Temporary - class during packaging that might need `Lazy` wrapper"
         "FuncSignature", [ Id, "funcId"; List Id, "parameters"; Option Id, "thisVar"; List TSType, "generics" ]
-            , "Function signature"
+            , "TypeScript function signature"
     ]
 
 let binaryOps =
@@ -330,6 +330,133 @@ let binaryOps =
     ]
 
 let NL = System.Environment.NewLine
+
+let commonCases = 
+    [
+        "Undefined"
+        "Var"
+        "Value"
+        "Application"
+        "Function"
+        "VarSet"
+        "Sequential"
+        "NewTuple"
+        "Conditional"
+        "Binary"
+        "MutatingBinary"
+        "Unary"
+        "MutatingUnary"
+        "ExprSourcePos"
+        "Base"
+        "Empty"
+        "Break"
+        "Continue"
+        "ExprStatement"
+        "Return"
+        "Block"
+        "VarDeclaration"
+        "FuncDeclaration"
+        "While"
+        "DoWhile"
+        "For"
+        "If"
+        "Throw"
+        "TryWith"
+        "TryFinally"
+        "Labeled"
+        "StatementSourcePos"
+    ]
+let javaScriptCases = 
+    [
+        "ItemGet"
+        "ItemSet"
+        "JSThis"
+        "Object"
+        "GlobalAccess"
+        "SideeffectingImport"
+        "GlobalAccessSet"
+        "New"
+        "Cast"
+        "ClassExpr"
+        "Verbatim"
+        "ForIn"
+        "Switch"
+        "Import"
+        "ExportDecl"
+        "Declare"
+        "Class"
+        "ClassMethod"
+        "ClassConstructor"
+        "ClassProperty"
+        "ClassStatic"
+        "Interface"
+        "Alias"
+        "XmlComment"
+        "LazyClass"
+        "FuncSignature"
+    ]
+let dotNetCases = 
+    [
+        "Call"
+        "CallNeedingMoreArgs"
+        "CurriedApplication"
+        "OptimizedFSharpArg"
+        "Ctor"
+        "ChainedCtor"
+        "CopyCtor"
+        "FieldGet"
+        "FieldSet"
+        "Let"
+        "NewVar"
+        "Coalesce"
+        "TypeCheck"
+        "Coerce"
+        "NewDelegate"
+        "StatementExpr"
+        "LetRec"
+        "NewRecord"
+        "NewUnionCase"
+        "UnionCaseTest"
+        "UnionCaseGet"
+        "UnionCaseTag"
+        "MatchSuccess"
+        "TraitCall"
+        "Await"
+        "NamedParameter"
+        "RefOrOutParameter"
+        "ComplexElement"
+        "Hole"
+        "ObjectExpr"
+        "Goto"
+        "Continuation"
+        "Yield"
+        "CSharpSwitch"
+        "GotoCase"
+        "DoNotReturn"
+
+    ]
+
+let printSplit defs =
+    printfn ""
+    printfn "Shared cases:"
+    for name, _, comment in defs do
+        if commonCases |> List.contains name then
+            printfn $"  * `{name}`: {comment}"        
+    printfn "JavaScript-specific cases:"
+    for name, _, comment in defs do
+        if javaScriptCases |> List.contains name then
+            printfn $"  * `{name}`: {comment}"        
+    printfn ".NET-specific cases:"
+    for name, _, comment in defs do
+        if dotNetCases |> List.contains name then
+            printfn $"  * `{name}`: {comment}"        
+
+let printDocs() =
+    printfn "### Expression AST forms"
+    printSplit ExprDefs
+    printfn ""
+    printfn "### Statement AST forms"
+    printSplit StatementDefs
 
 let letters = [| "a"; "b"; "c"; "d"; "e"; "f" |]
 

@@ -18,11 +18,10 @@
 //
 // $end{copyright}
 
-/// Implements offline sitelet HTML generation.
-namespace WebSharper.Sitelets.Offline
+namespace WebSharper.Compiler
 
 [<AutoOpen>]
-module internal PathUtility =
+module PathUtility =
 
     [<Sealed>]
     type Path

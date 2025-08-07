@@ -24,8 +24,6 @@ open WebSharper
 open WebSharper.Testing
 
 [<assembly: JavaScript "WebSharper.Tests.Basis+TestOptionals">] // test for JavaScript "TypeName"
-[<assembly: WebResource("sayHiNonModule.js", "text/javascript")>]
-[<assembly: WebResource("sayHi.js", "text/javascript")>]
 do()
 
 [<JavaScript>]

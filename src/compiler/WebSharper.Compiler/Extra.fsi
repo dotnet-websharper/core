@@ -18,8 +18,15 @@
 //
 // $end{copyright}
 
-module internal WebSharper.Sitelets.Offline.Extra
+module WebSharper.Compiler.Extra
 
 /// Copies files specified in extra.files to the html directory of a mobile application
 /// takes in the directory in which extra.files is contained and the destination.
 val CopyFiles : dir: string -> dest: string -> unit
+
+/// Finds all files in a directory that match the given patterns.
+val FindAllFiles: dir: string -> paths: string list -> string list
+
+/// Copies files specified in extra.files to the output directory.
+/// Returns extra resources to be potentially embedded in the assembly.
+val ProcessFiles : dir: string -> plainDest: string option -> asmDest: string option -> string[]

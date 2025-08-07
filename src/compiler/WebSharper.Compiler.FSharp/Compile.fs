@@ -226,6 +226,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 let extraBundles =
                     aR.Wrap <| fun () ->
                         Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                try
+                    HandleExtraFiles None comp.AssemblyName config.ProjectFile config.OutputDir true
+                with e ->
+                    PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 let assem = loader.LoadFile config.AssemblyFile
@@ -273,6 +277,15 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 let js, currentMeta, rMeta, sources, res =
                     ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem refs isLibrary prebundle isSitelet
                 
+                let extraFilesEmbedAssem =
+                    match config.ProjectType with
+                    | Some (Bundle | Website | Html) -> None
+                    | _ -> Some assem
+                try
+                    HandleExtraFiles extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                with e ->
+                    PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+
                 match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
                 | None, Some true, Some outputDir ->
                     UnpackLibraryCode logger (Some comp) (getRefMeta()) currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir

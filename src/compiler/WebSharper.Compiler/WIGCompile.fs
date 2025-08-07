@@ -1388,6 +1388,8 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
     member a.FileName =
         def.Name.Name + ".dll"
 
+    member a.Assembly = WebSharper.Compiler.Assembly.Create(def)
+
     member a.SetAssemblyAttributes(orig: Assembly) =
         let attrTypes =
             HashSet [|

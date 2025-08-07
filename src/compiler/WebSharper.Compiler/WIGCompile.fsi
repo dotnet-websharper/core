@@ -54,6 +54,7 @@ type CompiledAssembly =
     member Save : path: string -> unit
     member Write : Stream -> unit
     member FileName : string
+    member Assembly : WebSharper.Compiler.Assembly
 
 [<Sealed>]
 type Compiler =

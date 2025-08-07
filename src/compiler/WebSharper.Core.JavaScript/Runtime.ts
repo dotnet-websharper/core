@@ -17,7 +17,7 @@ export function Lazy<I, C>(factory: (setter : (I) => I) => C) : C {
     }
     return instance;
   }
-  let res = new Proxy(Function(), {
+  let res = new Proxy(function () { }, {
     get(_, key) {
       if (key == forceSymbol) {
         getInstance();

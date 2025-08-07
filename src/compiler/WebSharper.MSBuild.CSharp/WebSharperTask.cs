@@ -138,6 +138,9 @@ namespace WebSharper.MSBuild.CSharp
                 foreach (var r in References)
                     WriteIfSet(w, "/reference:", r);
 
+                foreach (var r in EmbeddedResources)
+                    WriteIfSet(w, "/resource:", r);
+
                 foreach (var s in Sources)
                     WriteIfSet(w, "", s);
             }

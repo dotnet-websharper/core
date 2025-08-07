@@ -26,6 +26,7 @@ open System
 /// Mime type application/javascript or text/javascript will be unpacked to Scripts folder,
 /// otherwise into Contents folder.
 [<Sealed; AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)>]
+[<Obsolete("Use an extra.files file instead to define your copied/embedded files.")>]
 type WebResourceAttribute(filename: string, mime: string) =
     inherit Attribute()
 
