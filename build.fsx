@@ -240,7 +240,7 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
 
 Target.create "RunSPATestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
-        Trace.log "Chutzpah testing for SPA skipped"
+        Trace.log "QUnit Puppeteer testing for SPA skipped"
     else
     // TODO resolve cross site issues for automatic testing
     ()
@@ -255,7 +255,7 @@ Target.create "RunSPATestsRelease" <| fun _ ->
 
 Target.create "RunMainTestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
-        Trace.log "Chutzpah testing skipped"
+        Trace.log "QUnit Puppeteer testing skipped"
     else
 
     Trace.log "Starting Web test project"
@@ -285,40 +285,11 @@ Target.create "RunMainTestsRelease" <| fun _ ->
             failwith "Starting Web test project failed."    
     )
 
-    //use chromeProc = new Process()
-    //if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
-    //    chromeProc.StartInfo.FileName <- "C:/Program Files/Google/Chrome/Application/chrome.exe"
-    //else
-    //    chromeProc.StartInfo.FileName <- "google-chrome"
-    //chromeProc.StartInfo.Arguments <- "--headless --disable-gpu --no-sandbox --remote-debugging-port=9222"
-    //chromeProc.StartInfo.UseShellExecute <- false
-
-    //chromeProc.Start()
-
-    webTestsProc.Start()
+    webTestsProc.Start() |> ignore
     webTestsProc.BeginOutputReadLine()
-    started.WaitOne()
+    started.WaitOne() |> ignore
     
-    Thread.Sleep(5000)
-
-    //use npxProcess = new Process()
-    //npxProcess.StartInfo.FileName <- "npx"
-    //npxProcess.StartInfo.Arguments <- "node-qunit-puppeteer https://localhost:44336/consoletests 300000 --ignore-certificate-errors"
-    //npxProcess.Start()
-    //npxProcess.WaitForExit()
-    //let res = npxProcess.ExitCode
-
-    let npx =
-        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
-            @"C:\Program Files\nodejs\npx.cmd"
-        else
-            "npx"
-
-    //let res =
-    //    Shell.Exec(
-    //        npx, 
-    //        "node-qunit-puppeteer https://localhost:44336/consoletests 300000 \"--ignore-certificate-errors --no-sandbox --headless=false\""
-    //    )
+    Thread.Sleep(1000)
 
     Npm.install id
 
@@ -329,18 +300,14 @@ Target.create "RunMainTestsRelease" <| fun _ ->
             "node"
 
     let res =
-        Shell.Exec(
-            node, 
-            "runtests.js"
-        )
+        Shell.Exec(node, "runtests.js")
 
     webTestsProc.Kill()
-    //chromeProc.Kill()
     if res <> 0 then
-        failwith "Chutzpah test run failed"
+        failwith "QUnit Puppeteer test run failed"
 
 "WS-BuildRelease"
-    ?=> "RunSPATestsRelease"
+//    ?=> "RunSPATestsRelease"
     ==> "RunMainTestsRelease"
     ?=> "WS-Package"
 

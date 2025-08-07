@@ -1,10 +1,10 @@
 const { runQunitPuppeteer, printOutput } = require('node-qunit-puppeteer');
 
 const args = {
-  targetUrl: 'https://localhost:44336/consoletests',  // Replace with your test page URL
-  timeout: 300000,  // Optional: Adjust as needed
+  targetUrl: 'https://localhost:44336/tests',  // Replace with your test page URL
+  timeout: 120000,  // Optional: Adjust as needed
   redirectConsole: true,  // Enable browser console redirection
-  puppeteerArgs: ['--ignore-certificate-errors', '--no-sandbox', '--no-headless']  // Optional: Add any Puppeteer flags
+  puppeteerArgs: ['--ignore-certificate-errors', '--no-sandbox']  // Optional: Add any Puppeteer flags
 };
 
 runQunitPuppeteer(args)

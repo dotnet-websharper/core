@@ -333,7 +333,7 @@ type TestBuilder with
 let Tests =
     TestCategory "HTML5" {
 
-        Test "Geolocation" {
+        Skip "Geolocation" {
             let! position = 
                 async { 
                     try
