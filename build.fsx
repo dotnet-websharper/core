@@ -254,7 +254,7 @@ Target.create "RunSPATestsRelease" <| fun _ ->
     //    failwith "Chutzpah test run failed for SPA tests"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
-    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false || not <| System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "Chutzpah testing skipped"
     else
 
@@ -262,10 +262,13 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let mutable startedOk = false
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
+    let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net9.0/Web.dll"
+    let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
+
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net9.0\Web.exe"
-    webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
-    webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
+    webTestsProc.StartInfo.FileName <- "dotnet"
+    webTestsProc.StartInfo.Arguments <- $"exec \"{webDll}\" --server.urls https://localhost:44336"
+    webTestsProc.StartInfo.WorkingDirectory <- webDir
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
     
@@ -282,17 +285,57 @@ Target.create "RunMainTestsRelease" <| fun _ ->
             failwith "Starting Web test project failed."    
     )
 
+    //use chromeProc = new Process()
+    //if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+    //    chromeProc.StartInfo.FileName <- "C:/Program Files/Google/Chrome/Application/chrome.exe"
+    //else
+    //    chromeProc.StartInfo.FileName <- "google-chrome"
+    //chromeProc.StartInfo.Arguments <- "--headless --disable-gpu --no-sandbox --remote-debugging-port=9222"
+    //chromeProc.StartInfo.UseShellExecute <- false
+
+    //chromeProc.Start()
+
     webTestsProc.Start()
     webTestsProc.BeginOutputReadLine()
     started.WaitOne()
+    
     Thread.Sleep(5000)
+
+    //use npxProcess = new Process()
+    //npxProcess.StartInfo.FileName <- "npx"
+    //npxProcess.StartInfo.Arguments <- "node-qunit-puppeteer https://localhost:44336/consoletests 300000 --ignore-certificate-errors"
+    //npxProcess.Start()
+    //npxProcess.WaitForExit()
+    //let res = npxProcess.ExitCode
+
+    let npx =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+            @"C:\Program Files\nodejs\npx.cmd"
+        else
+            "npx"
+
+    //let res =
+    //    Shell.Exec(
+    //        npx, 
+    //        "node-qunit-puppeteer https://localhost:44336/consoletests 300000 \"--ignore-certificate-errors --no-sandbox --headless=false\""
+    //    )
+
+    Npm.install id
+
+    let node =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+            @"C:\Program Files\nodejs\node.exe"
+        else
+            "node"
 
     let res =
         Shell.Exec(
-            "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "https://localhost:44336/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
+            node, 
+            "runtests.js"
         )
+
     webTestsProc.Kill()
+    //chromeProc.Kill()
     if res <> 0 then
         failwith "Chutzpah test run failed"
 
