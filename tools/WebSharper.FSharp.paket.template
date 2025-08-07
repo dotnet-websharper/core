@@ -70,7 +70,7 @@ files
 
     ../build/Release/FSharp/net8.0/deploy/*.dll ==> tools/net8.0
     ../build/Release/FSharp/net8.0/deploy/**/*.dll ==> tools/net8.0
-    ../build/Release/FSharp/net8.0/deploy/wsfsc.exe ==> tools/net8.0
+    ../build/Release/FSharp/net8.0/deploy/wsfsc.cmd ==> tools/net8.0
     ../build/Release/FSharp/net8.0/deploy/wsfsc.dll.config ==> tools/net8.0
     ../build/Release/FSharp/net8.0/deploy/wsfsc.sh ==> tools/net8.0
     ../build/Release/FSharp/net8.0/deploy/wsfsc.runtimeconfig.json ==> tools/net8.0
