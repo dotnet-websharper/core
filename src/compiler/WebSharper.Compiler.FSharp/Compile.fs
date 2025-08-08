@@ -85,40 +85,54 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         [| f |]
                     else
                         let ext = (Path.GetExtension f).TrimStart('.')
-                        // search for generator method in references
+                        // search for generator type in references
                         let generator =
                             match generators.TryGetValue ext with
                             | true, g -> g
                             | _ ->
-                                let g =
+                                let genInfo =
                                     config.References |> Array.tryPick (fun r ->
                                         let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(r)
-                                        if asm.CustomAttributes |> Seq.exists (fun a -> a.AttributeType.FullName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.ConstructorArguments[0].Value = ext) then
-                                            let genFunc =
-                                                asm.MainModule.Types
-                                                |> Seq.tryPick (fun t ->
-                                                    t.Methods |> Seq.tryFind (fun m -> m.Name = "GEN" && m.IsStatic && m.Parameters.Count = 1 && m.Parameters.[0].ParameterType.FullName = "System.String")
-                                                )
-                                                |> Option.map (fun m -> asm.FullName, m)
-                                            if Option.isNone genFunc then
-                                                PrintGlobalError logger (sprintf "No generator method found for extension %s in assembly %s" ext r)
-                                            genFunc
-                                        else
-                                            None
+                                        
+                                        asm.CustomAttributes |> Seq.tryPick (fun a -> 
+                                            if a.AttributeType.FullName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.ConstructorArguments[0].Value = ext then
+                                                Some (asm.FullName, a.ConstructorArguments[1].Value :?> Mono.Cecil.TypeReference)
+                                            else
+                                                None
+                                        )                                        
                                     )
-                                if Option.isNone g then
-                                    PrintGlobalError logger (sprintf "No generator found for extension %s" ext)
+                                if Option.isNone genInfo then
+                                    PrintGlobalError logger (sprintf "No generator found for extension '%s', needs an assembly-level FSharpSourceGenerator attribute" ext)
+                                let g =
+                                    match genInfo with 
+                                    | Some (asmName, gen) ->
+                                        // load generator type with Reflection
+                                        let genInstance = 
+                                            let fqn = gen.FullName.Replace('/', '+') + ", " + asmName
+                                            try
+                                                let genType = 
+                                                    Type.GetType(fqn, true)
+                                                Some (Activator.CreateInstance(genType))
+                                            with _ -> 
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s'" ext fqn)
+                                                None
+                                        match genInstance with
+                                        | Some (:? WebSharper.ISourceGenerator as ig) -> Some ig
+                                        | Some _ ->
+                                            PrintGlobalError logger (sprintf "Generator type for extension '%s' must implement WebSharper.ISourceGenerator" ext)
+                                            None
+                                        | None -> None
+                                    | None -> None
                                 generators[ext] <- g
                                 g
                         match generator with
-                        | Some (asmName, gen) ->
+                        | Some gen ->
                             let fullPath = Path.Combine(config.ProjectDir, f)
-                            // load generator method with Reflection
-                            let genFunc = 
-                                let fqn = gen.DeclaringType.FullName + ", " + asmName
-                                System.Type.GetType(fqn, true).GetMethod("GEN", [| typeof<string> |])
-                            let res = genFunc.Invoke(null, [| fullPath |]) :?> string[]
-                            res
+                            try
+                                gen.Generate fullPath
+                            with e ->
+                                PrintGlobalError logger (sprintf "Error while generating F# source from input file '%s': %s at %s" f e.Message e.StackTrace)
+                                [||]
                         | None ->
                             [||]
                 

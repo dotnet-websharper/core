@@ -401,5 +401,5 @@ type WildcardAttribute() =
 
 /// Marks the assembly as containing a GEN function for a given file extension.
 [<Sealed; U(T.Assembly)>]
-type FSharpSourceGeneratorAttribute(ext: string) =
+type FSharpSourceGeneratorAttribute(fileExtension: string, generatorType: Type) =
     inherit A()
