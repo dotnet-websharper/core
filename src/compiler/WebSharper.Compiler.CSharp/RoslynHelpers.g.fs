@@ -818,7 +818,7 @@ and EqualsValueClauseData(node: EqualsValueClauseSyntax) =
 and ParameterData(node: ParameterSyntax) =
     member this.Node = node
     member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
-    member this.Identifier = node.Identifier |> ParameterIdentifier.FromToken
+    member this.Identifier = node.Identifier |> optionalToken |> Option.map ParameterIdentifier.FromToken
     member this.Default = node.Default |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
     static member FromNode(n: ParameterSyntax) = ParameterData(n)
 
@@ -2241,11 +2241,19 @@ and RecordDeclarationData(node: RecordDeclarationSyntax) =
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
     static member FromNode(n: RecordDeclarationSyntax) = RecordDeclarationData(n)
 
+and ExtensionDeclarationData(node: ExtensionDeclarationSyntax) =
+    member this.Node = node
+    member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
+    member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
+    member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
+    static member FromNode(n: ExtensionDeclarationSyntax) = ExtensionDeclarationData(n)
+
 and [<RequireQualifiedAccess>] TypeDeclarationData =
     | ClassDeclaration     of ClassDeclarationData
     | StructDeclaration    of StructDeclarationData
     | InterfaceDeclaration of InterfaceDeclarationData
     | RecordDeclaration    of RecordDeclarationData
+    | ExtensionDeclaration of ExtensionDeclarationData
 with
     static member FromNode(n: TypeDeclarationSyntax) =
         match n with
@@ -2253,6 +2261,7 @@ with
         | :? StructDeclarationSyntax as d -> StructDeclaration (StructDeclarationData.FromNode(d))
         | :? InterfaceDeclarationSyntax as d -> InterfaceDeclaration (InterfaceDeclarationData.FromNode(d))
         | :? RecordDeclarationSyntax as d -> RecordDeclaration (RecordDeclarationData.FromNode(d))
+        | :? ExtensionDeclarationSyntax as d -> ExtensionDeclaration (ExtensionDeclarationData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of TypeDeclarationSyntax"
     member this.Node =
         match this with
@@ -2260,6 +2269,7 @@ with
         | StructDeclaration d -> d.Node :> TypeDeclarationSyntax
         | InterfaceDeclaration d -> d.Node :> TypeDeclarationSyntax
         | RecordDeclaration d -> d.Node :> TypeDeclarationSyntax
+        | ExtensionDeclaration d -> d.Node :> TypeDeclarationSyntax
 
 and EnumMemberDeclarationData(node: EnumMemberDeclarationSyntax) =
     member this.Node = node

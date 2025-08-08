@@ -285,6 +285,11 @@ type IValue<'T> =
     abstract member Value : 'T with get
 
 [<JavaScript>]
+type OptionalValueArg([<Struct>] ?a) =
+    let b = defaultValueArg a 2
+    member _.B = b
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 
@@ -803,5 +808,30 @@ let Tests =
             equal false (System.Convert.ToBoolean("false"))
             equal false (System.Convert.ToBoolean(0))
             equal false (System.Convert.ToBoolean(0.))
+        }
+
+        Test "Optional ValueOption argument" {
+            let o = OptionalValueArg()
+            equal o.B 2
+            let o1 = OptionalValueArg(1)
+            equal o1.B 1
+        }
+
+        Test "Allow _ in use! bindings" {
+            let x = ref 0
+            let getDisposable() =
+                async.Return { 
+                    new System.IDisposable with
+                        member this.Dispose() = 
+                            incr x
+                }
+            let a : Async<int> =
+                async {
+                    use! _ = getDisposable()
+                    return x.Value
+                }
+            let! res: int = a
+            equal res 0
+            equal x.Value 1
         }
     }

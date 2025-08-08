@@ -1618,17 +1618,21 @@ type RoslynTransformer(env: Environment) =
                 elif symbol.IsParams then
                     Some (NewArray [])
                 else None
-        match x.Identifier with
-        | ParameterIdentifier.IdentifierToken t -> 
-            let id = Id.New(t, opt = Option.isSome defValue)
-            {
-                ParameterId = id
-                Symbol = symbol
-                DefaultValue = defValue
-                Type = typ
-                RefOrOut = symbol.RefKind <> RefKind.None
-            }
-        | ParameterIdentifier.ArgListKeyword -> NotSupported "__arglist"
+        let id =
+            match x.Identifier with
+            | Some (ParameterIdentifier.IdentifierToken t) -> 
+                Id.New(t, opt = Option.isSome defValue)
+            | None ->
+                Id.New(opt = Option.isSome defValue)
+            | Some ParameterIdentifier.ArgListKeyword -> 
+                NotSupported "__arglist"
+        {
+            ParameterId = id
+            Symbol = symbol
+            DefaultValue = defValue
+            Type = typ
+            RefOrOut = symbol.RefKind <> RefKind.None
+        }
 
     member this.TransformBaseList (x: BaseListData) : _ =
         let types = x.Types |> Seq.map this.TransformBaseType |> List.ofSeq

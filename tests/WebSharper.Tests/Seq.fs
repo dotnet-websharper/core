@@ -142,8 +142,8 @@ let Tests =
         }
 
         Test "Seq.compareWith" {
-            let s1 = seq { 1 .. 10 }
-            let s2 = seq { 1 .. 10 }
+            let s1 = seq (seq { 1 .. 10 })
+            let s2 = seq (seq { 1 .. 10 })
             equal (Seq.compareWith compare s2 s1) 0
             equal (Seq.compareWith compare Seq.empty<int> Seq.empty<int>) 0
             equal (Seq.compareWith compare [1] []) 1
@@ -221,7 +221,7 @@ let Tests =
         }
 
         Test "Seq.filter" {
-            let xs = seq { 1 .. 10 }
+            let xs = seq (seq { 1 .. 10 })
             let ffalse (x : int) = false
             let ftrue (x : int) = true
             let f x = x <= 5
@@ -250,7 +250,7 @@ let Tests =
 
         Test "Seq.fold" {
             equal (Seq.fold (+) 0 <| seq { 1 .. 5 }) 15
-            let s = Seq.init 10 (fun n -> seq { 1 .. 2 })
+            let s = Seq.init 10 (fun n -> seq (seq { 1 .. 2 }))
             equal (Seq.fold (fun x y -> x + Seq.length y) 0 <| s) 20
             property (fun x -> Do {
                 let a = Array.fold (+) 0 x
@@ -349,20 +349,20 @@ let Tests =
         }
 
         Test "Seq.map" {
-            let oneToTen = seq { 1 .. 10 }
+            let oneToTen = seq (seq { 1 .. 10 })
             let s = Seq.map (fun x -> x % 2) oneToTen
             equal (Seq.toArray s) [| 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; |]
         }
 
         Test "Seq.map2" {
-            let oneToTen = seq { 1 .. 10 }
+            let oneToTen = seq (seq { 1 .. 10 })
             let tenToTwentytwo = seq { 10 .. 22 }
             let s = Seq.map2 (fun x y -> x % 2) oneToTen tenToTwentytwo
             equal (Seq.toArray s) [| 1; 0; 1; 0; 1; 0; 1; 0; 1; 0; |]
         }
 
         Test "Seq.mapi" {
-            let oneToTen = seq { 1 .. 10 }
+            let oneToTen = seq (seq { 1 .. 10 })
             let s = Seq.mapi (fun x y -> x % 2) oneToTen
             equal (Seq.toArray s) [| 0; 1; 0; 1; 0; 1; 0; 1; 0; 1; |]
         }
@@ -439,7 +439,7 @@ let Tests =
         }
 
         Test "Seq.skip" {
-            let s = seq { 1 .. 10 }
+            let s = seq (seq { 1 .. 10 })
             equal (Seq.toArray (Seq.skip 5 s)) [| 6; 7; 8; 9; 10 |]
         }
 
@@ -484,7 +484,7 @@ let Tests =
         }
 
         Test "Seq.take" {
-            let s = seq { 1 .. 10 }
+            let s = seq (seq { 1 .. 10 })
             equal (Seq.toArray (Seq.take 0 s)) [||]
             equal (Seq.toArray (Seq.take 5 s)) [| 1; 2; 3; 4; 5 |]
             equal (Seq.toArray (Seq.take 10 s)) [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
@@ -625,17 +625,17 @@ let Tests =
         }       
 
         Test "Seq.contains" {
-            isTrue (Seq.contains 0 { 0 .. 4 })
-            isFalse (Seq.contains 5 { 0 .. 4 })
+            isTrue (Seq.contains 0 (seq { 0 .. 4 }))
+            isFalse (Seq.contains 5 (seq { 0 .. 4 }))
         }
 
         Test "Seq.chunkBySize" {
-            equal (Seq.chunkBySize 4 { 1 .. 8 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
-            equal (Seq.chunkBySize 4 { 1 .. 10 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
-            raises (Seq.chunkBySize 0 { 1 .. 2 })
+            equal (Seq.chunkBySize 4 (seq { 1 .. 8 }) |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
+            equal (Seq.chunkBySize 4 (seq { 1 .. 10 }) |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
+            raises (Seq.chunkBySize 0 (seq { 1 .. 2 }))
 
             let s = seq { 
-                yield! { 1 .. 2 }
+                yield! (seq { 1 .. 2 })
                 yield 3
             }
             equal (Seq.chunkBySize 10 s |> Array.ofSeq) [| [| 1 .. 3 |] |] 
@@ -665,16 +665,16 @@ let Tests =
 
         Test "Seq.findBack" {
             raises (Seq.findBack (fun _ -> true) Seq.empty)
-            equal (Seq.findBack (fun x -> x % 5 = 0) { 1 .. 10 }) 10
+            equal (Seq.findBack (fun x -> x % 5 = 0) (seq { 1 .. 10 })) 10
         }
 
         Test "Seq.findIndexBack" {
             raises (Seq.findIndexBack (fun _ -> true) Seq.empty)
-            equal (Seq.findIndexBack (fun x -> x % 5 = 0) { 1 .. 10 }) 9
+            equal (Seq.findIndexBack (fun x -> x % 5 = 0) (seq { 1 .. 10 })) 9
         }
 
         Test "Seq.indexed" {
-            equal (Seq.indexed { 1 .. 4 } |> Array.ofSeq) [| 0, 1; 1, 2; 2, 3; 3, 4 |]
+            equal (Seq.indexed (seq { 1 .. 4 }) |> Array.ofSeq) [| 0, 1; 1, 2; 2, 3; 3, 4 |]
             equal (Seq.indexed Seq.empty |> Array.ofSeq) [||]
         }
 
@@ -683,19 +683,19 @@ let Tests =
         }
 
         Test "Seq.mapFold" {
-            let m, f = Seq.mapFold (fun s x -> (x + 1, s + x)) 0 { 0 .. 4 }
+            let m, f = Seq.mapFold (fun s x -> (x + 1, s + x)) 0 (seq { 0 .. 4 })
             equal (Array.ofSeq m) [| 1 .. 5 |]
             equal f 10
         }
 
         Test "Seq.mapFoldBack" {
-            let m, f = Seq.mapFoldBack (fun s x -> (x + 1, s + x)) { 0 .. 4 } 0 
+            let m, f = Seq.mapFoldBack (fun s x -> (x + 1, s + x)) (seq { 0 .. 4 }) 0 
             equal (Array.ofSeq m) [|11; 10; 8; 5; 1|]
             equal f 10
         }
 
         Test "Seq.sortDescending" {
-            equal (Seq.sortDescending { 0 .. 4 } |> Array.ofSeq) [| 4 .. -1 .. 0  |]
+            equal (Seq.sortDescending (seq { 0 .. 4 }) |> Array.ofSeq) [| 4 .. -1 .. 0  |]
         }
 
         Test "Seq.sortByDescending" {
@@ -704,12 +704,12 @@ let Tests =
 
         Test "Seq.tryFindBack" {
             equal (Seq.tryFindBack (fun _ -> true) Seq.empty) None
-            equal (Seq.tryFindBack (fun x -> x % 5 = 0) { 1 .. 10 }) (Some 10)
+            equal (Seq.tryFindBack (fun x -> x % 5 = 0) (seq { 1 .. 10 })) (Some 10)
         }
 
         Test "Seq.tryFindIndexBack" {
             equal (Seq.tryFindIndexBack (fun _ -> true) Seq.empty) None
-            equal (Seq.tryFindIndexBack (fun x -> x % 5 = 0) { 1 .. 10 }) (Some 9)
+            equal (Seq.tryFindIndexBack (fun x -> x % 5 = 0) (seq { 1 .. 10 })) (Some 9)
         }
 
         Test "Seq.tryHead" {
@@ -734,14 +734,14 @@ let Tests =
         }
 
         Test "Seq.where" {
-            equal (Seq.where (fun x -> x % 2 = 0) { 0 .. 4 } |> Array.ofSeq) [| 0; 2; 4 |]
+            equal (Seq.where (fun x -> x % 2 = 0) (seq { 0 .. 4 }) |> Array.ofSeq) [| 0; 2; 4 |]
             equal (Seq.where (fun _ -> true) Seq.empty |> Array.ofSeq) [||]
         }
 
         Test "Seq.map3" {
             equal (Seq.map3 id Seq.empty Seq.empty Seq.empty |> Array.ofSeq) [||]
-            equal (Seq.map3 (fun a b c -> ()) [ 0; 1 ] { 0 .. 2 } { 0 .. 2 } |> Array.ofSeq) [| (); () |]
-            equal (Seq.map3 (fun x y z -> x + y + z) { 0 .. 1 } { 2 .. 3 } { 4 .. 5 } |> Array.ofSeq) [| 6; 9 |]
+            equal (Seq.map3 (fun a b c -> ()) [ 0; 1 ] (seq { 0 .. 2 }) (seq { 0 .. 2 }) |> Array.ofSeq) [| (); () |]
+            equal (Seq.map3 (fun x y z -> x + y + z) (seq { 0 .. 1 }) (seq { 2 .. 3 }) (seq { 4 .. 5 }) |> Array.ofSeq) [| 6; 9 |]
         }
 
         Test "Seq.replicate" {
@@ -783,19 +783,19 @@ let Tests =
         }
 
         Test "Seq.permute" {
-            equal (Seq.permute (fun x -> (x + 1) % 4) (seq { 1 .. 4 }) |> Array.ofSeq) [| 4; 1; 2; 3 |]
+            equal (Seq.permute (fun x -> (x + 1) % 4) (seq (seq { 1 .. 4 })) |> Array.ofSeq) [| 4; 1; 2; 3 |]
         }
 
         Test "Seq.reduceBack" {
-            equal (Seq.reduceBack (-) (seq { 1 .. 4 })) (1 - (2 - (3 - 4)))
+            equal (Seq.reduceBack (-) (seq (seq { 1 .. 4 }))) (1 - (2 - (3 - 4)))
         }
 
         Test "Seq.rev" {
-            equal (Seq.rev (seq { 0 .. 4 }) |> Array.ofSeq) [| 4 .. -1 .. 0 |]
+            equal (Seq.rev (seq (seq { 0 .. 4 })) |> Array.ofSeq) [| 4 .. -1 .. 0 |]
         }
 
         Test "Seq.scanBack" {
-            equal (Seq.scanBack (+) { 1 .. 10 } 9 |> Array.ofSeq) [| 64; 63; 61; 58; 54; 49; 43; 36; 28; 19; 9 |]
+            equal (Seq.scanBack (+) (seq { 1 .. 10 }) 9 |> Array.ofSeq) [| 64; 63; 61; 58; 54; 49; 43; 36; 28; 19; 9 |]
         }
 
         Test "Seq.sortWith" {
@@ -867,7 +867,7 @@ let Tests =
         }
 
         Test "Random functions" {
-            let s = seq { 1 .. 10 }
+            let s = seq (seq { 1 .. 10 })
             let r = System.Random()
             let rc = Seq.randomChoice s
             isTrue (rc >= 1 && rc <= 10)

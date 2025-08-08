@@ -7,7 +7,7 @@ strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 4.12.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 4.14.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Configuration.ConfigurationManager 4.7.0
@@ -46,7 +46,8 @@ group fcs
     nuget System.Runtime.Caching ~> 8.0.0
     nuget System.Configuration.ConfigurationManager ~> 8.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service ~> 43.10.100-preview.25277.114
+    nuget FSharp.Core == 10.0.100-beta.25358.103
+    nuget FSharp.Compiler.Service == 43.10.100-preview.25358.103
 
 group nunit
     framework: net9.0, net472
