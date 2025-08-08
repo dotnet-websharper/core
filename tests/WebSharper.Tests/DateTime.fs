@@ -523,7 +523,7 @@ let NativeTests =
 
         Test "Equality" {
             let a = DateTime.Now.JS
-            let b = DateTime.Now.JS
+            let b = Date(a.GetTime())
             equal a b
             let c = DateTime.Now.AddDays(1.).JS
             notEqual a c
