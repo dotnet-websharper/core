@@ -45,7 +45,7 @@ let baseVersion =
 let computedVersion = ComputeVersion (Some baseVersion)
 
 let publish rids (mode: BuildMode) =
-    let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
+    let publishExe (mode: BuildMode) fw input output =
         for rid in rids do
             let outputPath =
                 __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
@@ -58,15 +58,9 @@ let publish rids (mode: BuildMode) =
                     Runtime = rid
                     Configuration = mode.AsDotNet
                 }) input
-            if explicitlyCopyFsCore then
-                let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
-                [ 
-                    fsharpCoreLib </> "FSharp.Core.dll" 
-                ] 
-                |> Shell.copy outputPath                
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
-    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
+    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt

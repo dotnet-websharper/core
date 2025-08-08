@@ -37,7 +37,6 @@ group includes
     framework: net9.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref 2.1.0
-    nuget FSharp.Core
 
 group fcs
     framework: net8.0, net9.0, netstandard2.0

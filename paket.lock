@@ -653,7 +653,6 @@ REFERENCES: STRICT
 RESTRICTION: || (== net9.0) (== netstandard2.1)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (9.0.303)
     NETStandard.Library.Ref (2.1)
 
 GROUP nunit
