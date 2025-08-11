@@ -1153,7 +1153,10 @@ type Compilation(meta: Info, ?hasGraph) =
             | None ->    
                 cls.Methods.[meth] <- { CompiledForm = info; Optimizations = opts; Generics = gc; Expression = comp }
             | _ ->
-                failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
+                if proxies.ContainsValue(typ) then
+                    failwithf "Method already added (duplicate proxy): %s %s" typ.Value.FullName (string meth.Value)
+                else
+                    failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
         | _ -> failwithf "Adding method to non-compiled method: %s %s" typ.Value.FullName (string meth.Value)
 
     member this.FailedCompiledMethod(typ, meth) =

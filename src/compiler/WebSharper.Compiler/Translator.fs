@@ -703,7 +703,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 #endif
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo info.CompiledMember, info.Optimizations, res)
+            try
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo info.CompiledMember, info.Optimizations, res)
+            with _ ->
+                ()
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
