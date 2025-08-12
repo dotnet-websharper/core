@@ -192,7 +192,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | true, f -> 
             try f gen
             with _ ->
-                failwithf "Error during translating type %O" (ConcreteType t)
+                failwithf "Incorrect usage of JavaScript interop type %O" (ConcreteType t)
         | _ ->
         let td = this.TSTypeOfDef e
         match gen with
