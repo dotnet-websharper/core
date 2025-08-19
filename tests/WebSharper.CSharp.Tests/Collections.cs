@@ -88,6 +88,13 @@ namespace WebSharper.CSharp.Tests
 
             int[] a3 = [.. a, .. l2, 6];
             IsTrue(a3 is [1, 2, 3, 4, 5, 6]);
+
+            // with enumerable
+            IEnumerable<int> e = [1, 2, 3];
+            IsTrue(e.ToArray() is [1, 2, 3]);
+
+            IEnumerable<int> e3 = [.. e, .. l2, 6];
+            IsTrue(e3.ToArray() is [1, 2, 3, 4, 5, 6]);
         }
 
         [Test]

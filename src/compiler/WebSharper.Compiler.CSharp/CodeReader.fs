@@ -2866,7 +2866,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> None
 
         let emptyColl, addItem, make =
-            if iocType.TypeKind = TypeKind.Array then
+            if iocType.TypeKind = TypeKind.Array || iocTypOpt |> Option.exists (fun t -> t.Entity = Definitions.SeqType) then
                 NewArray [],
                 (fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])),
                 None
