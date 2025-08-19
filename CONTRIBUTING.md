@@ -10,8 +10,10 @@ WebSharper is a Free Software project, and we welcome your contributions!
   * [Building WebSharper from the command line](#build-cli)
   * [Setting up your development environment](#devenv)
   * [Running the tests](#tests)
+  * [Linux/WSL quick start](#linux-wsl)
   * [Building WebSharper to work on a project](#ext-project)
   * [Project structure](#structure)
+  * [Troubleshooting](#troubleshooting)
 
 <a name="what-to-contribute"></a>
 ## What to contribute?
@@ -21,26 +23,29 @@ We welcome all types of contributions, particularly:
 * Bug fixes in [the issue tracker](https://github.com/dotnet-websharper/core/issues)
 * Standard library improvements (JavaScript APIs, etc.)
 * Compiler optimizations and improvements
-* Documentation: improvements to [the documentation website](https://developers.websharper.com) can be contributed [in the "docs" repository](https://github.com/dotnet-websharper/docs)
+* Documentation: improvements to [the documentation website](https://docs.websharper.com) can be contributed [in the "docs" repository](https://github.com/dotnet-websharper/docs)
 * Feature suggestions are welcome on [the Gitter chat](https://gitter.im/intellifactory/websharper) and [the issue tracker](https://github.com/dotnet-websharper/core/issues); we suggest that you discuss new features with the rest of the team on these channels before getting started on implementation.
 
 <a name="how-to-contribute"></a>
+
 ## How to contribute
 
 <a name="requirements"></a>
+
 ### Required software
 
-It is possible to work on WebSharper on Windows, Linux and OSX.
+It is possible to work on WebSharper on Windows, Linux, and macOS.
 
 To compile WebSharper, you need the following installed:
 
-* The .NET SDK 6.0.10 or newer. You can download it [here](https://www.microsoft.com/net/download).
+* **.NET SDK 9.0 (or newer in the 9.x band)**. You can download it [here](https://www.microsoft.com/net/download).
 
 <a name="build-cli"></a>
+
 ### Building WebSharper from the command line
 
-WebSharper can be built using the script `build.cmd` on Windows, or `build.sh` on Linux andr OSX.
-In the following shell snippets, a command line starting with `build` means `.\build.cmd` on Windows and `./build.sh` on Linux and OSX.
+WebSharper can be built using the script `build.cmd` on Windows, or `build.sh` on Linux and macOS.
+In the following shell snippets, a command line starting with `build` means `.\build.cmd` on Windows and `./build.sh` on Linux/macOS.
 
 Simply running `build` compiles the WebSharper compiler, standard libraries and tests in debug mode. The following targets are available:
 
@@ -71,6 +76,7 @@ The following options are available:
     Makes compilation more verbose. Equivalently, set the `verbose` environment variable to `true`.
 
 <a name="devenv"></a>
+
 ### Setting up your development environment
 
 We recommend that you use one of the following development environments:
@@ -81,6 +87,7 @@ We recommend that you use one of the following development environments:
   * `ms-vscode.csharp` for C# support
 
 <a name="tests"></a>
+
 ### Running the tests
 
 WebSharper defines and uses its own test framework, WebSharper.Testing. It runs on the client side and is backed by [qUnit](https://qunitjs.com/). So running the WebSharper test suite consists in running a web application which looks like this:
@@ -91,14 +98,51 @@ The recommended way to run these tests is to run the `tests/Web` project. It is 
 
 * If you are using Visual Studio, you can simply open `WebSharper.sln`, set `tests/Web` as the startup project, and Run. Check your build target. Update the build target according to your build flags. Target Debug only if you used ws-builddebug.
 
-* On Linux or OSX, you can browse into the `tests/Web` folder and simply run `xsp`.
+* On Linux or macOS, you can browse into the `tests/Web` folder and simply run `xsp`.
 
 To find where to add tests for your code, check the [project structure](#structure).
 
+<a name="linux-wsl"></a>
+
+### Linux/WSL quick start
+
+If you’re on Linux (e.g., Ubuntu 24.04) or Windows using **WSL2**, here’s a minimal setup:
+
+```bash
+# 1) Install .NET 9 SDK (Ubuntu 24.04)
+sudo add-apt-repository ppa:dotnet/backports -y
+sudo apt-get update && sudo apt-get install -y dotnet-sdk-9.0
+
+# 2) Install Node via nvm (LTS recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+# restart your shell
+nvm install --lts
+
+# 3) Install Google Chrome (for browser tests)
+sudo apt update && sudo apt upgrade -y
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -y ./google-chrome-stable_current_amd64.deb
+google-chrome --version
+
+# 4) Verify toolchain
+dotnet --version
+node --version
+npm --version
+
+# 5) Build (debug first)
+chmod +x build.sh
+./build.sh ws-builddebug
+
+# 6) Run the web test
+cd tests/Web
+dotnet run
+```
+
 <a name="ext-project"></a>
+
 ### Building WebSharper to work on a project
 
-Did you encounter a WebSharper bug while working on your project, and want to implement a fix and try it locally? The easiest way to do so is to create NuGet packages for WebSharper and use them locally.
+Did you encounter a WebSharper bug while working on your project, and want to implement a fix and try it locally? The easiest way is to create NuGet packages for WebSharper and use them locally.
 
 * In websharper, write your code fix and run `build ws-package`.
 * In your project, add WebSharper's build folder as a NuGet source repository and update the packages:
@@ -126,11 +170,12 @@ Did you encounter a WebSharper bug while working on your project, and want to im
     
         ```sh
         dotnet add package WebSharper
-        dotnet add package WebSharper.FSharp -- if you're using F#
-        dotnet add package WebSharper.CSharp -- if you're using C#
+        dotnet add package WebSharper.FSharp # if you're using F#
+        dotnet add package WebSharper.CSharp # if you're using C#
         ```
 
 <a name="structure"></a>
+
 ### Project structure
 
 Here is the detail of the project structure. The repository contains two solutions:
