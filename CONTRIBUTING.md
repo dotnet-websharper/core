@@ -69,7 +69,7 @@ We recommend that you use one of the following development environments:
 
 ### Running the tests
 
-WebSharper defines and uses its own test framework, WebSharper.Testing. It runs on the client side and is backed by [qUnit](https://qunitjs.com/). So running the WebSharper test suite consists in running a web application which looks like this:
+WebSharper defines and uses its own test framework, WebSharper.Testing. It runs on the client side and is backed by [QUnit](https://qunitjs.com/). So running the WebSharper test suite consists in running a web application which looks like this:
 
 ![Unit testing screenshot](https://github.com/dotnet-websharper/core/raw/master/docs/qunit.png)
 
@@ -126,7 +126,9 @@ Did you encounter a WebSharper bug while working on your project, and want to im
 
 * In websharper, write your code fix and run `build ws-package`.
 * In your project, add WebSharper's build folder as a NuGet source repository and update the packages:
+
   * If you're using Paket (for example if you're working on one of [WebSharper's libraries and extensions](https://github.com/dotnet-websharper)):
+
     * Add the following line to your `paket.dependencies`:
     
         ```
@@ -135,6 +137,7 @@ Did you encounter a WebSharper bug while working on your project, and want to im
         
     * Run `paket update`.
   * If you're using the standard NuGet package manager:
+
     * Add the following to `NuGet.config` in your project repository:
     
         ```xml
@@ -156,9 +159,10 @@ Did you encounter a WebSharper bug while working on your project, and want to im
 
 ### Project structure
 
-Here is the detail of the project structure. The repository contains two solutions:
+Here is the detail of the project structure. The repository contains multiple solutions:
 
-* `WebSharper.Compiler.sln` contains the F# and C#-to-JavaScript compilers, the MSBuild task for the C# compiler, and their dependencies. Under `src/compiler/`:
+* `WebSharper.Compiler.sln` contains the F# and C#-to-JavaScript compilers, the MSBuild tasks for the F# and C# compilers, and their dependencies. Under `src/compiler/`:
+
   * `WebSharper.Core.JavaScript` contains facilities for parsing and writing plain JavaScript.
   * `WebSharper.Core` contains most everything that is common between the compilers, user libraries and runtime: attributes and core type definitions, JSON serialization, macro API, etc.
   * `WebSharper.InterfaceGenerator` contains the type definitions for the Interface Generator.
@@ -167,22 +171,29 @@ Here is the detail of the project structure. The repository contains two solutio
   * `WebSharper.CSharp` contains the C# compiler executable.
   * `WebSharper.Compiler.FSharp` contains the F# compiler as a library.
   * `WebSharper.FSharp` contains the F# compiler executable.
-  * `WebSharper.MSBuild.CSharp` contains the MSBuild task that invokes the C# compiler after csc. The F# compiler entirely replaces fsc, so it does not need a build task.
-  * `src/compiler/WebSharper.CSharp.Analyzer` contains the Roslyn analyzer, which provides the code service for C#.
+  * `WebSharper.FSharp.Service` contains F# service utilities (parsing/typing hooks, etc.).
+  * `WebSharper.MSBuild.FSharp` contains the MSBuild task/targets that integrate the F# compiler.
+  * `WebSharper.MSBuild.CSharp` contains the MSBuild task that invokes the C# compiler after csc.
+  * `WebSharper.CSharp.Analyzer` contains the Roslyn analyzer, which provides the code service for C#.
+
 * `WebSharper.sln` contains the standard libraries, tests, and their dependencies.
+
   * Under `src/stdlib/`:
-    * `WebSharper.JavaScript` contains the type definitions for the JavaScript standard libraries: EcmaScript types, DOM, HTML5 APIs, etc.
-    * `WebSharper.StdLib` contains the main WebSharper client-side libraries, such as the `JS` module, `Optional` and `Union` types, remoting client-side types, etc.
-    * `WebSharper.StdLib.Proxies` contains the standard library proxies, ie the client-side implementations for the a good part of the .NET standard library and FSharp.Core.  
-      This project is peculiar because it is not compiled directly; instead it is combined with `WebSharper.StdLib` to create the `WebSharper.StdLib` assembly. This assembly contains the .NET code of the `WebSharper.StdLib` project, but the embedded WebSharper files contain everything from `WebSharper.Main.Proxies`.
+
+    * `WebSharper.JavaScript` contains the type definitions for the JavaScript standard libraries: ECMAScript types, DOM, HTML5 APIs, etc.
+    * `WebSharper.StdLib` contains the main WebSharper client-side libraries, such as the `JS` module, `Optional` and `Union` types, remoting client-side types, etc. **Note:** standard library proxies are included in this assembly.
     * `WebSharper.Testing` contains the WebSharper client-side unit testing framework.
+
   * Under `src/sitelets/`:
+
     * `WebSharper.Web` contains the server-side remoting runtime as well as some client-side HTML types.
     * `WebSharper.Sitelets` contains the Sitelets API and runtime.
-    * `WebSharper.Sitelets.Offline` contains the machinery for static Html project compilation.
+    * `WebSharper.Sitelets.Offline` contains the machinery for static HTML project compilation.
+    * `WebSharper.AspNetCore` contains ASP.NET Core integration.
+
   * Under `tests/`:
     * `WebSharper.Core.JavaScript.Tests` contains tests for JavaScript parsing and writing.
-    * `WebSharper.Tests` contains tests for `stdlib/WebSharper.StdLib`, `StdLib.Proxies`.
+    * `WebSharper.Tests` contains tests for `stdlib/WebSharper.StdLib` (including proxies).
     * `WebSharper.Html5.Tests` contains tests for HTML5 bindings in `stdlib/WebSharper.JavaScript`.
     * `WebSharper.Collections.Tests` contains tests for collection proxies.
     * `WebSharper.InterfaceGenerator.Tests` contains a test interface generator. This interface is then validated in `WebSharper.Tests`.
@@ -194,3 +205,21 @@ Here is the detail of the project structure. The repository contains two solutio
     * `WebSharper.StaticHtml.Tests` is a static HTML application serving a harness for all the above client-side tests.
     * `Website` defines a sitelet that includes all the above server-side, client-side and cross-tier tests.
     * `Web` is a client-server application serving the sitelet defined in `Website`. Therefore it is a harness for the whole test suite.
+    * `WebSharper.InterfaceGenerator.Tests.LatestFSharp` contains tests for the Interface Generator targeting the latest F# features.
+    * `WebSharper.CSharp.Interop.Tests` contains tests for C# interoperability scenarios.
+    * `WebSharper.CSharp.StaticHtml.Tests` contains a static HTML test harness specific to C# components.
+    * `WebSharper.CSharp.Analyzer.Tests` contains tests for the C# Roslyn analyzer.
+    * `WebSharper.Module.Tests` contains tests for module-related behaviors.
+    * `WebSharper.Compiler.FSharp.Tests` contains integration tests for the F# compiler component.
+    * `WebSharper.Library.Tests` contains library-level infrastructure tests.
+    * `Web.FSharp` contains an F#-specific test harness.
+    * `Web.TypeScript` contains tests related to TypeScript interop or code-generation functionality.
+    * `ProxyProjectTest` and `ProxyProjectTest.Proxy` contain tests for proxy project generation.
+    * `Web.Giraffe` contains integration tests for WebSharper with the Giraffe framework.
+    * `StressTesting` contains performance and stress test scenarios.
+    * `WebSharper.StaticHtml.Tests.NetStandard` contains a .NET Standard variant of the static HTML test harness.
+
+* `WebSharper.Tools.sln` contains developer tools and metadata inspection.
+  * Under the `src/compiler/`:
+    * `WebSharper.DllBrowser` contains a Windows-only GUI tool to inspect WebSharper metadata in assemblies; the UI is minimal (no menus/Open dialog) and you load assemblies by drag-and-dropping them onto the tree view, similar to ILSpy.
+    * `WebSharper.TypeScriptParser` contains a Node.js-style project (`.njsproj`) that provides TypeScript parsing capabilities for WebSharper tools.
