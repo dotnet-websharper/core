@@ -4,18 +4,6 @@ WebSharper is a Free Software project, and we welcome your contributions!
 
 [The core repository](https://github.com/dotnet-websharper/core) contains the F# and C#-to-JavaScript compiler and core libraries. WebSharper consists of this repository as well as a constellation of libraries and extensions, located [in the `dotnet-websharper` GitHub organization](https://github.com/dotnet-websharper). Don't hesitate to contribute to these too!
 
-* [What to contribute](#what-to-contribute)
-* [How to contribute](#how-to-contribute)
-  * [Required software](#requirements)
-  * [Building WebSharper from the command line](#build-cli)
-  * [Setting up your development environment](#devenv)
-  * [Running the tests](#tests)
-  * [Linux/WSL quick start](#linux-wsl)
-  * [Building WebSharper to work on a project](#ext-project)
-  * [Project structure](#structure)
-  * [Troubleshooting](#troubleshooting)
-
-<a name="what-to-contribute"></a>
 ## What to contribute?
 
 We welcome all types of contributions, particularly:
@@ -24,13 +12,9 @@ We welcome all types of contributions, particularly:
 * Standard library improvements (JavaScript APIs, etc.)
 * Compiler optimizations and improvements
 * Documentation: improvements to [the documentation website](https://docs.websharper.com) can be contributed [in the "docs" repository](https://github.com/dotnet-websharper/docs)
-* Feature suggestions are welcome on [the Gitter chat](https://gitter.im/intellifactory/websharper) and [the issue tracker](https://github.com/dotnet-websharper/core/issues); we suggest that you discuss new features with the rest of the team on these channels before getting started on implementation.
-
-<a name="how-to-contribute"></a>
+* Feature suggestions are welcome on [Discord](https://discord.gg/VU99asn4) and [the issue tracker](https://github.com/dotnet-websharper/core/issues); we suggest that you discuss new features with the rest of the team on these channels before getting started on implementation.
 
 ## How to contribute
-
-<a name="requirements"></a>
 
 ### Required software
 
@@ -40,14 +24,12 @@ To compile WebSharper, you need the following installed:
 
 * **.NET SDK 9.0 (or newer in the 9.x band)**. You can download it [here](https://www.microsoft.com/net/download).
 
-<a name="build-cli"></a>
-
 ### Building WebSharper from the command line
 
-WebSharper can be built using the script `build.cmd` on Windows, or `build.sh` on Linux and macOS.
+WebSharper can be built using the script `build.cmd` on Windows, or `build.sh` on Linux and macOS.  
 In the following shell snippets, a command line starting with `build` means `.\build.cmd` on Windows and `./build.sh` on Linux/macOS.
 
-Simply running `build` compiles the WebSharper compiler, standard libraries and tests in debug mode. The following targets are available:
+Simply running `build` compiles the WebSharper compiler, standard libraries and tests in **Debug** mode. The following targets are available:
 
 * `build ws-builddebug`
 
@@ -75,18 +57,15 @@ The following options are available:
 
     Makes compilation more verbose. Equivalently, set the `verbose` environment variable to `true`.
 
-<a name="devenv"></a>
-
 ### Setting up your development environment
 
 We recommend that you use one of the following development environments:
 
 * On Windows: [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
-* On all platforms: [Visual Studio Code](https://code.visualstudio.com/) with the following extensions:
-  * `ionide-fsharp` for F# support
-  * `ms-vscode.csharp` for C# support
-
-<a name="tests"></a>
+* On all platforms: [Visual Studio Code](https://code.visualstudio.com/) with:
+  * `ms-dotnettools.csharp` (C# for VS Code)
+  * `ms-dotnettools.csdevkit` (C# Dev Kit)
+  * `ionide-fsharp` (F# support)
 
 ### Running the tests
 
@@ -94,15 +73,18 @@ WebSharper defines and uses its own test framework, WebSharper.Testing. It runs 
 
 ![Unit testing screenshot](https://github.com/dotnet-websharper/core/raw/master/docs/qunit.png)
 
-The recommended way to run these tests is to run the `tests/Web` project. It is an ASP.NET application hosting the test suite, under the "Client-side test suite" on its home page.
+The recommended way to run these tests is to run the `tests/Web` project. It is an **ASP.NET Core** application hosting the test suite, under the "Client-side test suite" on its home page.
 
 * If you are using Visual Studio, you can simply open `WebSharper.sln`, set `tests/Web` as the startup project, and Run. Check your build target. Update the build target according to your build flags. Target Debug only if you used ws-builddebug.
+* From the command line (Linux/macOS/Windows):  
+  ```bash
+  cd tests/Web
+  dotnet run
+  ```
 
-* On Linux or macOS, you can browse into the `tests/Web` folder and simply run `xsp`.
+Then open the app in the browser and choose **Client-side test suite**.
 
-To find where to add tests for your code, check the [project structure](#structure).
-
-<a name="linux-wsl"></a>
+To find where to add tests for your code, check the project structure below.
 
 ### Linux/WSL quick start
 
@@ -138,8 +120,6 @@ cd tests/Web
 dotnet run
 ```
 
-<a name="ext-project"></a>
-
 ### Building WebSharper to work on a project
 
 Did you encounter a WebSharper bug while working on your project, and want to implement a fix and try it locally? The easiest way is to create NuGet packages for WebSharper and use them locally.
@@ -174,8 +154,6 @@ Did you encounter a WebSharper bug while working on your project, and want to im
         dotnet add package WebSharper.CSharp # if you're using C#
         ```
 
-<a name="structure"></a>
-
 ### Project structure
 
 Here is the detail of the project structure. The repository contains two solutions:
@@ -194,12 +172,9 @@ Here is the detail of the project structure. The repository contains two solutio
 * `WebSharper.sln` contains the standard libraries, tests, and their dependencies.
   * Under `src/stdlib/`:
     * `WebSharper.JavaScript` contains the type definitions for the JavaScript standard libraries: EcmaScript types, DOM, HTML5 APIs, etc.
-    * `WebSharper.JQuery` contains the type definitions for jQuery.
     * `WebSharper.StdLib` contains the main WebSharper client-side libraries, such as the `JS` module, `Optional` and `Union` types, remoting client-side types, etc.
     * `WebSharper.StdLib.Proxies` contains the standard library proxies, ie the client-side implementations for the a good part of the .NET standard library and FSharp.Core.  
       This project is peculiar because it is not compiled directly; instead it is combined with `WebSharper.StdLib` to create the `WebSharper.StdLib` assembly. This assembly contains the .NET code of the `WebSharper.StdLib` project, but the embedded WebSharper files contain everything from `WebSharper.Main.Proxies`.
-    * `WebSharper.MathJS` contains the type definitions for MathJS.
-    * `WebSharper.MathJS.Extensions` contains the optional MathJS-based proxies for `decimal`, `bigint` and `Complex`.
     * `WebSharper.Testing` contains the WebSharper client-side unit testing framework.
   * Under `src/sitelets/`:
     * `WebSharper.Web` contains the server-side remoting runtime as well as some client-side HTML types.
