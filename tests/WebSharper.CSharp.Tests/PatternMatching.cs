@@ -80,6 +80,36 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void SwitchType()
+        {
+            object o = new FakeTuple(0, "hello");
+            int res =
+                o switch
+                {
+                    null => 1,
+                    FakeTuple _ => 2,
+                    _ => 5
+                };
+            Equal(res, 2);
+            res =
+                o switch
+                {
+                    null => 1,
+                    FakeTuple => 3,
+                    _ => 5
+                };
+            Equal(res, 3);
+            res =
+                o switch
+                {
+                    null => 1,
+                    PatternMatching.FakeTuple => 3,
+                    _ => 5
+                };
+            Equal(res, 3);
+        }
+
+        [Test]
         public void Is()
         {
             object o = "hello";
@@ -87,6 +117,9 @@ namespace WebSharper.CSharp.Tests
             if (o is string s && s[0] == 'h')
                 res = 2;
             Equal(res, 2);
+            if (o is string)
+                res = 3;
+            Equal(res, 3);
         }
 
         [Test("C# property pattern matching")]

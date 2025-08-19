@@ -576,6 +576,11 @@ type RoslynTransformer(env: Environment) =
                 (System.Decimal.GetBits(x) |> Seq.map (Int >> Value) |> List.ofSeq))
         | _ -> Value l
 
+    let getConstantValueOfExpressionOpt x =
+        if env.SemanticModel.GetConstantValue(x).HasValue then
+            Some (getConstantValueOfExpression x)
+        else None
+
     let sr = env.SymbolReader
 
     let fixNonTrailingNamedArguments (argumentList : list<int option * Expression>) =
@@ -2579,8 +2584,12 @@ type RoslynTransformer(env: Environment) =
             )
 
     member this.TransformConstantPattern (x: ConstantPatternData) : (Id -> Expression) =
-        let expression = x.Expression |> this.TransformExpression
-        fun v -> Var v ^== expression
+        match getConstantValueOfExpressionOpt x.Expression.Node with
+        | Some c ->
+            fun v -> Var v ^== c
+        | None ->
+            let typ = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type |> sr.ReadType
+            fun v -> TypeCheck (Var v, typ)
 
     member this.TransformDiscardPattern (x: DiscardPatternData) : _ =
         fun _ -> Value (Bool true)
@@ -2870,7 +2879,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> None
 
         let emptyColl, addItem, make =
-            if iocType.TypeKind = TypeKind.Array then
+            if iocType.TypeKind = TypeKind.Array || iocTypOpt |> Option.exists (fun t -> t.Entity = Definitions.SeqType) then
                 NewArray [],
                 (fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])),
                 None
