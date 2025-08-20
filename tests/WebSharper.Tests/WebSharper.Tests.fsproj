@@ -45,6 +45,9 @@
     <Compile Include="Query.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Ref.ext" />
+    <Compile Include="@(WebSharperGenerated)">
+      <Condition>'%(WebSharperGenerated.DependentUpon)' == 'Ref.ext'</Condition>
+    </Compile>
     <Compile Include="Reflected.fs" />
     <Compile Include="Regression.fs" />
     <Compile Include="Result.fs" />
@@ -66,7 +69,7 @@
     <None Include="ASTTests.fsx" />
     <None Include="paket.references" />
     <Content Include="testwsconfig.json" />
-  </ItemGroup>
+</ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

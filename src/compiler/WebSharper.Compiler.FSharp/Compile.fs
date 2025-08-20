@@ -70,6 +70,18 @@ let handleCommandResult logger config warnSettings stageName exitContext cmdRes 
     logger.TimedStage stageName
     res
 
+// netstandard2.0 does not have Path.GetRelativePath, implementing it via Uri
+let getRelativePath (fromPath: string) (toPath: string) =
+    let appendDirectorySeparatorChar (path: string) =
+        if not (path.EndsWith("/") || path.EndsWith("\\")) then
+            path + "/"
+        else
+            path
+    let fromUri = Uri(appendDirectorySeparatorChar fromPath)
+    let toUri = Uri(toPath)
+    let relativeUri = fromUri.MakeRelativeUri(toUri)
+    Uri.UnescapeDataString(relativeUri.ToString())
+
 let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
     let isSupportedFile (f: string) =
@@ -78,6 +90,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     if unsupportedFiles.Length > 0 then
         let aR = createAssemblyResolver config    
         aR.Wrap <| fun () ->
+            let generatedFiles = ResizeArray()
             let transformedFiles =  
                 let generators = System.Collections.Generic.Dictionary()
                 sourceFiles |> Array.collect (fun f ->
@@ -129,14 +142,35 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         | Some gen ->
                             let fullPath = Path.Combine(config.ProjectDir, f)
                             try
-                                gen.Generate fullPath
+                                let genRes = gen.Generate fullPath
+                                for genFile in genRes do
+                                    let genFileRel =
+                                        if Path.IsPathRooted genFile then
+                                            getRelativePath config.ProjectDir genFile
+                                        else
+                                            genFile
+                                    generatedFiles.Add (f, genFileRel)
+                                genRes
                             with e ->
                                 PrintGlobalError logger (sprintf "Error while generating F# source from input file '%s': %s at %s" f e.Message e.StackTrace)
                                 [||]
                         | None ->
-                            [||]
-                
+                            [||]                
                 )
+            let propsFileLines =
+                seq {
+                    """<?xml version="1.0" encoding="utf-8" standalone="no"?>"""
+                    """<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
+                    """  <ItemGroup Condition="$(DesignTimeBuild) == true">"""
+                    for (f, genFileRel) in generatedFiles do
+                        $"""    <WebSharperGenerated Include="{genFileRel}">"""
+                        $"""      <DependentUpon>{f}</DependentUpon>"""
+                        """    </WebSharperGenerated>"""
+                    """  </ItemGroup>"""
+                    """</Project>"""
+                }
+            let propsFile = Path.Combine(config.ProjectDir, $"obj/{Path.GetFileName(config.ProjectFile)}.websharper.props")
+            File.WriteAllLines(propsFile, propsFileLines)
             let otherArgs = config.CompilerArgs[1 ..] |> Array.filter (fun a -> a.StartsWith "-")
             { config with CompilerArgs = Array.concat [| [| config.CompilerArgs[0] |]; otherArgs;  transformedFiles |] }
     else
