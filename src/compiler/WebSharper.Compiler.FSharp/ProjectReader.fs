@@ -953,6 +953,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | Member.Implementation (t, mdef) ->    
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
                     | _ -> ()
+            if Option.isNone mAnnot.Kind || mAnnot.JavaScriptOptions.HasFlag WebSharper.JavaScriptOptions.SharedEventHandlers then
                 let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
                 let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
                 let quotations = CodeReader.scanExpression env meth.LogicalName expr

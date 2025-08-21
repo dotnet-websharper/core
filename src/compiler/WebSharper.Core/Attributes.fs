@@ -98,6 +98,8 @@ type JavaScriptOptions =
     /// Skips calling default interface implementations but calls into the method on 
     /// the object by name.
     | NoDefaultInterfaceImplementation = 0x00000010
+    /// Enables client-server code sharing using auto-quoted event handlers.
+    | SharedEventHandlers = 0x00000100
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
 [<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter|||T.Field, AllowMultiple = true)>]
