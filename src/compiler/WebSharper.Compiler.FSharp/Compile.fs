@@ -163,9 +163,10 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                     """<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
                     """  <ItemGroup Condition="$(DesignTimeBuild) == true">"""
                     for (f, genFileRel) in generatedFiles do
-                        $"""    <WebSharperGenerated Include="{genFileRel}">"""
+                        $"""    <Compile Include="{genFileRel}">"""
                         $"""      <DependentUpon>{f}</DependentUpon>"""
-                        """    </WebSharperGenerated>"""
+                        """      <WebSharperGenerated>true</WebSharperGenerated>"""
+                        """    </Compile>"""
                     """  </ItemGroup>"""
                     """</Project>"""
                 }

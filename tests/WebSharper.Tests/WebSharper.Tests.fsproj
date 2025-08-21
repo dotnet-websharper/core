@@ -45,9 +45,6 @@
     <Compile Include="Query.fs" />
     <Compile Include="Random.fs" />
     <Compile Include="Ref.ext" />
-    <Compile Include="@(WebSharperGenerated)">
-      <Condition>'%(WebSharperGenerated.DependentUpon)' == 'Ref.ext'</Condition>
-    </Compile>
     <Compile Include="Reflected.fs" />
     <Compile Include="Regression.fs" />
     <Compile Include="Result.fs" />

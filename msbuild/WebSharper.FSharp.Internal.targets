@@ -25,9 +25,9 @@
   <PropertyGroup>
     <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net8.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
@@ -44,6 +44,17 @@
     <ItemGroup>
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
+  </Target>
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.ReorderCompileItemsTask" Condition=" '$(DesignTimeBuild)' == 'true' " />
+  <Target Name="ReorderWebSharperGeneratedFiles" Condition=" '$(DesignTimeBuild)' == 'true' " BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <ExistingCompile Include="@(Compile)" />
+      <Compile Remove="@(Compile)" />
+    </ItemGroup>
+    <ReorderCompileItemsTask
+      ExistingCompileItems="@(ExistingCompile)">
+      <Output TaskParameter="ReorderedCompileItems" ItemName="Compile" />
+    </ReorderCompileItemsTask>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
