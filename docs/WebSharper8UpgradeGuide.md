@@ -3,6 +3,7 @@
 The biggest change coming with WebSharper 8 is that it outputs module-based JavaScript code. This output needs additional processing for both production and debugging purposes, this document covers how to:
 
 * configure `esbuild` to bundle the WebSharper 8 output,
+* update HTML files for SPA projects,
 * make the code bundles smaller by separating them by page,
 * optionally add a debug mode using `vite`,
 * adapt to changes of C# templating.
@@ -72,6 +73,15 @@ This copies over the WebSharper-handled Content files if any, and uses esbuild t
 ```
 
 At this point, when running your website or generating html, you should see an `all.js` file referenced that contains all the code in bundled and minified form. This is not yet ideal, on a multi-page site, it's best to minimize the required code per page. A new functionality allows for this.
+
+## SPA update
+
+Single-page application projects use a static HTML file, in which the WebSharper generated JavaScript code is linked. Do the following updates to your HTML file:
+* change `<link rel="stylesheet" type="text/css" href="Content/ProjectName.css" />` to `<link rel="stylesheet" type="text/css" href="Scripts/ProjectName.css" />`
+* change `<script type="text/javascript" src="Content/ProjectName.head.js"></script>` to `<script type="text/javascript" src="Scripts/ProjectName.head.js"></script>`
+* change `<script type="text/javascript" src="Content/ProjectName.min.js"></script>` to <script type="module" src="Scripts/ProjectName.min.js"></script>
+
+To summarize: the generated files are now moved to the `Scripts` folder instead of `Content` for better uniformity, and the main JavaScript file must be loaded as a module.
 
 ## Optimize per-page bundles
 
