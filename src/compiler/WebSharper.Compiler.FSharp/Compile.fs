@@ -126,7 +126,11 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                 let genType = 
                                                     Type.GetType(fqn, true)
                                                 Some (Activator.CreateInstance(genType))
-                                            with e -> 
+                                            with
+                                            | :? TargetInvocationException as ex ->
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.InnerException.Message)
+                                                None
+                                            | e -> 
                                                 PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
                                                 None
                                         match genInstance with
