@@ -399,7 +399,8 @@ type FormDataAttribute =
 type WildcardAttribute() =
     inherit A()
 
-/// Marks the assembly as containing a GEN function for a given file extension.
-[<Sealed; U(T.Assembly)>]
+/// Marks the assembly as containing a source generator for a given file extension.
+/// The generator type should implement the interface WebSharper.ISourceGenerator.
+[<Sealed; U(T.Assembly, AllowMultiple = true)>]
 type FSharpSourceGeneratorAttribute(fileExtension: string, generatorType: Type) =
     inherit A()

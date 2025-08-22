@@ -126,8 +126,8 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                 let genType = 
                                                     Type.GetType(fqn, true)
                                                 Some (Activator.CreateInstance(genType))
-                                            with _ -> 
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s'" ext fqn)
+                                            with e -> 
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
                                                 None
                                         match genInstance with
                                         | Some (:? WebSharper.ISourceGenerator as ig) -> Some ig
@@ -161,7 +161,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                 seq {
                     """<?xml version="1.0" encoding="utf-8" standalone="no"?>"""
                     """<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
-                    """  <ItemGroup Condition="$(DesignTimeBuild) == true">"""
+                    """  <ItemGroup Condition=" '$(DesignTimeBuild)' == 'true' ">"""
                     for (f, genFileRel) in generatedFiles do
                         $"""    <Compile Include="{genFileRel}">"""
                         $"""      <DependentUpon>{f}</DependentUpon>"""
