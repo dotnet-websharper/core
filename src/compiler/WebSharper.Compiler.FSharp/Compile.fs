@@ -128,10 +128,10 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                 Some (Activator.CreateInstance(genType))
                                             with
                                             | :? TargetInvocationException as e ->
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.InnerException.Message)
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.InnerException.Message e.InnerException.StackTrace)
                                                 None
                                             | e -> 
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.Message e.StackTrace)
                                                 None
                                         match genInstance with
                                         | Some (:? WebSharper.ISourceGenerator as ig) -> Some ig

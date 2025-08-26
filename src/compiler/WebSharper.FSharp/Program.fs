@@ -44,6 +44,9 @@ let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     let argv = formatArgv argv
     let logger = ConsoleLogger()   
+    logger.Out (sprintf "WebSharper F# Compiler %s running on %s" 
+        System.AssemblyVersionInformation.WSVersion 
+        System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription)
     let parsedOptions = 
         try
             ParseOptions argv logger
