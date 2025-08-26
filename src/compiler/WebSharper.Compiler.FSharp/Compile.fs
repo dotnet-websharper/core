@@ -41,12 +41,13 @@ let clearOutput config logger =
     with _ ->
         PrintGlobalError logger "Failed to clean intermediate output!"
 
-let createAssemblyResolver (config : WsConfig) =
+let createAssemblyResolver (config : WsConfig) includeCurrent =
     let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
+            if includeCurrent then
+                yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -88,7 +89,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
         f.EndsWith ".fs" || f.EndsWith ".fsi" || f.EndsWith ".fsx" || f.EndsWith ".fsscript" || f.EndsWith ".ml" || f.EndsWith ".mli"
     let unsupportedFiles = sourceFiles |> Array.filter (fun f -> not (isSupportedFile f))
     if unsupportedFiles.Length > 0 then
-        let aR = createAssemblyResolver config    
+        let aR = createAssemblyResolver config false    
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
             let transformedFiles =  
@@ -127,11 +128,14 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                     Type.GetType(fqn, true)
                                                 Some (Activator.CreateInstance(genType))
                                             with
+                                            | :? FileLoadException as e ->
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.InnerException.Message)
+                                                None
                                             | :? TargetInvocationException as e ->
                                                 PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.InnerException.Message e.InnerException.StackTrace)
                                                 None
                                             | e -> 
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.Message e.StackTrace)
+                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
                                                 None
                                         match genInstance with
                                         | Some (:? WebSharper.ISourceGenerator as ig) -> Some ig
@@ -258,7 +262,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     if exitCode <> 0 then 
         exitCode
     elif config.ProjectType = Some WIG then  
-        let aR = createAssemblyResolver config
+        let aR = createAssemblyResolver config true
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config logger
@@ -268,7 +272,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 1
     else 
 
-    let aR = createAssemblyResolver config
+    let aR = createAssemblyResolver config true
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =

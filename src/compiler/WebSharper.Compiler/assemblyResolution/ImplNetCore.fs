@@ -169,7 +169,19 @@ module internal NetCoreImplemetnation =
 #endif
                     r
 
-            reso.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
+            let resolveVerifiedNonRef (x: string) =
+                match resolve x with
+                | null -> null
+                | asm ->
+                    let isRef = 
+                        asm.ManifestModule.CustomAttributes
+                        |> Seq.exists (fun attr -> attr.AttributeType = typeof<System.Runtime.CompilerServices.ReferenceAssemblyAttribute>)
+                    if isRef then
+                        failwithf "Attempted to load reference assembly: '%s'. Use ProduceReferenceAssembly=False on that project." x
+                    else
+                        asm
+
+            reso.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolveVerifiedNonRef))
 
         let mutable loadContext = None
         
