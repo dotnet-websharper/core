@@ -21,6 +21,7 @@
 module WebSharper.Compiler.FSharp.Compile
 
 open System
+open System.Collections.Generic
 open System.IO
 open System.Reflection
 open WebSharper.Compiler
@@ -92,6 +93,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
         let aR = createAssemblyResolver config false    
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
+            let generatedPaths = HashSet()
             let transformedFiles =  
                 let generators = System.Collections.Generic.Dictionary()
                 sourceFiles |> Array.collect (fun f ->
@@ -157,6 +159,8 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                             getRelativePath config.ProjectDir genFile
                                         else
                                             genFile
+                                    if not (generatedPaths.Add genFile) then
+                                        PrintGlobalError logger (sprintf "Duplicated output while generating F# source from input file '%s'" f)
                                     generatedFiles.Add (f, genFileRel)
                                 genRes
                             with e ->
