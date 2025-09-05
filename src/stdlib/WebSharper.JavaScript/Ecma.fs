@@ -403,6 +403,18 @@ module internal Definition =
                 "prototype" =? TSelf
             ]
 
+    let EcmaAggregateError =
+        Class "AggregateError"
+        |=> Inherits EcmaError
+        |+> Instance
+            [
+                "errors" =? Type.ArrayOf EcmaError
+            ]
+        |+> Static [
+                Constructor (!?(Type.ArrayOf EcmaError)?message * !?T<string>?message)
+                "prototype" =? TSelf
+            ]
+
     let EcmaJSON =
         Class "JSON"
         |+> Static
@@ -423,6 +435,7 @@ module internal Definition =
         |+> Static [
             Constructor ((a ^-> T<unit>) * (T<obj> ^-> T<unit>) ^-> T<unit>)?executor
             "all" => Type.ArrayOf TSelf.[a] ^-> TSelf.[Type.ArrayOf a]
+            "any" => Type.ArrayOf TSelf.[a] ^-> TSelf.[a]
             "race" => Type.ArrayOf TSelf.[a] ^-> TSelf.[a]
             "reject" => T<obj>?reason ^-> TSelf.[a]
             "resolve" => a?value ^-> TSelf.[a]
@@ -433,6 +446,35 @@ module internal Definition =
             "finally" => (T<unit> ^-> T<unit>) ^-> TSelf.[a]
             Generic - fun b -> "then" => (resolveFn b)?onFulfilled * !?(rejectFn b)?onRejected ^-> TSelf.[b]
         ]
+
+    let EcmaWeakRef =
+        Generic - fun (a: CodeModel.TypeParameter) ->
+        Class "WeakRef"
+        |=> Inherits EcmaObject
+        |+> Instance
+            [
+                "deref" => T<unit> ^-> a
+            ]
+        |+> Static 
+            [
+                Constructor (a?target)
+                "prototype" =? TSelf
+            ]
+
+    let EcmaFinalizationRegistry =
+        Generic - fun (a: CodeModel.TypeParameter) ->
+        Class "FinalizationRegistry"
+        |=> Inherits EcmaObject
+        |+> Instance
+            [
+                "register" => T<obj>?target * a?heldValue * !?T<obj>?unregisterToken ^-> T<unit>
+                "unregister" => T<obj>?unregisterToken ^-> T<unit>
+            ]
+        |+> Static 
+            [
+                Constructor ((a ^-> T<unit>)?callbackFn)
+                "prototype" =? TSelf
+            ]
 
     let Namespaces =
         [
@@ -446,10 +488,13 @@ module internal Definition =
                 EcmaArrayG
                 EcmaBoolean
                 EcmaError
+                EcmaAggregateError
                 EcmaMath
                 EcmaDate
                 EcmaRegExp
                 EcmaJSON
                 EcmaPromise
+                EcmaWeakRef
+                EcmaFinalizationRegistry
             ]
         ]
