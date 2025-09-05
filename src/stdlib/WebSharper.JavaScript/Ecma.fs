@@ -458,7 +458,6 @@ module internal Definition =
         |+> Static 
             [
                 Constructor (a?target)
-                "prototype" =? TSelf
             ]
 
     let EcmaFinalizationRegistry =
@@ -473,7 +472,6 @@ module internal Definition =
         |+> Static 
             [
                 Constructor ((a ^-> T<unit>)?callbackFn)
-                "prototype" =? TSelf
             ]
 
     let Namespaces =
