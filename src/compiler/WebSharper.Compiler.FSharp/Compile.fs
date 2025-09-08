@@ -94,6 +94,10 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
             let generatedPaths = HashSet()
+            let mutable hasError = false
+            let printError msg =
+                PrintGlobalError logger msg
+                hasError <- true
             let transformedFiles =  
                 let generators = System.Collections.Generic.Dictionary()
                 sourceFiles |> Array.collect (fun f ->
@@ -118,7 +122,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                         )                                        
                                     )
                                 if Option.isNone genInfo then
-                                    PrintGlobalError logger (sprintf "No generator found for extension '%s', needs an assembly-level FSharpSourceGenerator attribute" ext)
+                                    printError (sprintf "No generator found for extension '%s', needs an assembly-level FSharpSourceGenerator attribute" ext)
                                 let g =
                                     match genInfo with 
                                     | Some (asmName, gen) ->
@@ -131,18 +135,18 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                                 Some (Activator.CreateInstance(genType))
                                             with
                                             | :? FileLoadException as e ->
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.InnerException.Message)
+                                                printError (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.InnerException.Message)
                                                 None
                                             | :? TargetInvocationException as e ->
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.InnerException.Message e.InnerException.StackTrace)
+                                                printError (sprintf "Failed to create generator instance for extension '%s', type '%s': %s at %s" ext fqn e.InnerException.Message e.InnerException.StackTrace)
                                                 None
                                             | e -> 
-                                                PrintGlobalError logger (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
+                                                printError (sprintf "Failed to create generator instance for extension '%s', type '%s': %s" ext fqn e.Message)
                                                 None
                                         match genInstance with
                                         | Some (:? WebSharper.ISourceGenerator as ig) -> Some ig
                                         | Some _ ->
-                                            PrintGlobalError logger (sprintf "Generator type for extension '%s' must implement WebSharper.ISourceGenerator" ext)
+                                            printError (sprintf "Generator type for extension '%s' must implement WebSharper.ISourceGenerator" ext)
                                             None
                                         | None -> None
                                     | None -> None
@@ -160,30 +164,31 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                         else
                                             genFile
                                     if not (generatedPaths.Add genFile) then
-                                        PrintGlobalError logger (sprintf "Duplicated output while generating F# source from input file '%s'" f)
+                                        printError (sprintf "Duplicated output while generating F# source from input file '%s'" f)
                                     generatedFiles.Add (f, genFileRel)
                                 genRes
                             with e ->
-                                PrintGlobalError logger (sprintf "Error while generating F# source from input file '%s': %s at %s" f e.Message e.StackTrace)
+                                printError (sprintf "Error while generating F# source from input file '%s': %s at %s" f e.Message e.StackTrace)
                                 [||]
                         | None ->
                             [||]                
                 )
-            let propsFileLines =
-                seq {
-                    """<?xml version="1.0" encoding="utf-8" standalone="no"?>"""
-                    """<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
-                    """  <ItemGroup Condition=" '$(DesignTimeBuild)' == 'true' ">"""
-                    for (f, genFileRel) in generatedFiles do
-                        $"""    <Compile Include="{genFileRel}">"""
-                        $"""      <DependentUpon>{f}</DependentUpon>"""
-                        """      <WebSharperGenerated>true</WebSharperGenerated>"""
-                        """    </Compile>"""
-                    """  </ItemGroup>"""
-                    """</Project>"""
-                }
-            let propsFile = Path.Combine(config.ProjectDir, $"obj/{Path.GetFileName(config.ProjectFile)}.websharper.props")
-            File.WriteAllLines(propsFile, propsFileLines)
+            if not hasError then
+                let propsFileLines =
+                    seq {
+                        """<?xml version="1.0" encoding="utf-8" standalone="no"?>"""
+                        """<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">"""
+                        """  <ItemGroup Condition=" '$(DesignTimeBuild)' == 'true' ">"""
+                        for (f, genFileRel) in generatedFiles do
+                            $"""    <Compile Include="{genFileRel}">"""
+                            $"""      <DependentUpon>{f}</DependentUpon>"""
+                            """      <WebSharperGenerated>true</WebSharperGenerated>"""
+                            """    </Compile>"""
+                        """  </ItemGroup>"""
+                        """</Project>"""
+                    }
+                let propsFile = Path.Combine(config.ProjectDir, $"obj/{Path.GetFileName(config.ProjectFile)}.websharper.props")
+                File.WriteAllLines(propsFile, propsFileLines)
             let otherArgs = config.CompilerArgs[1 ..] |> Array.filter (fun a -> a.StartsWith "-")
             { config with CompilerArgs = Array.concat [| [| config.CompilerArgs[0] |]; otherArgs;  transformedFiles |] }
     else
