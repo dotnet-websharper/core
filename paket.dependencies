@@ -45,8 +45,8 @@ group fcs
     nuget System.Runtime.Caching ~> 8.0.0
     nuget System.Configuration.ConfigurationManager ~> 8.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Core == 10.0.100-beta.25358.103
-    nuget FSharp.Compiler.Service == 43.10.100-preview.25358.103
+    nuget FSharp.Core prerelease
+    nuget FSharp.Compiler.Service prerelease
 
 group nunit
     framework: net9.0, net472
