@@ -43,7 +43,13 @@ type QuotationCompiler (meta : M.Info) =
 
     member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
         let treatReflectedDefinitionAsJavaScript = defaultArg treatReflectedDefinitionAsJavaScript true
-        comp.AssemblyName <- asm.FullName
+        let asmName = asm.GetName().Name
+        let asmNameWithVersionOpt =
+            if asmName = "FSI-ASSEMBLY" then
+                asmName + "-" + asm.GetName().Version.ToString()
+            else
+                asmName
+        comp.AssemblyName <- asmNameWithVersionOpt
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
@@ -335,7 +341,7 @@ type QuotationCompiler (meta : M.Info) =
                             Order = i 
                         }
                     clsMembers.Add(NotResolvedMember.Field(f.Name, nr))    
-
+                
                 comp.AddClass(
                     def,
                     {
