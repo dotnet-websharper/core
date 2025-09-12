@@ -155,8 +155,15 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         match generator with
                         | Some gen ->
                             let fullPath = Path.Combine(config.ProjectDir, f)
+                            let generateInput =
+                                {
+                                    FilePath = fullPath
+                                    ProjectFilePath = config.ProjectFile
+                                    Print = logger.Out
+                                    PrintError = logger.Error
+                                } : WebSharper.GenerateCall
                             try
-                                let genRes = gen.Generate fullPath
+                                let genRes = gen.Generate generateInput
                                 for genFile in genRes do
                                     let genFileRel =
                                         if Path.IsPathRooted genFile then

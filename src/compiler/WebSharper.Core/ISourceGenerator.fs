@@ -21,8 +21,20 @@
 /// Defines custom attributes used by WebSharper projects.
 namespace WebSharper
 
+type GenerateCall =
+    {
+        /// Full path to the file the generator is invoked for.
+        FilePath: string
+        /// Project file full path.
+        ProjectFilePath: string
+        /// Print to the standard output.
+        Print: string -> unit
+        /// Print to the error output.
+        PrintError: string -> unit
+    }
+
 /// Use with assembly-level FSharpSourceGenerator attribute
 type ISourceGenerator =
-    /// Gets a full file path. Must return an array of file paths,
-    /// which can be newly created.
-    abstract Generate: filePath:string -> string[] 
+    /// Gets an object of contextual information and actions.
+    /// Must return an array of file paths, which can be newly created.
+    abstract Generate: GenerateCall -> string[] 
