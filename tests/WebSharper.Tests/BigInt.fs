@@ -61,6 +61,18 @@ let Tests =
             isTrue (a <= b)
             isTrue (a >= (BI(100)))
             isTrue (a <= (BI(100)))
+            equal (compare a b) -1
+            equal (compare b a) 1            
+        }
+
+        Test "Int64 comparison" {
+            let a = 100L
+            let b = 200L
+
+            equal (compare a b) -1
+            equal (compare b a) 1            
+            equal (a.CompareTo(b)) -1
+            equal (b.CompareTo(a)) 1
         }
 
         Test "BigInt constructors" {

@@ -43,6 +43,8 @@ module JS =
         | [<Constant "string">]    String
         | [<Constant "object">]    Object
         | [<Constant "undefined">] Undefined
+        | [<Constant "bigint">]    BigInt
+        | [<Constant "symbol">]    Symbol
 
     /// Represents a timer handle.
     [<Sealed>]
