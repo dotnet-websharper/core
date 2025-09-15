@@ -181,4 +181,6 @@ let Hash<'T> (o: 'T) : int =
     | JS.Object    -> if o ==. null then 0
                       elif isArray o then hashArray (As o)
                       else hashObject o
+    | JS.BigInt    -> hashString (string o)
+    | JS.Symbol    -> hashString o?description
 
