@@ -18,9 +18,9 @@
 //
 // $end{copyright}
 #I __SOURCE_DIRECTORY__
-#r "../../build/Release/net472/Mono.Cecil.dll"
-#r "../../build/Release/net472/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/net472/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net8.0/Mono.Cecil.Pdb.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -29,15 +29,13 @@
 #r "System.Web.dll"
 #r "System.Xml.dll"
 #r "System.Xml.Linq.dll"
-#r "../../build/Release/net472/WebSharper.Core.JavaScript.dll"
-#r "../../build/Release/net472/WebSharper.Core.dll"
-#r "../../build/Release/net472/WebSharper.JavaScript.dll"
-#r "../../build/Release/net472/WebSharper.Main.dll"
-#r "../../build/Release/net472/WebSharper.Collections.dll"
-#r "../../build/Release/net472/WebSharper.Control.dll"
-#r "../../build/Release/net472/WebSharper.Web.dll"
-#r "../../build/Release/net472/WebSharper.Sitelets.dll"
-#r "../../build/Release/net472/WebSharper.Compiler.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -45,104 +43,138 @@ open System
 open System.IO
 open System.Collections.Generic
 
-let wsRefs =
-    let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net472", x + ".dll")
-    List.map wsLib [
-        "WebSharper.Core.JavaScript"
-        "WebSharper.Core"
-        "WebSharper.JavaScript"
-        "WebSharper.Main"
-        "WebSharper.Collections"
-        "WebSharper.Control"
-        "WebSharper.Web"
-        "WebSharper.Sitelets"
-        //"WebSharper.Tests"
-        //"WebSharper.InterfaceGenerator.Tests"
-    ]
+let wsProxies =
+    Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", "WebSharper.StdLib.dll")
 
-let metadata =
-    let metas =
-        wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
-        )
-    { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-            Dependencies = WebSharper.Core.DependencyGraph.Graph.FromData(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-    }
+System.Reflection.Assembly.LoadFrom(wsProxies) |> ignore
 
-open System.IO
+let metadataCache = Dictionary<System.Reflection.Assembly, option<WebSharper.Core.Metadata.Info>>()
 
+open WebSharper
 open WebSharper.Compiler
-open WebSharper.Core.JavaScript
-open Microsoft.FSharp.Quotations
 
+let translate expr = 
+    let metas = ResizeArray()
+
+    let mutable qcomp = QuotationCompiler(WebSharper.Core.Metadata.Info.Empty)
+
+    let printErrors (comp: Compilation) =
+        for err in comp.Errors do
+            match err with
+            | Some pos, msg -> 
+                printfn "Error: %O at %O" msg pos
+            | None, msg ->
+                printfn "Error: %O" msg
+
+    for asm in System.AppDomain.CurrentDomain.GetAssemblies() do
+        match metadataCache.TryGetValue asm with
+        | true, m -> 
+            m |> Option.iter metas.Add
+        | _ ->
+            let loc = asm.Location
+            let m = 
+                if not <| System.String.IsNullOrEmpty loc then
+                    loc
+                    |> WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.MetadataOptions.FullMetadata 
+                else
+                    if asm.GetName().Name = "FSI-ASSEMBLY" then
+                        //// logging
+                        printfn "Assembly: %s" asm.FullName
+                        for t in asm.GetTypes() do
+                            printfn "Type: %s" t.FullName
+                            let printReflDef (m: Reflection.MethodBase) =
+                                match Microsoft.FSharp.Quotations.Expr.TryGetReflectedDefinition m with
+                                | Some expr ->
+                                    printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
+                                | None -> () 
+                            for m in t.GetMethods() do      
+                                printReflDef m
+                            for m in t.GetConstructors() do      
+                                printReflDef m
+                            for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
+                                printfn "Field %s: %s attrs %s" f.Name (f.FieldType.ToString())
+                                    (f.CustomAttributes |> Seq.map (fun a -> a.AttributeType.ToString()) |> String.concat ", ")
+
+                        let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+                        qcomp <- QuotationCompiler(metadata)
+                        let comp = qcomp.Compilation
+                        qcomp.CompileReflectedDefinitions(asm)
+                        Translator.DotNetToJavaScript.CompileFull comp
+                        if List.isEmpty comp.Errors then
+                            Some (comp.ToCurrentMetadata())
+                        else
+                            printErrors comp
+                            None
+                    else
+                        None
+            metadataCache.Add(asm, m)
+            m |> Option.iter metas.Add
+    
+    let epNode = WebSharper.Core.Metadata.EntryPointNode
+    let e = qcomp.CompileExpression(expr, epNode)
+    let ep = WebSharper.Core.AST.ExprStatement(e)
+
+    let comp = qcomp.Compilation
+    if List.isEmpty comp.Errors then
+        let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+        let graph = 
+            WebSharper.Core.DependencyGraph.Graph.FromData (
+                // for last meta, we need graph which includes the current entry point compilation too
+                metas |> Seq.rev |> Seq.tail |> Seq.map (fun m -> m.Dependencies)
+                |> Seq.append (Seq.singleton (comp.Graph.GetData()))
+            )
+        let nodes = graph.GetDependencies [ epNode ]
+        let trimmed = trimMetadata metadata nodes
+        let pkg =
+            JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.Output.JavaScript trimmed trimmed "fsi" (Some ep) JavaScriptPackager.EntryPointStyle.ForceImmediate
+        let trPkg, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable pkg
+
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trPkg false
+        printfn "%s" js
+    else
+        printErrors comp
+
+[<JavaScript; ReflectedDefinition>]
+let g x = x + 1
+
+translate <@ g 1 @>
+
+
+[<JavaScript; ReflectedDefinition>]
 type Rec = 
     {
         A : int
     }
 
-[<ReflectedDefinition>]
+    member thisr.Value = thisr.A
+
+[<JavaScript; ReflectedDefinition>]
 let recValue = { A = 0 }
 
-[<ReflectedDefinition>]
+translate <@ recValue.Value + 1 @>
+
+
+[<JavaScript; ReflectedDefinition>]
 type Union = 
     | A of int
 
-    member this.Value = match this with A x -> x
+    member thisu.Value = match thisu with A x -> x
 
-[<ReflectedDefinition>]
+[<JavaScript; ReflectedDefinition>]
 let unionValue = A 0
 
-[<ReflectedDefinition>]
+translate <@ unionValue.Value + 1 @>
+
+
+[<JavaScript; ReflectedDefinition>]
 type TestType(a) =
     static do printfn "hello"
     
-    member thisy.Y = 3
+    member thisy.A = a
     member thisx.X x = x + a + recValue.A + unionValue.Value
 
-[<ReflectedDefinition>]
+
+[<JavaScript; ReflectedDefinition>]
 let f x = TestType(1).X x
-
-open WebSharper.Core.AST
-
-let translate expr = 
-    let compiler = QuotationCompiler(metadata)
-    let fsiAsm = System.Reflection.Assembly.Load("FSI-ASSEMBLY")
-    
-    // logging
-    for t in fsiAsm.GetTypes() do
-        let printReflDef (m: Reflection.MethodBase) =
-            match Expr.TryGetReflectedDefinition m with
-            | Some expr ->
-                printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
-            | None -> () 
-        for m in t.GetMethods() do      
-            printReflDef m
-        for m in t.GetConstructors() do      
-            printReflDef m
-        for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
-            printfn "Field %s.%s" t.FullName f.Name
-
-    compiler.CompileReflectedDefinitions(fsiAsm)
-    let node = WebSharper.Core.Metadata.EntryPointNode
-    let e = compiler.CompileExpression(expr, node)
-    let comp = compiler.Compilation
-    Translator.DotNetToJavaScript.CompileFull comp
-    let ep = ExprStatement(ItemSet(Global [], Value (String "EntryPoint"), Lambda([], e)))
-
-    if List.isEmpty comp.Errors then
-        let prefs = WebSharper.Core.JavaScript.Preferences.Readable
-        let p =
-            Packager.packageAssembly metadata (comp.ToCurrentMetadata()) (Some ep) Packager.ForceImmediate
-        let js, _ =
-            p |> Packager.exprToString prefs (fun () -> WebSharper.Core.JavaScript.Writer.CodeWriter())
-        let refs =
-            comp.Graph.GetResources [ node ]
-        js, refs
-    else
-        let errors = comp.Errors
-        errors |> Seq.map (fun (_, e) -> e.ToString()) |> Seq.iter (printfn "Error: %s")
-        "", []
 
 translate <@ f 1 @>

@@ -447,7 +447,7 @@ type CompilationError =
         match this with
         | SourceError msg -> msg
         | NameConflict (msg, t, n) -> sprintf "%s on type %s JavaScript name: '%s'" msg t n
-        | TypeNotFound typ -> sprintf "Type not found in JavaScript compilation: %s" typ.Value.FullName
+        | TypeNotFound typ -> sprintf "Type not found in JavaScript compilation: %s from assembly %s" typ.Value.FullName typ.Value.Assembly
         | MethodNotFound (typ, meth, candidates) ->
             sprintf "Method not found in JavaScript compilation: %s.%s, Candidates: %s" 
                 typ.Value.FullName 
