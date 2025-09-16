@@ -43,10 +43,8 @@ open System
 open System.IO
 open System.Collections.Generic
 
-let wsProxies =
-    Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", "WebSharper.StdLib.dll")
-
-System.Reflection.Assembly.LoadFrom(wsProxies) |> ignore
+typeof<WebSharper.JavaScript.Object> |> ignore // force loading WebSharper.JavaScript
+typeof<WebSharper.JavaScript.JS.Kind> |> ignore // force loading WebSharper.StdLib
 
 let metadataCache = Dictionary<System.Reflection.Assembly, option<WebSharper.Core.Metadata.Info>>()
 
@@ -134,13 +132,8 @@ let translate expr =
     else
         printErrors comp
 
-[<JavaScript; ReflectedDefinition>]
-let g x = x + 1
 
-translate <@ g 1 @>
-
-
-[<JavaScript; ReflectedDefinition>]
+[<ReflectedDefinition>]
 type Rec = 
     {
         A : int
@@ -148,33 +141,38 @@ type Rec =
 
     member thisr.Value = thisr.A
 
-[<JavaScript; ReflectedDefinition>]
+[<ReflectedDefinition>]
 let recValue = { A = 0 }
 
 translate <@ recValue.Value + 1 @>
 
 
-[<JavaScript; ReflectedDefinition>]
+[<ReflectedDefinition>]
 type Union = 
     | A of int
 
     member thisu.Value = match thisu with A x -> x
 
-[<JavaScript; ReflectedDefinition>]
+[<ReflectedDefinition>]
 let unionValue = A 0
 
 translate <@ unionValue.Value + 1 @>
 
 
-[<JavaScript; ReflectedDefinition>]
-type TestType(a) =
-    static do printfn "hello"
+[<ReflectedDefinition>]
+type TestType(a) as self =
+    static do printfn "hello from cctor"
+    //do printfn "hello from ctor %O" self
     
-    member thisy.A = a
     member thisx.X x = x + a + recValue.A + unionValue.Value
 
+[<ReflectedDefinition>]
+type TestTypeB(a) =
+    inherit TestType(a)
+    
+    member this.Y x = this.X (x + 1)
 
-[<JavaScript; ReflectedDefinition>]
-let f x = TestType(1).X x
+[<ReflectedDefinition>]
+let f x = TestTypeB(1).Y x
 
 translate <@ f 1 @>

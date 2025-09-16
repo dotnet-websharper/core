@@ -106,6 +106,15 @@ let readReflected (comp: ICompilation) (m: MethodBase) =
             | _ ->
                 failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | _ ->
-            Function(args, thisArg, None, Return (QR.transformExpression env expr))
+            let retOrIgnore =
+                if m.IsConstructor then
+                    ExprStatement
+                else
+                    match m with 
+                    | :? System.Reflection.MethodInfo as mi -> 
+                        if mi.ReturnType = typeof<unit> then ExprStatement else Return
+                    | _ -> Return
+
+            Function(args, thisArg, None, retOrIgnore (QR.transformExpression env expr))
 
     Some (decurry None [] currying q)
