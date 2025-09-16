@@ -43,20 +43,10 @@ open System
 open System.IO
 open System.Collections.Generic
 
-let wsRefs =
-    let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", x + ".dll")
-    List.map wsLib [
-        "WebSharper.Core.JavaScript"
-        "WebSharper.Core"
-        "WebSharper.JavaScript"
-        "WebSharper.StdLib"
-        "WebSharper.Web"
-        "WebSharper.Sitelets"
-    ]
+let wsProxies =
+    Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", "WebSharper.StdLib.dll")
 
-for asmPath in wsRefs do
-    System.Reflection.Assembly.LoadFrom(asmPath) |> ignore
+System.Reflection.Assembly.LoadFrom(wsProxies) |> ignore
 
 let metadataCache = Dictionary<System.Reflection.Assembly, option<WebSharper.Core.Metadata.Info>>()
 
@@ -89,21 +79,21 @@ let translate expr =
                 else
                     if asm.GetName().Name = "FSI-ASSEMBLY" then
                         //// logging
-                        //printfn "Assembly: %s" asm.FullName
-                        //for t in asm.GetTypes() do
-                        //    printfn "Type: %s" t.FullName
-                        //    let printReflDef (m: Reflection.MethodBase) =
-                        //        match Microsoft.FSharp.Quotations.Expr.TryGetReflectedDefinition m with
-                        //        | Some expr ->
-                        //            printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
-                        //        | None -> () 
-                        //    for m in t.GetMethods() do      
-                        //        printReflDef m
-                        //    for m in t.GetConstructors() do      
-                        //        printReflDef m
-                        //    for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
-                        //        printfn "Field %s: %s attrs %s" f.Name (f.FieldType.ToString())
-                        //            (f.CustomAttributes |> Seq.map (fun a -> a.AttributeType.ToString()) |> String.concat ", ")
+                        printfn "Assembly: %s" asm.FullName
+                        for t in asm.GetTypes() do
+                            printfn "Type: %s" t.FullName
+                            let printReflDef (m: Reflection.MethodBase) =
+                                match Microsoft.FSharp.Quotations.Expr.TryGetReflectedDefinition m with
+                                | Some expr ->
+                                    printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
+                                | None -> () 
+                            for m in t.GetMethods() do      
+                                printReflDef m
+                            for m in t.GetConstructors() do      
+                                printReflDef m
+                            for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
+                                printfn "Field %s: %s attrs %s" f.Name (f.FieldType.ToString())
+                                    (f.CustomAttributes |> Seq.map (fun a -> a.AttributeType.ToString()) |> String.concat ", ")
 
                         let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
                         qcomp <- QuotationCompiler(metadata)
@@ -156,24 +146,33 @@ type Rec =
         A : int
     }
 
+    member thisr.Value = thisr.A
+
 [<JavaScript; ReflectedDefinition>]
 let recValue = { A = 0 }
+
+translate <@ recValue.Value + 1 @>
+
 
 [<JavaScript; ReflectedDefinition>]
 type Union = 
     | A of int
 
-    member this.Value = match this with A x -> x
+    member thisu.Value = match thisu with A x -> x
 
 [<JavaScript; ReflectedDefinition>]
 let unionValue = A 0
+
+translate <@ unionValue.Value + 1 @>
+
 
 [<JavaScript; ReflectedDefinition>]
 type TestType(a) =
     static do printfn "hello"
     
-    member thisy.Y = 3
+    member thisy.A = a
     member thisx.X x = x + a + recValue.A + unionValue.Value
+
 
 [<JavaScript; ReflectedDefinition>]
 let f x = TestType(1).X x

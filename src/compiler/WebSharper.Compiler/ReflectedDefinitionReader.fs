@@ -51,28 +51,34 @@ let readReflected (comp: ICompilation) (m: MethodBase) =
                 [], "Module let"
             elif m.IsStatic || m.IsConstructor then 
                 if k = 0 then [1], "Static 0" else [k], "Static " + string k
-            elif k = 0 then [-1; 1], "Instance 0" else [-1; k], "Instance " + string k
+            else [-1; k], "Instance " + string k
         | Some x ->
             if m.IsStatic || m.IsConstructor then x, "CompArg Static " + string x else -1 :: x, "CompArg Instance " + string x   
     
     let env = QR.Environment.New(comp)
     
-    let rec decurry args curr expr =
+    let rec decurry thisArg args curr expr =
         match curr with
         | -1 :: restCurr ->
             match expr with
             | Patterns.Lambda (arg, body) ->
                 let i = Id.New(arg.Name, false)
                 env.AddVar(i, arg)
-                decurry [] restCurr body
+                decurry (Some i) [] restCurr body
             | _ ->
                 failwithf "Expecting a lambda while decurrying 'this' argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
+        | 0 :: restCurr ->
+            match expr with
+            | Patterns.Lambda (_, body) ->
+                decurry thisArg args restCurr body
+            | _ ->
+                failwithf "Expecting a lambda while decurrying an argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | 1 :: restCurr ->
             match expr with
             | Patterns.Lambda (arg, body) ->
                 let i = Id.New(arg.Name, false)
-                env.AddVar(i, arg, QR.LocalVar)
-                decurry (args @ [i]) restCurr body
+                env.AddVar(i, arg)
+                decurry thisArg (args @ [i]) restCurr body
             | _ ->
                 failwithf "Expecting a lambda while decurrying an argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | k :: restCurr ->
@@ -93,13 +99,13 @@ let readReflected (comp: ICompilation) (m: MethodBase) =
                 let tupleArgs = 
                     tupleVars |> List.map (fun v ->
                         let a = Id.New(v.Name, false)
-                        env.AddVar(a, v, QR.LocalVar)
+                        env.AddVar(a, v)
                         a
                     ) 
-                decurry (args @ tupleArgs) restCurr detupledBody
+                decurry thisArg (args @ tupleArgs) restCurr detupledBody
             | _ ->
                 failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | _ ->
-            Lambda(args, None, QR.transformExpression env expr)
+            Function(args, thisArg, None, Return (QR.transformExpression env expr))
 
-    Some (decurry [] currying q)
+    Some (decurry None [] currying q)

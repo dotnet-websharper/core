@@ -36,7 +36,6 @@ let parsefailf x =
 type VarKind =
     | LocalVar 
     | ByRefArg
-    //| ThisArg
 
 type Environment =
     {
@@ -64,10 +63,7 @@ type Environment =
         | true, r ->
             this.Vars.[v]
         | _ ->
-            //if v.Name = "this" then 
-            //    Id.Global(), ThisArg 
-            //else
-                parsefailf "Failed to look up variable %s" v.Name
+            parsefailf "Failed to look up variable %s" v.Name
 
 let getOptSourcePos (expr: Expr) =
     expr.CustomAttributes |> List.tryPick (
@@ -111,11 +107,16 @@ let rec transformExpression (env: Environment) (expr: Expr) =
     try
         match expr with
         | Patterns.Var var ->
-            let v, k = env.LookupVar var 
-            match k with
-            | LocalVar -> Var v  
-            | ByRefArg -> GetRef (Var v)
-            //| ThisArg -> This
+            try
+                let v, k = env.LookupVar var 
+                match k with
+                | LocalVar -> Var v  
+                | ByRefArg -> GetRef (Var v)
+            with _ ->
+                if var.Name = "this" then
+                    JSThis
+                else
+                    reraise()
         | Patterns.Lambda (arg, body) ->
             let lArg =
                 if arg.Type = typeof<unit> then
@@ -200,7 +201,6 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> VarSet(v, tr value) 
             | ByRefArg -> SetRef (Var v) (tr value)
-            //| ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
         | Patterns.ForIntegerRangeLoop (var, start, end_, body) ->

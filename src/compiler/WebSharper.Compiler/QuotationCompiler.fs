@@ -43,13 +43,7 @@ type QuotationCompiler (meta : M.Info) =
 
     member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
         let treatReflectedDefinitionAsJavaScript = defaultArg treatReflectedDefinitionAsJavaScript true
-        let asmName = asm.GetName().Name
-        let asmNameWithVersionOpt =
-            if asmName = "FSI-ASSEMBLY" then
-                asmName + "-" + asm.GetName().Version.ToString()
-            else
-                asmName
-        comp.AssemblyName <- asmNameWithVersionOpt
+        comp.AssemblyName <- Reflection.ReadAsmName asm
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
@@ -294,6 +288,37 @@ type QuotationCompiler (meta : M.Info) =
 
             for c in t.GetConstructors(Reflection.AllMethodsFlags) do
                 readMember c
+
+            if FST.IsRecord(t) || FST.IsUnion(t) then
+                let ct = A.reflectCustomType (Reflection.ReadTypeDefinition t)
+                comp.AddCustomType(def, ct)
+
+                //let i = 
+                //    FST.GetRecordFields(t, Reflection.AllMethodsFlags)
+                //    |> Seq.choose (fun f ->
+                //        let fTyp = f.PropertyType
+                //        let fAnnot = A.attrReader.GetMemberAnnot(annot, f.CustomAttributes)
+                    
+                //        match fAnnot.Kind with
+                //        | Some (A.MemberKind.Remote _) -> None
+                //        | _ ->
+                //            let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+
+                //            {
+                //                Name = f.Name
+                //                JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
+                //                RecordFieldType = fTyp
+                //                DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                //                Optional = isOpt
+                //                IsMutable = f.IsMutable
+                //            }
+                //            |> Some
+                //    )
+                //    |> List.ofSeq |> function [] -> None | l -> l |> FSharpRecordInfo |> Some
+                //if comp.HasCustomTypeInfo def then
+                //    printfn "Already has custom type info: %s" def.Value.FullName
+                //else
+                //    i |> Option.iter (fun i -> comp.AddCustomType(def, i))
 
             if clsMembers.Count > 0 then
                 
