@@ -24,7 +24,14 @@ open WebSharper.Core
 
 type private FST = Microsoft.FSharp.Reflection.FSharpType
 
-let private getTypeDefinitionUnchecked fullAsmName (t: System.Type) =
+let ReadAsmName (asm: System.Reflection.Assembly) =
+    let asmName = asm.GetName().Name
+    if asmName = "FSI-ASSEMBLY" then
+        asmName + "-" + asm.GetName().Version.ToString()
+    else
+        asmName
+
+let private getTypeDefinitionUnchecked (t: System.Type) =
     let rec getName (t: System.Type) =
         if t.IsNested then
             getName t.DeclaringType + "+" + t.Name 
@@ -33,14 +40,9 @@ let private getTypeDefinitionUnchecked fullAsmName (t: System.Type) =
         else t.Namespace + "." + t.Name
     let name = getName t
     let asmName =
-        if fullAsmName then
-            match AssemblyConventions.StandardAssemblyFullNameForTypeNamed name with
-            | Some n -> n
-            | None -> t.Assembly.FullName
-        else
-            match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
-            | Some n -> n
-            | None -> t.Assembly.FullName.Split(',').[0]
+        match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
+        | Some n -> n
+        | None -> ReadAsmName t.Assembly
     Hashed {
         Assembly = asmName
         FullName = name
@@ -57,7 +59,7 @@ let ReadTypeDefinition (t: System.Type) =
     elif FST.IsTuple t then 
         Definitions.Tuple t.IsValueType (t.GetGenericArguments().Length)
     else
-        getTypeDefinitionUnchecked false t
+        getTypeDefinitionUnchecked t
 
 let private unitTy = typeof<unit>
 let private voidTy = typeof<System.Void>
@@ -69,7 +71,7 @@ let rec ReadType (t: System.Type) =
                 if t.IsGenericType then 
                     t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
                 else [] 
-            Entity = getTypeDefinitionUnchecked false t
+            Entity = getTypeDefinitionUnchecked t
         }
     if t.IsArray then
         ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
@@ -139,7 +141,17 @@ let LoadType (t: Type) =
     with _ -> failwithf "Failed to load type %s" t.AssemblyQualifiedName
 
 let LoadTypeDefinition (td: TypeDefinition) =
-    try System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
+    try 
+        if td.Value.Assembly.StartsWith "FSI-ASSEMBLY" then
+            let ver = System.Version.Parse(td.Value.Assembly.[13 ..])
+            let asm = 
+                System.AppDomain.CurrentDomain.GetAssemblies()
+                |> Seq.find (fun a -> 
+                    let n = a.GetName()
+                    n.Name = "FSI-ASSEMBLY" && n.Version = ver)
+            asm.GetType(td.Value.FullName, true)
+        else
+            System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
     with _ -> failwithf "Failed to load type %s from assembly %s" td.Value.FullName td.Value.Assembly
 
 let [<Literal>] AllMethodsFlags = 

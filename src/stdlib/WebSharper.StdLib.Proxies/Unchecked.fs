@@ -74,9 +74,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             match JS.TypeOf b with
             | JS.Undefined -> 0
             | _ -> -1
-        | JS.Function ->
-            failwith "Cannot compare function values."
-        | JS.Boolean | JS.Number | JS.String ->
+        | JS.Boolean | JS.Number | JS.BigInt | JS.String ->
             if a <. b then -1 else 1
         | JS.Object ->
             if a ===. null then -1
@@ -86,6 +84,10 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             elif isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
             else objCompare (As a) (As b)
+        | JS.Function ->
+            failwith "Cannot compare function values."
+        | JS.Symbol ->
+            failwith "Cannot compare symbol values."
 
 /// Produces an undefined value.
 [<Macro(typeof<M.DefaultOf>)>]
@@ -179,4 +181,6 @@ let Hash<'T> (o: 'T) : int =
     | JS.Object    -> if o ==. null then 0
                       elif isArray o then hashArray (As o)
                       else hashObject o
+    | JS.BigInt    -> hashString (string o)
+    | JS.Symbol    -> hashString o?description
 

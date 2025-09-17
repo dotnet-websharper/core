@@ -36,8 +36,8 @@ let CreateArray2D (rows : seq<#seq<'T>>) =
     arr?dims <- 2
     arr
 
-[<Inline "+$0">]
-let ToDouble<'T> (x: 'T) : double = X
+[<Macro(typeof<M.Conversion>)>]
+let ToDouble<'T> (x: 'T) = X<double>
 
 [<Inline "$f(function(x){return x;})">]
 let PrintFormatToString (f: Printf.StringFormat<'T>) = X<'T>

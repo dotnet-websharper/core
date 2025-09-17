@@ -36,7 +36,6 @@ let parsefailf x =
 type VarKind =
     | LocalVar 
     | ByRefArg
-    //| ThisArg
 
 type Environment =
     {
@@ -64,10 +63,7 @@ type Environment =
         | true, r ->
             this.Vars.[v]
         | _ ->
-            //if v.Name = "this" then 
-            //    Id.Global(), ThisArg 
-            //else
-                parsefailf "Failed to look up variable %s" v.Name
+            parsefailf "Failed to look up variable %s" v.Name
 
 let getOptSourcePos (expr: Expr) =
     expr.CustomAttributes |> List.tryPick (
@@ -111,11 +107,16 @@ let rec transformExpression (env: Environment) (expr: Expr) =
     try
         match expr with
         | Patterns.Var var ->
-            let v, k = env.LookupVar var 
-            match k with
-            | LocalVar -> Var v  
-            | ByRefArg -> GetRef (Var v)
-            //| ThisArg -> This
+            try
+                let v, k = env.LookupVar var 
+                match k with
+                | LocalVar -> Var v  
+                | ByRefArg -> GetRef (Var v)
+            with _ ->
+                if var.Name = "this" then
+                    JSThis
+                else
+                    reraise()
         | Patterns.Lambda (arg, body) ->
             let lArg =
                 if arg.Type = typeof<unit> then
@@ -200,7 +201,6 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> VarSet(v, tr value) 
             | ByRefArg -> SetRef (Var v) (tr value)
-            //| ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
         | Patterns.ForIntegerRangeLoop (var, start, end_, body) ->
@@ -283,3 +283,61 @@ let rec transformExpression (env: Environment) (expr: Expr) =
 
 let readExpression (comp: ICompilation) expr =
     transformExpression (Environment.New(comp)) expr
+
+type FixCtorTransformer(typ, btyp, thisCtor) =
+    inherit Transformer()
+
+    let mutable addedChainedCtor = false
+
+    override this.TransformSequential (es) =
+        match es with
+        | h :: t -> Sequential (this.TransformExpression h :: t)
+        | _ -> Undefined
+
+    override this.TransformLet(a, b, c) =
+        Let(a, b, this.TransformExpression c)
+
+    override this.TransformConditional(a, b, c) =
+        Conditional(a, this.TransformExpression b, this.TransformExpression c)   
+        
+    override this.TransformLetRec(a, b) =
+        LetRec(a, this.TransformExpression b) 
+
+    override this.TransformStatementExpr(a, b) = StatementExpr (a, b)
+
+    override this.TransformCtor (t, c, a) =
+        if addedChainedCtor then Ctor (t, c, a) else
+        addedChainedCtor <- true
+        let isBase = t.Entity <> typ
+        let tn = typ.Value.FullName
+        if (not isBase || Option.isSome btyp) && not (tn = "System.Object" || tn = "System.Exception") then
+            if t.Entity.Value.FullName = "System.Exception" then 
+                let args, inner =
+                    match a with
+                    | [] -> [], None
+                    | [_] -> a, None
+                    | [msg; inner] -> [msg], Some inner 
+                    | _ -> failwith "Too many arguments for Error"
+                Sequential [
+                    yield Appl(Base, args, NonPure, None)
+                    match inner with
+                    | Some i ->
+                        yield ItemSet(JSThis, Value (String "inner"), i)
+                    | None -> ()
+                ]
+            else
+                if not isBase && thisCtor = c then
+                    failwith <| sprintf "Self referencing constructor in %s" t.Entity.Value.FullName
+                else
+                    ChainedCtor(isBase, t, c, a) 
+        else JSThis
+
+    member this.Fix(expr) = 
+        let res = this.TransformExpression(expr)
+        match btyp with
+        | Some b when not addedChainedCtor -> 
+            Sequential [ ChainedCtor(true, b, ConstructorInfo.Default(), []); res ]
+        | _ -> res
+
+let fixCtor thisTyp baseType c expr =
+    FixCtorTransformer(thisTyp, baseType, c).Fix(expr)

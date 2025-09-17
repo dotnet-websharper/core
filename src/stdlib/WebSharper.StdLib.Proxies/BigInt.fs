@@ -119,6 +119,12 @@ type private BigIntegerProxy =
     [<Inline "$n1 ** BigInt($n2)"; Pure>]
     static member Pow(n1 : bigint, n2 : int) = X<bigint>
 
+    static member MinusOne with [<Inline "BigInt(-1)">] get() = X<bigint>
+
+    static member Zero with [<Inline "BigInt(0)">] get() = X<bigint>
+
+    static member One with [<Inline "BigInt(1)">] get() = X<bigint>
+
 [<Proxy "Microsoft.FSharp.Core.NumericLiterals+NumericLiteralI, FSharp.Core">]
 module private NumericLiteralIProxy =
     

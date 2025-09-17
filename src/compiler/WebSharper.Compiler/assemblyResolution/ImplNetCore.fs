@@ -228,11 +228,19 @@ module internal NetCoreImplemetnation =
                 let exitContextualReflection() =
                     if not (isNull entered) then
                         entered.Dispose()
+                        entered <- null
 
-                let unload() =
+                let unload (alc: obj) =
                     let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
-                    meth.Invoke(loadContext.Value, [||]) |> ignore
+                    meth.Invoke(alc, [||]) |> ignore
 
                 WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
                 exitContextualReflection()
-                dom.remove_AssemblyResolve(domHandler)    
+                dom.remove_AssemblyResolve(domHandler)
+                domHandler <- null
+                try
+                    let alc = loadContext.Value
+                    loadContext <- None
+                    unload alc
+                with _ -> 
+                    ()

@@ -2079,11 +2079,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "System.Double"
             | "System.Int16"
             | "System.Int32"
-            | "System.Int64"
             | "System.UInt16"
-            | "System.UInt32"
-            | "System.UInt64" ->
+            | "System.UInt32" ->
                 TypeOf "number"
+            | "System.Numerics.BigInteger"
+            | "System.Int64"
+            | "System.UInt64" ->
+                TypeOf "bigint"            
             | "System.String" ->
                 TypeOf "string"
             | "WebSharper.JavaScript.Error"

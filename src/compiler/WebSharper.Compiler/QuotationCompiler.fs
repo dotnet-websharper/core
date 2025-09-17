@@ -43,10 +43,12 @@ type QuotationCompiler (meta : M.Info) =
 
     member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
         let treatReflectedDefinitionAsJavaScript = defaultArg treatReflectedDefinitionAsJavaScript true
-        comp.AssemblyName <- asm.FullName
+        comp.AssemblyName <- Reflection.ReadAsmName asm
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
+            if FST.IsFunction t then () else
+
             let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes, t.IsInterface)
             let thisDef = Reflection.ReadTypeDefinition(t) 
             let def =
@@ -83,15 +85,23 @@ type QuotationCompiler (meta : M.Info) =
             let mutable hasNonStubMember = false
 
             let readMember (m: MethodBase) =
-                let reflected() =
-                    try ReflectedDefinitionReader.readReflected comp m
-                    with e -> 
-                        comp.AddError(None, SourceError(sprintf "Error during reading reflected definition of %s.%s: %s" m.DeclaringType.FullName m.Name e.Message))
-                        None
                 let mAnnot = A.attrReader.GetMemberAnnot(annot, m.CustomAttributes)   
                 
                 let memdef = Reflection.ReadMember m |> Option.get
                 
+                let reflected() =
+                    try 
+                        let r = ReflectedDefinitionReader.readReflected comp m
+                        match memdef with
+                        | Member.Constructor cdef -> 
+                            let baseCls = t.BaseType |> Option.ofObj |> Option.map (fun bt -> Reflection.ReadType(bt) |> getConcreteType)
+                            r |> Option.map (QuotationReader.fixCtor thisDef baseCls cdef)
+                        | _ -> 
+                            r
+                    with e -> 
+                        comp.AddError(None, SourceError(sprintf "Error during reading reflected definition of %s.%s: %s" m.DeclaringType.FullName m.Name e.Message))
+                        None
+
                 let getVars() =
                     match m.GetParameters() with
                     | [| u |] when u.GetType() = typeof<unit> -> []
@@ -113,11 +123,9 @@ type QuotationCompiler (meta : M.Info) =
                 let jsMember isInline =
                     match reflected() with
                     | Some expr ->
-                        let mem = Reflection.ReadMember m |> Option.get
-    
                         let nr k = getUnresolved m mAnnot (if isInline then nrInline else k) false expr
 
-                        match mem with
+                        match memdef with
                         | Member.Constructor ctor ->
                             clsMembers.Add(NotResolvedMember.Constructor(ctor, nr N.Constructor))
                         | Member.Method (inst, meth) ->
@@ -289,6 +297,50 @@ type QuotationCompiler (meta : M.Info) =
             for c in t.GetConstructors(Reflection.AllMethodsFlags) do
                 readMember c
 
+            if FST.IsRecord(t) || FST.IsUnion(t) then
+                let ct = A.reflectCustomType (Reflection.ReadTypeDefinition t)
+                comp.AddCustomType(def, ct)
+
+                match ct with 
+                | M.FSharpUnionInfo ui ->
+                    let tgen = t.GenericTypeArguments.Length
+                    let thisType = Generic def (List.init tgen TypeParameter)
+                    for index, c in ui.Cases |> Seq.indexed do
+                        match c.Kind with
+                        | M.NormalFSharpUnionCase fields ->
+                            let newCase =
+                                Method {
+                                    MethodName = "New" + c.Name
+                                    Parameters = fields |> List.map (fun f -> f.UnionFieldType) 
+                                    ReturnType = ConcreteType thisType
+                                    Generics = tgen
+                                }
+                            let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false, typ = f.UnionFieldType)) 
+                            let obj =
+                                Object (
+                                    ("$", MemberKind.Simple, Value (Int index)) ::
+                                    (args |> List.mapi (fun j a -> "$" + string j, MemberKind.Simple, Var a)) 
+                                )
+                            let newCaseM =
+                                {
+                                    Kind = NotResolvedMemberKind.Static
+                                    StrongName = Some c.Name
+                                    Generics = []
+                                    Macros = []
+                                    Generator = None
+                                    Compiled = false
+                                    Pure = true
+                                    FuncArgs = None
+                                    Args = args
+                                    Body = Function(args, None, Some (ConcreteType thisType), Return (CopyCtor(def, obj)))
+                                    Requires = []
+                                    Warn = None
+                                    JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                                }
+                            clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
+                        | _ -> ()
+                | _ -> ()
+
             if clsMembers.Count > 0 then
                 
                 let fsharpSpecificNonException =
@@ -305,7 +357,7 @@ type QuotationCompiler (meta : M.Info) =
                     elif annot.Prototype = Some false then
                         t.BaseType |> Option.ofObj |> Option.bind (fun bt -> Reflection.ReadType(bt) |> getConcreteType |> ignoreSystemObject)
                     else 
-                        t.BaseType|> Option.ofObj |> Option.map (fun bt -> Reflection.ReadType(bt) |> getConcreteType)
+                        t.BaseType |> Option.ofObj |> Option.map (fun bt -> Reflection.ReadType(bt) |> getConcreteType)
 
                 let strongName =
                     annot.Name |> Option.map (fun n ->
@@ -335,7 +387,7 @@ type QuotationCompiler (meta : M.Info) =
                             Order = i 
                         }
                     clsMembers.Add(NotResolvedMember.Field(f.Name, nr))    
-
+                
                 comp.AddClass(
                     def,
                     {
