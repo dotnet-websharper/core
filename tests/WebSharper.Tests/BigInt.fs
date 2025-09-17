@@ -65,6 +65,15 @@ let Tests =
             equal (compare b a) 1            
         }
 
+        Test "BigInt conversion" {
+            let a = BI(100)
+
+            equal (int a) 100
+            equal (float a) 100.
+            equal (double a) 100.
+            equal (int64 a) 100L
+        }
+
         Test "Int64 comparison" {
             let a = 100L
             let b = 200L
