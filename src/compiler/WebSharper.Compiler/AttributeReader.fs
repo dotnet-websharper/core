@@ -538,12 +538,14 @@ type AttributeReader<'A>() =
             ClientAccess = clientAccess
         }
    
-    member this.GetAssemblyAnnot (attrs: seq<'A>) =
+    member this.GetAssemblyAnnot (attrs: seq<'A>, ?prevAsmAnnot: AssemblyAnnotation) =
         let reqs = ResizeArray()
-        let mutable sitelet = None
-        let mutable remotingProvider = None
-        let mutable isJavaScript = false
-        let mutable isJavaScriptExport = false
+        for prevReq in prevAsmAnnot |> Option.map (fun a -> a.Requires) |> Option.defaultValue [] do
+            reqs.Add prevReq
+        let mutable sitelet = prevAsmAnnot |> Option.bind (fun a -> a.SiteletDefinition)
+        let mutable remotingProvider = prevAsmAnnot |> Option.bind (fun a -> a.RemotingProvider)
+        let mutable isJavaScript = prevAsmAnnot |> Option.exists (fun a -> a.IsJavaScript)
+        let mutable isJavaScriptExport = prevAsmAnnot |> Option.exists (fun a -> a.IsJavaScriptExport)
         let jsTypesAndFiles = ResizeArray()
         let jsExportTypesAndFiles = ResizeArray()
         for a in attrs do
