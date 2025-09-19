@@ -21,6 +21,13 @@
 #r "../../build/Release/FSharp/net8.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net8.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net8.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Debug/netstandard2.0/WebSharper.Core.dll"
+#r "../../build/Debug/netstandard2.0/WebSharper.Core.JavaScript.dll"
+#r "../../build/Debug/netstandard2.0/WebSharper.Compiler.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -29,13 +36,6 @@
 #r "System.Web.dll"
 #r "System.Xml.dll"
 #r "System.Xml.Linq.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -45,11 +45,14 @@ open System.Collections.Generic
 
 typeof<WebSharper.JavaScript.Object> |> ignore // force loading WebSharper.JavaScript
 typeof<WebSharper.JavaScript.JS.Kind> |> ignore // force loading WebSharper.StdLib
+typeof<WebSharper.Web.Context> |> ignore // force loading WebSharper.Web
 
 let metadataCache = Dictionary<System.Reflection.Assembly, option<WebSharper.Core.Metadata.Info>>()
 
 open WebSharper
 open WebSharper.Compiler
+
+let mutable mergedAsmAnnotation = None
 
 let translate expr = 
     let metas = ResizeArray()
@@ -64,7 +67,24 @@ let translate expr =
             | None, msg ->
                 printfn "Error: %O" msg
 
-    for asm in System.AppDomain.CurrentDomain.GetAssemblies() do
+    let assemblies =
+        let filtered =
+            System.AppDomain.CurrentDomain.GetAssemblies()
+            |> Array.where (fun asm ->
+                not (
+                    asm.FullName.StartsWith "System."
+                    || asm.FullName.StartsWith "Microsoft."
+                    || asm.FullName.StartsWith "FSharp."
+                    || asm.FullName.StartsWith "mscorlib"
+                )
+            )
+        let wsAsms, otherAsms = 
+            filtered 
+            |> Array.partition (fun asm -> asm.FullName.StartsWith "WebSharper.")
+
+        Seq.append wsAsms otherAsms
+
+    for asm in assemblies do
         match metadataCache.TryGetValue asm with
         | true, m -> 
             m |> Option.iter metas.Add
@@ -77,27 +97,28 @@ let translate expr =
                 else
                     if asm.GetName().Name = "FSI-ASSEMBLY" then
                         //// logging
-                        printfn "Assembly: %s" asm.FullName
-                        for t in asm.GetTypes() do
-                            printfn "Type: %s" t.FullName
-                            let printReflDef (m: Reflection.MethodBase) =
-                                match Microsoft.FSharp.Quotations.Expr.TryGetReflectedDefinition m with
-                                | Some expr ->
-                                    printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
-                                | None -> () 
-                            for m in t.GetMethods() do      
-                                printReflDef m
-                            for m in t.GetConstructors() do      
-                                printReflDef m
-                            for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
-                                printfn "Field %s: %s attrs %s" f.Name (f.FieldType.ToString())
-                                    (f.CustomAttributes |> Seq.map (fun a -> a.AttributeType.ToString()) |> String.concat ", ")
+                        //printfn "Assembly: %s" asm.FullName
+                        //for t in asm.GetTypes() do
+                        //    printfn "Type: %s" t.FullName
+                        //    let printReflDef (m: Reflection.MethodBase) =
+                        //        match Microsoft.FSharp.Quotations.Expr.TryGetReflectedDefinition m with
+                        //        | Some expr ->
+                        //            printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
+                        //        | None -> () 
+                        //    for m in t.GetMethods() do      
+                        //        printReflDef m
+                        //    for m in t.GetConstructors() do      
+                        //        printReflDef m
+                        //    for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
+                        //        printfn "Field %s: %s attrs %s" f.Name (f.FieldType.ToString())
+                        //            (f.CustomAttributes |> Seq.map (fun a -> a.AttributeType.ToString()) |> String.concat ", ")
 
                         let metadata = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
                         qcomp <- QuotationCompiler(metadata)
+                        qcomp.AssemblyAnnotation <- mergedAsmAnnotation
                         let comp = qcomp.Compilation
                         qcomp.CompileReflectedDefinitions(asm)
-                        Translator.DotNetToJavaScript.CompileFull comp
+                        mergedAsmAnnotation <- qcomp.AssemblyAnnotation
                         if List.isEmpty comp.Errors then
                             Some (comp.ToCurrentMetadata())
                         else
@@ -108,6 +129,8 @@ let translate expr =
             metadataCache.Add(asm, m)
             m |> Option.iter metas.Add
     
+    //printfn "Expression: %A" expr
+
     let epNode = WebSharper.Core.Metadata.EntryPointNode
     let e = qcomp.CompileExpression(expr, epNode)
     let ep = WebSharper.Core.AST.ExprStatement(e)
@@ -132,6 +155,34 @@ let translate expr =
     else
         printErrors comp
 
+open WebSharper.JavaScript
+
+[<ReflectedDefinition>]
+type FsiRemotingProvider() =
+    interface Remoting.IRemotingProvider with
+        member this.Sync m data =
+            failwith "Synchronous remote methods not implemented"
+        member this.Async m data =
+            async {
+                let! resp = JS.Window.Parent?sendToFsi(m, Json.Stringify data)
+                return Json.Parse resp
+            }
+        member this.Send m data =
+                (this :> Remoting.IRemotingProvider).Async m data |> Async.Ignore |> Async.Start
+        member this.Task m data =
+                (this :> Remoting.IRemotingProvider).Async m data |> Async.StartAsTask
+
+[<assembly:RemotingProvider(typeof<FsiRemotingProvider>)>]
+do ()
+
+System.Reflection.Assembly.GetExecutingAssembly().CustomAttributes
+|> Seq.iter (fun a -> printfn "Assembly attribute: %s" (a.AttributeType.FullName))
+
+
+[<Remote>]
+let getValue() = async.Return 42 
+
+translate <@ getValue() @>
 
 [<ReflectedDefinition>]
 type Rec = 

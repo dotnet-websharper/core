@@ -41,10 +41,14 @@ type QuotationCompiler (meta : M.Info) =
 
     member this.Compilation = comp
 
+    member val AssemblyAnnotation = None with get, set
+
     member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
         let treatReflectedDefinitionAsJavaScript = defaultArg treatReflectedDefinitionAsJavaScript true
         comp.AssemblyName <- Reflection.ReadAsmName asm
-        let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
+        let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes, ?prevAsmAnnot = this.AssemblyAnnotation)
+        this.AssemblyAnnotation <- Some asmAnnot
+        comp.AssemblyRequires <- asmAnnot.Requires
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
             if FST.IsFunction t then () else
@@ -88,7 +92,7 @@ type QuotationCompiler (meta : M.Info) =
                 let mAnnot = A.attrReader.GetMemberAnnot(annot, m.CustomAttributes)   
                 
                 let memdef = Reflection.ReadMember m |> Option.get
-                
+
                 let reflected() =
                     try 
                         let r = ReflectedDefinitionReader.readReflected comp m
@@ -197,7 +201,7 @@ type QuotationCompiler (meta : M.Info) =
                                 Generics = []
                                 Macros = mAnnot.Macros
                                 Generator = None
-                                Compiled = true 
+                                Compiled = false 
                                 Pure = mAnnot.Pure
                                 Body = Undefined
                                 Requires = mAnnot.Requires

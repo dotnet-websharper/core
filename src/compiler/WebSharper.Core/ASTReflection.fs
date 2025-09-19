@@ -127,11 +127,28 @@ let ReadMember (m: System.Reflection.MemberInfo) =
         |> Some
     | :? System.Reflection.MethodInfo as m ->
         if m.IsVirtual then
-            let b = m.GetBaseDefinition()
-            let typ = b.DeclaringType 
-            let info = ReadTypeDefinition typ, ReadMethod b 
-            if typ.IsInterface then Member.Implementation info
-            else Member.Override info
+            let typ = m.DeclaringType
+            let intfOpt =
+                typ.GetInterfaces()
+                |> Seq.tryPick (fun intf -> 
+                    let map = typ.GetInterfaceMap(intf)
+                    map.TargetMethods
+                    |> Seq.indexed
+                    |> Seq.tryPick (fun (i, target) -> 
+                        if target = m then 
+                            Some (intf, map.InterfaceMethods.[i])
+                        else 
+                            None
+                    )
+                )
+            match intfOpt with
+            | Some (intf, intfm) -> 
+                let info = ReadTypeDefinition intf, ReadMethod intfm
+                Member.Implementation info
+            | _ ->
+                let b = m.GetBaseDefinition()
+                let info = ReadTypeDefinition b.DeclaringType, ReadMethod b 
+                Member.Override info
         else Member.Method (not m.IsStatic, ReadMethod m)    
         |> Some
     | _ -> None
