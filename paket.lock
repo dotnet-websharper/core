@@ -5,6 +5,7 @@ STRATEGY: MIN
 RESTRICTION: || (== net9.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
+    DiffPlex (1.9)
     FSharp.Core (6.0)
     Microsoft.AspNetCore.Authentication.Abstractions (2.0)
       Microsoft.AspNetCore.Http.Abstractions (>= 2.0)
@@ -660,7 +661,7 @@ STORAGE: NONE
 RESTRICTION: || (== net472) (== net9.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    DiffPlex (1.8)
+    DiffPlex (1.9)
     FSharp.Core (9.0.303)
     FsUnit (4.0.7)
       FSharp.Core (>= 4.7.2)
@@ -768,7 +769,7 @@ NUGET
     Microsoft.VisualStudio.Validation (17.13.22)
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
-    Newtonsoft.Json (13.0.3)
+    Newtonsoft.Json (13.0.4)
     NuGet.Common (6.14)
       NuGet.Frameworks (>= 6.14)
       System.Collections.Immutable (>= 8.0)

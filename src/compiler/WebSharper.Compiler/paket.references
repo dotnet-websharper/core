@@ -1,3 +1,4 @@
+DiffPlex
 Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
 System.Runtime.Loader

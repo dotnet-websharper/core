@@ -72,18 +72,6 @@ let handleCommandResult logger config warnSettings stageName exitContext cmdRes 
     logger.TimedStage stageName
     res
 
-// netstandard2.0 does not have Path.GetRelativePath, implementing it via Uri
-let getRelativePath (fromPath: string) (toPath: string) =
-    let appendDirectorySeparatorChar (path: string) =
-        if not (path.EndsWith("/") || path.EndsWith("\\")) then
-            path + "/"
-        else
-            path
-    let fromUri = Uri(appendDirectorySeparatorChar fromPath)
-    let toUri = Uri(toPath)
-    let relativeUri = fromUri.MakeRelativeUri(toUri)
-    Uri.UnescapeDataString(relativeUri.ToString())
-
 let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
     let isSupportedFile (f: string) =
@@ -167,7 +155,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                 for genFile in genRes do
                                     let genFileRel =
                                         if Path.IsPathRooted genFile then
-                                            getRelativePath config.ProjectDir genFile
+                                            Merging.getRelativePath config.ProjectDir genFile
                                         else
                                             genFile
                                     if not (generatedPaths.Add genFile) then
@@ -288,6 +276,27 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 1
     else 
 
+    let mergeDirs, exitCode =
+        match config.ChangeTracking, config.OutputDir with
+        | true, Some outputDir ->
+            let projDir = Path.GetDirectoryName config.ProjectFile
+            let baseline = Path.Combine(projDir, ".websharper/baseline")
+            let modified = Path.Combine(projDir, ".websharper/modified")
+            let conflict = Path.Combine(projDir, ".websharper/conflict")
+            let exitCode = Merging.finishMerge logger baseline outputDir modified conflict
+            if exitCode = 0 then
+                Merging.prepareForBuild logger baseline outputDir modified conflict
+                logger.TimedStage "Making copy of output folder for merging"
+                Some (baseline, outputDir, modified, conflict), 0
+            else
+                None, exitCode
+        | _ ->
+            None, 0
+
+    if exitCode <> 0 then 
+        exitCode
+    else
+    
     let aR = createAssemblyResolver config true
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
@@ -513,8 +522,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | _ ->
             0
 
-    if exitCode <> 0 then
-        clearOutput config logger
+    let exitCode =
+        if exitCode <> 0 then
+            clearOutput config logger
+            exitCode
+        else
+            match mergeDirs with 
+            | Some (baseline, outputDir, modified, conflict) ->
+                let exitCode = Merging.doMerge logger baseline outputDir modified conflict
+                logger.TimedStage "Merging output with previously existing changes"
+                exitCode
+            | None -> 0
+
     exitCode
 
 type ParseOptionsResult =

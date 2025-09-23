@@ -108,6 +108,7 @@ type WsConfig =
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
         PreBundle : bool
+        ChangeTracking : bool
     }
 
     member this.ProjectDir =
@@ -165,6 +166,7 @@ type WsConfig =
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
             PreBundle = false
+            ChangeTracking = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -316,6 +318,8 @@ type WsConfig =
                 res <- { res with RuntimeMetadata = runtimeMetadata }
             | "prebundle" ->
                 res <- { res with PreBundle = res.PreBundle || getBool k v }
+            | "changetracking" ->
+                res <- { res with ChangeTracking = res.ChangeTracking || getBool k v }
             | "$schema" | "debug" | "release" -> ()
             | c when c.StartsWith("config-") -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 

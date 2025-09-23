@@ -36,3 +36,4 @@ websharper.log
 /tests/WebSharper.SPA.Tests/build
 /tests/WebSharper.SPA.Tests/wwwroot/Scripts
 /tests/Web/build
+/tests/Web.FSharp/.websharper

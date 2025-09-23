@@ -29,6 +29,8 @@ nuget System.Security.Cryptography.Csp 4.3.0
 
 nuget Microsoft.TypeScript.MSBuild 4.9.4
 
+nuget DiffPlex 1.9.0
+
 group wsbuild
     git https://github.com/dotnet-websharper/build-script websharper80
 

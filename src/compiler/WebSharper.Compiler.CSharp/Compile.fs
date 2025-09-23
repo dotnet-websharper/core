@@ -45,6 +45,22 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         ()
     else
 
+    let mergeDirs =
+        match config.ChangeTracking, config.OutputDir with
+        | true, Some outputDir ->
+            let projDir = Path.GetDirectoryName config.ProjectFile
+            let baseline = Path.Combine(projDir, ".websharper/baseline")
+            let modified = Path.Combine(projDir, ".websharper/modified")
+            let conflict = Path.Combine(projDir, ".websharper/conflict")
+            let exitCode = Merging.finishMerge logger baseline outputDir modified conflict
+            if exitCode <> 0 then
+                argError "" // exits without printing more errors   
+            Merging.prepareForBuild logger baseline outputDir modified conflict
+            logger.TimedStage "Making copy of output folder for merging"
+            Some (baseline, outputDir, modified, conflict)
+        | _ ->
+            None
+    
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
@@ -260,6 +276,14 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | _ when Option.isSome config.OutputDir && config.DeadCodeElimination <> Some true ->
         unpack()
     | _ -> ()
+
+    match mergeDirs with 
+    | Some (baseline, outputDir, modified, conflict) ->
+        let exitCode = Merging.doMerge logger baseline outputDir modified conflict
+        if exitCode <> 0 then
+            argError "" // exits without printing more errors   
+        logger.TimedStage "Merging output with previously existing changes"
+    | None -> ()
 
 let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
 

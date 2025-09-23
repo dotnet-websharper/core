@@ -15,6 +15,7 @@ dependencies
         WebSharper == CURRENTVERSION
         System.Runtime.Loader >= LOCKEDVERSION
         Mono.Cecil >= LOCKEDVERSION
+        DiffPlex >= LOCKEDVERSION
         FSharp.Core >= LOCKEDVERSION
 files
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
