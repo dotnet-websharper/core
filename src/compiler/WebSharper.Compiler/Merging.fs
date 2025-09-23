@@ -97,6 +97,10 @@ let switchAllSafe2 (logger: LoggerBase) (src1dst2: string) (dst1: string) (src2:
 [<Literal>]
 let missingMarker = "<<<<<<< MISSING >>>>>>>"
 
+let missingMarkerBinary = System.Text.Encoding.UTF8.GetBytes(missingMarker)
+
+let binaryMergeConflictMarker = System.Text.Encoding.UTF8.GetBytes("<<<<<<< BINARY MERGE CONFLICT >>>>>>>")
+
 let readOpt dir file =
     let path = Path.Combine(dir, file)
     if File.Exists(path) then
@@ -114,6 +118,24 @@ let writeOpt dir file content =
         if not (Directory.Exists(targetDir)) then
             Directory.CreateDirectory(targetDir) |> ignore
         File.WriteAllText(path, content)
+
+let readBinaryOpt dir file =
+    let path = Path.Combine(dir, file)
+    if File.Exists(path) then
+        File.ReadAllBytes(path)
+    else
+        missingMarkerBinary
+
+let writeBinaryOpt dir file content =
+    let path = Path.Combine(dir, file)
+    if content = missingMarkerBinary then
+        if File.Exists(path) then
+            File.Delete(path)
+    else
+        let targetDir = Path.GetDirectoryName(path)
+        if not (Directory.Exists(targetDir)) then
+            Directory.CreateDirectory(targetDir) |> ignore
+        File.WriteAllBytes(path, content)
 
 let finishMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
     
@@ -138,6 +160,23 @@ let prepareForBuild (logger: LoggerBase) baselineDir outputDir modifiedDir confl
     if Directory.Exists(baselineDir) then 
         moveAllSafe logger outputDir modifiedDir
 
+let textFileExts =
+    System.Collections.Generic.HashSet([|
+        ".fs"
+        ".fsx"
+        ".cs"
+        ".js"
+        ".jsx"
+        ".ts"
+        ".tsx"
+        ".css"
+        ".scss"
+        ".htm"
+        ".html"
+        ".json"
+        ".xml"
+    |])
+
 let doMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
     
     if not (Directory.Exists(baselineDir)) then
@@ -148,7 +187,7 @@ let doMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
     deleteDir logger conflictDir
 
     let differ = DiffPlex.ThreeWayDiffer.Instance
-    let chunker = DiffPlex.Chunkers.LineChunker.Instance
+    let chunker = DiffPlex.Chunkers.LineEndingsPreservingChunker.Instance
    
     let baselineFiles = getAllFilesRelative baselineDir
     let modifiedFiles = getAllFilesRelative modifiedDir
@@ -158,15 +197,32 @@ let doMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
     let mutable allSuccessful = true
 
     for file in allFiles do
-        let baselineText = readOpt baselineDir file
-        let modifiedText = readOpt modifiedDir file
-        let outputText = readOpt outputDir file
-        let merge = differ.CreateMerge(baselineText, modifiedText, outputText, false, false, chunker) 
-        let mergedText = String.concat System.Environment.NewLine merge.MergedPieces
-        writeOpt conflictDir file mergedText
-        if not merge.IsSuccessful then
-            allSuccessful <- false
-            logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9011: Merge conflict"
+        
+        if textFileExts.Contains(Path.GetExtension(file)) then
+            let baselineText = readOpt baselineDir file
+            let modifiedText = readOpt modifiedDir file
+            let outputText = readOpt outputDir file
+            let merge = differ.CreateMerge(baselineText, modifiedText, outputText, false, false, chunker) 
+            let mergedText = String.Concat(merge.MergedPieces)
+            writeOpt conflictDir file mergedText
+            if not merge.IsSuccessful then
+                allSuccessful <- false
+                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9011: Merge conflict"
+        else
+            let baselineBytes = readBinaryOpt baselineDir file
+            let modifiedBytes = readBinaryOpt modifiedDir file
+            let outputBytes = readBinaryOpt outputDir file
+            let mergedBytes, isSuccessful =
+                if baselineBytes = modifiedBytes then
+                    outputBytes, true
+                elif baselineBytes = outputBytes then
+                    modifiedBytes, true
+                else
+                    binaryMergeConflictMarker, false
+            writeBinaryOpt conflictDir file mergedBytes
+            if not isSuccessful then
+                allSuccessful <- false
+                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9011: Merge conflict"
 
     if allSuccessful then
         switchAllSafe2 logger outputDir baselineDir conflictDir
