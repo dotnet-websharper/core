@@ -281,6 +281,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | true, Some outputDir ->
             let projDir = Path.GetDirectoryName config.ProjectFile
             let baseline = Path.Combine(projDir, ".websharper/baseline")
+            let outputDir = 
+                match config.ProjectType with
+                | Some Website ->
+                    Path.Combine(outputDir, "Scripts", "WebSharper")
+                | _ ->
+                    outputDir
             let modified = Path.Combine(projDir, ".websharper/modified")
             let conflict = Path.Combine(projDir, ".websharper/conflict")
             let exitCode = Merging.finishMerge logger baseline outputDir modified conflict
