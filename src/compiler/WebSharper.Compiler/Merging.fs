@@ -146,7 +146,7 @@ let finishMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictD
             let conflictText = readOpt conflictDir file
             if conflictText.Contains("<<<<<<<") then
                 allSuccessful <- false
-                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9012: Unresolved merge conflict"
+                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9012: Unresolved merge conflict in {file}"
         if allSuccessful then
             switchAllSafe2 logger outputDir baselineDir conflictDir
             deleteDir logger modifiedDir
@@ -187,7 +187,7 @@ let doMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
     deleteDir logger conflictDir
 
     let differ = DiffPlex.ThreeWayDiffer.Instance
-    let chunker = DiffPlex.Chunkers.LineEndingsPreservingChunker.Instance
+    let chunker = DiffPlex.Chunkers.LineChunker.Instance
    
     let baselineFiles = getAllFilesRelative baselineDir
     let modifiedFiles = getAllFilesRelative modifiedDir
@@ -203,11 +203,11 @@ let doMerge (logger: LoggerBase) baselineDir outputDir modifiedDir conflictDir =
             let modifiedText = readOpt modifiedDir file
             let outputText = readOpt outputDir file
             let merge = differ.CreateMerge(baselineText, modifiedText, outputText, false, false, chunker) 
-            let mergedText = String.Concat(merge.MergedPieces)
+            let mergedText = String.concat Environment.NewLine merge.MergedPieces
             writeOpt conflictDir file mergedText
             if not merge.IsSuccessful then
                 allSuccessful <- false
-                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9011: Merge conflict"
+                logger.Error $"{Path.Combine(conflictDir, file)}: WarpMerge error WM9011: Merge conflict in {file}"
         else
             let baselineBytes = readBinaryOpt baselineDir file
             let modifiedBytes = readBinaryOpt modifiedDir file
