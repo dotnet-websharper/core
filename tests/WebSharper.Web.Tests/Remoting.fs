@@ -411,6 +411,11 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let f35 (x: seq<int>) =
+        x |> Seq.map ((+) 1)
+        |> async.Return
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -757,6 +762,11 @@ module Remoting =
             Test "Enum" {
                 let! r = Server.f34 System.DateTimeKind.Unspecified
                 equal r System.DateTimeKind.Utc
+            }
+
+            Test "Seq<int> -> Seq<int>" {
+                let! r = Server.f35 { 1 .. 5 }
+                equal (Array.ofSeq r) [| 2 .. 6 |]
             }
 
             Test "Empty Map" {

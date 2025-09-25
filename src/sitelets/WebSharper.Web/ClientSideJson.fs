@@ -123,6 +123,12 @@ module Provider =
             let e = encEl()
             box (Array.map e a)
 
+    let EncodeSeq (encEl: (unit -> 'T -> obj)) : (unit -> 'T[] -> obj) =
+        ()
+        fun () (a: 'T[]) ->
+            let e = encEl()
+            box (Seq.map e a |> Array.ofSeq)
+
     let EncodeSet (encEl: (unit -> 'T -> obj)) : (unit -> Set<'T> -> obj) =
         ()
         fun () (s: Set<'T>) ->
@@ -287,6 +293,9 @@ module Provider =
     let DecodeArray (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =
         As (EncodeArray (As decEl))
 
+    let DecodeSeq (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =
+        As (EncodeSeq (As decEl))
+
     let DecodeStringMap (decEl :(unit -> obj -> 'T)) : (unit -> obj -> Map<string, 'T>) =
         ()
         fun () (o: obj) ->
@@ -431,6 +440,13 @@ module Macro =
                     else
                         itemEncoder >>= fun e ->
                         ok (call "Array" [e])
+                | C (T "System.Collections.Generic.IEnumerable`1", [t]) ->
+                    let itemEncoder = encode t
+                    if not isEnc && isIdent itemEncoder then
+                        ok ident.Value
+                    else
+                        itemEncoder >>= fun e ->
+                        ok (call "Seq" [e])
                 | ArrayType _ ->
                     fail "JSON serialization for multidimensional arrays is not supported."
                 | TSType (TSType.ArrayOf t) ->

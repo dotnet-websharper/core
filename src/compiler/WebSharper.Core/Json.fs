@@ -225,6 +225,10 @@ let rec readJson (w: System.Text.StringBuilder) (tr: System.IO.TextReader) =
                 | 125 -> List.rev acc
                 | 44 ->
                     readSpace tr
+                    // add to ignore trailing commas
+                    //match peek () with
+                    //| 125 -> List.rev acc
+                    //| _ ->
                     loop (readPair () :: acc)
                 | _ -> raise ReadException
             Object (loop [p])
@@ -647,6 +651,50 @@ let arrayEncoder dE (i: FormatSettings) (ta: TAttrs) =
 let arrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let eT = ta.Type.GetElementType()
     let e = dD (TAttrs.Get(i, eT))
+    fun (x: Value) ->
+        match x with
+        | Null ->
+            null
+        | Array xs ->
+            let data =
+                Seq.map e xs
+                |> Seq.toArray
+            let k = data.Length
+            let r = System.Array.CreateInstance(eT, k)
+            System.Array.Copy(data, r, k)
+            r :> obj
+        | _ ->
+            raise (DecoderException(x, ta.Type))
+
+let seqEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    let e = dE (TAttrs.Get(i, tg.[0]))
+    fun (x: obj) ->
+        match x with
+        | null ->
+            Null
+        | o ->
+            let s =
+                try 
+                    let o = o :?> System.Collections.IEnumerable
+                    Seq.cast o
+                with _ ->
+                    raise EncoderException    
+            s
+            |> Seq.map e
+            |> Seq.toList
+            |> Array
+        | _ ->
+            raise EncoderException
+
+let seqDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    let eT = tg.[0]
+    let e = dD (TAttrs.Get(i, tg.[0]))
     fun (x: Value) ->
         match x with
         | Null ->
@@ -1724,6 +1772,7 @@ type Encodings<'a, 'b> =
     {
         Scalar: Serializer -> option<'a -> 'b>
         Array: TypeEncoding<'a, 'b>
+        Seq: TypeEncoding<'a, 'b>
         Tuple: TypeEncoding<'a, 'b>
         Union: TypeEncoding<'a, 'b>
         Record: TypeEncoding<'a, 'b>
@@ -1744,6 +1793,7 @@ module Encodings =
         {
             Scalar = fun { Decode = x } -> x
             Array = arrayDecoder
+            Seq = seqDecoder
             Tuple = tupleDecoder
             Union = unionDecoder
             Record = recordDecoder
@@ -1762,6 +1812,7 @@ module Encodings =
         {
             Scalar = fun { Encode = x } -> x
             Array = arrayEncoder
+            Seq = seqEncoder
             Tuple = tupleEncoder
             Union = unionEncoder
             Record = recordEncoder
@@ -1786,6 +1837,9 @@ module Encodings =
             Scalar = fun _ -> Some defaultof
             Array = fun dD i ta ->
                 let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
+                fun _ -> x
+            Seq = fun dD i ta ->
+                let x = genLetMethod(<@ Seq.empty @>, ta.Type.GetGenericArguments()).Invoke0()
                 fun _ -> x
             Tuple = fun dD i ta ->
                 let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
@@ -1839,13 +1893,14 @@ let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
                         then Some (ta.Type.GetGenericTypeDefinition().FullName)
                         else None
                     match tn with
-                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> e.Map dD fo ta
-                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> e.Set dD fo ta
+                    | Some "System.Collections.Generic.IEnumerable`1" -> e.Seq dD fo ta
                     | Some "System.Collections.Generic.List`1" -> e.ResizeArray dD fo ta
                     | Some "System.Collections.Generic.Queue`1" -> e.Queue dD fo ta
                     | Some "System.Collections.Generic.Stack`1" -> e.Stack dD fo ta
                     | Some "System.Collections.Generic.LinkedList`1" -> e.LinkedList dD fo ta
                     | Some "System.Nullable`1" -> e.Nullable dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> e.Map dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> e.Set dD fo ta
                     | _ -> 
                         e.Object dD fo ta
             with
