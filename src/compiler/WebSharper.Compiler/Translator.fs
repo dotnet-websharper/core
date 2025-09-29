@@ -871,11 +871,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentNode <- n
         | _ ->
             currentNode <- M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString()) // unique new node
-        let wrappedExpr = Lambda ([], None, expr)
+        let wrappedExpr = Function ([], None, None, ExprStatement expr)
         let trWrappedExpr = this.TransformExpression(wrappedExpr) |> breakExpr |> this.CheckResult
         match trWrappedExpr with
-        | Lambda ([], _, body, _) -> body
-        | _ -> this.Error("Expression transformer expected a lambda")
+        | Function([], None, _, Return body) -> body
+        | Function([], None, _, ExprStatement body) -> body
+        | Function([], None, _, body) -> StatementExpr (body, None)
+        | e -> this.Error($"Expression transformer expected a lambda: %A{e}")
 
     static member CompileExpression (comp, expr, ?node) =
         DotNetToJavaScript(comp).TransformExpressionWithNode(expr, node)
