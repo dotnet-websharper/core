@@ -26,7 +26,7 @@ type private FST = Microsoft.FSharp.Reflection.FSharpType
 
 let ReadAsmName (asm: System.Reflection.Assembly) =
     let asmName = asm.GetName().Name
-    if asmName = "FSI-ASSEMBLY" then
+    if asmName = "FSI-ASSEMBLY" || asmName = "FSI-ASSEMBLY-MULTI" then
         asmName + "-" + asm.GetName().Version.ToString()
     else
         asmName
@@ -159,7 +159,15 @@ let LoadType (t: Type) =
 
 let LoadTypeDefinition (td: TypeDefinition) =
     try 
-        if td.Value.Assembly.StartsWith "FSI-ASSEMBLY" then
+        if td.Value.Assembly.StartsWith "FSI-ASSEMBLY-MULTI" then
+            let ver = System.Version.Parse(td.Value.Assembly.[19 ..])
+            let asm = 
+                System.AppDomain.CurrentDomain.GetAssemblies()
+                |> Seq.find (fun a -> 
+                    let n = a.GetName()
+                    n.Name = "FSI-ASSEMBLY-MULTI" && n.Version = ver)
+            asm.GetType(td.Value.FullName, true)
+        elif td.Value.Assembly.StartsWith "FSI-ASSEMBLY" then
             let ver = System.Version.Parse(td.Value.Assembly.[13 ..])
             let asm = 
                 System.AppDomain.CurrentDomain.GetAssemblies()
