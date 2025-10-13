@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "esbuild": "^0.19.9"
+    "esbuild": "^0.25.0"
   },
   "dependencies": {
     "is-sorted": "^1.0.5"
