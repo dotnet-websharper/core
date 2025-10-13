@@ -566,69 +566,91 @@ let SortDescending<'T when 'T : comparison> (s: seq<'T>) =
 
 [<Inline>]
 let inline private SumGeneric< ^T when ^T : (static member (+) : ^T * ^T -> ^T) and ^T : (static member Zero : ^T)> (s: seq< ^T>) : ^T =
-    let mutable res = LanguagePrimitives.GenericZero< ^T>
-    for x in s do
-        res <- (^T: (static member (+) : ^T * ^T -> ^T) (res, x))
-    res
+    Seq.fold (+) LanguagePrimitives.GenericZero<^T> s
 
 [<Name "sum">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<JavaScript>]
 let Sum<'T> (s: seq<'T> ) : 'T =
-    As<'T>(SumGeneric<int> (As<seq<int>> s))
+    let mutable res = 0.
+    for x in s do
+        res <- res + As<float> x
+    As<'T> res
 
 [<Inline>]
 let inline private SumByGeneric< ^T, ^U when ^U : (static member (+) : ^U * ^U -> ^U) and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (s: seq< ^T>) : ^U =
-    let mutable res = LanguagePrimitives.GenericZero< ^U>
-    for x in s do
-        res <- (^U: (static member (+) : ^U * ^U -> ^U) (res, f x))
-    res
+    Seq.fold (fun sum x -> sum + f x) LanguagePrimitives.GenericZero<^U> s
 
 [<Name "sumBy">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<JavaScript>]
 let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
-    As<'U>(SumByGeneric<int, int> (As<int -> int> f) (As<seq<int>> s))
+    let mutable res = 0.
+    for x in s do
+        res <- res + As<float> (f x)
+    As<'U> res
+
+let avgGen add divByInt zero s =
+    let mutable res = zero
+    let mutable count = 0
+    for x in s do
+        res <- add res x
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        divByInt res count
 
 [<Inline>]
 let inline AverageGeneric< ^T when ^T : (static member ( + ) : ^T * ^T -> ^T) 
                 and ^T : (static member DivideByInt : ^T * int -> ^T)
                 and ^T : (static member Zero : ^T)> (s: seq< ^T>) : ^T =
-    let mutable res = LanguagePrimitives.GenericZero< ^T>
-    let mutable count = 0
-    for x in s do
-        res <- (^T: (static member (+) : ^T * ^T -> ^T) (res, x))
-        count <- count + 1
-    if count = 0 then
-        seqEmpty()
-    else
-        (^T: (static member DivideByInt : ^T * int -> ^T) (res, count))
+    avgGen (+) (fun a b -> (^T: (static member DivideByInt : ^T * int -> ^T) (a, b))) LanguagePrimitives.GenericZero<^T> s
 
 [<Name "average">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<JavaScript>]
 let Average<'T> (s: seq<'T>) : 'T =
-    As<'T>(AverageGeneric<float> (As<seq<float>> s))
+    let mutable res = 0.
+    let mutable count = 0
+    for x in s do
+        res <- res + As<float> x
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        As<'T> (res / As<float> count)
+
+let avgByGen add divByInt zero f s =
+    let mutable res = zero
+    let mutable count = 0
+    for x in s do
+        res <- add res (f x)
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        divByInt res count
 
 [<Inline>]
 let inline AverageByGeneric< ^T, ^U when ^U : (static member ( + ) : ^U * ^U -> ^U) 
                 and ^U : (static member DivideByInt : ^U * int -> ^U)
                 and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (s: seq< ^T>) : ^U =
-    let mutable res = LanguagePrimitives.GenericZero< ^U>
-    let mutable count = 0
-    for x in s do
-        res <- (^U: (static member (+) : ^U * ^U -> ^U) (res, f x))
-        count <- count + 1
-    if count = 0 then
-        seqEmpty()
-    else
-        (^U: (static member DivideByInt : ^U * int -> ^U) (res, count))
+    avgByGen (+) (fun a b -> (^U: (static member DivideByInt : ^U * int -> ^U) (a, b))) LanguagePrimitives.GenericZero<^U> f s
 
 [<Name "averageBy">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<JavaScript>]
 let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
-    As<'U>(AverageByGeneric<float, float> (As<float -> float> f) (As<seq<float>> s))
+    let mutable res = 0.
+    let mutable count = 0
+    for x in s do
+        res <- res + As<float>(f x)
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        As<'U> (res / As<float> count)
 
 [<Name "take">]
 let Take (n: int) (s: seq<'T>) : seq<'T> =

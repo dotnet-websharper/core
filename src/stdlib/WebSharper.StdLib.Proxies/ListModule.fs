@@ -25,6 +25,8 @@ module private WebSharper.ListModuleProxy
 open WebSharper.JavaScript
 open WebSharper.CollectionInternals
 
+module M = WebSharper.Core.Macros
+
 let badLengths() =
     failwith "The lists have different lengths."
 

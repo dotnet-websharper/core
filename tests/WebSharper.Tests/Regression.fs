@@ -1130,6 +1130,19 @@ let Tests =
             equal (Seq.averageBy Bug1284.addOne Bug1284.records).Field 2.5
         }
 
+        Test "#1520 Fix sum/sumBy for BigNumber types" {
+            equal (seq { 1L .. 10L } |> Seq.sum) 55L
+            equal ([| 1UL .. 10UL |] |> Array.sum) 55UL
+            equal ([ 1I.. 10I ] |> List.sum) 55I
+            equal (seq { 1L .. 10L } |> Seq.sumBy (fun i -> i * i)) 385L
+            equal ([| 1UL .. 10UL |] |> Array.sumBy (fun i -> i * i)) 385UL
+            equal ([ 1I .. 10I ] |> List.sumBy (fun i -> i * i)) 385I
+            equal (Seq.sum [| 12345678901234567890I; 98765432109876543210I |]) 111111111011111111100I
+            equal (Unchecked.defaultof<int64>) 0L
+            equal (Unchecked.defaultof<uint64>) 0UL
+            equal (Unchecked.defaultof<bigint>) 0I
+        }
+
         Test "#1334 Improper use of JavaScript(false)" {
             let qr = {size=100; message="hello"} : Bug1334.QRCodeAttrs
             equal qr.size 100

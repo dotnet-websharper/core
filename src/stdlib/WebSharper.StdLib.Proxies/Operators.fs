@@ -36,7 +36,9 @@ let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
     if count <= 0 then Seq.empty
     else Seq.init count (fun x -> As (x + As min))
 
+[<JavaScript>]
 [<Name "step">]
+[<Macro(typeof<M.Step>)>]
 let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
     let s = sign (As<int> step)
     Seq.initInfinite (fun k -> As<int> min + k * As<int> step)

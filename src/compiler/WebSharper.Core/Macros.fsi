@@ -54,6 +54,11 @@ type Range =
     inherit Macro
 
 [<Sealed>]
+type Step =
+    new : unit -> Step
+    inherit Macro
+
+[<Sealed>]
 type Conversion =
     new : unit -> Conversion
     inherit Macro

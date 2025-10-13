@@ -151,6 +151,12 @@ type internal NI64 =
     static member TryParse(s: string, r: outref<System.Int64>) : bool =
         N.TryParseBigInt(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
 
+    [<Inline>]
+    static member Zero = 0L
+
+    [<Inline>]
+    static member One = 1L
+
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
@@ -162,6 +168,12 @@ type internal NUI64 =
 
     static member TryParse(s: string, r: outref<System.UInt64>) : bool =
         N.TryParseBigInt(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
+
+    [<Inline>]
+    static member Zero = 0UL
+
+    [<Inline>]
+    static member One = 1UL
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]
