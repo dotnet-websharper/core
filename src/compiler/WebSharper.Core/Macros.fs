@@ -536,9 +536,21 @@ type NumericMacro() =
         | "CompareTo" ->
             translateCompareTo c.Compilation (ConcreteType c.DefiningType) c.This.Value c.Arguments.Head
         | "get_Zero" ->
-            Value (Int 0) |> MacroOk
+            match c.DefiningType.Entity.Value.FullName with
+            | "System.Int64"
+            | "System.UInt64"
+            | "System.Numerics.BigInteger" ->
+                Value (JSNumber "0n") |> MacroOk
+            | _ ->
+                Value (Int 0) |> MacroOk
         | "get_One" ->
-            Value (Int 1) |> MacroOk
+            match c.DefiningType.Entity.Value.FullName with
+            | "System.Int64"
+            | "System.UInt64"
+            | "System.Numerics.BigInteger" ->
+                Value (JSNumber "1n") |> MacroOk
+            | _ ->
+                Value (Int 1) |> MacroOk
         | _ -> MacroFallback
 
     override this.TranslateCtor(c) =
@@ -596,8 +608,7 @@ type SumOrAverageMacro() =
         let mname = c.Method.Entity.Value.MethodName
         let asGeneric() =
             let genm = Method { c.Method.Entity.Value with MethodName = mname + "Generic" }
-            let typ = TypeDefinition { c.DefiningType.Entity.Value with FullName = c.DefiningType.Entity.Value.FullName.Replace("Array", "Seq") }
-            Call(None, NonGeneric typ, Generic genm c.Method.Generics, c.Arguments) |> MacroOk
+            Call(None, c.DefiningType, Generic genm c.Method.Generics, c.Arguments) |> MacroOk
         match mname with
         | "Sum"
         | "SumBy" ->
@@ -614,11 +625,8 @@ type SumOrAverageMacro() =
                     | "System.UInt16"
                     | "System.Int32"
                     | "System.UInt32"
-                    | "System.Int64"
-                    | "System.UInt64"
                     | "System.Single"
-                    | "System.Double"
-                    | "System.Char" -> MacroFallback
+                    | "System.Double" -> MacroFallback
                     | _ -> asGeneric() 
                 | t when t.IsParameter ->
                     MacroNeedsResolvedTypeArg t
@@ -690,6 +698,29 @@ type Range() =
                 match d.Entity.Value.FullName with
                 | "System.Char" -> 
                     utils c.Compilation "charRange" c.Arguments |> MacroOk   
+                | "System.Int64"
+                | "System.UInt64"
+                | "System.Numerics.BigInteger" -> 
+                    utils c.Compilation "bigintRange" c.Arguments |> MacroOk   
+                | _ -> MacroFallback
+            | _ -> MacroFallback
+        | _ -> MacroError "Range macro error"
+
+[<Sealed>]
+type Step() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Method.Generics with
+        | t :: _ ->
+            match t with
+            | ConcreteType d ->
+                match d.Entity.Value.FullName with
+                | "System.Char" -> 
+                    utils c.Compilation "charStep" c.Arguments |> MacroOk   
+                | "System.Int64"
+                | "System.UInt64"
+                | "System.Numerics.BigInteger" -> 
+                    utils c.Compilation "bigintStep" c.Arguments |> MacroOk   
                 | _ -> MacroFallback
             | _ -> MacroFallback
         | _ -> MacroError "Range macro error"
@@ -1611,15 +1642,26 @@ type DefaultOf() =
                 | "System.UInt16"
                 | "System.Int32"
                 | "System.UInt32"
-                | "System.Int64"
-                | "System.UInt64"
-                | "System.Decimal"
                 | "System.Single"
                 | "System.Double"
                 | "System.DateTime"
                 | "System.TimeSpan" -> true
                 | _ -> false)
             -> MacroOk (Value (Int 0))
+        | ConcreteType td when
+            (td.Entity.Value.Assembly.StartsWith "netstandard" &&
+                match td.Entity.Value.FullName with
+                | "System.Int64"
+                | "System.UInt64"
+                | "System.Numerics.BigInteger" -> true
+                | _ -> false)
+            -> MacroOk (Value (JSNumber "0n"))
+        | ConcreteType td when
+            (td.Entity.Value.Assembly.StartsWith "netstandard" &&
+                match td.Entity.Value.FullName with
+                | "System.Decimal" -> true
+                | _ -> false)
+            -> MacroOk (Ctor(NonGeneric Definitions.Decimal, decimalIntCtor, [ Value (Int 0) ]))
         | ConcreteType td -> 
             match c.Compilation.GetCustomTypeInfo td.Entity with
             | M.StructInfo ->

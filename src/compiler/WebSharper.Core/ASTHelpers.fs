@@ -264,6 +264,7 @@ let bigIntegralTypes =
     Set [
         "System.Int64"
         "System.UInt64" 
+        "System.Numerics.BigInteger"
     ]
 
 let integralTypes =  smallIntegralTypes + bigIntegralTypes

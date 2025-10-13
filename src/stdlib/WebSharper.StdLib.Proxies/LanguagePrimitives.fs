@@ -49,7 +49,7 @@ let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a
 [<Inline>]
 let inline GenericZero< ^T when ^T: (static member Zero: ^T)>() = 
     (^T: (static member Zero: ^T) ())
-
+    
 [<Inline>]
 let inline GenericOne< ^T when ^T: (static member One: ^T)>() = 
     (^T: (static member One: ^T) ())

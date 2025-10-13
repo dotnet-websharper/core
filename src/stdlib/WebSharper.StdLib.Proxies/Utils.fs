@@ -92,6 +92,26 @@ let charRange (min: char) (max: char) : seq<char> =
     else Seq.init count (fun x -> char (x + minv))
 
 [<JavaScript>]
+let bigintRange (min: bigint) (max: bigint) : seq<bigint> =
+    let count = 1I + max - min
+    if count <= 0I then Seq.empty
+    else Seq.unfold (fun state -> if state > max then None else Some(state, state + 1I)) min
+
+[<JavaScript>]
+let charStep (min: char) (step: char) (max: char) : seq<char> =
+    let minv = int min
+    let count = 1 + (int max - minv) / (int step)
+    if count <= 0 then Seq.empty
+    else Seq.init count (fun x -> char (x + minv))
+
+[<JavaScript>]
+let bigintStep (min: bigint) (step: bigint) (max: bigint) : seq<bigint> =
+    let pos = step > 0I
+    let count = 1I + max - min
+    if count <= 0I then Seq.empty
+    else Seq.unfold (fun state -> if (pos && state > max) || (not pos && state < max) then None else Some(state, state + step)) min
+
+[<JavaScript>]
 let nullableOp (a: obj) (b: obj) f = if a ==. null || b ==. null then null else f a b
 
 [<JavaScript>]

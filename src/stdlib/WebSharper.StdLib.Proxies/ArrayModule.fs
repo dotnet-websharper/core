@@ -21,6 +21,8 @@
 [<WebSharper.Proxy "Microsoft.FSharp.Collections.ArrayModule, FSharp.Core">]
 module private WebSharper.ArrayModuleProxy
 
+#nowarn "77" // op_Addition warnings
+
 open WebSharper.JavaScript
 open WebSharper.CollectionInternals
 
@@ -457,16 +459,34 @@ let private subArray (x: 'T) start length = X<'T>
 let GetSubArray (arr: 'T []) (start: int) (length: int) : 'T []=
     F.GetArraySub arr start length
 
+[<Inline>]
+let inline private SumGeneric< ^T when ^T : (static member (+) : ^T * ^T -> ^T) and ^T : (static member Zero : ^T)> (arr: ^T[]) : ^T =
+    Array.fold (+) LanguagePrimitives.GenericZero<^T> arr
+
 [<Name "sum">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<JavaScript>]
 [<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $arr[i]; return sum">]
 let Sum (arr: 'T []) : 'T = X<'T>
 
+[<Inline>]
+let inline private SumByGeneric< ^T, ^U when ^U : (static member (+) : ^U * ^U -> ^U) and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (arr: ^T[]) : ^U =
+    Array.fold (fun sum x -> sum + f x) LanguagePrimitives.GenericZero<^U> arr
+
 [<Name "sumBy">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
 [<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $f($arr[i]); return sum">]
 let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
+
+let avgGen add divByInt zero arr =
+    nonEmpty arr
+    divByInt (Array.fold add zero arr) (Array.length arr)
+
+[<Inline>]
+let inline AverageGeneric< ^T when ^T : (static member ( + ) : ^T * ^T -> ^T) 
+                and ^T : (static member DivideByInt : ^T * int -> ^T)
+                and ^T : (static member Zero : ^T)> (arr: ^T[]) : ^T =
+    avgGen (+) (fun a b -> (^T: (static member DivideByInt : ^T * int -> ^T) (a, b))) LanguagePrimitives.GenericZero<^T> arr
 
 [<Name "average">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
@@ -474,6 +494,16 @@ let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 let Average (arr: 'T []): 'T = 
     nonEmpty arr
     As ((Array.sum (As<float[]> arr)) / As<float> (Array.length arr))
+
+let avgByGen add divByInt zero f arr =
+    nonEmpty arr
+    divByInt (Array.fold (fun sum x -> add sum (f x)) zero arr) (Array.length arr)
+
+[<Inline>]
+let inline AverageByGeneric< ^T, ^U when ^U : (static member ( + ) : ^U * ^U -> ^U) 
+                and ^U : (static member DivideByInt : ^U * int -> ^U)
+                and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (arr: ^T[]) : ^U =
+    avgByGen (+) (fun a b -> (^U: (static member DivideByInt : ^U * int -> ^U) (a, b))) LanguagePrimitives.GenericZero<^U> f arr
 
 [<Name "averageBy">]
 [<Macro(typeof<M.SumOrAverageMacro>)>]
