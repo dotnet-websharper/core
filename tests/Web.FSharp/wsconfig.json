@@ -3,6 +3,5 @@
   "project": "web",
   "outputDir": "wwwroot",
   "downloadResources": true,
-  "runtimeMetadata": "full",
-  "changeTracking": true
+  "runtimeMetadata": "full"
 }
