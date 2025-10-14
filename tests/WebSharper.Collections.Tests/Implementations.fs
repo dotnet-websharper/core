@@ -192,7 +192,7 @@ let Tests =
             isTrueMsg (x.SetEquals(startingItems)) "ISet<T>.UnionWith/SetEquals"
         }
 
-    let TestIDictionary (x: System.Collections.IDictionary) firstKey firstValue newFirstValue expectedKeys expectedValues missingKey =
+    let TestIDictionary1 (x: System.Collections.IDictionary) firstKey firstValue newFirstValue expectedKeys expectedValues missingKey =
         Do {
             isFalseMsg (x.IsFixedSize) "IDictionary.IsFixedSize false"
             isFalseMsg (x.IsReadOnly) "IDictionary.IsReadOnly false"
@@ -206,6 +206,10 @@ let Tests =
             isTrueMsg (x.Contains(missingKey)) "IDictionary.Add"
             x.Remove(missingKey)
             isFalseMsg (x.Contains(missingKey)) "IDictionary.Remove"
+        }
+
+    let TestIDictionary2 (x: System.Collections.IDictionary) (expectedKeys: _[]) (expectedValues: _[]) =
+        Do {
             let e = x.GetEnumerator()
             raisesMsg (e.Current) "IDictionaryEnumerator.Current throws before starting enumeration"
             raisesMsg (e.Entry) "IDictionaryEnumerator.Entry throws before starting enumeration"
@@ -306,7 +310,8 @@ let Tests =
             let d2 = new System.Collections.Generic.Dictionary<int, int>()
             d2.Add(1, 2)
             d2.Add(2, 4)
-            run (TestIDictionary d2 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
+            run (TestIDictionary1 d2 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
+            run (TestIDictionary2 d2 [| 1; 2 |] [| 3; 4 |])
             let d3 = new System.Collections.Generic.Dictionary<int, int>()
             d3.Add(1, 2)
             d3.Add(2, 4)
