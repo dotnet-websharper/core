@@ -217,10 +217,13 @@ let resourceContext (st: State) (level: int) : R.Context =
         GetSetting = 
             if st.Config.Options.DownloadResources then
                 function
+                | "IsOffline"
                 | "UseDownloadedResources" -> Some "true"
                 | _ -> None
             else  
-                fun _ -> None
+                function
+                | "IsOffline" -> Some "true"
+                | _ -> None
 
         GetWebResourceRendering = fun ty name ->
             st.UseResource(EmbeddedResource.Create(name, ty.Assembly.GetName()))

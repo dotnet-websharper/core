@@ -451,6 +451,21 @@ type BaseResource(kind: Kind) as this =
                     else None    
                 ) |> Array.ofSeq 
 
+[<RequireQualifiedAccess>]
+type BundleCss =
+    {
+        WebRootFolder: string
+        BundleName: string
+    }
+    interface IResource with
+        member this.Render ctx =
+            if ctx.GetSetting "IsOffline" = Some "true"
+                || File.Exists(Path.Combine(this.WebRootFolder, "Scripts", "WebSharper", this.BundleName + ".css")) 
+            then
+                fun writer -> link ctx.DefaultToHttp (writer Styles) ("/Scripts/WebSharper/" + this.BundleName + ".css")
+            else
+                ignore
+
 [<Sealed>]
 type Runtime() =
     interface IResource with

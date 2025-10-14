@@ -62,6 +62,7 @@ module Content =
     open System.IO
     open System.Text.RegularExpressions
     type private HtmlTextWriter = WebSharper.Core.Resources.HtmlTextWriter
+    type private BundleCss = WebSharper.Core.Resources.BundleCss
 
     type private Func<'A,'B> = System.Func<'A,'B>
 
@@ -186,6 +187,16 @@ module Content =
             scriptsTw.WriteLine("-->")
 #endif
 
+            // Render css for bundle if exists
+            bundleName |> Option.iter (fun b ->
+                let r = 
+                    {
+                        WebRootFolder = ctx.WebRootFolder
+                        BundleName = b
+                    } : BundleCss
+                Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
+            )
+            
             let bundle =
                 bundleName
                 |> Option.map (fun b ->
