@@ -141,6 +141,14 @@ type BaseResource =
     interface IDownloadableResource
     interface IExternalScriptResource
 
+[<RequireQualifiedAccess>]
+type BundleCss =
+    {
+        WebRootFolder: string
+        BundleName: string
+    }
+    interface IResource
+
 /// Represents the runtime library resource required by all WebSharper code.
 [<Sealed>]
 type Runtime =
