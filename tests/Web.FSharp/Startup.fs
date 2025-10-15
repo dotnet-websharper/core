@@ -12,9 +12,12 @@ open System.Threading.Tasks
 open WebSharper.AspNetCore
 
 type Startup () =
+    
+    let site = new WebSharper.Tests.Website.WebsiteEntryPoint()
+    let siteletRef = ref site.Sitelet
+    
     member x.ConfigureServices(services: IServiceCollection) =
-        let site = new WebSharper.Tests.Website.WebsiteEntryPoint()
-        services.AddSitelet(site.Sitelet)
+        services.AddSitelet(siteletRef)
             .AddAuthentication("WebSharper")
             .AddCookie("WebSharper", fun options -> ())
         |> ignore

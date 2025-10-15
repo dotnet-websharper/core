@@ -97,6 +97,11 @@ type DefaultSiteletService<'T when 'T : equality>(sitelet: Sitelet<'T>) =
 
     override this.Sitelet = sitelet
 
+type SiteletRefService<'T when 'T : equality>(sitelet: ref<Sitelet<'T>>) =
+    inherit SiteletService<'T>()
+
+    override this.Sitelet = sitelet.Value
+
 type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
     interface IRemotingService<'THandler> with
         member this.Handler = (box handler)
@@ -134,10 +139,9 @@ type ServiceExtensions =
         this
 
     /// <summary>
-    /// Add a sitelet service to be loaded on startup with <c>UseWebSharper</c>.
+    /// Add a sitelet service to be used with <c>UseWebSharper</c>.
     /// </summary>
     [<Extension>]
-    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead.">]
     static member AddSitelet<'TImplementation
             when 'TImplementation :> ISiteletService
             and 'TImplementation : not struct>
@@ -146,14 +150,23 @@ type ServiceExtensions =
             .AddSingleton<ISiteletService, 'TImplementation>()
 
     /// <summary>
-    /// Add a sitelet to be loaded on startup with <c>UseWebSharper</c>.
+    /// Add a sitelet reference to be loaded on startup with <c>UseWebSharper</c>.
     /// </summary>
     [<Extension>]
-    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead.">]
+    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead for faster sitelet lookup.">]
     static member AddSitelet<'T when 'T : equality>
             (this: IServiceCollection, sitelet: Sitelet<'T>) =
         this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
+
+    /// <summary>
+    /// Add a sitelet reference to be used with <c>UseWebSharper</c>.
+    /// </summary>
+    [<Extension>]
+    static member AddSitelet<'T when 'T : equality>
+            (this: IServiceCollection, sitelet: ref<Sitelet<'T>>) =
+        this.AddWebSharper(Assembly.GetCallingAssembly())
+            .AddSingleton<ISiteletService>(SiteletRefService sitelet)
 
     /// <summary>
     /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.

@@ -204,11 +204,17 @@ type WebSharperBuilder(services: IServiceProvider) =
         let sitelet =
             if not _useSitelets then None else
             _sitelet |> Option.orElseWith (fun () ->
-                match services.GetService(typeof<ISiteletService>) with
-                | :? ISiteletService as s -> 
-                    Some s.Sitelet
-                | _ ->
-                    if _discoverSitelet then
+                if _discoverSitelet then
+                    let fromMeta =
+                        match metadata.SiteletDefinition with
+                        | Some td -> 
+                            timedInfo "Sitelet discovered via metadata" (fun () ->
+                                let typ = WebSharper.Core.AST.Reflection.LoadTypeDefinition td
+                                let s, _ = Utils.GetSitelet typ ""
+                                Some s
+                            )
+                        | None -> None
+                    fromMeta |> Option.orElseWith (fun () ->
                         let s =
                             timedInfo "Sitelet discovered via reflection " (fun () -> 
                                 WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly.Value
@@ -219,9 +225,9 @@ type WebSharperBuilder(services: IServiceProvider) =
                         | res ->
                             logger.LogWarning("WebSharper sitelet loaded via reflection. It is recommended to pass sitelet object instead in WebSharperBuilder.UseSitelet.")
                             res
-                    else
-                        _useSitelets <- false
-                        None
+                    )
+                else
+                    None
             )
 
         let options =

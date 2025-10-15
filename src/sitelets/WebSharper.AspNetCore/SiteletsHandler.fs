@@ -89,80 +89,101 @@ and internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (conte
     }
 
 let Middleware (options: WebSharperOptions) =
+    let timedDebug (message: string) action =
+        let sw = System.Diagnostics.Stopwatch()
+        sw.Start()
+        let r = action()
+        options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+        r
+
+    let timedDebugAsync (message: string) (action: unit -> Task) =
+        task {
+            let sw = System.Diagnostics.Stopwatch()
+            sw.Start()
+            do! action()
+            options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+        } :> Task
+
+    let handleWithDebug sitelet httpCtx (next: Func<Task>) =
+        let ctx = Context.GetOrMake httpCtx options sitelet
+            
+        let handleRouterResult r =
+            match r with
+            | Some endpoint ->
+                let content = timedDebug "Handling endpoint" (fun () -> sitelet.Controller.Handle endpoint)
+                timedDebugAsync "Writing response" (fun () -> contentHelper httpCtx ctx content)
+            | None -> next.Invoke()
+
+        let routeWithoutBody =
+            try
+                Some (timedDebug "Routing request" (fun () -> sitelet.Router.Route ctx.Request))
+            with :? Router.BodyTextNeededForRoute ->
+                None 
+
+        match routeWithoutBody with
+        | Some r ->
+            handleRouterResult r
+        | None -> 
+            task {
+                let! _ = ctx.Request.BodyText
+                let routeWithBody = timedDebug "Routing request using content body" (fun () -> sitelet.Router.Route ctx.Request)
+                return! handleRouterResult routeWithBody
+            }
+
+    let handle sitelet httpCtx (next: Func<Task>) =
+        let ctx = Context.GetOrMake httpCtx options sitelet
+            
+        let handleRouterResult r =
+            match r with
+            | Some endpoint ->
+                let content = sitelet.Controller.Handle endpoint
+                contentHelper httpCtx ctx content
+            | None -> next.Invoke()
+
+        let routeWithoutBody =
+            try
+                Some (sitelet.Router.Route ctx.Request)
+            with :? Router.BodyTextNeededForRoute ->
+                None 
+
+        match routeWithoutBody with
+        | Some r ->
+            handleRouterResult r
+        | None -> 
+            task {
+                let! _ = ctx.Request.BodyText
+                let routeWithBody = sitelet.Router.Route ctx.Request
+                return! handleRouterResult routeWithBody
+            }
+
+    let getSiteletFromService (httpCtx: HttpContext) =
+        match httpCtx.RequestServices.GetService(typeof<ISiteletService>) with
+        | :? ISiteletService as s -> Some s.Sitelet
+        | _ -> None
+
     match options.Sitelet with
     | None ->
-        Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
-    | Some sitelet ->
         if options.Logger.IsEnabled(LogLevel.Debug) then
-
-            let timedDebug (message: string) action =
-                let sw = System.Diagnostics.Stopwatch()
-                sw.Start()
-                let r = action()
-                options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
-                r
-
-            let timedDebugAsync (message: string) (action: unit -> Task) =
-                task {
-                    let sw = System.Diagnostics.Stopwatch()
-                    sw.Start()
-                    do! action()
-                    options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
-                } :> Task
-
             Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-                let ctx = Context.GetOrMake httpCtx options sitelet
-            
-                let handleRouterResult r =
-                   match r with
-                   | Some endpoint ->
-                        let content = timedDebug "Handling endpoint" (fun () -> sitelet.Controller.Handle endpoint)
-                        timedDebugAsync "Writing response" (fun () -> contentHelper httpCtx ctx content)
-                   | None -> next.Invoke()
-
-                let routeWithoutBody =
-                    try
-                        Some (timedDebug "Routing request" (fun () -> sitelet.Router.Route ctx.Request))
-                    with :? Router.BodyTextNeededForRoute ->
-                        None 
-
-                match routeWithoutBody with
-                | Some r ->
-                    handleRouterResult r
-                | None -> 
-                    task {
-                        let! _ = ctx.Request.BodyText
-                        let routeWithBody = timedDebug "Routing request using content body" (fun () -> sitelet.Router.Route ctx.Request)
-                        return! handleRouterResult routeWithBody
-                    }
+                match getSiteletFromService httpCtx with
+                | Some sitelet ->
+                    handleWithDebug sitelet httpCtx next
+                | None ->
+                    next.Invoke()
             )
         else
             Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-                let ctx = Context.GetOrMake httpCtx options sitelet
-            
-                let handleRouterResult r =
-                   match r with
-                   | Some endpoint ->
-                       let content = sitelet.Controller.Handle endpoint
-                       contentHelper httpCtx ctx content
-                   | None -> next.Invoke()
-
-                let routeWithoutBody =
-                    try
-                        Some (sitelet.Router.Route ctx.Request)
-                    with :? Router.BodyTextNeededForRoute ->
-                        None 
-
-                match routeWithoutBody with
-                | Some r ->
-                    handleRouterResult r
-                | None -> 
-                    task {
-                        let! _ = ctx.Request.BodyText
-                        let routeWithBody = sitelet.Router.Route ctx.Request
-                        return! handleRouterResult routeWithBody
-                    }
+                match getSiteletFromService httpCtx with
+                | Some sitelet ->
+                    handle sitelet httpCtx next
+                | None ->
+                    next.Invoke()
             )
+    | Some sitelet ->
+        if options.Logger.IsEnabled(LogLevel.Debug) then
+            Func<_,_,_>(handleWithDebug sitelet)
+        else
+            Func<_,_,_>(handle sitelet)
 
 // Giraffe/Saturn helpers
 
