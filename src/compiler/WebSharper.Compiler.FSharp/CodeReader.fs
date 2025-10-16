@@ -556,11 +556,15 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let getPars() =
             let ps =  
                 x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam  
-            match x.ApparentEnclosingEntity with
-            | Some extOn ->
+            if x.IsInstanceMember && not x.IsInstanceMemberInCompiledCode then
+                let extOn = x.ApparentEnclosingEntity.Value
                 GenericType (this.ReadTypeDefinition extOn) 
                     (List.init extOn.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
-            | _ -> ps
+            else ps
+            //if x.IsExtensionMember then
+            //    this.ReadType tparams x.ApparentEnclosingType :: ps
+            //else 
+            //    ps
 
         if name = ".ctor" || name = "CtorProxy" then
             Member.Constructor <| Constructor {
@@ -869,6 +873,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
                 let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams) |> useInlineTypeArgs)
+                //let this, arguments =
+                //    if meth.IsExtensionMember then
+                //        match arguments with
+                //        | this :: args -> Some this, args
+                //        | _ -> failwith "Extension method call expecting at least one argument"
+                //    else
+                //        this, arguments
                 let args = 
                     arguments |> List.map (fun a ->
                         let ta = tr a
