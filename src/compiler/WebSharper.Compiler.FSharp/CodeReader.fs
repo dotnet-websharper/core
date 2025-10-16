@@ -556,11 +556,11 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let getPars() =
             let ps =  
                 x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam  
-            if x.IsInstanceMember && not x.IsInstanceMemberInCompiledCode then
-                let extOn = x.ApparentEnclosingEntity
+            match x.ApparentEnclosingEntity with
+            | Some extOn ->
                 GenericType (this.ReadTypeDefinition extOn) 
                     (List.init extOn.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
-            else ps
+            | _ -> ps
 
         if name = ".ctor" || name = "CtorProxy" then
             Member.Constructor <| Constructor {
