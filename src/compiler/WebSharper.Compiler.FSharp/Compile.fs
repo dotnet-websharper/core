@@ -81,11 +81,42 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
         let aR = createAssemblyResolver config false    
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
+            let keepUntouched = ResizeArray()
             let generatedPaths = HashSet()
             let mutable hasError = false
+            let mutable needsUpdate = false
             let printError msg =
                 PrintGlobalError logger msg
                 hasError <- true
+            let propsFile = Path.Combine(config.ProjectDir, $"obj/{Path.GetFileName(config.ProjectFile)}.websharper.props")
+            let propsFileOpt, propsFileTimeStamp =
+                if File.Exists propsFile then
+                    try
+                        let propsFileLines = File.ReadAllLines propsFile
+                        propsFileLines
+                        |> Seq.pairwise
+                        |> Seq.choose (fun (line1, line2) ->
+                            if line1.StartsWith("    <Compile Include=\"") 
+                                || line2.StartsWith("      <DependentUpon>") 
+                            then
+                                Some (line2[21..line2.Length - 17], line1[22 .. line1.Length - 3])
+                            else
+                                None
+                        )
+                        |> Seq.groupBy fst
+                        |> Seq.map (fun (filePath, dependents) ->
+                            filePath, 
+                            dependents |> Seq.map snd |> Array.ofSeq
+                        )
+                        |> Array.ofSeq
+                        |> Some
+                        , File.GetLastWriteTime propsFile
+                    with e -> 
+                        logger.Out $"Error during reading props file: {e.Message}"
+                        None, DateTime.MinValue
+                else
+                    logger.Out $"Props file does not exist: {propsFile}"
+                    None, DateTime.MinValue
             let transformedFiles =  
                 let generators = System.Collections.Generic.Dictionary()
                 sourceFiles |> Array.collect (fun f ->
@@ -143,32 +174,55 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         match generator with
                         | Some gen ->
                             let fullPath = Path.Combine(config.ProjectDir, f)
+                            let prevOutputOpt =
+                                propsFileOpt |> Option.bind (fun propsFile ->
+                                    propsFile
+                                    |> Array.tryPick (fun (pf, pOutputs) ->
+                                        if pf = f then Some pOutputs else None
+                                    )     
+                                    |> Option.map (fun outputs ->
+                                        propsFileTimeStamp, outputs
+                                    )
+                                )    
                             let generateInput =
                                 {
+                                    RelativeFilePath = f
                                     FilePath = fullPath
                                     ProjectFilePath = config.ProjectFile
                                     Print = logger.Out
                                     PrintError = logger.Error
+                                    PreviousOutputFiles = prevOutputOpt
                                 } : WebSharper.GenerateCall
                             try
-                                let genRes = gen.Generate generateInput
-                                for genFile in genRes do
-                                    let genFileRel =
-                                        if Path.IsPathRooted genFile then
-                                            Merging.getRelativePath config.ProjectDir genFile
-                                        else
-                                            genFile
-                                    if not (generatedPaths.Add genFile) then
-                                        printError (sprintf "Duplicated output while generating F# source from input file '%s'" f)
-                                    generatedFiles.Add (f, genFileRel)
-                                genRes
+                                match gen.Generate generateInput with
+                                | Some genRes ->
+                                    for genFile in genRes do
+                                        let genFileRel =
+                                            if Path.IsPathRooted genFile then
+                                                Merging.getRelativePath config.ProjectDir genFile
+                                            else
+                                                genFile
+                                        if not (generatedPaths.Add genFile) then
+                                            printError (sprintf "Duplicated output while generating F# source from input file '%s'" f)
+                                        generatedFiles.Add (f, genFileRel)
+                                    needsUpdate <- true
+                                    genRes
+                                | None ->
+                                    match prevOutputOpt with
+                                    | None ->
+                                        printError (sprintf "There are no cached outputs and F# source generator have not returned outputs for input file '%s'" f)
+                                        [||]
+                                    | Some (_, prevOutput) ->
+                                        for o in prevOutput do
+                                            generatedFiles.Add (f, o)   
+                                        prevOutput
                             with e ->
                                 printError (sprintf "Error while generating F# source from input file '%s': %s at %s" f e.Message e.StackTrace)
                                 [||]
                         | None ->
                             [||]                
                 )
-            if not hasError then
+            if not hasError && needsUpdate then
                 let propsFileLines =
                     seq {
                         """<?xml version="1.0" encoding="utf-8" standalone="no"?>"""
@@ -182,7 +236,6 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         """  </ItemGroup>"""
                         """</Project>"""
                     }
-                let propsFile = Path.Combine(config.ProjectDir, $"obj/{Path.GetFileName(config.ProjectFile)}.websharper.props")
                 File.WriteAllLines(propsFile, propsFileLines)
             let otherArgs = config.CompilerArgs[1 ..] |> Array.filter (fun a -> a.StartsWith "-")
             { config with CompilerArgs = Array.concat [| [| config.CompilerArgs[0] |]; otherArgs;  transformedFiles |] }

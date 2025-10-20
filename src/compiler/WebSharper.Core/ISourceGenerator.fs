@@ -23,6 +23,8 @@ namespace WebSharper
 
 type GenerateCall =
     {
+        /// Path to the file the generator is invoked for as it is included in the project file.
+        RelativeFilePath: string
         /// Full path to the file the generator is invoked for.
         FilePath: string
         /// Project file full path.
@@ -31,10 +33,13 @@ type GenerateCall =
         Print: string -> unit
         /// Print to the error output.
         PrintError: string -> unit
+        /// The timestamp and output files registered from the last compilation.
+        /// None if there is no information.
+        PreviousOutputFiles: option<System.DateTime * string[]>
     }
 
 /// Use with assembly-level FSharpSourceGenerator attribute
 type ISourceGenerator =
     /// Gets an object of contextual information and actions.
     /// Must return an array of file paths, which can be newly created.
-    abstract Generate: GenerateCall -> string[] 
+    abstract Generate: GenerateCall -> option<string[]>
