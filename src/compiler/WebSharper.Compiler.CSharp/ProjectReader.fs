@@ -1494,6 +1494,20 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     if config.StubInterfaces then
         asmAnnot <- { asmAnnot with StubInterfaces = true } 
 
+    match config.RemotingProvider with
+    | Some rp ->
+        let s = rp.Split(',')
+        if s.Length = 2 then
+            let td =
+                TypeDefinition {
+                    Assembly = s[1].Trim()
+                    FullName = s[0].Trim()
+                }
+            asmAnnot <- { asmAnnot with RemotingProvider = Some (td, None) } 
+        else
+            comp.AddError(None, SourceError $"Invalid value for \"remotingProvider\" setting, expecting \"TypeName,AssemblyName\"")
+    | None -> ()
+
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyName <- assembly.Name

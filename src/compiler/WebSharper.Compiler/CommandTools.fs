@@ -109,6 +109,7 @@ type WsConfig =
         ArgWarnings : string list
         PreBundle : bool
         ChangeTracking : bool
+        RemotingProvider: string option
     }
 
     member this.ProjectDir =
@@ -167,6 +168,7 @@ type WsConfig =
             ArgWarnings = []
             PreBundle = false
             ChangeTracking = false
+            RemotingProvider = None
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -320,6 +322,8 @@ type WsConfig =
                 res <- { res with PreBundle = res.PreBundle || getBool k v }
             | "changetracking" ->
                 res <- { res with ChangeTracking = res.ChangeTracking || getBool k v }
+            | "remotingProvider" ->
+                res <- { res with RemotingProvider = Some (getString k v) }
             | "$schema" | "debug" | "release" -> ()
             | c when c.StartsWith("config-") -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
