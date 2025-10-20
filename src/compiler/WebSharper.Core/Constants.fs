@@ -40,3 +40,14 @@ module RuntimeSettings =
 
     [<Literal>]
     let RUNTIMESETTING_DEBUGSCRIPTREDIRECTURL = "DebugScriptRedirectUrl"
+
+module VesionInformation =
+    
+    [<Literal>]
+    let FcsVersion = System.AssemblyVersionInformation.FcsVersion
+    
+    [<Literal>]
+    let RoslynVersion = System.AssemblyVersionInformation.RoslynVersion
+
+    [<Literal>]
+    let WSVersion = System.AssemblyVersionInformation.WSVersion
