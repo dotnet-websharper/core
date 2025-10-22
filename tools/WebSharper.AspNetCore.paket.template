@@ -14,7 +14,9 @@ dependencies
     framework: netstandard2.0
         WebSharper == CURRENTVERSION
         System.Configuration.ConfigurationManager >= LOCKEDVERSION
+        System.Text.Json >= LOCKEDVERSION
         Microsoft.AspNetCore.Hosting.Abstractions >= LOCKEDVERSION
+        Microsoft.AspNetCore.Html.Abstractions >= LOCKEDVERSION
         Microsoft.AspNetCore.Authentication.Abstractions >= LOCKEDVERSION
         Microsoft.AspNetCore.Mvc.Abstractions >= LOCKEDVERSION
 files
