@@ -28,6 +28,7 @@ open Microsoft.AspNetCore.Routing
 open Microsoft.AspNetCore.Mvc
 open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.Extensions.Options
+open Microsoft.Extensions.DependencyInjection
 open WebSharper.Sitelets
 open Microsoft.Extensions.Logging
 
@@ -64,7 +65,7 @@ let rec internal mvcContentHelper (httpCtx: HttpContext) (context: Context<obj>)
                 return! mvcContentHelper httpCtx context contentResult
             else
                 httpCtx.Response.StatusCode <- StatusCodes.Status200OK
-                let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
+                let jsonOptions = httpCtx.RequestServices.GetService<IOptions<JsonSerializerOptions>>()
                 do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value)
     }
 
@@ -157,9 +158,9 @@ let Middleware (options: WebSharperOptions) =
             }
 
     let getSiteletFromService (httpCtx: HttpContext) =
-        match httpCtx.RequestServices.GetService(typeof<ISiteletService>) with
-        | :? ISiteletService as s -> Some s.Sitelet
-        | _ -> None
+        match httpCtx.RequestServices.GetService<ISiteletService>() with
+        | null -> None
+        | s -> Some s.Sitelet
 
     match options.Sitelet with
     | None ->
@@ -199,13 +200,13 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
             let options =
-                match httpCtx.RequestServices.GetService(typeof<IWebSharperService>) with
-                | :? IWebSharperService as s -> s.WebSharperOptions
-                | _ ->
+                match httpCtx.RequestServices.GetService<IWebSharperService>() with
+                | null ->
                     WebSharperBuilder(httpCtx.RequestServices)
                         .Sitelet(sitelet)
                         .UseRemoting(false)
                         .Build()
+                | s -> s.WebSharperOptions
             let ctx = Context.GetOrMake httpCtx options sitelet
 
             let handleRouterResult r =

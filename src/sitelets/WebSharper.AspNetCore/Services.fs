@@ -47,60 +47,77 @@ type WebSharperService(defaultAssembly) =
     let mutable options = Unchecked.defaultof<WebSharperOptions>
 
     interface IWebSharperService with
-        member this.GetWebSharperMeta (siteletAssembly: Assembly, logger: ILogger) =
-
-            match metaCache.TryGetValue(siteletAssembly) with
-            | true, res -> res
-            | false, _ ->
-                let timedInfo (message: string) action =
-                    if logger.IsEnabled(LogLevel.Information) then
-                        let sw = System.Diagnostics.Stopwatch()
-                        sw.Start()
-                        let r = action()
-                        logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
-                        r
-                    else
-                        action()
-
-                let metadata, dependencies = 
-                    timedInfo "Initialized WebSharper" <| fun () ->
-                        let runtimeMeta =
-                            siteletAssembly
-                            |> M.IO.LoadRuntimeMetadata
-                        match runtimeMeta with
-                        | None ->
-                            logger.LogWarning("Runtime WebSharper metadata not found.")
-                            M.Info.Empty, Graph.Empty 
-                        | Some meta ->
-                            meta, Graph.FromData meta.Dependencies
-
-                let res = metadata, dependencies, J.Provider.Create()
-                metaCache.Add(siteletAssembly, res)
-                res
-
         member this.DefaultAssembly = defaultAssembly
 
         member this.WebSharperOptions 
             with get() = options
             and set v = options <- v  
-            
-/// Define the default sitelet to serve by WebSharper.
-[<AbstractClass>]
-type SiteletService<'T when 'T : equality>() =
-    abstract Sitelet : Sitelet<'T>
+   
+type DefaultMetadataService() =
+    let mutable _metadata = Unchecked.defaultof<Metadata.Info>
+    let mutable _graph = Unchecked.defaultof<Graph>
 
-    interface ISiteletService with
-        member this.Sitelet = Sitelet.Box this.Sitelet
+    member this.Initialize(siteletAssembly: Assembly, logger: ILogger) =
+        let timedInfo (message: string) action =
+            if logger.IsEnabled(LogLevel.Information) then
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                let r = action()
+                logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                r
+            else
+                action()
+
+        timedInfo "Initialized WebSharper" <| fun () ->
+            let runtimeMeta =
+                siteletAssembly
+                |> M.IO.LoadRuntimeMetadata
+            match runtimeMeta with
+            | None ->
+                logger.LogWarning("Runtime WebSharper metadata not found.")
+                _metadata <- M.Info.Empty
+                _graph <- Graph.Empty 
+            | Some meta ->
+                _metadata <- meta
+                _graph <- Graph.FromData meta.Dependencies
+
+        _metadata, _graph
+    
+    interface IMetadataService with
+        member this.Metadata = _metadata
+        member this.Graph = _graph
 
 type DefaultSiteletService<'T when 'T : equality>(sitelet: Sitelet<'T>) =
-    inherit SiteletService<'T>()
-
-    override this.Sitelet = sitelet
+    let boxedSitelet = Sitelet.Box sitelet
+    
+    interface ISiteletService with
+        member this.Sitelet = boxedSitelet
 
 type SiteletRefService<'T when 'T : equality>(sitelet: ref<Sitelet<'T>>) =
-    inherit SiteletService<'T>()
 
-    override this.Sitelet = sitelet.Value
+    interface ISiteletService with
+        member this.Sitelet = Sitelet.Box sitelet.Value
+
+type FullRuntimeRefService<'T when 'T : equality>(runtime: ref<Sitelet<'T> * M.Info * Graph * Remoting.Server>) =
+
+    interface ISiteletService with
+        member this.Sitelet = 
+            let s, _, _, _ = runtime.Value
+            Sitelet.Box s
+
+    interface IMetadataService with
+        member this.Metadata =
+            let _, m, _, _ = runtime.Value
+            m
+
+        member this.Graph =
+            let _, _, g, _ = runtime.Value
+            g
+
+    interface IRemotingServerService with
+        member this.RemotingServer =
+            let _, _, _, s = runtime.Value
+            s
 
 type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
     interface IRemotingService<'THandler> with
@@ -136,6 +153,8 @@ type ServiceExtensions =
             let defaultAssembly = 
                 if isNull defaultAssembly then Assembly.GetCallingAssembly() else defaultAssembly
             this.AddSingleton<IWebSharperService>(WebSharperService(defaultAssembly)) |> ignore
+        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IMetadataService>) |> not then
+            this.AddSingleton<IMetadataService>(DefaultMetadataService()) |> ignore
         this
 
     /// <summary>

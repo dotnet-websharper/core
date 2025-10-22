@@ -27,6 +27,7 @@ open System.Reflection
 open Microsoft.AspNetCore.Http
 open WebSharper.Web
 open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.DependencyInjection
 
 module Rem = WebSharper.Core.Remoting
 
@@ -90,17 +91,24 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebS
     else None
 
 let Middleware (options: WebSharperOptions) =
-    let getRemotingHandler (t: Type) =
-        let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
-        match service with
-        | :? IRemotingService as s -> s.Handler
-        | _ -> null
-    let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
-    Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
-        match handleRemote ctx server options with
-        | Some rTask -> rTask
-        | None -> next.Invoke()
-    )
+    match options.RemotingServer with
+    | Some server ->
+        Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
+            match handleRemote ctx server options with
+            | Some rTask -> rTask
+            | None -> next.Invoke()
+        )
+    | None ->
+        Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
+            match ctx.RequestServices.GetService<IRemotingServerService>() with
+            | null -> next.Invoke()
+            | s ->
+                match handleRemote ctx s.RemotingServer options with
+                | Some rTask -> rTask
+                | None -> next.Invoke()
+        )
+
+// Giraffe/Saturn helpers
 
 type RemotingHttpFuncResult = Task<HttpContext option>
 type RemotingHttpFunc =  HttpContext -> RemotingHttpFuncResult
@@ -126,7 +134,11 @@ let HttpHandler () : RemotingHttpHandler =
                     WebSharperBuilder(httpCtx.RequestServices)
                         .UseSitelets(false)
                         .Build()
-            let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
+            let server =
+                match options.RemotingServer with
+                | Some s -> s
+                | _ -> httpCtx.RequestServices.GetService<IRemotingServerService>().RemotingServer
+                    
             if server.IsRemotingRequest httpCtx.Request.Path then
             
                 match handleRemote httpCtx server options with

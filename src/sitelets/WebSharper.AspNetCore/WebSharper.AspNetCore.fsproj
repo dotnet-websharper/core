@@ -7,13 +7,13 @@
   <ItemGroup>
     <Compile Include="WebSharperOptions.fs" />
     <Compile Include="Interfaces.fs" />
-    <Compile Include="WebSharperBuilder.fs" />
     <Compile Include="EnvKey.fs" />
     <Compile Include="Context.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="WebSharperBuilder.fs" />
     <Compile Include="RemotingHandler.fs" />
     <Compile Include="SiteletsHandler.fs" />
     <Compile Include="ScriptRedirectHandler.fs" />
-    <Compile Include="Services.fs" />
     <Compile Include="ContentExtensions.fs" />
     <Compile Include="WebContextExtensions.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />

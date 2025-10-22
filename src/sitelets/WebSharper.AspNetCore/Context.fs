@@ -25,6 +25,7 @@ open System.Collections.Specialized
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication
+open Microsoft.Extensions.DependencyInjection
 open WebSharper.Sitelets
 open WebSharper.Constants
 module Res = WebSharper.Core.Resources
@@ -198,7 +199,17 @@ let private makeEnv (httpCtx: HttpContext)  =
         "WebSharper.AspNetCore.HttpContext", box httpCtx
     |]
 
-let private makeResCtx (httpCtx: HttpContext) (options: WebSharperOptions) =
+let private getMeta (httpCtx: HttpContext) (options: WebSharperOptions) =
+    match options.MetadataAndGraph with
+    | Some metaAndGraph -> metaAndGraph
+    | None ->
+        match httpCtx.RequestServices.GetService<IMetadataService>() with
+        | null ->
+            failwith "Failed to find IMetadataService, use AddWebSharper in services configuration"
+        | s -> 
+            s.Metadata, s.Graph
+
+let private makeResCtx (httpCtx: HttpContext) (options: WebSharperOptions) meta =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
     let getSetting x =
@@ -207,10 +218,11 @@ let private makeResCtx (httpCtx: HttpContext) (options: WebSharperOptions) =
         else
             options.Configuration.[x] |> Option.ofObj 
     appPath,
-    WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata getSetting
+    WebSharper.Web.ResourceContext.ResourceContext appPath meta getSetting
 
 let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T>) =
-    let appPath, resCtx = makeResCtx httpCtx options
+    let meta, graph = getMeta httpCtx options
+    let appPath, resCtx = makeResCtx httpCtx options meta
     let link x =
         match sitelet.Router.Link x with
         | None -> failwithf "Failed to link to %O" (box x)
@@ -222,8 +234,8 @@ let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T
         Environment = makeEnv httpCtx,
         Link = link,
         Json = options.Json,
-        Metadata = options.Metadata,
-        Dependencies = options.Dependencies,
+        Metadata = meta,
+        Dependencies = graph,
         ResourceContext = resCtx,
         Request = req,
         RootFolder = options.ContentRootPath,
@@ -232,15 +244,16 @@ let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T
     )
 
 let MakeSimple (httpCtx: HttpContext) (options: WebSharperOptions) =
-    let appPath, resCtx = makeResCtx httpCtx options
+    let meta, graph = getMeta httpCtx options
+    let appPath, resCtx = makeResCtx httpCtx options meta
     let uri = RequestUri httpCtx.Request
     { new WebSharper.Web.Context() with
         member this.ApplicationPath = appPath
         // TODO use httpCtx.Items? but it's <obj, obj>, not <string, obj>
         member this.Environment = makeEnv httpCtx
         member this.Json = options.Json
-        member this.Metadata = options.Metadata
-        member this.Dependencies = options.Dependencies
+        member this.Metadata = meta
+        member this.Dependencies = graph
         member this.ResourceContext = resCtx
         member this.RequestUri = uri
         member this.RootFolder = options.ContentRootPath
@@ -261,3 +274,9 @@ let GetOrMake httpCtx options sitelet =
 
 let GetOrMakeSimple httpCtx options =
     getOrMake<WebSharper.Web.Context, _> MakeSimple httpCtx options
+
+let internal getRemotingHandler (services: IServiceProvider) (t: Type) =
+    let service = services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
+    match service with
+    | :? IRemotingService as s -> s.Handler
+    | _ -> null

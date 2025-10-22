@@ -41,16 +41,26 @@ module J = WebSharper.Core.Json
 
 [<AllowNullLiteral>]
 type IWebSharperService =
-    abstract GetWebSharperMeta : siteletAssembly: Assembly * logger: ILogger -> (M.Info * Graph * Json.Provider) 
     abstract DefaultAssembly : Assembly 
     abstract WebSharperOptions : WebSharperOptions with get, set
             
+/// Define the runtime metadata to use by WebSharper.
+[<AllowNullLiteral>]
+type IMetadataService =
+    abstract Metadata : M.Info
+    abstract Graph : Graph
+
+/// Define the remoting server instance to use by WebSharper.
+[<AllowNullLiteral>]
+type IRemotingServerService =
+    abstract RemotingServer : Remoting.Server
+
 /// Define the sitelet to serve by WebSharper.
 [<AllowNullLiteral>]
 type ISiteletService =
     abstract Sitelet : Sitelet<obj>
 
-/// Define a remoting handler to serve by WebSharper.
+/// Base non-generic interface. Do not use directly, register IRemotingService<T> instead.
 type IRemotingService =
     abstract Handler : obj
 
@@ -58,6 +68,7 @@ type IRemotingService =
 type IRemotingService<'T> =
     inherit IRemotingService
 
+/// Define a service for interop with Razor pages.
 type IWebSharperContentService =
     abstract Head : unit -> IHtmlContent
     abstract Render : INode -> IHtmlContent

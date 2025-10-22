@@ -41,7 +41,6 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _siteletAssembly = None
     let mutable _contentRootPath = None
     let mutable _webRootPath = None
-    let mutable _metadata = None
     let mutable _config = None
     let mutable _logger = None
     let mutable _authScheme = None
@@ -73,10 +72,8 @@ type WebSharperBuilder(services: IServiceProvider) =
         _siteletAssembly <- Some siteletAssembly
         this
 
-    /// <summary>Overrides the default runtime metadata used by WebSharper.</summary>
-    /// <remarks>Default: loaded from SiteletAssembly or entry assembly with WebSharper.Core.Metadata.IO.LoadRuntimeMetadata.</remarks>
+    [<Obsolete "Use IMetadataService instead">]
     member this.Metadata(meta: M.Info) =
-        _metadata <- Some meta
         this
 
     /// <summary>Defines the configuration to be used by WebSharper.</summary>
@@ -184,12 +181,19 @@ type WebSharperBuilder(services: IServiceProvider) =
             lazy
             _siteletAssembly |> Option.defaultWith (fun () -> wsService.DefaultAssembly)
 
-        let metadata, dependencies, json =
-            match _metadata with
-            | Some m ->
-                m, Graph.FromData m.Dependencies, J.Provider.Create()
-            | None ->
-                wsService.GetWebSharperMeta(siteletAssembly.Value, logger)
+        let metaAndGraphOpt =
+            match services.GetService<IMetadataService>() with
+            | :? DefaultMetadataService as s ->
+                Some (s.Initialize(siteletAssembly.Value, logger))
+            | _ -> 
+                None
+
+        let json = J.Provider.Create()
+
+        let remotingServer =
+            metaAndGraphOpt |> Option.map (fun (meta, _) ->
+                Remoting.Server.Create meta WebSharper.Json.ServerSideProvider (Context.getRemotingHandler services)
+            )
 
         let timedInfo (message: string) action =
             if logger.IsEnabled(LogLevel.Information) then
@@ -206,7 +210,7 @@ type WebSharperBuilder(services: IServiceProvider) =
             _sitelet |> Option.orElseWith (fun () ->
                 if _discoverSitelet then
                     let fromMeta =
-                        match metadata.SiteletDefinition with
+                        match metaAndGraphOpt |> Option.bind (fun (meta, _) -> meta.SiteletDefinition) with
                         | Some td -> 
                             timedInfo "Sitelet discovered via metadata" (fun () ->
                                 let typ = WebSharper.Core.AST.Reflection.LoadTypeDefinition td
@@ -237,10 +241,10 @@ type WebSharperBuilder(services: IServiceProvider) =
                 logger,
                 contentRootPath, 
                 webRootPath, 
-                sitelet, 
-                metadata, 
-                dependencies,
+                sitelet,
+                metaAndGraphOpt,
                 json,
+                remotingServer,
                 _useSitelets, 
                 _useRemoting, 
                 _useExtension,

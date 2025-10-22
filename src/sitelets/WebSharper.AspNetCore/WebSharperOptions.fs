@@ -39,9 +39,9 @@ type WebSharperOptions
         contentRoot: string,
         webRoot: string,
         sitelet: option<Sitelet<obj>>,
-        metadata: M.Info,
-        dependencies: Graph,
+        metadataAndGraph: option<M.Info * Graph>,
         json: Json.Provider,
+        remotingServer: option<Remoting.Server>,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit,
@@ -60,11 +60,11 @@ type WebSharperOptions
 
     member this.UseRemoting = useRemoting
 
-    member this.Metadata = metadata
-
-    member this.Dependencies = dependencies
+    member this.MetadataAndGraph = metadataAndGraph
 
     member this.Json = json
+
+    member this.RemotingServer = remotingServer
     
     member this.ContentRootPath = contentRoot
 
