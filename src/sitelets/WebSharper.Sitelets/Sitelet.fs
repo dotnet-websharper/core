@@ -259,25 +259,31 @@ module Sitelet =
 
     /// Boxes the sitelet endpoint type to Object type.
     let Box (sitelet: Sitelet<'T>) : Sitelet<obj> =
-        {
-            Router = IRouter.Box sitelet.Router
-            Controller =
-                { Handle = fun a ->
-                    (sitelet.Controller.Handle (unbox a)).Box()
-                }
-        }
+        match box sitelet with
+        | :? Sitelet<obj> as objSitelet -> objSitelet
+        | _ ->
+            {
+                Router = IRouter.Box sitelet.Router
+                Controller =
+                    { Handle = fun a ->
+                        (sitelet.Controller.Handle (unbox a)).Box()
+                    }
+            }
 
     let Upcast sitelet = Box sitelet
 
     /// Reverses the Box operation on the sitelet.
     let Unbox<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
-        {
-            Router = IRouter.Unbox sitelet.Router
-            Controller =
-                { Handle = fun a ->
-                    C.Unbox<'T> (sitelet.Controller.Handle (box a))
-                }
-        }
+        match box sitelet with
+        | :? Sitelet<'T> as tSitelet -> tSitelet
+        | _ ->
+            {
+                Router = IRouter.Unbox sitelet.Router
+                Controller =
+                    { Handle = fun a ->
+                        C.Unbox<'T> (sitelet.Controller.Handle (box a))
+                    }
+            }
 
     let UnsafeDowncast sitelet = Unbox sitelet
 

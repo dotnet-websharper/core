@@ -42,14 +42,24 @@ type ApplicationBuilderExtensions =
             this: IApplicationBuilder,
             build: Action<WebSharperBuilder>
         ) =
+        let services = this.ApplicationServices
+        let initService = services.GetRequiredService<IWebSharperInitializationService>()
+        match initService with
+        | :? WebSharperInitializationService as initServiceImpl ->
+            initServiceImpl.Initialize()
+        | _ -> ()
         let builder = WebSharperBuilder(this.ApplicationServices)
         if not (isNull build) then build.Invoke(builder)
-        let options = builder.Build()
-        if options.UseRemoting then 
-            this.Use(Remoting.Middleware options) |> ignore
-        if options.UseSitelets then 
-            this.Use(Sitelets.Middleware options) |> ignore
-        options.UseExtension this options
+        let rpcOptions, siteletOpt, useExtension = builder.Build()
+        match rpcOptions with
+        | Some headers ->
+            this.Use(WebSharperRemotingMiddleware(headers, services).MiddlewareFunc()) |> ignore
+        | None -> ()
+        match siteletOpt with
+        | Some sitelet ->
+            this.Use(WebSharperSiteletMiddleware(sitelet, services).MiddlewareFunc()) |> ignore
+        | None -> ()
+        useExtension this
         this
 
     /// Use the WebSharper server side.

@@ -30,48 +30,14 @@ open Microsoft.AspNetCore.Builder
 module M = WebSharper.Core.Metadata
 
 [<Sealed>]
-type WebSharperOptions
-    internal 
-    (
-        services: IServiceProvider,
-        config: IConfiguration,
-        logger: ILogger,
-        contentRoot: string,
-        webRoot: string,
-        sitelet: option<Sitelet<obj>>,
-        metadataAndGraph: option<M.Info * Graph>,
-        json: Json.Provider,
-        remotingServer: option<Remoting.Server>,
-        useSitelets: bool,
-        useRemoting: bool,
-        useExtension: IApplicationBuilder -> WebSharperOptions -> unit,
-        remotingHeaders: (string * string) []
-    ) =
+type WebSharperOptions() =
 
-    member val AuthenticationScheme = "WebSharper" with get, set
-
-    member this.Services = services
-
-    member this.Configuration = config
-
-    member this.Logger = logger
-
-    member this.UseSitelets = useSitelets
-
-    member this.UseRemoting = useRemoting
-
-    member this.MetadataAndGraph = metadataAndGraph
-
-    member this.Json = json
-
-    member this.RemotingServer = remotingServer
+    member val DefaultAssembly : System.Reflection.Assembly = null with get, set
     
-    member this.ContentRootPath = contentRoot
+    member val AuthenticationScheme = "WebSharper" with get, set // used by Usersession (sitelets+remoting)
 
-    member this.WebRootPath = webRoot
+    member val Configuration : IConfiguration = null with get, set
 
-    member this.Sitelet = sitelet
+    member val ContentRootPath : string = null with get, set // used by Context
 
-    member this.RemotingHeaders = remotingHeaders
-
-    member internal this.UseExtension = useExtension
+    member val WebRootPath : string = null with get, set // used by Context

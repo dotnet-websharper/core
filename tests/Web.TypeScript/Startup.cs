@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Console;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 using System.Threading.Tasks;
 using WebSharper.AspNetCore;
 
@@ -18,11 +19,8 @@ namespace Web
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            var site = new WebSharper.Tests.Website.WebsiteEntryPoint();
-
             services
-                //.AddWebSharper()
-                .AddSitelet(site.Sitelet)
+                .AddWebSharper()
                 .AddAuthentication("WebSharper")
                 .AddCookie("WebSharper", options => { });
         }
@@ -31,9 +29,11 @@ namespace Web
         {
             if (env.IsDevelopment()) { app.UseDeveloperExceptionPage(); }
 
+            var site = new WebSharper.Tests.Website.WebsiteEntryPoint();
+
             app.UseAuthentication()
                 .UseStaticFiles()
-                .UseWebSharper()
+                .UseWebSharper(ws => ws.Sitelet(site.Sitelet))
                 .Run(context =>
                 {
                     context.Response.StatusCode = 404;

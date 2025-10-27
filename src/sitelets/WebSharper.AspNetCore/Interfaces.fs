@@ -38,37 +38,48 @@ open WebSharper.Web
 
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
-
-[<AllowNullLiteral>]
-type IWebSharperService =
-    abstract DefaultAssembly : Assembly 
-    abstract WebSharperOptions : WebSharperOptions with get, set
             
 /// Define the runtime metadata to use by WebSharper.
 [<AllowNullLiteral>]
-type IMetadataService =
+type IWebSharperMetadataService = 
     abstract Metadata : M.Info
     abstract Graph : Graph
 
-/// Define the remoting server instance to use by WebSharper.
+/// Define the remoting server instance to use by WebSharper by default.
 [<AllowNullLiteral>]
-type IRemotingServerService =
+type IWebSharperRemotingServerService =
     abstract RemotingServer : Remoting.Server
 
-/// Define the sitelet to serve by WebSharper.
+/// Define the sitelet to serve by WebSharper by default.
 [<AllowNullLiteral>]
-type ISiteletService =
+type IWebSharperSiteletService =
     abstract Sitelet : Sitelet<obj>
 
-/// Base non-generic interface. Do not use directly, register IRemotingService<T> instead.
-type IRemotingService =
+/// Base non-generic interface. Do not use directly, register IWebSharperRemotingService<T> instead.
+[<AllowNullLiteral>]
+type IWebSharperRemotingService =
     abstract Handler : obj
 
 /// Define a remoting handler to serve by WebSharper.
-type IRemotingService<'T> =
-    inherit IRemotingService
+[<AllowNullLiteral>]
+type IWebSharperRemotingService<'T> =
+    inherit IWebSharperRemotingService
+
+/// Define the json serializer provider instance to use by WebSharper.
+[<AllowNullLiteral>]
+type IWebSharperJsonProviderService =
+    abstract JsonProvider : Json.Provider
 
 /// Define a service for interop with Razor pages.
-type IWebSharperContentService =
+[<AllowNullLiteral>]
+type IWebSharperMvcService =
     abstract Head : unit -> IHtmlContent
     abstract Render : INode -> IHtmlContent
+
+/// Central service that initializes and holds cached WebSharper data.
+[<AllowNullLiteral>]
+type IWebSharperInitializationService =
+    abstract Options : WebSharperOptions
+    abstract MetadataAndGraph : option<M.Info * Graph>
+    abstract RemotingServer : option<Remoting.Server>
+    abstract JsonProvider : option<Json.Provider>

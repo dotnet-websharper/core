@@ -37,98 +37,53 @@ open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Html
 open System.IO
 open WebSharper.Core.Resources
+open Microsoft.Extensions.Options
+open Microsoft.AspNetCore.Hosting
 
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
-type WebSharperService(defaultAssembly) =
+type SiteletRefService<'T when 'T: equality>(sitelet: ref<Sitelet<'T>>) =
 
-    let metaCache = Dictionary<Assembly, M.Info * Graph * Json.Provider>()
-    let mutable options = Unchecked.defaultof<WebSharperOptions>
-
-    interface IWebSharperService with
-        member this.DefaultAssembly = defaultAssembly
-
-        member this.WebSharperOptions 
-            with get() = options
-            and set v = options <- v  
-   
-type DefaultMetadataService() =
-    let mutable _metadata = Unchecked.defaultof<Metadata.Info>
-    let mutable _graph = Unchecked.defaultof<Graph>
-
-    member this.Initialize(siteletAssembly: Assembly, logger: ILogger) =
-        let timedInfo (message: string) action =
-            if logger.IsEnabled(LogLevel.Information) then
-                let sw = System.Diagnostics.Stopwatch()
-                sw.Start()
-                let r = action()
-                logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
-                r
-            else
-                action()
-
-        timedInfo "Initialized WebSharper" <| fun () ->
-            let runtimeMeta =
-                siteletAssembly
-                |> M.IO.LoadRuntimeMetadata
-            match runtimeMeta with
-            | None ->
-                logger.LogWarning("Runtime WebSharper metadata not found.")
-                _metadata <- M.Info.Empty
-                _graph <- Graph.Empty 
-            | Some meta ->
-                _metadata <- meta
-                _graph <- Graph.FromData meta.Dependencies
-
-        _metadata, _graph
-    
-    interface IMetadataService with
-        member this.Metadata = _metadata
-        member this.Graph = _graph
-
-type DefaultSiteletService<'T when 'T : equality>(sitelet: Sitelet<'T>) =
-    let boxedSitelet = Sitelet.Box sitelet
-    
-    interface ISiteletService with
-        member this.Sitelet = boxedSitelet
-
-type SiteletRefService<'T when 'T : equality>(sitelet: ref<Sitelet<'T>>) =
-
-    interface ISiteletService with
+    interface IWebSharperSiteletService with
         member this.Sitelet = Sitelet.Box sitelet.Value
 
-type FullRuntimeRefService<'T when 'T : equality>(runtime: ref<Sitelet<'T> * M.Info * Graph * Remoting.Server>) =
+type RuntimeRefService(runtime: ref<Sitelet<obj> * M.Info * Graph * Json.Provider * Remoting.Server>) =
 
-    interface ISiteletService with
+    interface IWebSharperSiteletService with
         member this.Sitelet = 
-            let s, _, _, _ = runtime.Value
-            Sitelet.Box s
+            let s, _, _, _, _ = runtime.Value
+            s
 
-    interface IMetadataService with
+    interface IWebSharperMetadataService with
         member this.Metadata =
-            let _, m, _, _ = runtime.Value
+            let _, m, _, _, _ = runtime.Value
             m
 
         member this.Graph =
-            let _, _, g, _ = runtime.Value
+            let _, _, g, _, _ = runtime.Value
             g
 
-    interface IRemotingServerService with
+    interface IWebSharperJsonProviderService with
+        member this.JsonProvider =
+            let _, _, _, j, _ = runtime.Value
+            j
+
+    interface IWebSharperRemotingServerService with
         member this.RemotingServer =
-            let _, _, _, s = runtime.Value
+            let _, _, _, _, s = runtime.Value
             s
 
 type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
-    interface IRemotingService<'THandler> with
+    interface IWebSharperRemotingService<'THandler> with
         member this.Handler = (box handler)
 
-type WebSharperContentService(httpCtx: IHttpContextAccessor, wsService: IWebSharperService) =
-    let ctx = Context.GetOrMakeSimple httpCtx.HttpContext wsService.WebSharperOptions
+type WebSharperContentService(httpCtx: IHttpContextAccessor, cacheService: IWebSharperInitializationService) =
+    let ctx = Context.GetOrMakeSimple httpCtx.HttpContext cacheService
     let requires = ResizeArray()
     let uidSource = UniqueIdSource()
     
-    interface IWebSharperContentService with
+    interface IWebSharperMvcService with
         member this.Head() =
             HtmlString(ctx.GetResourcesAndScripts(requires))
         
@@ -140,90 +95,139 @@ type WebSharperContentService(httpCtx: IHttpContextAccessor, wsService: IWebShar
             node.Write(ctx, tw)
             HtmlString(sw.ToString())
 
+type WebSharperPostConfigureOptions(services: IServiceProvider) =
+
+    interface IPostConfigureOptions<WebSharperOptions> with
+        member this.PostConfigure (name, options): unit = 
+            if isNull options.DefaultAssembly then
+                options.DefaultAssembly <- Assembly.GetEntryAssembly()
+            
+            if isNull options.Configuration then
+                options.Configuration <-
+                    services.GetRequiredService<IConfiguration>().GetSection("websharper") :> IConfiguration 
+            
+            let hostingEnvironment =
+                lazy services.GetRequiredService<IHostingEnvironment>()
+
+            options.ContentRootPath <- hostingEnvironment.Value.ContentRootPath
+
+            options.WebRootPath <- hostingEnvironment.Value.WebRootPath
+
+type WebSharperInitializationService(
+    options: IOptions<WebSharperOptions>, 
+    services: IServiceProvider,
+    logger: ILogger<WebSharperInitializationService>,
+    [<Optional; DefaultParameterValue(null: IWebSharperMetadataService)>] metadataService: IWebSharperMetadataService,
+    [<Optional; DefaultParameterValue(null: IWebSharperJsonProviderService)>] jsonService: IWebSharperJsonProviderService,
+    [<Optional; DefaultParameterValue(null: IWebSharperRemotingServerService)>] remotingServerService: IWebSharperRemotingServerService
+ ) =
+    let wsOptions = options.Value 
+    let mutable metaAndGraph = None
+    let mutable json = None
+    let mutable remotingServer = None
+    
+    member this.Initialize() = 
+        let timedInfo (message: string) action =
+            if logger.IsEnabled(LogLevel.Information) then
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                let r = action()
+                logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                r
+            else
+                action()
+
+        if isNull metadataService then
+            timedInfo "Initialized WebSharper" <| fun () ->
+                let runtimeMeta =
+                    wsOptions.DefaultAssembly
+                    |> M.IO.LoadRuntimeMetadata
+                match runtimeMeta with
+                | None ->
+                    logger.LogWarning("Runtime WebSharper metadata not found.")
+                | Some meta ->
+                    metaAndGraph <- Some (meta, Graph.FromData meta.Dependencies)
+
+        if isNull jsonService then
+            json <- Some WebSharper.Json.ServerSideProvider
+
+        if isNull remotingServerService then
+            match metaAndGraph with
+            | Some (meta, _) ->
+                remotingServer <- 
+                    Some (Remoting.Server.Create meta WebSharper.Json.ServerSideProvider (Context.getRemotingHandler services))
+            | _ -> ()
+
+    interface IWebSharperInitializationService with
+        member this.Options = wsOptions
+        member this.MetadataAndGraph = metaAndGraph
+        member this.JsonProvider = json
+        member this.RemotingServer = remotingServer
+
+type ConfigureWebSharper internal (services: IServiceCollection) =
+    
+    member this.Services = services
+
+    /// Add a reference as the default sitelet.
+    member this.AddSiteletRef<'T when 'T: equality>(siteletRef: ref<Sitelet<'T>>) =
+        services.AddSingleton<IWebSharperSiteletService>(SiteletRefService siteletRef)
+
+    /// Adds a reference for full runtime objects used by WebSharper.
+    member this.AddRuntimeRef(runtime) =
+        let s = RuntimeRefService runtime
+        services
+            .AddSingleton<IWebSharperSiteletService>(s)
+            .AddSingleton<IWebSharperMetadataService>(s)
+            .AddSingleton<IWebSharperRemotingServerService>(s)
+
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    member this.AddRemotingHandler<'THandler when 'THandler : not struct>() =
+        services
+            .AddSingleton<'THandler, 'THandler>()
+            .AddSingleton<IWebSharperRemotingService<'THandler>, RemotingService<'THandler, 'THandler>>()
+
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    member this.AddRemotingHandler<'THandler, 'TInstance when 'TInstance : not struct>() =
+        services
+            .AddSingleton<'TInstance, 'TInstance>()
+            .AddSingleton<IWebSharperRemotingService<'THandler>, RemotingService<'THandler, 'TInstance>>()
+
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    member this.AddRemotingHandler<'THandler when 'THandler : not struct>(handler: 'THandler) =
+        services
+            .AddSingleton<'THandler>(handler)
+            .AddSingleton<IWebSharperRemotingService<'THandler>>(RemotingService handler)
+
+    /// Adds a service allow embedding WebSharper content into Razor pages.
+    static member AddMvc(this: IServiceCollection) =
+        this.AddScoped<IWebSharperMvcService, WebSharperContentService>()
+
 [<Extension>]
 type ServiceExtensions =
 
     /// <summary>
-    /// Adds a required service to serve as metadata cache for WebSharper.
-    /// Automatically added by any other AddWebSharper... methods.
+    /// Sets up WebSharper options and initialization.
     /// </summary>
     [<Extension>]
-    static member AddWebSharper(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Assembly)>] defaultAssembly: Assembly) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            let defaultAssembly = 
-                if isNull defaultAssembly then Assembly.GetCallingAssembly() else defaultAssembly
-            this.AddSingleton<IWebSharperService>(WebSharperService(defaultAssembly)) |> ignore
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IMetadataService>) |> not then
-            this.AddSingleton<IMetadataService>(DefaultMetadataService()) |> ignore
+    static member AddWebSharper(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Action<WebSharperOptions>)>] configureOptions: Action<WebSharperOptions>) =
+        if not (isNull configureOptions) then
+            this.Configure<WebSharperOptions>(configureOptions) |> ignore
+        this
+            .AddSingleton<IPostConfigureOptions<WebSharperOptions>, WebSharperPostConfigureOptions>()
+            .AddSingleton<IWebSharperInitializationService, WebSharperInitializationService>() 
+        |> ignore
+
         this
 
     /// <summary>
-    /// Add a sitelet service to be used with <c>UseWebSharper</c>.
+    /// Sets up WebSharper options and initialization.
+    /// Returns a service builder for more WebSharper service helpers.
     /// </summary>
     [<Extension>]
-    static member AddSitelet<'TImplementation
-            when 'TImplementation :> ISiteletService
-            and 'TImplementation : not struct>
-            (this: IServiceCollection) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<ISiteletService, 'TImplementation>()
-
-    /// <summary>
-    /// Add a sitelet reference to be loaded on startup with <c>UseWebSharper</c>.
-    /// </summary>
-    [<Extension>]
-    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead for faster sitelet lookup.">]
-    static member AddSitelet<'T when 'T : equality>
-            (this: IServiceCollection, sitelet: Sitelet<'T>) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
-
-    /// <summary>
-    /// Add a sitelet reference to be used with <c>UseWebSharper</c>.
-    /// </summary>
-    [<Extension>]
-    static member AddSitelet<'T when 'T : equality>
-            (this: IServiceCollection, sitelet: ref<Sitelet<'T>>) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<ISiteletService>(SiteletRefService sitelet)
-
-    /// <summary>
-    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
-    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
-    /// </summary>
-    [<Extension>]
-    static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
-            (this: IServiceCollection) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<'THandler, 'THandler>()
-            .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'THandler>>()
-
-    /// <summary>
-    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
-    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
-    /// </summary>
-    [<Extension>]
-    static member AddWebSharperRemoting<'THandler, 'TInstance when 'TInstance : not struct>
-            (this: IServiceCollection) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<'TInstance, 'TInstance>()
-            .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'TInstance>>()
-
-    /// <summary>
-    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
-    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
-    /// </summary>
-    [<Extension>]
-    static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
-            (this: IServiceCollection, handler: 'THandler) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddSingleton<'THandler>(handler)
-            .AddSingleton<IRemotingService<'THandler>>(RemotingService handler)
-
-    /// <summary>
-    /// Adds a service allow embedding WebSharper content into Razor pages.
-    /// </summary>
-    [<Extension>]
-    static member AddWebSharperContent(this: IServiceCollection) =
-        this.AddWebSharper(Assembly.GetCallingAssembly())
-            .AddScoped<IWebSharperContentService, WebSharperContentService>()
+    static member AddWebSharperServices(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Action<WebSharperOptions>)>] configureOptions: Action<WebSharperOptions>) =
+        this.AddWebSharperServices(configureOptions) |> ignore
+        
+        ConfigureWebSharper(this)

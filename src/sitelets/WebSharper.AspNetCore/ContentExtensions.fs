@@ -26,14 +26,7 @@ open WebSharper.Sitelets
 open Microsoft.AspNetCore.Mvc
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
-
-[<AutoOpen>]
-module internal ContentExtensionsHelpers =
-    let createDefaultOptions services = 
-        WebSharperBuilder(services)
-            .UseSitelets(false)
-            .UseRemoting(false)
-            .Build()
+open Microsoft.Extensions.DependencyInjection
 
 [<Extension>]
 type ContentExtensions =
@@ -42,8 +35,8 @@ type ContentExtensions =
     [<Extension>]
     static member HandleRequest (this: Content<'T>, httpCtx: HttpContext) : Task =
         task {
-            let options = createDefaultOptions httpCtx.RequestServices
-            let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
+            let initService = httpCtx.RequestServices.GetRequiredService<IWebSharperInitializationService>()
+            let ctx = Context.GetOrMake httpCtx initService Sitelet.Empty
             do! Sitelets.contentHelper httpCtx ctx (this.Box())
         }
 

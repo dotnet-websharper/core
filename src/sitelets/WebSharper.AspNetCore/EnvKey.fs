@@ -21,4 +21,4 @@
 module WebSharper.AspNetCore.EnvKey
 
 /// The WebSharper context.
-let Context = "WebSharper.Context"
+let [<Literal>] Context = "WebSharper.Context"

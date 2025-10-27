@@ -17,9 +17,10 @@ type Startup () =
     let siteletRef = ref site.Sitelet
     
     member x.ConfigureServices(services: IServiceCollection) =
-        services.AddSitelet(siteletRef)
+        services.AddWebSharperServices().AddSiteletRef(siteletRef) |> ignore
+        services
             .AddAuthentication("WebSharper")
-            .AddCookie("WebSharper", fun options -> ())
+            .AddCookie("WebSharper")
         |> ignore
 
     member x.Configure(app: IApplicationBuilder, env: IWebHostEnvironment) =
