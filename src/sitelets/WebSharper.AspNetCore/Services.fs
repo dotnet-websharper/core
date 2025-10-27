@@ -231,3 +231,38 @@ type ServiceExtensions =
         this.AddWebSharperServices(configureOptions) |> ignore
         
         ConfigureWebSharper(this)
+
+    /// <summary>
+    /// Add a sitelet reference to be loaded on startup with <c>UseWebSharper</c>.
+    /// </summary>
+    [<Extension>]
+    [<Obsolete "Use builder.Sitelet inside app.AddWebSharper instead.">]
+    static member AddSitelet<'T when 'T : equality>
+            (this: IServiceCollection, sitelet: Sitelet<'T>) =
+        this.AddWebSharperServices().AddSiteletRef(ref sitelet) |> ignore
+
+        this
+
+    /// <summary>
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    /// </summary>
+    [<Extension>]
+    [<Obsolete "Use .AddWebSharperServices().AddRemotingHandler instead.">]
+    static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
+            (this: IServiceCollection) =
+        this.AddWebSharperServices().AddRemotingHandler<'THandler>() |> ignore
+
+        this
+
+    /// <summary>
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    /// </summary>
+    [<Extension>]
+    [<Obsolete "Use .AddWebSharperServices().AddRemotingHandler instead.">]
+    static member AddWebSharperRemoting<'THandler, 'TInstance when 'TInstance : not struct>
+            (this: IServiceCollection) =
+        this.AddWebSharperServices().AddRemotingHandler<'THandler, 'TInstance>() |> ignore
+
+        this
