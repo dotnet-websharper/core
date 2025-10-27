@@ -413,15 +413,15 @@ let Tests =
         }
 
         Test "ToString with custom format works (Part #5)" {
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r z")) $"r {timeZoneOffsetSimple}"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r z")) $"r {timeZoneOffsetSimple}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r z")) "r +2"
  
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zz")) "r +00"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zz")) $"r {timeZoneOffsetPadded}"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r zz")) $"r {timeZoneOffsetPadded}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zz")) "r +02"
 
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc).ToString("r zzz")) "r +00:00"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzz")) $"r {timeZoneOffsetWithMinutes}"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r zzz")) $"r {timeZoneOffsetWithMinutes}"
             // equal (DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Local).ToString("r zzz")) "r +02:00"
 
             // Time separator
@@ -440,15 +440,15 @@ let Tests =
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r %hh")) "r 44"
 
             // Escape character
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \zz")) ($"r z{timeZoneOffsetSimple}")
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\zz")) ($"r z{timeZoneOffsetSimple}")
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\\zz")) ($"r \{timeZoneOffsetPadded}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r \zz")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r \\zz")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r \\\zz")) ($"r \{timeZoneOffsetPadded}")
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r \\z\\z")) "r zz"
 
             // Escape character with verbatim string
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \zz""")) ($"r z{timeZoneOffsetSimple}")
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\zz""")) ($"r \{timeZoneOffsetPadded}")
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("""r \\\zz""")) ($"r \z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("""r \zz""")) ($"r z{timeZoneOffsetSimple}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("""r \\zz""")) ($"r \{timeZoneOffsetPadded}")
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("""r \\\zz""")) ($"r \z{timeZoneOffsetSimple}")
         }
 
         Test "ToString with custom format works (Part #6)" {
@@ -471,13 +471,13 @@ let Tests =
 
             equal (DateTime(2014, 7, 1, 12, 0, 0).ToString("r hhh hhhhh")) "r 12 12"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r HHH HHHHHHHH")) "r 16 16"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r KK KKK")) $"r {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r KK KKK")) $"r {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}{timeZoneOffsetWithMinutes}"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r mmm mmmm")) "r 37 37"
             equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r MMMMM MMMMMMMMM")) "r December December"
             equal (DateTime(2014, 7, 1, 16, 37, 31).ToString("r sss ssssss")) "r 31 31"
             equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r ttt ttttttt")) "r PM PM"
             equal (DateTime(2019,1,1).ToString("r yyyyyy yyyyyyyyyy")) "r 002019 0000002019"
-            equal (DateTime(2014, 7, 1, 16, 37, 0).ToString("r zzzz zzzzzz")) $"r {timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}"
+            equal (DateTime(2014, 12, 1, 16, 37, 0).ToString("r zzzz zzzzzz")) $"r {timeZoneOffsetWithMinutes} {timeZoneOffsetWithMinutes}"
         }
 
         Test "DateTime.ToString without separator works" {
@@ -487,8 +487,8 @@ let Tests =
         Test "DateTime.ToString('O') works" {
             // On .NET the result is "2014-09-11T16:37:02.0000000+02:00"
             // but because of JavaScript date precission we remove some trailing zero
-            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("O")) ($"2014-09-11T16:37:02.000{timeZoneOffsetWithMinutes}")
-            equal (DateTime(2014, 9, 11, 16, 37, 2).ToString("o")) ($"2014-09-11T16:37:02.000{timeZoneOffsetWithMinutes}")
+            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("O")) ($"2014-12-11T16:37:02.000{timeZoneOffsetWithMinutes}")
+            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("o")) ($"2014-12-11T16:37:02.000{timeZoneOffsetWithMinutes}")
         }
 
         Test "DateTime.ToString('D') works" {
