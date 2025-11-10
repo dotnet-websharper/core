@@ -954,7 +954,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | TupledFuncArg arity ->
             let x = Id.New(mut = false)
             let args =
-                List.init arity (fun i -> (Var x).[Value (Int i)])
+                List.init arity (fun i -> ItemGet(Var x, Value (Int i), Pure))
             Lambda ([x], None, Appl (f, args, NonPure, Some arity))
         | _ ->
             this.TransformExpression(f)
@@ -1633,7 +1633,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match fields |> List.tryFindIndex (fun f -> f.Name = field) with
                 | Some i ->
                     let getField = this.TransformExpression expr |> getItem ("$" + string i)
-                    getField
                     let fieldTyp = fields.[i].UnionFieldType.SubstituteGenerics(Array.ofSeq typ.Generics)                    
                     match comp.TypeTranslator.TSTypeOf fieldTyp with
                     | TSType.Any -> getField

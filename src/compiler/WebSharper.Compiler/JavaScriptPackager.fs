@@ -128,9 +128,9 @@ type LazyClassTransformer(needsLazy) =
                 Import(defaultImport, fullImport, namedImportsWithoutLazy, fromModule)
 
 type EntryPointStyle =
-    | OnLoadIfExists
-    | ForceOnLoad
-    | ForceImmediate
+    | OptionalEntryPoint
+    | RequiredEntryPoint
+    | WorkerBundle
     | LibraryBundle
     | SiteletBundle of IDictionary<TypeDefinition, ISet<Method>>
 
@@ -1435,11 +1435,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
 
     if output <> O.TypeScriptDeclaration then
         match content with
-        | Bundle(_, (OnLoadIfExists | ForceOnLoad), Some ep) ->
-            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
-        | Bundle(_, (ForceImmediate | LibraryBundle), Some ep) ->
+        | Bundle(_, (OptionalEntryPoint | RequiredEntryPoint | WorkerBundle | LibraryBundle), Some ep) ->
             statements.Add (bodyTransformer([||]).TransformStatement(ep))
-        | Bundle(_, (ForceOnLoad | ForceImmediate), None) ->
+        | Bundle(_, (RequiredEntryPoint | WorkerBundle), None) ->
             failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
         | _ -> ()
         
@@ -1459,12 +1457,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
 
         let isSPABundleType =
             match content with
-            | Bundle (_, (OnLoadIfExists | ForceOnLoad | ForceImmediate), _) -> true
+            | Bundle (_, (OptionalEntryPoint | RequiredEntryPoint), _) -> true
             | _ -> false
 
         let isWorkerBundle =
             match content with
-            | Bundle (_, ForceImmediate, _) -> true
+            | Bundle (_, WorkerBundle, _) -> true
             | _ -> false
 
         for KeyValue(m, i) in imports do
@@ -1652,18 +1650,15 @@ let addLoadedModules (urls: string list) scriptBase isExtraBundle (pkg: Statemen
             yield! pkg
         ]
     else
-        let start = Id.New("Start")
-        
         [
             if List.isEmpty urls then
-                Import (Some runtime, None, ["Start", start], "./WebSharper.Core.JavaScript/Runtime.js")
+                Import (Some runtime, None, [], "./WebSharper.Core.JavaScript/Runtime.js")
             else
-                Import (Some runtime, None, ["LoadScript", loadScript; "Start", start], "./WebSharper.Core.JavaScript/Runtime.js")
+                Import (Some runtime, None, ["LoadScript", loadScript], "./WebSharper.Core.JavaScript/Runtime.js")
             ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         
             for url in urls do 
                 ExprStatement(ApplAny(Var loadScript, [ Value (String url) ]))
             yield! pkg
-            ExprStatement(ApplAny(Var start, []))
         ]
 
 let transformProgramWithJSX output pref statements =

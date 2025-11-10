@@ -1467,7 +1467,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         }
     )
 
-let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpCompilation) =   
+let transformAssembly (logger: LoggerBase) (comp : Compilation) (config: WsConfig) (rcomp: CSharpCompilation) =   
     let assembly = rcomp.Assembly
 
     let sr = CodeReader.SymbolReader(comp)
@@ -1599,7 +1599,11 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
             transformClass rcomp sr comp d false a t |> Option.iter comp.AddClass
         | _ -> ()
     
+    logger.TimedStage "Parsing with Rosyln"
+
     comp.Resolve()
+
+    logger.TimedStage "Resolving names"
 
     comp
 

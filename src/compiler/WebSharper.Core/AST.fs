@@ -1435,7 +1435,6 @@ module JSRuntime =
     //let Curried3 f = runtimeFuncI "Curried3" Pure 1 [f]
     //let CurriedA f n arr = runtimeFuncI "Curried" Pure 3 [f; Value (Int n); arr]
     let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
-    let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
 
     let GetterOf o n = runtimeFunc "GetterOf" Pure [o; Value (String n)]
     let SetterOf o n = runtimeFunc "SetterOf" Pure [o; Value (String n)]

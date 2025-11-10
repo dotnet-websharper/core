@@ -362,22 +362,36 @@ type QuotationInfo =
         PreBundles : list<string>
     }
 
+/// Contains WebSharper metadata for both compilation and runtime.
 type Info =
     {
+        /// The type sprcified by the `Website` attribute on assembly level, if any.
         SiteletDefinition: option<TypeDefinition>
+        /// The code dependencies that can be used for dead code elimination.
         Dependencies : GraphData
+        /// Interfaces available for JavaScript.
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
+        /// Classes available for JavaScript.
         Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
+        /// Custom data that can be stored/retrieved by macros.
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
+        /// Information about F# code quotations that are pre-compiled, keyed by their code location.
         Quotations : IDictionary<SourcePos, QuotationInfo>
+        /// Hashes created for embedded resources.
         ResourceHashes : IDictionary<string, int>
+        /// Web worker bundle information.
         ExtraBundles : Set<ExtraBundle>
+        /// The public contents sitelet prebundles to be used by the sitelet runtime.
         PreBundle : IDictionary<string, IDictionary<Address, string>>
+        /// Methods that have JavaScript-annotated parameters, to auto-translate.
         QuotedMethods : IDictionary<TypeDefinition * Method, list<string>>
+        /// Web.Control instantiations and their prebundle names they appear in.
         WebControls : IDictionary<Type, list<string>>
+        /// Information for remoting, mapping URLs to type and method to execute.
         RemoteMethods : IDictionary<string, TypeDefinition * Method>
     }
 
+    /// Empty metadata.
     static member Empty =
         {
             SiteletDefinition = None
@@ -394,6 +408,7 @@ type Info =
             RemoteMethods = Map.empty
         }
 
+    /// Merge a collection of metadata, not including code dependencies that is needed for dead code elimination only.
     static member UnionWithoutDependencies (metas: seq<Info>) = 
         let rec notTiedToAddress cf =
             match cf with 
@@ -598,54 +613,94 @@ type JsonSerializerEntry =
     | JsonId
     | JsonSerializer of TypeDefinition * Method
 
+/// Provides access to underlying F# and C# code information with a unified API, as well as WebSharper functionality.
 type ICompilation =
+    /// Get information about an F# records, F# unions, delegates, enums, and structs.
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
+    /// Get information about an interface.
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
+    /// Get all information about a class, including what name and module file (address) it is translated.
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
+    /// Get information about a translated quotation at a given source position.
     abstract GetQuotation : SourcePos -> option<TypeDefinition * Method * list<string>>
+    /// Get the list of attributes on a type.
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
+    /// Get the list of attributes on a field.
     abstract GetFieldAttributes : TypeDefinition * string -> option<list<TypeDefinition * ParameterObject[]>>
+    /// Get the list of attributes on a method.
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>
+    /// Get the list of attributes on a constructor.
     abstract GetConstructorAttributes : TypeDefinition * Constructor -> option<list<TypeDefinition * ParameterObject[]>>
+    /// Gets a list of all classes with known JavaScript translations (including all referenced projects and current project).
     abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
+    /// Translates a .NET type information to its TypeScript equivalent.
     abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
+    /// Parses a JavaScript string, to the extent of what WebSharper supports via the `[<Inline>]` attribute.
     abstract ParseJSInline : string * list<Expression> * [<OptionalArgument; DefaultParameterValue null>] position: SourcePos * [<OptionalArgument; DefaultParameterValue null>] dollarVars: string[] -> Expression
+    /// Creates a unique location for generated function within a special `$Generated` module.
     abstract NewGenerated : string * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
+    /// Creates a variable in the special `$Generated` module.
     abstract NewGeneratedVar : string * ?typ: Type -> Id
+    /// Adds code to the `$Generated` module, pass it a method that has been previously created to be unique with `NewGenerated`.
     abstract AddGeneratedCode : Method * Expression -> unit
+    /// Adds an inlined method inside the `$Generated` module, pass it a method that has been previously created to be unique with `NewGenerated`.
     abstract AddGeneratedInline : Method * Expression -> unit
+    /// The current project's assembly name.
     abstract AssemblyName : string with get
+    /// Get a dictionary entry from WebSharper metadata. This can be used so instances of macros/generators can leave information to each other across projects.
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
+    /// Adds a dictionary entry to WebSharper metadata
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
+    /// Specialized to get the dictionary entry about the JSON encoder or decoder of a given type. The first argument is true for encoder, false for decoder.
     abstract GetJsonMetadataEntry : bool * Type -> option<JsonSerializerEntry>
+    /// Specialized to add a dictionary entry about the JSON encoder or decoder of a given type. The first argument is true for encoder, false for decoder.
     abstract AddJsonMetadataEntry : bool * Type * JsonSerializerEntry -> unit
+    /// Registers an error at a given source position.
     abstract AddError : option<SourcePos> * string -> unit 
+    /// Registers a warning at a given source position.
     abstract AddWarning : option<SourcePos> * string -> unit 
+    /// Creates a web worker bundle.
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
+    /// Generates an expression that is equivalent to using the `JS.Import` helper.
     abstract AddJSImport : export: option<string> * from: string -> Expression
+    /// Generates an expression that is equivalent to using the `JS.Import` helper for side effect only.
     abstract AddJSImportSideEffect : from: string -> Expression
               
 module IO =
-    module B = Binary
-
-    let MetadataEncoding =
+    let private MetadataEncoding =
         try
-            let eP = B.EncodingProvider.Create()
+            let eP = Binary.EncodingProvider.Create()
             eP.DeriveEncoding typeof<Info>
-        with B.NoEncodingException t ->
+        with Binary.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
+    /// Current medata version flag to ensure consistency across WebSharper libraries
     let CurrentVersion = "10.0-beta1"
 
+    /// Deserialize metadata from a stream
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
+
+    /// Serialize metadata into a stream
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
 
-    let LoadRuntimeMetadata(a: System.Reflection.Assembly) =
-        if Array.exists ((=) EMBEDDED_RUNTIME_METADATA) (a.GetManifestResourceNames()) then
-            use s = a.GetManifestResourceStream EMBEDDED_RUNTIME_METADATA
+    /// Load metadata from an in-memory assembly, which must not be loaded as reflection-only.
+    let LoadMetadata (a: System.Reflection.Assembly) =
+        use s = a.GetManifestResourceStream EMBEDDED_METADATA
+        if isNull s then
+            None
+        else
             try
                 Some (Decode s)
             with e ->
                 failwithf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message
-        else
+
+    /// Load runtime metadata from an in-memory assembly, which must not be loaded as reflection-only.
+    let LoadRuntimeMetadata (a: System.Reflection.Assembly) =
+        use s = a.GetManifestResourceStream EMBEDDED_RUNTIME_METADATA
+        if isNull s then
             None
+        else
+            try
+                Some (Decode s)
+            with e ->
+                failwithf "Failed to load runtime metadata for: %s. Error: %s" a.FullName e.Message

@@ -290,19 +290,6 @@ export function LoadScript(u) {
   }
 }
 
-let load = [];
-
-export function OnLoad(f) {
-  load.push(f);
-}
-
-export function Start() {
-  for (var i = 0; i < load.length; i++) {
-    load[i]();
-  }
-  load = [];
-}
-
 export function ignore() { }
 export function id<T>(x : T) : T { return x }
 export function fst<T>(x: { [0]: T }) : T { return x[0] }

@@ -81,16 +81,15 @@ type WebSharperCSharpCompiler() =
             failwithf "C# compilation resulted in errors: %s" (err.GetMessage())
         | _ -> ()
 
-        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
+        let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         logger.TimedStage "Creating Roslyn compilation" 
             
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, SingleNoJSErrors = config.SingleNoJSErrors))
                 config
                 compilation
-
-        logger.TimedStage "Parsing with Roslyn"
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
             
@@ -101,15 +100,17 @@ type WebSharperCSharpCompiler() =
 
         comp
 
-    static member Compile (prevMeta, compilation: CSharpCompilation, ?useGraphs, ?config: WsConfig) =
+    static member Compile (prevMeta, compilation: CSharpCompilation, ?useGraphs, ?config: WsConfig, ?logger: LoggerBase) =
         let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
             | None -> M.Info.Empty
             | Some dep -> dep  
+        let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 (defaultArg config WsConfig.Empty)
                 compilation

@@ -420,7 +420,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             | Some (_, m, _) -> m 
             | _ -> []
 
-        let js, currentMeta, runtimeMeta, sources, extraBundles, resources =
+        let js, currentMeta, runtimeMeta, sources, extraBundles, textOutputs =
             let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
             if isBundleOnly then
                 let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
@@ -475,8 +475,30 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         | _ -> false
                     )
 
-                let js, currentMeta, rMeta, sources, res =
-                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem refs isLibrary prebundle isSitelet
+                let mode =
+                    if isSitelet then
+                        if prebundle then
+                            CreateResourcesMode.ProdSitelet(config.RuntimeMetadata, getRefMetas(), refs)
+                        else
+                            CreateResourcesMode.DebugSitelet(getRefMeta(), config.RuntimeMetadata, getRefMetas())
+                    elif isLibrary then
+                        CreateResourcesMode.Library(getRefMeta())
+                    else
+                        CreateResourcesMode.Other(getRefMeta())
+
+                let res =
+                    assem
+                    |> ModifyAssembly {
+                        Logger = logger
+                        Compilation = Some comp
+                        CurrentMetadata = currentMeta
+                        SourceMap = config.SourceMap
+                        TypeScriptDeclaration = config.TypeScriptDeclaration
+                        TypeScript = config.TypeScriptOutput
+                        DeadCodeElimination = dce
+                        AnalyzeClosures = config.AnalyzeClosures
+                        Mode = mode
+                    }
                 
                 let extraFilesEmbedAssem =
                     match config.ProjectType with
@@ -504,36 +526,31 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
             
                 if config.PrintJS then
-                    match js with 
-                    | Some jss ->
-                        for (name, js, _, isJSX) in jss do
-                            let x = if isJSX then "x" else ""
-                            logger.Out("// " + name + ".js" + x)
-                            logger.Out(js)
-                    | _ -> ()
+                    for (fname, js) in res.JSFiles do
+                        logger.Out("// " + fname)
+                        logger.Out(js)
 
                 assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
                 logger.TimedStage "Writing resources into assembly"
-                js, currentMeta, rMeta |> Option.defaultValue currentMeta, sources, extraBundles, res
+                Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 
         match config.JSOutputPath, js with
         | Some path, Some jss ->
             let asmPath = Path.Combine(path, thisName)
             Directory.CreateDirectory(asmPath) |> ignore
-            if resources |> Array.isEmpty || config.ProjectType <> None then
-                for (name, js, _, isJSX) in jss do
-                    let x = if isJSX then "x" else ""
-                    let jsPath = Path.Combine(asmPath, name + ".js" + x)
+            if textOutputs |> Array.isEmpty || config.ProjectType <> None then
+                for (fname, js) in jss do
+                    let jsPath = Path.Combine(asmPath, fname)
                     File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
                     logger.TimedStage ("Writing " + jsPath)
             else
-                for (name, content) in resources do
+                for (name, content) in textOutputs do
                     if not <| name.ToLower().EndsWith ".meta" then
                         let filePath = Path.Combine(asmPath, name)
                         let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath)
                         Directory.CreateDirectory(Path.GetDirectoryName fullPath) |> ignore
-                        File.WriteAllBytes(fullPath, content)
+                        File.WriteAllText(fullPath, content)
                         logger.TimedStage ("Writing " + name)
         | _ -> ()
 
@@ -559,11 +576,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 match wsRefsMeta.Result with
                 | Some (_, metas, _) -> metas
                 | _ -> []
-
-            let currentJS =
-                lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
             aR.Wrap <| fun () ->
-                Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+                Bundling.Bundle config logger metas currentMeta comp sources refs extraBundles
             logger.TimedStage "Bundling"
             0
         | Some Html ->

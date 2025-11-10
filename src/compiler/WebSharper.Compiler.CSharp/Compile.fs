@@ -157,6 +157,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | _ when config.DeadCodeElimination = Some true -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
+            let isLibrary = config.ProjectType = None 
+
             let isSitelet =
                 match config.ProjectType with
                 | Some Html ->
@@ -181,8 +183,30 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     | _ -> false
                 )
 
-            let js, currentMeta, rMeta, sources, res =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput dce config.AnalyzeClosures runtimeMeta assem refs (config.ProjectType = None) prebundle isSitelet
+            let mode =
+                if isSitelet then
+                    if prebundle then
+                        CreateResourcesMode.ProdSitelet(config.RuntimeMetadata, metas, refs)
+                    else
+                        CreateResourcesMode.DebugSitelet(refMeta, config.RuntimeMetadata, metas)
+                elif isLibrary then
+                    CreateResourcesMode.Library(refMeta)
+                else
+                    CreateResourcesMode.Other(refMeta)
+
+            let res =
+                assem
+                |> ModifyAssembly {
+                    Logger = logger
+                    Compilation = Some comp
+                    CurrentMetadata = currentMeta
+                    SourceMap = config.SourceMap
+                    TypeScriptDeclaration = config.TypeScriptDeclaration
+                    TypeScript = config.TypeScriptOutput
+                    DeadCodeElimination = dce
+                    AnalyzeClosures = config.AnalyzeClosures
+                    Mode = mode
+                }
 
             let extraFilesEmbedAssem =
                 match config.ProjectType with
@@ -206,26 +230,21 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             PrintWebSharperErrors logger config.WarnOnly comp
 
             if config.PrintJS then
-                match js with 
-                | Some jss ->
-                    for (name, js, _, isJSX) in jss do
-                        let x = if isJSX then "x" else ""
-                        logger.Out("// " + name + ".js" + x)
-                        logger.Out(js)
-                | _ -> ()
+                for (fname, js) in res.JSFiles do
+                    logger.Out("// " + fname)
+                    logger.Out(js)
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             logger.TimedStage "Writing resources into assembly"
-            js, currentMeta, rMeta |> Option.defaultValue currentMeta, sources, extraBundles
+            Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some jss ->
         let asmPath = Path.Combine(path, thisName)
         Directory.CreateDirectory(asmPath) |> ignore
-        for (name, js, _, isJSX) in jss do
-            let x = if isJSX then "x" else ""
-            let jsPath = Path.Combine(asmPath, name + ".js" + x)
+        for (fname, js) in jss do
+            let jsPath = Path.Combine(asmPath, fname)
             File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
             logger.TimedStage ("Writing " + jsPath)
     | _ -> ()
@@ -262,10 +281,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
-        let currentJS =
-            lazy CreateBundleJSOutput logger refMeta currentMeta comp.EntryPoint
         aR.Wrap <| fun () ->
-            Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+            Bundling.Bundle config logger metas currentMeta comp sources refs extraBundles
         logger.TimedStage "Bundling"
     | Some Html ->
         logger.Out "Start writing offline sitelet"

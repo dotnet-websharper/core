@@ -22,10 +22,12 @@ namespace WebSharper.Compiler
 
 [<AbstractClass>]
 #if DEBUG
+// Persisting logger as static for assembly resolution logging in when debugging the compiler
 type LoggerBase() as self =
     static let mutable currentLogger = Unchecked.defaultof<LoggerBase>
     do currentLogger <- self
 #else
+/// Abstract base class for WebSharper compilation times and F# source generator logging.
 type LoggerBase() =
 #endif
     
@@ -60,6 +62,7 @@ type LoggerBase() =
         and set l = currentLogger <- l
 #endif
 
+/// WebSharper logger printing to console out and error.
 type ConsoleLogger() =
     inherit LoggerBase()
     override x.Error s =
@@ -67,3 +70,10 @@ type ConsoleLogger() =
 
     override x.Out s =
         System.Console.Out.WriteLine(x.Indent s)
+
+/// WebSharper logger that ignores all messages.
+type EmptyLogger() =
+    inherit LoggerBase()
+
+    override this.Out (arg: string) = ()
+    override this.Error (arg: string) = ()

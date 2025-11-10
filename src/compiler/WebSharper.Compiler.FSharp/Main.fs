@@ -42,7 +42,7 @@ type WebSharperFSharpCompiler(?checker) =
 
     member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase) = 
         let path = config.ProjectFile
-        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
+        let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         
         logger.DebugWrite "WebSharper compilation arguments:"
         argv |> Array.iter (sprintf "    %s" >> logger.DebugWrite)
@@ -110,7 +110,7 @@ type WebSharperFSharpCompiler(?checker) =
             match prevMeta with
             | None -> M.Info.Empty
             | Some dep -> dep  
-        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
+        let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
