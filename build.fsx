@@ -256,7 +256,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let mutable startedOk = false
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
-    let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net9.0/Web.dll"
+    let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net10.0/Web.dll"
     let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
 
     use webTestsProc = new Process()

@@ -24,7 +24,7 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-type N = WebSharper.CSharp.Tests.MyNumber
+type N = WebSharper.CSharp.Tests.MyDouble
 
 [<JavaScript>]
 let Tests =

@@ -230,7 +230,7 @@ type ServiceExtensions =
     /// </summary>
     [<Extension>]
     static member AddWebSharperServices(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Action<WebSharperOptions>)>] configureOptions: Action<WebSharperOptions>) =
-        this.AddWebSharperServices(configureOptions) |> ignore
+        this.AddWebSharper(configureOptions) |> ignore
         
         ConfigureWebSharper(this)
 

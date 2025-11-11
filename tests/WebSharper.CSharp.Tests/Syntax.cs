@@ -28,6 +28,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WebSharper.Testing;
 using static WebSharper.Core.JavaScript.Parser;
+using static WebSharper.Sitelets.Http.Method;
 
 [assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
 
@@ -548,22 +549,17 @@ x: Equal(a, 1);
             double intFromFloat = 3.2;
             StrictEqual((int)intFromFloat, 3, "float to int explicit");
 
-            MyNumber custom = 12 + 1;
+            MyDouble custom = 12 + 1;
             StrictEqual(custom.Value, 13.0, "Custom implicit conversion in");
             double val = custom;
             StrictEqual(val, 13.0, "Custom implicit conversion out");
             StrictEqual((double)custom, 13.0, "Custom explicit conversion out");
-            MyNumber addTest = custom + 1;
-            StrictEqual(addTest.Value, 14.0, "Operator overloading");
+            MyDouble addTest = custom + 1;
+            StrictEqual(addTest.Value, 14.0, "Two way conversion");
             addTest += + 1;
-            StrictEqual(addTest.Value, 15.0, "Operator overloading, compound operator default behavior");
+            StrictEqual(addTest.Value, 15.0, "Conversion with compound operator");
             addTest++;
-            StrictEqual(addTest.Value, 16.0, "Operator overloading, increment operator default behavior");
-
-            addTest -= 2; // note: overloaded to decrease with twice the amount
-            StrictEqual(addTest.Value, 12.0, "Operator overloading, compound operator overload");
-            addTest--; // note: overloaded to decrement twice
-            StrictEqual(addTest.Value, 10.0, "Operator overloading, decrement operator overload");
+            StrictEqual(addTest.Value, 16.0, "Conversion with increment operator");
 
             unchecked
             {
@@ -574,6 +570,17 @@ x: Equal(a, 1);
                 StrictEqual((int)1000000000000, -727379968, "int truncates, unchecked C#");
                 StrictEqual((uint)1000000000000, 3567587328, "uint truncates, unchecked C#");
             }
+        }
+
+        [Test]
+        public void OpearatorOverloading()
+        {
+            MyNumber addTest = new(16);
+
+            addTest -= 2; // note: overloaded to decrease with twice the amount
+            StrictEqual(addTest.Value, 12.0, "Operator overloading, compound operator overload");
+            addTest--; // note: overloaded to decrement twice
+            StrictEqual(addTest.Value, 10.0, "Operator overloading, decrement operator overload");
         }
 
         [Test]
@@ -799,10 +806,14 @@ x: Equal(a, 1);
         public void ExtensionSyntax()
         {
             var a = new MyNumber(1);
-            IsTrue(a.IsWhole);
-            var b = new MyNumber(1.4);
-            IsFalse(a.IsWhole);
+            IsFalse(a.IsEven);
+            var b = new MyNumber(2);
+            IsTrue(b.IsEven);
             Equal(a.AddOne().Value, 2);
+            Equal(MyNumber.Add(a, b).Value, 3);
+            Equal(MyNumber.Subtract(a, b).Value, -1);
+            Equal(MyNumber.Zero.Value, 0);
+            Equal((new MyNumber(5) % new MyNumber(2)).Value, 1);
         }
 
         [Test("Null-coalescing assignment")]
@@ -811,6 +822,11 @@ x: Equal(a, 1);
             string x = null;
             x ??= "hello";
             Equal(x, "hello");
+
+            x = null;
+            ref var rx = ref x;
+            rx ??= "hi";
+            Equal(x, "hi");
         }
 
         [Test("Null-conditional assignment")]
@@ -821,8 +837,8 @@ x: Equal(a, 1);
             Equal(x?.Value, null);
             x = new("");
             Equal(x?.Value, "");
-            x?.Value ??= "hello";
-            Equal(x?.Value, "hello");
+            x?.Value = "hello";
+            Equal(x.Value, "hello");
 
             int[] a = null;
             a?[0] = 2;
@@ -831,6 +847,15 @@ x: Equal(a, 1);
             Equal(a?[0], 1);
             a?[0] = 2;
             Equal(a?[0], 2);
+
+            FSharpRef<FSharpRef<int>> rr = new(new(0));
+            rr?.Value?.Value = 3;
+            Equal(rr.Value.Value, 3);
+
+            x.Value = null;
+            ref var rx = ref x;
+            rx?.Value ??= "hi";
+            Equal(x.Value, "hi");
         }
 
         [Test()]
@@ -858,24 +883,40 @@ x: Equal(a, 1);
     }
 
     [JavaScript]
-    public class MyNumber
+    public class MyDouble
     {
         public double val;
-        public MyNumber(double d) { val = d; }
+        public MyDouble(double d) { val = d; }
 
         public double Value => val;
 
-        public static implicit operator double(MyNumber d)
+        public static implicit operator double(MyDouble d)
         {
             return d.val;
         }
-        public static implicit operator MyNumber(double d)
+
+        public static implicit operator MyDouble(double d)
         {
-            return new MyNumber(d);
+            return new MyDouble(d);
         }
+
+        public override string ToString()
+        {
+            return val.ToString();
+        }
+    }
+
+    [JavaScript]
+    public class MyNumber
+    {
+        public int val;
+        public MyNumber(int d) { val = d; }
+
+        public int Value => val;
+
         public static MyNumber operator +(MyNumber a, MyNumber b)
         {
-            return a.Value + b.Value;
+            return new(a.Value + b.Value);
         }
 
         // instance-level -- overload;
@@ -886,15 +927,10 @@ x: Equal(a, 1);
         }
 
         // instance-level -= overload;
-        public void operator -=(double d)
+        public void operator -=(int d)
         {
             val -= d;
             val -= d;
-        }
-
-        public override string ToString()
-        {
-            return val.ToString();
         }
     }
 
@@ -904,10 +940,28 @@ x: Equal(a, 1);
         extension(MyNumber a)
         {
             // Extension property:
-            public bool IsWhole => a.Value == Math.Floor(a.Value);
+            public bool IsEven => a.Value % 2 == 0;
 
             // Extension method:
             public MyNumber AddOne() => new(a.Value + 1);
+
+            // Static extension method within :
+            public static MyNumber Subtract(MyNumber x, MyNumber y) => new(x.Value - y.Value);
+        }
+
+        extension(MyNumber)
+        {
+            // Static extension property:
+            public static MyNumber Zero => new MyNumber(0);
+
+            // Static extension method:
+            public static MyNumber Add(MyNumber a, MyNumber b) => a + b;
+
+            // Static extension operator:
+            public static MyNumber operator %(MyNumber a, MyNumber b)
+            {
+                return new(a.Value % b.Value);
+            }
         }
     }
 
