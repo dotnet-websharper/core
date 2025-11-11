@@ -634,13 +634,13 @@ type ICompilation =
     /// Gets a list of all classes with known JavaScript translations (including all referenced projects and current project).
     abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
     /// Translates a .NET type information to its TypeScript equivalent.
-    abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
+    abstract GetTSTypeOf : Type * [<Optional>] context: list<GenericParam> -> TSType
     /// Parses a JavaScript string, to the extent of what WebSharper supports via the `[<Inline>]` attribute.
-    abstract ParseJSInline : string * list<Expression> * [<OptionalArgument; DefaultParameterValue null>] position: SourcePos * [<OptionalArgument; DefaultParameterValue null>] dollarVars: string[] -> Expression
+    abstract ParseJSInline : string * list<Expression> * [<Optional>] position: SourcePos * [<Optional>] dollarVars: string[] -> Expression
     /// Creates a unique location for generated function within a special `$Generated` module.
-    abstract NewGenerated : string * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
+    abstract NewGenerated : string * [<Optional>] generics: int * [<Optional>] args: list<Type> * [<Optional>] returns: Type -> TypeDefinition * Method * Address
     /// Creates a variable in the special `$Generated` module.
-    abstract NewGeneratedVar : string * ?typ: Type -> Id
+    abstract NewGeneratedVar : string * [<Optional>] typ: Type -> Id
     /// Adds code to the `$Generated` module, pass it a method that has been previously created to be unique with `NewGenerated`.
     abstract AddGeneratedCode : Method * Expression -> unit
     /// Adds an inlined method inside the `$Generated` module, pass it a method that has been previously created to be unique with `NewGenerated`.
@@ -660,7 +660,7 @@ type ICompilation =
     /// Registers a warning at a given source position.
     abstract AddWarning : option<SourcePos> * string -> unit 
     /// Creates a web worker bundle.
-    abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
+    abstract AddBundle : name: string * entryPoint: Statement * [<Optional>] includeJsExports: bool -> ExtraBundle
     /// Generates an expression that is equivalent to using the `JS.Import` helper.
     abstract AddJSImport : export: option<string> * from: string -> Expression
     /// Generates an expression that is equivalent to using the `JS.Import` helper for side effect only.

@@ -294,7 +294,7 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
         member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
         member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
-        member this.GetTSTypeOf(t, ?gs) = typeTranslator.TSTypeOf t
+        member this.GetTSTypeOf(t, gs) = typeTranslator.TSTypeOf t
 
         member this.ParseJSInline(inl: string, args: Expression list, position: SourcePos, dollarVars: string[]): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
@@ -306,7 +306,7 @@ type Compilation(meta: Info, ?hasGraph) =
             parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
             Substitution(args).TransformExpression(parsed.Expr)
         
-        member this.NewGenerated(name, ?generics, ?args, ?returns) =
+        member this.NewGenerated(name, generics, args, returns) =
             let caddr, td = this.GetGeneratedClass()
             let c = resolver.LookupClass(td)
             let rname = Resolve.getRenamedFunctionForClass name c
@@ -314,16 +314,17 @@ type Compilation(meta: Info, ?hasGraph) =
             let meth = 
                 Method {
                     MethodName = rname
-                    Parameters = defaultArg args []
-                    ReturnType = defaultArg returns (TSType TSType.Any)
-                    Generics = defaultArg generics 0
+                    Parameters = if obj.ReferenceEquals(args, null) then [] else args
+                    ReturnType = if obj.ReferenceEquals(returns, null) then TSType TSType.Any else returns
+                    Generics = if obj.ReferenceEquals(generics, null) then 0 else generics
                 }
             td, meth, addr
 
-        member this.NewGeneratedVar(name, ?typ) =
+        member this.NewGeneratedVar(name, typ) =
             let _, td = this.GetGeneratedClass()
             let c = resolver.LookupClass(td)
             let rname = Resolve.getRenamedFunctionForClass name c
+            let typ = if obj.ReferenceEquals(typ, null) then None else Some typ
             let fvar = Id.New(rname, ?typ = typ)
             let _, _, cls = classes[td]
             cls.Value.Fields.Add(rname, { CompiledForm = VarField fvar; ReadOnly = false; Type = defaultArg typ (TSType TSType.Any); Order = 0 })
