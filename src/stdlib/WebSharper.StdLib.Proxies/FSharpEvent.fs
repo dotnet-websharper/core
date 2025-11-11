@@ -41,3 +41,9 @@ type private FSharpDelegateEvent<'T when 'T :> System.Delegate and 'T: equality>
     member this.Trigger(args: obj[]) = event.Trigger args
 
     member this.Publish with [<Inline>] get () = event :> IDelegateEvent<'T>
+
+[<Proxy(typeof<System.EventArgs>)>]
+type private EventArgsProxy() =
+    
+    [<Inline>]
+    static member Empty = new EventArgsProxy()

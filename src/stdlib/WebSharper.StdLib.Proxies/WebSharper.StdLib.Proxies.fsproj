@@ -95,6 +95,7 @@
     <Compile Include="../WebSharper.StdLib.Proxies/ResizeArray.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/LinkedList.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Linq.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/MemoryExtensions.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Query.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Disposable.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Observer.fs" />
