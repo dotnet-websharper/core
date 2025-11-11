@@ -109,9 +109,11 @@ type WebSharperPostConfigureOptions(services: IServiceProvider) =
             let hostingEnvironment =
                 lazy services.GetRequiredService<IHostingEnvironment>()
 
-            options.ContentRootPath <- hostingEnvironment.Value.ContentRootPath
+            if isNull options.ContentRootPath then
+                options.ContentRootPath <- hostingEnvironment.Value.ContentRootPath
 
-            options.WebRootPath <- hostingEnvironment.Value.WebRootPath
+            if isNull options.WebRootPath then
+                options.WebRootPath <- hostingEnvironment.Value.WebRootPath
 
 type WebSharperInitializationService(
     options: IOptions<WebSharperOptions>, 
