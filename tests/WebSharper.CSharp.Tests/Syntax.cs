@@ -19,14 +19,15 @@
 // $end{copyright}
 using Microsoft.FSharp.Core;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WebSharper.Testing;
-using System.Collections;
-using System.Runtime.CompilerServices;
+using static WebSharper.Core.JavaScript.Parser;
 
 [assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
 
@@ -91,7 +92,7 @@ namespace WebSharper.CSharp.Tests
             var a = 0;
             goto x;
             a += 1;
-        x: Equal(a, 0);
+x: Equal(a, 0);
         }
 
         [Test]
@@ -106,7 +107,7 @@ namespace WebSharper.CSharp.Tests
             {
                 a = 1;
             }
-        x: Equal(a, 1);
+x: Equal(a, 1);
         }
 
         [Test]
@@ -118,14 +119,14 @@ namespace WebSharper.CSharp.Tests
             {
                 goto y;
                 b++;
-            y: goto x;
+y: goto x;
             }
             finally
             {
                 a = 1;
             }
             b++;
-        x: Equal(a, 1);
+x: Equal(a, 1);
             Equal(b, 0);
         }
 
@@ -458,7 +459,7 @@ namespace WebSharper.CSharp.Tests
             Equal($"""
                 My name is {lastName}.
                 {firstName} {lastName}.
-            """, 
+            """,
                 """
                     My name is Bond.
                     James Bond.
@@ -466,7 +467,7 @@ namespace WebSharper.CSharp.Tests
         }
 
         const string _firstName = "James";
-        const string _lastName  = "Bond";
+        const string _lastName = "Bond";
 
         const string _introduction = $"My name is {_lastName}. {_firstName} {_lastName}.";
 
@@ -554,6 +555,15 @@ namespace WebSharper.CSharp.Tests
             StrictEqual((double)custom, 13.0, "Custom explicit conversion out");
             MyNumber addTest = custom + 1;
             StrictEqual(addTest.Value, 14.0, "Operator overloading");
+            addTest += + 1;
+            StrictEqual(addTest.Value, 15.0, "Operator overloading, compound operator default behavior");
+            addTest++;
+            StrictEqual(addTest.Value, 16.0, "Operator overloading, increment operator default behavior");
+
+            addTest -= 2; // note: overloaded to decrease with twice the amount
+            StrictEqual(addTest.Value, 12.0, "Operator overloading, compound operator overload");
+            addTest--; // note: overloaded to decrement twice
+            StrictEqual(addTest.Value, 10.0, "Operator overloading, decrement operator overload");
 
             unchecked
             {
@@ -784,6 +794,52 @@ namespace WebSharper.CSharp.Tests
         {
             Equal(DefaultLambdaParameter(x => x + 2), 3);
         }
+
+        [Test("Extension syntax")]
+        public void ExtensionSyntax()
+        {
+            var a = new MyNumber(1);
+            IsTrue(a.IsWhole);
+            var b = new MyNumber(1.4);
+            IsFalse(a.IsWhole);
+            Equal(a.AddOne().Value, 2);
+        }
+
+        [Test("Null-coalescing assignment")]
+        public void NullCoalescingAssignment()
+        {
+            string x = null;
+            x ??= "hello";
+            Equal(x, "hello");
+        }
+
+        [Test("Null-conditional assignment")]
+        public void NullConditionalAssignment()
+        {
+            FSharpRef<string> x = null;
+            x?.Value ??= "hello";
+            Equal(x?.Value, null);
+            x = new("");
+            Equal(x?.Value, "");
+            x?.Value ??= "hello";
+            Equal(x?.Value, "hello");
+
+            int[] a = null;
+            a?[0] = 2;
+            Equal(a?[0], null);
+            a = [1];
+            Equal(a?[0], 1);
+            a?[0] = 2;
+            Equal(a?[0], 2);
+        }
+
+        [Test()]
+        public void FieldKeywordTest()
+        {
+            var x = new FieldKeyword { Message = "hello" };
+            Equal(x.Message, "hello");
+            Raises(() => x.Message = null);
+        }
     }
 
     [JavaScript]
@@ -821,10 +877,54 @@ namespace WebSharper.CSharp.Tests
         {
             return a.Value + b.Value;
         }
+
+        // instance-level -- overload;
+        public void operator --()
+        {
+            val--;
+            val--;
+        }
+
+        // instance-level -= overload;
+        public void operator -=(double d)
+        {
+            val -= d;
+            val -= d;
+        }
+
         public override string ToString()
         {
             return val.ToString();
         }
+    }
+
+    [JavaScript]
+    public static class MyNumberExtension
+    {
+        extension(MyNumber a)
+        {
+            // Extension property:
+            public bool IsWhole => a.Value == Math.Floor(a.Value);
+
+            // Extension method:
+            public MyNumber AddOne() => new(a.Value + 1);
+        }
+    }
+
+    [JavaScript]
+    public class FieldKeyword {
+        public string Message
+        {
+            get;
+            set => field = value ?? throw new ArgumentNullException(nameof(value));
+        }
+    }
+
+    [JavaScript]
+    public class NameChangeEventArgs : EventArgs
+    {
+        public string OldName { get; set; }
+        public string NewName { get; set; }
     }
 
     // this already has JavaScript attribute
@@ -836,7 +936,12 @@ namespace WebSharper.CSharp.Tests
         public partial string Name
         {
             get => _name;
-            set => _name = value;
+            set
+            {
+                var oldName = _name;
+                _name = value;
+                _nameChanged(this, new() { OldName = oldName, NewName = _name });
+            }
         }
 
         partial void PartialMethod() { Value = 3; }
@@ -847,5 +952,16 @@ namespace WebSharper.CSharp.Tests
         {
             Value = 4;
         }
+
+        public partial PartialClass(string name) { Name = name; }
+
+        private EventHandler<NameChangeEventArgs> _nameChanged;
+        
+        public partial event EventHandler<NameChangeEventArgs> OnNameChanged
+        {
+            add { _nameChanged += value; }
+            remove { _nameChanged -= value; }
+        }
+
     }
 }
