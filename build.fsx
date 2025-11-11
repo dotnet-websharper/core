@@ -9,7 +9,7 @@
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
 #r "nuget: Fake.JavaScript.Npm"
-#r "nuget: Paket.Core, 8.1.0-alpha004"
+#r "nuget: Paket.Core, 10.0.0-net10"
 #r "nuget: MSBuild.StructuredLogger"
 #r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"

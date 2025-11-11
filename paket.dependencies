@@ -1,18 +1,17 @@
 references: strict
 redirects: on
 
-framework: net9.0, netstandard2.0
+framework: net9.0, net10.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 4.14.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 5.0.0-2.final
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Configuration.ConfigurationManager 4.7.0
 nuget System.Reflection.Emit.Lightweight 4.7.0
-nuget Microsoft.CSharp 4.7.0
 nuget Microsoft.Build.Utilities.Core 16.8.0
 nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
@@ -51,7 +50,7 @@ group fcs
     nuget FSharp.Compiler.Service prerelease
 
 group nunit
-    framework: net9.0, net472
+    framework: net9.0, net10.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2
@@ -64,7 +63,7 @@ group nunit
     nuget System.Runtime.Loader 4.3.0
 
 group giraffe
-    framework: net9.0
+    framework: net10.0
     source https://api.nuget.org/v3/index.json
     storage: none
 
