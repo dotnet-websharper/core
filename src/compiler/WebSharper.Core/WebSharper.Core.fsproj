@@ -20,11 +20,11 @@
     <None Include="genAST.fsx" />
     <Compile Include="ASTHelpers.fs" />
     <Compile Include="ASTReflection.fs" />
-    <Compile Include="Interfaces.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Metadata.fs" />
     <Compile Include="Resources.fsi" />
     <Compile Include="Resources.fs" />
+    <Compile Include="Interfaces.fs" />
     <Compile Include="Macro.fs" />
     <Compile Include="Macros.fsi" />
     <Compile Include="Macros.fs" />

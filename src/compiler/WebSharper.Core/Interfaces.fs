@@ -22,6 +22,7 @@
 namespace WebSharper
 
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 type GenerateCall =
     {
@@ -46,6 +47,13 @@ type ISourceGenerator =
     /// Must return an array of file paths, which can be newly created.
     abstract Generate: GenerateCall -> option<string[]>
 
+type ExportsCall =
+    {
+        Initiator: option<TypeDefinition * Method>
+        Parameter: option<obj>
+        Compilation : ICompilation
+    }
+
 /// Use with RequireFeature attribute
-type IRequiresExportedMethods =
-    abstract Requires : unit -> (TypeDefinition * Method) seq
+type IBundleExports =
+    abstract Exports : ExportsCall -> (TypeDefinition * Method) seq

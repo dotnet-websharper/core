@@ -60,6 +60,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let quotations = MergedDictionary meta.Quotations
     let webControls = Dictionary()
     let quotedMethods = Dictionary()
+    let bundleExports = HashSet()
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -157,6 +158,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.MutableExternals = mutableExternals
 
     member this.TypeTranslator = typeTranslator
+
+    member this.BundleExports = bundleExports
 
     member this.FindProxied typ =
         if proxies.Count = 0 then typ else
@@ -672,6 +675,14 @@ type Compilation(meta: Info, ?hasGraph) =
             quotedMethods[(typ, m)] <- List.distinct (bs @ e)
         | _ ->
             quotedMethods.Add((typ, m), bs)
+
+    member this.AddBundleExports(
+        initiator: option<TypeDefinition * Method>, 
+        target: IBundleExports, 
+        parameter: option<obj>, 
+        bs: string list
+    ) =
+        bundleExports.Add(initiator, target, parameter, bs) |> ignore
 
     member this.AddClass(typ, cls) =
         try

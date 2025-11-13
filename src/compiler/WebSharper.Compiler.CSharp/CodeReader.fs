@@ -3070,6 +3070,8 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
             let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
             
             if not (isNull symbol) then
+                let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
+                let meth = env.SymbolReader.ReadMethod symbol
                 let requiredFeatures = 
                     symbol.GetAttributes()
                     |> Seq.choose (fun a -> 
@@ -3087,13 +3089,9 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                     )
                 for rf in requiredFeatures do
                     match rf with
-                    | :? WebSharper.IRequiresExportedMethods as ems ->
-                        for etd, em in ems.Requires() do
-                            env.Compilation.AddQuotedMethod(etd, em, bundleScope)
-                        | _ -> ()
-
-                let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
-                let meth = env.SymbolReader.ReadMethod symbol
+                    | :? WebSharper.IBundleExports as ems ->
+                        env.Compilation.AddBundleExports(Some (typ, meth), ems, None, bundleScope)
+                    | _ -> ()
                 //failwithf "Found InvocationExpression: %s.%s" typ.Value.FullName meth.Value.MethodName
                 match env.Compilation.TryLookupQuotedArgMethod(typ, meth) with
                 | Some indexes ->

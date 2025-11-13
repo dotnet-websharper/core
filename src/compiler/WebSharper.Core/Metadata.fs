@@ -89,7 +89,7 @@ type ParameterObject =
         | Double x -> box x 
         | Char   x -> box x 
         | String x -> box x 
-        | Type   x -> box x
+        | Type   x -> Reflection.LoadType x
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
 type [<RequireQualifiedAccess>] Modifier =

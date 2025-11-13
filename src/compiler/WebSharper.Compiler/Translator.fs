@@ -860,10 +860,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let msg = sprintf "Error during creating deserializer for type %s: %s" t.AssemblyQualifiedName e.Message
                     comp.AddError(None, SourceError msg)
 
+        let addBundleExports() =
+            for (initiator, target, parameter, bs) in comp.BundleExports do
+                let call = 
+                    {
+                        Initiator = initiator
+                        Parameter = parameter
+                        Compilation = comp
+                    }        
+                for etd, em in target.Exports(call) do
+                    comp.AddQuotedMethod(etd, em, bs)
+
         compileMethods()
         compileDeserializers()
         comp.CloseMacros()
         compileMethods()
+        addBundleExports()
 
     member this.TransformExpressionWithNode(expr, node) =
         match node with
