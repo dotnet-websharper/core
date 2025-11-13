@@ -383,7 +383,8 @@ type Info =
         ExtraBundles : Set<ExtraBundle>
         /// The public contents sitelet prebundles to be used by the sitelet runtime.
         PreBundle : IDictionary<string, IDictionary<Address, string>>
-        /// Methods that have JavaScript-annotated parameters, to auto-translate.
+        /// Methods that are used in simple quotations and JSON serialization needed for page initialization,
+        /// and their prebundle names they appear in.
         QuotedMethods : IDictionary<TypeDefinition * Method, list<string>>
         /// Web.Control instantiations and their prebundle names they appear in.
         WebControls : IDictionary<Type, list<string>>
