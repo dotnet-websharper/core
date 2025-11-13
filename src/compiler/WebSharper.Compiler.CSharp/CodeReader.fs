@@ -3070,6 +3070,28 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
             let symbol = env.SemanticModel.GetSymbolInfo(n).Symbol :?> IMethodSymbol
             
             if not (isNull symbol) then
+                let requiredFeatures = 
+                    symbol.GetAttributes()
+                    |> Seq.choose (fun a -> 
+                        let atyp = env.SymbolReader.ReadNamedTypeDefinition a.AttributeClass
+                        if atyp.Value.FullName = "WebSharper.RequireFeatureAttribute" then
+                            let args = env.SymbolReader.AttributeReader.GetCtorArgs a
+                            let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
+                            try 
+                                let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
+                                System.Activator.CreateInstance(loadedType) |> Some
+                            with _ -> 
+                                failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
+                        else
+                            None
+                    )
+                for rf in requiredFeatures do
+                    match rf with
+                    | :? WebSharper.IExportedMethods as ems ->
+                        for etd, em in ems.ExportedMethods do
+                            env.Compilation.AddQuotedMethod(etd, em, bundleScope)
+                        | _ -> ()
+
                 let typ = env.SymbolReader.ReadNamedTypeDefinition symbol.ContainingType
                 let meth = env.SymbolReader.ReadMethod symbol
                 //failwithf "Found InvocationExpression: %s.%s" typ.Value.FullName meth.Value.MethodName

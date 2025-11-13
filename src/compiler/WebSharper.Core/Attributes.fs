@@ -406,3 +406,8 @@ type WildcardAttribute() =
 [<Sealed; U(T.Assembly, AllowMultiple = true)>]
 type FSharpSourceGeneratorAttribute(fileExtension: string, generatorType: Type) =
     inherit A()
+
+/// Marks a feature that can add exported methods to page bundles.
+[<Sealed; U(T.Method, AllowMultiple = true)>]
+type RequireFeatureAttribute(featureType: Type) =
+    inherit A()

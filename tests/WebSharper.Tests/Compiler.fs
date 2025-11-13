@@ -109,6 +109,45 @@ module Server =
         
         |]
 
+type MyFeature() =
+    [<JavaScript>]
+    static let mutable initialized = false
+    
+    [<JavaScript>]
+    static member Initialize() = initialized <- true
+    
+    [<JavaScript>]
+    static member IsInitialized() = initialized
+    
+    member this.InitializeMethod =
+        let thisType = typeof<MyFeature>
+        let initializeMethod = thisType.GetMethod("Initialize")
+        WebSharper.Core.AST.Reflection.ReadTypeDefinition thisType,
+        WebSharper.Core.AST.Reflection.ReadMethod initializeMethod
+
+    interface IExportedMethods with
+        member this.ExportedMethods =
+            [| this.InitializeMethod |]
+
+    interface IRequiresResources with
+        member this.Requires(meta, json, getId) =
+            let thisType, initializeMethod = this.InitializeMethod
+            match meta.Classes.TryGetValue(thisType) with
+            | true, (cAddr, _, Some cls) ->
+                match cls.Methods.TryGetValue(initializeMethod) with
+                | true, mtd ->
+                    match mtd.CompiledForm with
+                    | WebSharper.Core.Metadata.CompiledMember.Func (name, _) ->
+                        let initialize = ClientCode.ClientImport (cAddr.Func(name))
+                        [ ClientCode.ClientApply(initialize, []) ]
+                    | _ -> failwith "MyFeature: Expected function compiled form"
+                | _ -> failwith "MyFeature: Failed to look up method"
+            | _ -> failwith "MyFeature: Failed to look up class"
+
+    interface Web.INode with
+        member this.Write(_, _) = ()
+        member this.IsAttribute = false
+
 [<JavaScript>]
 let Tests =
     TestCategory "Compiler" {
@@ -118,4 +157,11 @@ let Tests =
                 Do { equalMsg r "" msg }
             )
         }
+
+        Test "RequireFeature" {
+            isTrue (MyFeature.IsInitialized())
+        }
     }
+
+[<RequireFeature(typeof<MyFeature>)>]
+let RequireMyFeature() = ()

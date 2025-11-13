@@ -1591,6 +1591,26 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 scan bundleScope body
                 vars.Remove(id) |> ignore
             | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+                let requiredFeatures = 
+                    meth.Attributes 
+                    |> Seq.choose (fun a -> 
+                        if a.AttributeType.FullName = "WebSharper.RequireFeatureAttribute" then
+                            let args = env.SymbolReader.AttributeReader.GetCtorArgs a
+                            let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
+                            try 
+                                let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
+                                System.Activator.CreateInstance(loadedType) |> Some
+                            with _ -> 
+                                failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
+                        else
+                            None
+                    )
+                for rf in requiredFeatures do
+                    match rf with
+                    | :? WebSharper.IExportedMethods as ems ->
+                        for etd, em in ems.ExportedMethods do
+                            env.Compilation.AddQuotedMethod(etd, em, bundleScope)
+                        | _ -> ()
                 let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
                 match env.SymbolReader.ReadMember(meth) with
                 | Member.Method(_, m) ->

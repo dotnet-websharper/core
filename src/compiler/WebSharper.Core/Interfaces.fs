@@ -21,6 +21,8 @@
 /// Defines custom attributes used by WebSharper projects.
 namespace WebSharper
 
+open WebSharper.Core.AST
+
 type GenerateCall =
     {
         /// Path to the file the generator is invoked for as it is included in the project file.
@@ -43,3 +45,7 @@ type ISourceGenerator =
     /// Gets an object of contextual information and actions.
     /// Must return an array of file paths, which can be newly created.
     abstract Generate: GenerateCall -> option<string[]>
+
+/// Use with RequireFeature attribute
+type IExportedMethods =
+    abstract ExportedMethods : (TypeDefinition * Method)[]
