@@ -47,5 +47,5 @@ type ISourceGenerator =
     abstract Generate: GenerateCall -> option<string[]>
 
 /// Use with RequireFeature attribute
-type IExportedMethods =
-    abstract ExportedMethods : (TypeDefinition * Method)[]
+type IRequiresExportedMethods =
+    abstract Requires : unit -> (TypeDefinition * Method) seq

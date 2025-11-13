@@ -125,8 +125,8 @@ type MyFeature() =
         WebSharper.Core.AST.Reflection.ReadTypeDefinition thisType,
         WebSharper.Core.AST.Reflection.ReadMethod initializeMethod
 
-    interface IExportedMethods with
-        member this.ExportedMethods =
+    interface IRequiresExportedMethods with
+        member this.Requires() =
             [| this.InitializeMethod |]
 
     interface IRequiresResources with

@@ -1607,8 +1607,8 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                     )
                 for rf in requiredFeatures do
                     match rf with
-                    | :? WebSharper.IExportedMethods as ems ->
-                        for etd, em in ems.ExportedMethods do
+                    | :? WebSharper.IRequiresExportedMethods as ems ->
+                        for etd, em in ems.Requires() do
                             env.Compilation.AddQuotedMethod(etd, em, bundleScope)
                         | _ -> ()
                 let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
