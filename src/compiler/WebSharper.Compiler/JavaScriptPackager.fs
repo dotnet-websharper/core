@@ -556,6 +556,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     GlobalAccessSet(ga, this.TransformExpression v)
                 | ItemGet(e, i, _) ->
                     ItemSet(this.TransformExpression e, this.TransformExpression i, this.TransformExpression v)
+                | Var i ->
+                    VarSet(i, this.TransformExpression v)
                 | _ ->
                     failwith "invalid address import"
 
@@ -1829,18 +1831,6 @@ module Definitions =
             Assembly = "WebSharper.StdLib"
             FullName = "WebSharper.IControlBody"
         }
-    let webControl =    
-        TypeDefinition {
-            Assembly = "WebSharper.Web"
-            FullName = "WebSharper.Web.Control"
-        }
-    let getBody =
-        Method {
-            MethodName = "get_Body"
-            Parameters = []
-            ReturnType = ConcreteType (NonGeneric iControlBody)
-            Generics = 0
-        } 
     let domNode = 
         TypeDefinition {
             Assembly = "WebSharper.JavaScript"
@@ -1853,6 +1843,53 @@ module Definitions =
             ReturnType = VoidType
             Generics = 0
         }
+    let iControl =    
+        TypeDefinition {
+            Assembly = "WebSharper.StdLib"
+            FullName = "WebSharper.IControl"
+        }
+    let getBody =
+        Method {
+            MethodName = "get_Body"
+            Parameters = []
+            ReturnType = ConcreteType (NonGeneric iControlBody)
+            Generics = 0
+        } 
+    let iInitializer =
+        TypeDefinition {
+            Assembly = "WebSharper.StdLib"
+            FullName = "WebSharper.IInitializer"
+        }
+    let preInitialize =
+        Method {
+            MethodName = "PreInitialize"
+            Parameters = [ NonGenericType Definitions.String ]
+            ReturnType = VoidType
+            Generics = 0
+        }
+    let initialize =
+        Method {
+            MethodName = "Initialize"
+            Parameters = [ NonGenericType Definitions.String ]
+            ReturnType = VoidType
+            Generics = 0
+        }
+    let postInitialize =
+        Method {
+            MethodName = "PostInitialize"
+            Parameters = [ NonGenericType Definitions.String ]
+            ReturnType = VoidType
+            Generics = 0
+        }
+
+let pageInitDependencies =
+    [
+        M.AbstractMethodNode (Definitions.iControlBody, Definitions.replaceInDom)
+        M.AbstractMethodNode (Definitions.iControl, Definitions.getBody)
+        M.AbstractMethodNode (Definitions.iInitializer, Definitions.preInitialize)
+        M.AbstractMethodNode (Definitions.iInitializer, Definitions.initialize)
+        M.AbstractMethodNode (Definitions.iInitializer, Definitions.postInitialize)
+    ]
 
 let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
@@ -1885,8 +1922,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
     for b in bundles do
         let nodes =
             seq {
-                yield M.AbstractMethodNode (Definitions.iControlBody, Definitions.replaceInDom)
-                yield M.AbstractMethodNode (Definitions.webControl, Definitions.getBody)
+                yield! pageInitDependencies
                 for td, m in b.Value do
                     if m = Definitions.getBody then
                         yield M.TypeNode td
@@ -1921,8 +1957,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
     
 let getTrimmedGraph (meta: M.Info) (graph: DependencyGraph.Graph) =
     let nodes = HashSet() 
-    nodes.Add(M.AbstractMethodNode (Definitions.iControlBody, Definitions.replaceInDom)) |> ignore
-    nodes.Add(M.AbstractMethodNode (Definitions.webControl, Definitions.getBody)) |> ignore
+    nodes.UnionWith(pageInitDependencies)
     for qi in meta.Quotations.Values do
         nodes.Add(M.MethodNode (qi.TypeDefinition, qi.Method)) |> ignore
     for t, m in meta.QuotedMethods.Keys do
