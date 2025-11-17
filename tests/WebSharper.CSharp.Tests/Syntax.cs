@@ -575,12 +575,12 @@ x: Equal(a, 1);
         [Test]
         public void OpearatorOverloading()
         {
-            MyNumber addTest = new(16);
+            MyNumber decrTest = new(16);
 
-            addTest -= 2; // note: overloaded to decrease with twice the amount
-            StrictEqual(addTest.Value, 12.0, "Operator overloading, compound operator overload");
-            addTest--; // note: overloaded to decrement twice
-            StrictEqual(addTest.Value, 10.0, "Operator overloading, decrement operator overload");
+            decrTest -= 2; // note: overloaded to decrease with twice the amount
+            StrictEqual(decrTest.Value, 12.0, "Operator overloading, compound operator overload");
+            decrTest--; // note: overloaded to decrement twice
+            StrictEqual(decrTest.Value, 10.0, "Operator overloading, decrement operator overload");
         }
 
         [Test]
@@ -814,6 +814,10 @@ x: Equal(a, 1);
             Equal(MyNumber.Subtract(a, b).Value, -1);
             Equal(MyNumber.Zero.Value, 0);
             Equal((new MyNumber(5) % new MyNumber(2)).Value, 1);
+            a.MutableVal = 3;
+            Equal(a.MutableVal, 3);
+            a += 1; // overloaded +=
+            Equal(a.Value, 5);
         }
 
         [Test("Null-coalescing assignment")]
@@ -929,8 +933,7 @@ x: Equal(a, 1);
         // instance-level -= overload;
         public void operator -=(int d)
         {
-            val -= d;
-            val -= d;
+            val -= 2 * d;
         }
     }
 
@@ -939,14 +942,27 @@ x: Equal(a, 1);
     {
         extension(MyNumber a)
         {
-            // Extension property:
+            // Extension property shorthand:
             public bool IsEven => a.Value % 2 == 0;
+
+            // Extension property:
+            public int MutableVal
+            {
+                get { return a.val; }
+                set { a.val = value; }
+            }
 
             // Extension method:
             public MyNumber AddOne() => new(a.Value + 1);
 
-            // Static extension method within :
+            // Static extension method within:
             public static MyNumber Subtract(MyNumber x, MyNumber y) => new(x.Value - y.Value);
+
+            // instance-level += overload;
+            public void operator +=(int d)
+            {
+                a.val += 2 * d;
+            }
         }
 
         extension(MyNumber)

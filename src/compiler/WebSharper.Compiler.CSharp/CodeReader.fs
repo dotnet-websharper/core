@@ -186,6 +186,19 @@ let numericTypes =
         "System.Double" 
     ]
 
+let incrOrDecrAutoConvertTypes =
+    [|
+        SpecialType.System_Byte
+        SpecialType.System_SByte
+        SpecialType.System_Int16
+        SpecialType.System_Int32
+        SpecialType.System_UInt16
+        SpecialType.System_UInt32
+        SpecialType.System_Single
+        SpecialType.System_Double
+        SpecialType.System_Decimal
+    |]
+
 let setterOf (getter : Concrete<Method>) =
     let m = getter.Entity.Value
     if not (m.MethodName.StartsWith "get_") then
@@ -738,6 +751,21 @@ type RoslynTransformer(env: Environment) =
 
     let trLocalId (s: ILocalSymbol) = 
         Id.New(s.Name, not s.IsConst, typ = sr.ReadType(s.Type))
+
+    let tryGetImplicitConversionMethod (fromType: ITypeSymbol) (toType: ITypeSymbol) =
+        let conversion = env.SemanticModel.Compilation.ClassifyConversion(fromType, toType)
+        let symbol = conversion.MethodSymbol
+        if isNull symbol then 
+            None
+        else
+            Some (getTypeAndMethod symbol)
+
+    let getImplicitConversionMethod (fromType: ITypeSymbol) (toType: ITypeSymbol) =
+        match tryGetImplicitConversionMethod fromType toType with
+        | None ->
+            failwith $"Failed to find implicit conversion method: {fromType.ToDisplayString()} to {toType.ToDisplayString()}"
+        | Some res ->
+            res
 
     member this.TransformIdentifierName (x: IdentifierNameData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
@@ -1395,69 +1423,95 @@ type RoslynTransformer(env: Environment) =
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
+            let leftT = env.SemanticModel.GetTypeInfo(x.Left.Node).Type
+            let leftTyp = leftT |> sr.ReadType
             let e = IgnoreExprSourcePos left
             let direct = 
                 if numericTypes.Contains opTyp.Entity.Value.FullName then
-                    let leftConversion = env.SemanticModel.GetConversion(x.Left.Node)
-                    match e with
-                    | Var _ 
-                    | ItemGet _ 
-                    | FieldGet _ when not leftConversion.IsUserDefined ->
-                        let op =
-                            match x.Kind with
-                            | AssignmentExpressionKind.SimpleAssignmentExpression
-                            | AssignmentExpressionKind.CoalesceAssignmentExpression ->
-                                failwith "impossible"    
-                            | AssignmentExpressionKind.AddAssignmentExpression ->
-                                MutatingBinaryOperator.``+=``
-                            | AssignmentExpressionKind.SubtractAssignmentExpression ->  
-                                MutatingBinaryOperator.``-=``
-                            | AssignmentExpressionKind.MultiplyAssignmentExpression ->   
-                                MutatingBinaryOperator.``*=``
-                            | AssignmentExpressionKind.DivideAssignmentExpression ->    
-                                MutatingBinaryOperator.``/=``
-                            | AssignmentExpressionKind.ModuloAssignmentExpression ->     
-                                MutatingBinaryOperator.``%=``
-                            | AssignmentExpressionKind.AndAssignmentExpression ->        
-                                MutatingBinaryOperator.``&=``
-                            | AssignmentExpressionKind.ExclusiveOrAssignmentExpression ->
-                                MutatingBinaryOperator.``^=``
-                            | AssignmentExpressionKind.OrAssignmentExpression ->         
-                                MutatingBinaryOperator.``|=``
-                            | AssignmentExpressionKind.LeftShiftAssignmentExpression ->  
-                                MutatingBinaryOperator.``<<=``
-                            | AssignmentExpressionKind.RightShiftAssignmentExpression -> 
-                                MutatingBinaryOperator.``>>=``
-                            | AssignmentExpressionKind.UnsignedRightShiftAssignmentExpression ->
-                                MutatingBinaryOperator.``>>>=``
-                        MutatingBinary(left, op, right) |> Some
+                    match leftTyp with
+                    | ConcreteType ft when numericTypes.Contains ft.Entity.Value.FullName ->
+                        match e with
+                        | Var _ 
+                        | ItemGet _ 
+                        | FieldGet _ ->
+                            let op =
+                                match x.Kind with
+                                | AssignmentExpressionKind.SimpleAssignmentExpression
+                                | AssignmentExpressionKind.CoalesceAssignmentExpression ->
+                                    failwith "impossible"    
+                                | AssignmentExpressionKind.AddAssignmentExpression ->
+                                    MutatingBinaryOperator.``+=``
+                                | AssignmentExpressionKind.SubtractAssignmentExpression ->  
+                                    MutatingBinaryOperator.``-=``
+                                | AssignmentExpressionKind.MultiplyAssignmentExpression ->   
+                                    MutatingBinaryOperator.``*=``
+                                | AssignmentExpressionKind.DivideAssignmentExpression ->    
+                                    MutatingBinaryOperator.``/=``
+                                | AssignmentExpressionKind.ModuloAssignmentExpression ->     
+                                    MutatingBinaryOperator.``%=``
+                                | AssignmentExpressionKind.AndAssignmentExpression ->        
+                                    MutatingBinaryOperator.``&=``
+                                | AssignmentExpressionKind.ExclusiveOrAssignmentExpression ->
+                                    MutatingBinaryOperator.``^=``
+                                | AssignmentExpressionKind.OrAssignmentExpression ->         
+                                    MutatingBinaryOperator.``|=``
+                                | AssignmentExpressionKind.LeftShiftAssignmentExpression ->  
+                                    MutatingBinaryOperator.``<<=``
+                                | AssignmentExpressionKind.RightShiftAssignmentExpression -> 
+                                    MutatingBinaryOperator.``>>=``
+                                | AssignmentExpressionKind.UnsignedRightShiftAssignmentExpression ->
+                                    MutatingBinaryOperator.``>>>=``
+                            MutatingBinary(left, op, right) |> Some
+                        | _ -> None
                     | _ -> None
                 else None
             match direct with
             | Some d -> d
             | _ ->
+            let isEvent = leftSymbol :? IEventSymbol
+            if not symbol.IsStatic && not isEvent && operator.Entity.Value.Parameters.Length = 1 then
+                // instance operator overload
+                Call (Some left, opTyp, operator, [right])
+            else
+            let implicitConv =
+                not isEvent &&
+                match leftTyp with
+                | ConcreteType ft -> ft <> opTyp
+                | _ -> true
+            let convGet =
+                if implicitConv then
+                    let convTyp, convMeth = getImplicitConversionMethod leftT symbol.Parameters[0].Type
+                    fun value -> Call(None, convTyp, convMeth, [value])
+                else
+                    id
+            let convSet =
+                if implicitConv then
+                    let convTyp, convMeth = getImplicitConversionMethod symbol.ReturnType leftT
+                    fun value -> Call(None, convTyp, convMeth, [value])
+                else
+                    id
             match IgnoreExprSourcePos left with
-            | Var id -> VarSet(id, Call(None, opTyp, operator, [left; right]))
+            | Var id -> VarSet(id, Call(None, opTyp, operator, [left |> convGet; right]) |> convSet)
             | FieldGet (obj, ty, f) -> 
-                if leftSymbol :? IEventSymbol then
+                if isEvent then
                     Call(obj, opTyp, operator, [right])
                 else
                 match obj with
                 | None ->
-                    FieldSet (None, ty, f, Call(None, opTyp, operator, [left; right]))
+                    FieldSet (None, ty, f, Call(None, opTyp, operator, [left |> convGet; right]) |> convSet)
                 | Some obj ->
                     let m = Id.New ()
-                    let leftWithM = FieldGet (Some (Var m), ty, f)
-                    Let (m, obj, FieldSet (Some (Var m), ty, f, Call(None, opTyp, operator, [leftWithM; right]))) 
+                    let leftWithM = FieldGet (Some (Var m), ty, f) |> convGet
+                    Let (m, obj, FieldSet (Some (Var m), ty, f, Call(None, opTyp, operator, [leftWithM; right]) |> convSet)) 
             | ItemGet(obj, i, _) ->
                 let m = Id.New ()
                 let j = Id.New ()
-                let leftWithM = ItemGet (Var m, Var j, NoSideEffect)
-                Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
+                let leftWithM = ItemGet (Var m, Var j, NoSideEffect) |> convGet
+                Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]) |> convSet)))
             | Application(ItemGet (r, Value (String "get"), _), [], _) ->
-                withResultValue (Call(None, opTyp, operator, [left; right])) <| SetRef r
+                withResultValue (Call(None, opTyp, operator, [left |> convGet; right]) |> convSet) <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
-                withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
+                withResultValue (Call(None, opTyp, operator, [left |> convGet; right]) |> convSet) <| fun rv ->
                     Call (thisOpt, typ, setterOf getter, args @ [rv])
             | e -> failwithf "AssignmentExpression left side not handled: %s" (Debug.PrintExpression e)
             
@@ -1704,7 +1758,10 @@ type RoslynTransformer(env: Environment) =
         x.Expression |> this.TransformExpression
 
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
-        let parameterList = sr.ReadParameters meth
+        let extParam = this.GetExtensionBlockParameter(meth, x.Node)
+        let meth = meth |> getExtensionOrigSymbol
+        let parameterList = Option.toList extParam @ sr.ReadParameters meth
+
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
         let body = x.Expression |> this.TransformExpression
@@ -1868,7 +1925,7 @@ type RoslynTransformer(env: Environment) =
         let extParam = this.GetExtensionBlockParameter(symbol, x.Node)
         let symbol = symbol |> getExtensionOrigSymbol
         let returnType = sr.ReadType symbol.ReturnType
-        let parameterList = Option.toList extParam @ (sr.ReadParameters symbol)
+        let parameterList = Option.toList extParam @ sr.ReadParameters symbol
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
         let body = 
@@ -1968,10 +2025,19 @@ type RoslynTransformer(env: Environment) =
             loop
         |> withStatementSourcePos x.Node
 
-    member this.TransformIncrOrDecr (node : ExpressionSyntax, operand, isPostfix) =
+    member this.TransformIncrOrDecr (node : ExpressionSyntax, opNode : ExpressionSyntax, operand, isPostfix) =
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IMethodSymbol
         let typ, meth = getTypeAndMethod symbol
         let e = IgnoreExprSourcePos operand
+        let opT = env.SemanticModel.GetTypeInfo(opNode).Type
+        let opTyp = 
+            match opT |> sr.ReadType with
+            | ConcreteType ct ->
+                if symbol.MethodKind = MethodKind.BuiltinOperator then
+                    ct
+                else 
+                    typ
+            | _ -> typ
         let direct =
             let getOp() =
                 if meth.Entity.Value.MethodName = "op_Increment" then
@@ -1984,30 +2050,60 @@ type RoslynTransformer(env: Environment) =
                         MutatingUnaryOperator.``()--``
                     else
                         MutatingUnaryOperator.``--()``
-            if numericTypes.Contains typ.Entity.Value.FullName then
+            if typ = opTyp && numericTypes.Contains typ.Entity.Value.FullName then
                 match e with
                 | Var _ 
                 | ItemGet _ 
-                | FieldGet _ ->
+                //| FieldGet _ when not conversion.IsUserDefined ->
+                | FieldGet _ -> // prob not necessary
                     MutatingUnary(getOp(), operand) |> Some
                 | _ -> None
             else None
         match direct with
         | Some d -> d |> withExprSourcePos node
         | _ ->
-        let callOp v = Call(None, typ, meth, [ v ])
+        if not symbol.IsStatic && meth.Entity.Value.Parameters.Length = 0 then
+            // instance operator overload
+            Call (Some operand, typ, meth, [])
+        else
+        let convGet, convSet, callOp = 
+            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) then
+                // synthetic method, try to find conversions
+                let realOpType =
+                    incrOrDecrAutoConvertTypes |> Seq.tryPick (fun t ->
+                        let tt = env.SemanticModel.Compilation.GetSpecialType(t)
+                        match tryGetImplicitConversionMethod opT tt, tryGetImplicitConversionMethod tt opT with
+                        | Some (_, getCm), Some (_, setCm) -> Some (getCm, setCm, tt)
+                        | _ -> None
+                    )
+                match realOpType with
+                | None ->
+                    failwith "Could not find implicit conversions for operator"
+                | Some (getCm, setCm, realOpT) ->
+                    let realOpTyp = sr.ReadNamedType realOpT
+                    let realOpMeth = 
+                        Method { 
+                            meth.Entity.Value with
+                                Parameters = [ ConcreteType realOpTyp ]
+                                ReturnType = ConcreteType realOpTyp
+                        }
+                    (fun value -> Call(None, opTyp, getCm, [value])),
+                    (fun value -> Call(None, opTyp, setCm, [value])),
+                    (fun value -> Call(None, realOpTyp, NonGeneric realOpMeth, [ value ]))
+            else
+                id, id, (fun value -> Call(None, opTyp, meth, [ value ]))
         let withResultValue alwaysSaveValue right makeExpr =
             let isValueNeeded = not (node.Parent :? ExpressionStatementSyntax)
             let rv = Id.New () // right side value stored for chaining
             if isValueNeeded then
                 if isPostfix then
-                    Sequential [ makeExpr (callOp (NewVar (rv, right))); Var rv ]
+                    Sequential [ NewVar (rv, right); makeExpr (callOp (Var rv |> convGet) |> convSet); Var rv ]
                 elif alwaysSaveValue then
-                    Sequential [ makeExpr (NewVar (rv, callOp right)); Var rv ]
+                    Sequential [ makeExpr (NewVar (rv, callOp (right |> convGet) |> convSet)); Var rv ]
                 else
-                    makeExpr (callOp right)
+                    makeExpr (callOp (right |> convGet) |> convSet)
             else
-                makeExpr (callOp right)   
+                makeExpr (callOp (right |> convGet) |> convSet)   
         match e with
         | Var v ->
             withResultValue false operand <| fun rv -> VarSet(v, rv)
@@ -2037,7 +2133,7 @@ type RoslynTransformer(env: Environment) =
         match x.Kind with
         | PostfixUnaryExpressionKind.PostIncrementExpression 
         | PostfixUnaryExpressionKind.PostDecrementExpression ->
-            this.TransformIncrOrDecr(x.Node, operand, true)
+            this.TransformIncrOrDecr(x.Node, x.Operand.Node, operand, true)
         | PostfixUnaryExpressionKind.SuppressNullableWarningExpression ->
             operand
 
@@ -2046,7 +2142,7 @@ type RoslynTransformer(env: Environment) =
         match x.Kind with
         | PrefixUnaryExpressionKind.PreIncrementExpression 
         | PrefixUnaryExpressionKind.PreDecrementExpression ->
-            this.TransformIncrOrDecr(x.Node, operand, false)
+            this.TransformIncrOrDecr(x.Node, x.Operand.Node, operand, false)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let typ = sr.ReadNamedType symbol.ContainingType
