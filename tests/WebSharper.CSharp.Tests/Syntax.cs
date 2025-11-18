@@ -537,6 +537,8 @@ x: Equal(a, 1);
             );
         }
 
+        MyDouble propAddTest = 10.0;
+
         [Test]
         public void Conversions()
         {
@@ -560,6 +562,11 @@ x: Equal(a, 1);
             StrictEqual(addTest.Value, 15.0, "Conversion with compound operator");
             addTest++;
             StrictEqual(addTest.Value, 16.0, "Conversion with increment operator");
+
+            propAddTest += 5.0;
+            StrictEqual(propAddTest.Value, 15.0, "Property conversion with compound operator");
+            propAddTest++;
+            StrictEqual(propAddTest.Value, 16.0, "Property conversion with increment operator");
 
             unchecked
             {
@@ -809,15 +816,18 @@ x: Equal(a, 1);
             IsFalse(a.IsEven);
             var b = new MyNumber(2);
             IsTrue(b.IsEven);
-            Equal(a.AddOne().Value, 2);
+            Equal(a.AddTo(1).Value, 2);
+            Equal(a.AddToArrow(1).Value, 2);
             Equal(MyNumber.Add(a, b).Value, 3);
             Equal(MyNumber.Subtract(a, b).Value, -1);
             Equal(MyNumber.Zero.Value, 0);
-            Equal((new MyNumber(5) % new MyNumber(2)).Value, 1);
             a.MutableVal = 3;
             Equal(a.MutableVal, 3);
-            a += 1; // overloaded +=
-            Equal(a.Value, 5);
+            a += 1;
+            Equal(a.Value, 5, "overloaded assignment operator");
+            Equal((a % new MyNumber(3)).Value, 2, "overloaded operator");
+            a++;
+            Equal(a.Value, 8, "overloaded increment operator");
         }
 
         [Test("Null-coalescing assignment")]
@@ -953,7 +963,13 @@ x: Equal(a, 1);
             }
 
             // Extension method:
-            public MyNumber AddOne() => new(a.Value + 1);
+            public MyNumber AddTo(int x)
+            {
+                return new(a.Value + x);
+            }
+
+            // Extension method shorthand:
+            public MyNumber AddToArrow(int x) => new(a.Value + x);
 
             // Static extension method within:
             public static MyNumber Subtract(MyNumber x, MyNumber y) => new(x.Value - y.Value);
@@ -962,6 +978,12 @@ x: Equal(a, 1);
             public void operator +=(int d)
             {
                 a.val += 2 * d;
+            }
+
+            // instance-level ++ overload;
+            public void operator ++()
+            {
+                a.val += 3;
             }
         }
 

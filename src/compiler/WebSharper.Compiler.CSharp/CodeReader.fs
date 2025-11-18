@@ -932,12 +932,13 @@ type RoslynTransformer(env: Environment) =
         let argumentListWithThis =
             if symbol.MethodKind = MethodKind.LocalFunction then
                 argumentListWithParamsFix()    
-            elif symbol <> eSymbol then
-                fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
-                |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
             elif not symbol.IsStatic then
-                (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix() 
-                |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
+                if symbol <> eSymbol then
+                    fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
+                else
+                    (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix() 
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
             else argumentListWithParamsFix() 
 
         let tempVars, args = readReorderedParams argumentListWithThis
@@ -1469,15 +1470,22 @@ type RoslynTransformer(env: Environment) =
             | Some d -> d
             | _ ->
             let isEvent = leftSymbol :? IEventSymbol
-            if not symbol.IsStatic && not isEvent && operator.Entity.Value.Parameters.Length = 1 then
-                // instance operator overload
-                Call (Some left, opTyp, operator, [right])
-            else
-            let implicitConv =
-                not isEvent &&
-                match leftTyp with
-                | ConcreteType ft -> ft <> opTyp
-                | _ -> true
+            let opOverload =
+                if not symbol.IsStatic && not isEvent then
+                    if operator.Entity.Value.Parameters.Length = 1 then
+                        // instance operator overload
+                        Call (Some left, opTyp, operator, [right]) |> Some
+                    elif not (isNull symbol.AssociatedExtensionImplementation) && operator.Entity.Value.Parameters.Length = 2 then
+                        // extension operator overload
+                        Call (None, opTyp, operator, [left; right]) |> Some
+                    else
+                        None
+                else
+                    None
+            match opOverload with
+            | Some o -> o
+            | _ ->
+            let implicitConv = not isEvent && leftTyp <> operator.Entity.Value.Parameters.Head
             let convGet =
                 if implicitConv then
                     let convTyp, convMeth = getImplicitConversionMethod leftT symbol.Parameters[0].Type
@@ -1605,23 +1613,27 @@ type RoslynTransformer(env: Environment) =
             ReturnType = returnType
         }
 
-    member this.GetExtensionBlockParameter(symbol: IMethodSymbol, x: CSharpSyntaxNode) =
-        if isNull symbol.AssociatedExtensionImplementation || symbol.IsStatic then
+    member this.GetExtensionBlockParameter(symbol: IMethodSymbol, x: CSharpSyntaxNode, ?isArrow) =
+        if symbol.IsStatic && not (defaultArg isArrow false) then
             None
         else
-            let ext = x.FirstAncestorOrSelf<ExtensionBlockDeclarationSyntax>() |> ExtensionBlockDeclarationData.FromNode
-            ext.ParameterList |> Option.bind (this.TransformParameterList >> List.tryHead)
+            match x.FirstAncestorOrSelf<ExtensionBlockDeclarationSyntax>() with
+            | null -> 
+                None
+            | extNode ->
+                let ext = extNode |> ExtensionBlockDeclarationData.FromNode
+                ext.ParameterList |> Option.bind (this.TransformParameterList >> List.tryHead)
 
     member this.TransformMethodDeclaration (x: MethodDeclarationData) : CSharpMethod =
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) 
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let extParam = this.GetExtensionBlockParameter(symbol, x.Node)
-        let symbol = symbol |> getExtensionOrigSymbol
         let parameterList = Option.toList extParam @ (x.ParameterList |> this.TransformParameterList)
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformOperatorDeclaration (x: OperatorDeclarationData) : CSharpMethod =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let parameterList = x.ParameterList |> this.TransformParameterList
+        let extParam = this.GetExtensionBlockParameter(symbol, x.Node)
+        let parameterList = Option.toList extParam @ (x.ParameterList |> this.TransformParameterList)
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
     member this.TransformConversionOperatorDeclaration (x: ConversionOperatorDeclarationData) : CSharpMethod =
@@ -1758,10 +1770,8 @@ type RoslynTransformer(env: Environment) =
         x.Expression |> this.TransformExpression
 
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
-        let extParam = this.GetExtensionBlockParameter(meth, x.Node)
-        let meth = meth |> getExtensionOrigSymbol
-        let parameterList = Option.toList extParam @ sr.ReadParameters meth
-
+        let extParam = this.GetExtensionBlockParameter(meth, x.Node, true)
+        let parameterList = Option.toList extParam @ (sr.ReadParameters meth)
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
         let body = x.Expression |> this.TransformExpression
@@ -1921,10 +1931,9 @@ type RoslynTransformer(env: Environment) =
             ThisInitializer (sr.ReadConstructor symbol, args, initTempVars)
 
     member this.TransformAccessorDeclaration (x: AccessorDeclarationData) : _ =
-        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node) 
-        let extParam = this.GetExtensionBlockParameter(symbol, x.Node)
-        let symbol = symbol |> getExtensionOrigSymbol
+        let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let returnType = sr.ReadType symbol.ReturnType
+        let extParam = this.GetExtensionBlockParameter(symbol, x.Node)
         let parameterList = Option.toList extParam @ sr.ReadParameters symbol
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
@@ -2062,10 +2071,21 @@ type RoslynTransformer(env: Environment) =
         match direct with
         | Some d -> d |> withExprSourcePos node
         | _ ->
-        if not symbol.IsStatic && meth.Entity.Value.Parameters.Length = 0 then
-            // instance operator overload
-            Call (Some operand, typ, meth, [])
-        else
+        let opOverload =
+            if not symbol.IsStatic then
+                if meth.Entity.Value.Parameters.Length = 0 then
+                    // instance operator overload
+                    Call (Some operand, typ, meth, []) |> Some
+                elif not (isNull symbol.AssociatedExtensionImplementation) && meth.Entity.Value.Parameters.Length = 1 then
+                    // extension operator overload
+                    Call (None, typ, meth, [operand]) |> Some                
+                else 
+                    None
+            else
+                None
+        match opOverload with
+        | Some o -> o |> withExprSourcePos node
+        | _ ->
         let convGet, convSet, callOp = 
             if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) then
                 // synthetic method, try to find conversions
