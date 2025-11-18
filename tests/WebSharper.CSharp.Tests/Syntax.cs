@@ -875,9 +875,22 @@ x: Equal(a, 1);
         [Test()]
         public void FieldKeywordTest()
         {
-            var x = new FieldKeyword { Message = "hello" };
+            var x = new FieldKeyword();
+            Equal(x.Message, "hi");
+            x.Message = "hello";
             Equal(x.Message, "hello");
             Raises(() => x.Message = null);
+
+            x.MessageGetSet = "world";
+            Equal(x.MessageGetSet, "hello world!");
+
+            x.MessageGet = "hello";
+            Equal(x.MessageGet, "hello!");
+
+            Equal(FieldKeyword.StaticMessage, "hi");
+            FieldKeyword.StaticMessage = "hello";
+            Equal(FieldKeyword.StaticMessage, "hello");
+            Raises(() => FieldKeyword.StaticMessage = null);
         }
     }
 
@@ -1009,6 +1022,24 @@ x: Equal(a, 1);
         {
             get;
             set => field = value ?? throw new ArgumentNullException(nameof(value));
+        } = "hi";
+
+        public static string StaticMessage
+        {
+            get;
+            set => field = value ?? throw new ArgumentNullException(nameof(value));
+        } = "hi";
+
+        public string MessageGetSet
+        {
+            get => field + "!";
+            set => field = "hello " + value;
+        }
+
+        public string MessageGet
+        {
+            get => field + "!";
+            set;
         }
     }
 

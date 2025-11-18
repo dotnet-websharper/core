@@ -487,8 +487,9 @@ type Environment =
         Compilation : WebSharper.Compiler.Compilation
         SymbolReader : SymbolReader
         RangeVars : IDictionary<IRangeVariableSymbol, Id * option<int>>
+        BackingField : option<IFieldSymbol>
     }
-    static member New(model, comp, sr, thisVar) = 
+    static member New(model, comp, sr, thisVar, backingField) = 
         { 
             SemanticModel = model
             Vars = Dictionary()
@@ -502,6 +503,7 @@ type Environment =
             Compilation = comp
             SymbolReader = sr
             RangeVars = Dictionary()
+            BackingField = backingField
         }      
 
     member this.GetLabelId(symbol) =
@@ -1332,7 +1334,10 @@ type RoslynTransformer(env: Environment) =
                 // init property
                 let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
                 let right = x.Right |> trR.TransformExpression
-                withResultValue right <| fun rv -> FieldSet(Some (Var env.This.Value), NonGeneric td, leftSymbol.Name, rv)
+                if leftSymbol.IsStatic then
+                    withResultValue right <| fun rv -> FieldSet(None, NonGeneric td, leftSymbol.Name, rv)
+                else
+                    withResultValue right <| fun rv -> FieldSet(Some (Var env.This.Value), NonGeneric td, leftSymbol.Name, rv)
             else
                 let typ, setter = getTypeAndMethod leftSymbol.SetMethod
                 //if leftSymbol.IsIndexer // TODO property indexers
@@ -1550,8 +1555,7 @@ type RoslynTransformer(env: Environment) =
         | BinaryExpressionKind.LogicalAndExpression ->
             Conditional(left, right, Value (Bool false))
         | BinaryExpressionKind.CoalesceExpression ->
-            let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).ConvertedType |> sr.ReadType
-            Coalesce(left, leftType, right)
+            Binary(left, BinaryOperator.``??``, right)
         | _ -> 
             let leftTypeSymbol = env.SemanticModel.GetTypeInfo(x.Left.Node).Type
             let rightTypeSymbol = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
@@ -1957,9 +1961,7 @@ type RoslynTransformer(env: Environment) =
                 | _ ->
                     let pr = symbol.AssociatedSymbol :?> IPropertySymbol
                     let typ = sr.ReadNamedType symbol.ContainingType
-                    let backingfield = 
-                        symbol.ContainingType.GetMembers().OfType<IFieldSymbol>()
-                        |> Seq.find (fun bf -> bf.AssociatedSymbol = symbol.AssociatedSymbol)
+                    let backingfield = env.BackingField.Value
                     if pr.IsStatic then 
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
@@ -3097,7 +3099,14 @@ type RoslynTransformer(env: Environment) =
             )
 
     member this.TransformFieldExpression (x: FieldExpressionData) : _ =
-        TODO x
+        let f = env.BackingField.Value
+        let target =
+            if f.IsStatic then None else
+            match env.Initializing with
+            | Some i -> Var i
+            | _ -> Var env.This.Value
+            |> Some
+        FieldGet(target, sr.ReadNamedType f.ContainingType, f.Name)
 
 open System.Linq
 

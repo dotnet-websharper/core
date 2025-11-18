@@ -292,11 +292,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         None
     else    
 
+    let inline csBf thisVar model backingField =
+        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr, Some thisVar, backingField))
+
     let inline cs thisVar model =
-        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr, Some thisVar))
+        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr, Some thisVar, None))
 
     let inline csStatic model =
-        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr, None))
+        CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr, None, None))
 
     let clsMembers = ResizeArray()
 
@@ -480,43 +483,34 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | :? PropertyDeclarationSyntax as pdSyntax ->
                     let data =
                         pdSyntax |> RoslynHelpers.PropertyDeclarationData.FromNode
-                    let cdef = NonGeneric def
-                    let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
-                        a.Body.IsSome || a.ExpressionBody.IsSome
-                    match data.AccessorList with
-                    | None -> ()
-                    | Some acc when hasBody(Seq.head acc.Accessors) -> ()
-                    | _ ->
-                    let b = 
-                        match data.Initializer with
-                        | Some i ->
-                            i |> (cs initThisVar model).TransformEqualsValueClause
-                        | None -> 
-                            DefaultValueOf (sr.ReadType p.Type)
-                    
-                    match p.SetMethod with
-                    | null ->
-                        let backingfield = 
-                            members.OfType<IFieldSymbol>()
-                            |> Seq.tryFind (fun bf -> bf.AssociatedSymbol = mem)
-                        match backingfield with
-                        | Some bf ->
+                    let backingfield = 
+                        members.OfType<IFieldSymbol>()
+                        |> Seq.tryFind (fun bf -> bf.AssociatedSymbol = p)
+                    match backingfield with
+                    | Some bf ->                    
+                        if not p.IsWriteOnly then
+                            // set initial value of backing field
+                            let b = 
+                                match data.Initializer with
+                                | Some i ->
+                                    i |> (cs initThisVar model).TransformEqualsValueClause
+                                | None -> 
+                                    DefaultValueOf (sr.ReadType p.Type)
                             if p.IsStatic then
                                 staticInits.Add <| FieldSet(None, NonGeneric def, bf.Name, b)
                             else
                                 inits.Add <| FieldSet(Some (Var initThisVar), NonGeneric def, bf.Name, b)
-                            // auto-add init methods
-                            let getter = sr.ReadMethod p.GetMethod
-                            let setter = CodeReader.setterOf (NonGeneric getter)
-                            let body = FieldSet(Some (Hole 0), NonGeneric def, bf.Name, Hole 1)
-                            addMethod None pAnnot setter.Entity nrInline false body
-                        | None -> ()
-                    | setMeth ->
-                        let setter = sr.ReadMethod setMeth
-                        if p.IsStatic then
-                            staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
-                        else
-                            inits.Add <| Call(Some (Var initThisVar), cdef, NonGeneric setter, [ b ])
+                            // auto-add init methods if no explicit setter exists
+                            if isNull p.SetMethod then
+                                let getter = sr.ReadMethod p.GetMethod
+                                let setter = CodeReader.setterOf (NonGeneric getter)
+                                let body = 
+                                    if p.IsStatic then
+                                        FieldSet(None, NonGeneric def, bf.Name, Hole 0)
+                                    else
+                                        FieldSet(Some (Hole 0), NonGeneric def, bf.Name, Hole 1)
+                                addMethod None pAnnot setter.Entity nrInline false body
+                    | None -> ()
                 | :? ParameterSyntax as pSyntax ->  // positional record property
                     //let data =
                     //    pSyntax |> RoslynHelpers.ParameterData.FromNode
@@ -691,6 +685,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
                                 else b1 |> Scoping.fix |> Continuation.eliminateGotos
                             { m with Body = b2 }
+                        let backingField() = 
+                            members.OfType<IFieldSymbol>()
+                            |> Seq.tryFind (fun bf -> bf.AssociatedSymbol = meth.AssociatedSymbol)
                         match syntax with
                         | :? MethodDeclarationSyntax as syntax ->
                             syntax
@@ -706,12 +703,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             if not hasBody then 
                                 makeInline <- true
                             data
-                            |> (cs thisVar model).TransformAccessorDeclaration
+                            |> (csBf thisVar model (backingField())).TransformAccessorDeclaration
                             |> fixMethod
                         | :? ArrowExpressionClauseSyntax as syntax ->
                             syntax
                             |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
-                            |> (cs thisVar model).TransformArrowExpressionClauseAsMethod meth
+                            |> (csBf thisVar model (backingField())).TransformArrowExpressionClauseAsMethod meth
                             |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =
@@ -1300,7 +1297,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             if decls.Length > 0 then
                 let syntax = decls.[0].GetSyntax()
                 let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
-                let env = CodeReader.Environment.New(model, comp, sr, None)
+                let env = CodeReader.Environment.New(model, comp, sr, None, None)
                 CodeReader.scanExpression env syntax
     
     match staticInit with
