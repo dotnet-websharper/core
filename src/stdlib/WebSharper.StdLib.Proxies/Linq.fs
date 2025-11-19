@@ -638,6 +638,10 @@ type private LinqProxy =
     static member Reverse<'T>(this: seq<'T>) : seq<'T> =
         Array.rev (Array.ofSeq this) :> _
 
+    [<Inline>]
+    static member Reverse<'T>(this: 'T[]) : seq<'T> =
+        Array.rev this :> _
+
     static member Select<'T, 'R>(this: seq<'T>, selector: Func<'T, int, 'R>) : seq<'R> =
         Seq.mapi (fun i x -> selector.Invoke(x, i)) this
 
@@ -666,9 +670,10 @@ type private LinqProxy =
 
     [<Inline>]
     static member SequenceEqual<'T>(this: seq<'T>, second: seq<'T>) : bool =
-        LinqProxy.SequenceEqual(this, second, EqualityComparer.Default)
+        LinqProxy.SequenceEqualImpl(this, second, EqualityComparer.Default)
 
-    static member SequenceEqual<'T>(this: seq<'T>, second: seq<'T>, comparer: IEqualityComparer<'T>) : bool =
+    [<Name "SequenceEqual">]
+    static member SequenceEqualImpl<'T>(this: seq<'T>, second: seq<'T>, comparer: IEqualityComparer<'T>) : bool =
         use e1 = this.GetEnumerator()
         use e2 = this.GetEnumerator()
         let rec go() =
@@ -677,6 +682,11 @@ type private LinqProxy =
             else
                 not (e2.MoveNext())
         go()
+
+    [<Inline>]
+    static member SequenceEqual<'T>(this: seq<'T>, second: seq<'T>, comparer: IEqualityComparer<'T>) : bool =
+        let comparer = if isNull comparer then EqualityComparer.Default :> IEqualityComparer<'T> else comparer
+        LinqProxy.SequenceEqualImpl(this, second, comparer)
 
     [<Inline>]
     static member Single<'T>(this: seq<'T>) : 'T =

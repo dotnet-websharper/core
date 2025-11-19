@@ -33,9 +33,17 @@ open System.Runtime.InteropServices
 type private MemoryExtensionsProxy =
 
     [<Inline>]
+    static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>) =
+        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other)     
+
+    [<Inline>]
     static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>, comparer: IEqualityComparer<'T>) =
-        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other, if isNull comparer then EqualityComparer.Default :> IEqualityComparer<'T> else comparer)     
+        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other, comparer)     
 
     [<Inline>]
     static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T) =
         Enumerable.Contains(As<'T[]>span, value)
+
+    [<Inline>]
+    static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T, comparer: IEqualityComparer<'T>) =
+        Enumerable.Contains(As<'T[]>span, value, comparer)
