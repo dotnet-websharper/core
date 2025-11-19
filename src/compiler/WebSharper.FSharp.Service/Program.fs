@@ -157,7 +157,7 @@ let startListening() =
                     nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let compilationResultForDebugOrRelease() =
                         try
-                            Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+                            CompileOnWorker wsConfig warnSettings logger checkerFactory tryGetMetadata
                         with 
                         | ArgumentError msg -> 
                             PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))

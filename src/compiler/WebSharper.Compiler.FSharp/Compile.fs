@@ -24,6 +24,7 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open System.Threading
 open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
@@ -716,10 +717,24 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
 
     ParsedOptions (!wsArgs, !warn)
 
+let CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata = 
+    let tcs = Tasks.TaskCompletionSource()
+    let compile() = 
+        try 
+            tcs.SetResult (Compile config warnSettings logger checkerFactory tryGetMetadata)
+        with e ->
+            tcs.SetException e
+    let workerThread = new Thread(compile, 16 * 1024 * 1024)
+    workerThread.Start()
+    try 
+        tcs.Task.Result    
+    with :? AggregateException as e ->
+        raise e.InnerException
+
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
     try 
         let exitCode = 
-            Compile config warnSettings logger checkerFactory tryGetMetadata
+            CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata
         exitCode            
     with _ ->
         clearOutput config logger
