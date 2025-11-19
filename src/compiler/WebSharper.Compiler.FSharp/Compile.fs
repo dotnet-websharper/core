@@ -24,6 +24,7 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open System.Threading
 open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
@@ -268,9 +269,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let fixedArgs =
             config.CompilerArgs 
             |> Array.map (fun s -> 
-                s.Replace(@"net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.fs", 
+                s.Replace(@"net10.0\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
-                    ).Replace(@"net9.0/.NETCoreApp,Version=v9.0.AssemblyAttributes.fs", 
+                    ).Replace(@"net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.fs", 
                         @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
@@ -716,10 +717,24 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
 
     ParsedOptions (!wsArgs, !warn)
 
+let CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata = 
+    let tcs = Tasks.TaskCompletionSource()
+    let compile() = 
+        try 
+            tcs.SetResult (Compile config warnSettings logger checkerFactory tryGetMetadata)
+        with e ->
+            tcs.SetException e
+    let workerThread = new Thread(compile, 16 * 1024 * 1024)
+    workerThread.Start()
+    try 
+        tcs.Task.Result    
+    with :? AggregateException as e ->
+        raise e.InnerException
+
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
     try 
         let exitCode = 
-            Compile config warnSettings logger checkerFactory tryGetMetadata
+            CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata
         exitCode            
     with _ ->
         clearOutput config logger

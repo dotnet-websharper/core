@@ -350,7 +350,7 @@ namespace WebSharper.CSharp.Tests
         public void Reverse()
         {
             Equal(arr.Reverse().ToArray(), new[] { 6, 5, 4, 3, 2, 1 }, "Non-empty");
-            Equal(empty.Reverse().ToArray(), empty, "Empty");
+            Equal(Enumerable.Empty<int>().Reverse().ToArray(), empty, "Empty");
         }
 
         [Test]

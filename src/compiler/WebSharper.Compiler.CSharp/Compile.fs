@@ -114,10 +114,11 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     
     let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
 
-    // remove for debugging
+#if !DEBUG
     if assem.IsSome && assem.Value.HasWebSharperMetadata then
         logger.TimedStage "WebSharper resources already exist, skipping"
     else
+#endif
 
     let comp =
         aR.Wrap <| fun () ->

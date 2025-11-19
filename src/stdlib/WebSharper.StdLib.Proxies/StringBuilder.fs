@@ -8,7 +8,7 @@ module StringBuilder =
     open WebSharper
 
     [<Proxy(typeof<StringBuilder>)>]
-    type StringBuilderProxy() =
+    type internal StringBuilderProxy() =
         let mutable strings = [||]
         
         new (init: string) as this = StringBuilderProxy() then this.Append(init) |> ignore

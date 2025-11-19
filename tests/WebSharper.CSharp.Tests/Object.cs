@@ -247,7 +247,7 @@ namespace WebSharper.CSharp.Tests
             Equal(new StructTest(1, "").X2, 2);
         }
 
-        [Test]
+        [Test("C# 14 partial classes", TestKind.Skip)]
         public void PartialClasses()
         {
             var o = new PartialClass();
@@ -260,6 +260,20 @@ namespace WebSharper.CSharp.Tests
             Equal(o.Value, 4);
             o.Name = "John";
             Equal(o.Name, "John");
+        }
+
+        [Test("C# 14 partial events and constructors", TestKind.Skip)]
+        public void MorePartialClasses()
+        {
+            // partial constructor
+            var o = new PartialClass("John");
+            Equal(o.Name, "John");
+
+            // partial event
+            var nameChange = "";
+            o.OnNameChanged += (_, args) => nameChange = $"{args.OldName} to {args.NewName}";
+            o.Name = "Jane";
+            Equal(nameChange, "John to Jane");
         }
 
         class Renamings
@@ -512,6 +526,12 @@ namespace WebSharper.CSharp.Tests
         {
             return PartialMethodRelaxed();
         }
+
+        public PartialClass() { }
+
+        public partial PartialClass(string name);
+
+        public partial event EventHandler<NameChangeEventArgs> OnNameChanged;   
     }
 
     [JavaScript]

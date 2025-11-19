@@ -550,6 +550,20 @@ let rec breakExpr expr : Broken<BreakResult> =
         else
             cond brA (broken (Value (Bool true))) brC
 
+    let coalesceOp a c =
+        let brA = br a
+        let brC = br c
+        if hasNoStatements brC then
+            {
+                Body = ResultExpr (Binary (getExpr brA.Body, BinaryOperator.``??``, getExpr brC.Body))
+                Statements = brA.Statements
+                Variables = brA.Variables @ brC.Variables
+            }
+        else
+            // TODO: without additional recursion
+            let v = Id.New(mut = false)
+            Let (v, a, Conditional (Binary(Var v, BinaryOperator.``!=``, Value Null), Var v, c)) |> br
+
 //    match optimize expr with
     match expr with
     | Undefined
@@ -662,6 +676,8 @@ let rec breakExpr expr : Broken<BreakResult> =
         | BinaryOperator.``&&``
         | BinaryOperator.``||`` ->
             boolOp a b c
+        | BinaryOperator.``??`` ->
+            coalesceOp a c    
         | _ ->
             comb2 (fun (aE, cE) -> Binary(aE, b, cE)) a c
     | Cast(a, b) ->
@@ -895,18 +911,7 @@ let rec breakExpr expr : Broken<BreakResult> =
         brL values
         |> mapBroken (fun l -> Object (List.zip3 names kinds l)) 
     | Coalesce(a, b, c) ->
-        let brA = br a
-        let brC = br c
-        if hasNoStatements brC then
-            {
-                Body = ResultExpr (Coalesce (getExpr brA.Body, b, getExpr brC.Body))
-                Statements = brA.Statements
-                Variables = brA.Variables @ brC.Variables
-            }
-        else
-            // TODO: without additional recursion
-            let v = Id.New(mut = false)
-            Let (v, a, Conditional (TypeCheck(Var v, b), Var v, c)) |> br
+        coalesceOp a c
     | TypeCheck(a, b) ->
         br a |> toBrExpr
         |> mapBroken (fun aE -> TypeCheck (aE, b))

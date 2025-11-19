@@ -1152,7 +1152,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     getExpr mres
                 | MacroFallback ->
                     match fallback with
-                    | None -> this.Error(sprintf "No macro fallback found for '%s'" macro.Value.FullName)
+                    | None -> 
+                        this.Error(sprintf "No macro fallback found for '%s' on call %s.%s" 
+                            macro.Value.FullName typ.Entity.Value.FullName meth.Entity.Value.MethodName
+                        )
                     | Some f -> this.CompileCall (f, gc, opts, expr, thisObj, typ, meth, args)      
                 | MacroNeedsResolvedTypeArg t -> 
                     if currentIsInline then
@@ -1418,7 +1421,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     getExpr mres
                 | MacroFallback ->
                     match fallback with
-                    | None -> this.Error(sprintf "No macro fallback found for '%s'" macro.Value.FullName)
+                    | None -> 
+                        this.Error(sprintf "No macro fallback found for '%s' on constructor of %s" 
+                            macro.Value.FullName typ.Entity.Value.FullName
+                        )
                     | Some f -> this.CompileCtor (f, gc, opts, expr, typ, ctor, args)      
                 | MacroNeedsResolvedTypeArg t -> 
                     if currentIsInline then

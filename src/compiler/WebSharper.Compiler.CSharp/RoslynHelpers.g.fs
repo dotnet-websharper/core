@@ -614,30 +614,41 @@ with
         | k -> failwithf "Unexpected RecordDeclarationClassOrStructKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] OperatorDeclarationOperatorToken =
-    | PlusToken                             
-    | MinusToken                            
-    | ExclamationToken                      
-    | TildeToken                            
-    | PlusPlusToken                         
-    | MinusMinusToken                       
-    | AsteriskToken                         
-    | SlashToken                            
-    | PercentToken                          
-    | LessThanLessThanToken                 
-    | GreaterThanGreaterThanToken           
-    | GreaterThanGreaterThanGreaterThanToken
-    | BarToken                              
-    | AmpersandToken                        
-    | CaretToken                            
-    | EqualsEqualsToken                     
-    | ExclamationEqualsToken                
-    | LessThanToken                         
-    | LessThanEqualsToken                   
-    | GreaterThanToken                      
-    | GreaterThanEqualsToken                
-    | FalseKeyword                          
-    | TrueKeyword                           
-    | IsKeyword                             
+    | PlusToken                                   
+    | MinusToken                                  
+    | ExclamationToken                            
+    | TildeToken                                  
+    | PlusPlusToken                               
+    | MinusMinusToken                             
+    | AsteriskToken                               
+    | SlashToken                                  
+    | PercentToken                                
+    | LessThanLessThanToken                       
+    | GreaterThanGreaterThanToken                 
+    | GreaterThanGreaterThanGreaterThanToken      
+    | BarToken                                    
+    | AmpersandToken                              
+    | CaretToken                                  
+    | EqualsEqualsToken                           
+    | ExclamationEqualsToken                      
+    | LessThanToken                               
+    | LessThanEqualsToken                         
+    | GreaterThanToken                            
+    | GreaterThanEqualsToken                      
+    | FalseKeyword                                
+    | TrueKeyword                                 
+    | IsKeyword                                   
+    | PlusEqualsToken                             
+    | MinusEqualsToken                            
+    | AsteriskEqualsToken                         
+    | SlashEqualsToken                            
+    | PercentEqualsToken                          
+    | AmpersandEqualsToken                        
+    | BarEqualsToken                              
+    | CaretEqualsToken                            
+    | LessThanLessThanEqualsToken                 
+    | GreaterThanGreaterThanEqualsToken           
+    | GreaterThanGreaterThanGreaterThanEqualsToken
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
@@ -665,6 +676,17 @@ with
         | SyntaxKind.FalseKeyword -> FalseKeyword
         | SyntaxKind.TrueKeyword -> TrueKeyword
         | SyntaxKind.IsKeyword -> IsKeyword
+        | SyntaxKind.PlusEqualsToken -> PlusEqualsToken
+        | SyntaxKind.MinusEqualsToken -> MinusEqualsToken
+        | SyntaxKind.AsteriskEqualsToken -> AsteriskEqualsToken
+        | SyntaxKind.SlashEqualsToken -> SlashEqualsToken
+        | SyntaxKind.PercentEqualsToken -> PercentEqualsToken
+        | SyntaxKind.AmpersandEqualsToken -> AmpersandEqualsToken
+        | SyntaxKind.BarEqualsToken -> BarEqualsToken
+        | SyntaxKind.CaretEqualsToken -> CaretEqualsToken
+        | SyntaxKind.LessThanLessThanEqualsToken -> LessThanLessThanEqualsToken
+        | SyntaxKind.GreaterThanGreaterThanEqualsToken -> GreaterThanGreaterThanEqualsToken
+        | SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken -> GreaterThanGreaterThanGreaterThanEqualsToken
         | k -> failwithf "Unexpected OperatorDeclarationOperatorToken kind: %O" k
 
 type [<RequireQualifiedAccess>] ConversionOperatorDeclarationImplicitOrExplicitKeyword =
@@ -2241,19 +2263,19 @@ and RecordDeclarationData(node: RecordDeclarationSyntax) =
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
     static member FromNode(n: RecordDeclarationSyntax) = RecordDeclarationData(n)
 
-and ExtensionDeclarationData(node: ExtensionDeclarationSyntax) =
+and ExtensionBlockDeclarationData(node: ExtensionBlockDeclarationSyntax) =
     member this.Node = node
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
     member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
     member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
-    static member FromNode(n: ExtensionDeclarationSyntax) = ExtensionDeclarationData(n)
+    static member FromNode(n: ExtensionBlockDeclarationSyntax) = ExtensionBlockDeclarationData(n)
 
 and [<RequireQualifiedAccess>] TypeDeclarationData =
-    | ClassDeclaration     of ClassDeclarationData
-    | StructDeclaration    of StructDeclarationData
-    | InterfaceDeclaration of InterfaceDeclarationData
-    | RecordDeclaration    of RecordDeclarationData
-    | ExtensionDeclaration of ExtensionDeclarationData
+    | ClassDeclaration          of ClassDeclarationData
+    | StructDeclaration         of StructDeclarationData
+    | InterfaceDeclaration      of InterfaceDeclarationData
+    | RecordDeclaration         of RecordDeclarationData
+    | ExtensionBlockDeclaration of ExtensionBlockDeclarationData
 with
     static member FromNode(n: TypeDeclarationSyntax) =
         match n with
@@ -2261,7 +2283,7 @@ with
         | :? StructDeclarationSyntax as d -> StructDeclaration (StructDeclarationData.FromNode(d))
         | :? InterfaceDeclarationSyntax as d -> InterfaceDeclaration (InterfaceDeclarationData.FromNode(d))
         | :? RecordDeclarationSyntax as d -> RecordDeclaration (RecordDeclarationData.FromNode(d))
-        | :? ExtensionDeclarationSyntax as d -> ExtensionDeclaration (ExtensionDeclarationData.FromNode(d))
+        | :? ExtensionBlockDeclarationSyntax as d -> ExtensionBlockDeclaration (ExtensionBlockDeclarationData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of TypeDeclarationSyntax"
     member this.Node =
         match this with
@@ -2269,7 +2291,7 @@ with
         | StructDeclaration d -> d.Node :> TypeDeclarationSyntax
         | InterfaceDeclaration d -> d.Node :> TypeDeclarationSyntax
         | RecordDeclaration d -> d.Node :> TypeDeclarationSyntax
-        | ExtensionDeclaration d -> d.Node :> TypeDeclarationSyntax
+        | ExtensionBlockDeclaration d -> d.Node :> TypeDeclarationSyntax
 
 and EnumMemberDeclarationData(node: EnumMemberDeclarationSyntax) =
     member this.Node = node

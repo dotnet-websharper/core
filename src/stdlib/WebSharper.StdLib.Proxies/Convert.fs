@@ -12,7 +12,7 @@ module Helpers =
     
 
 [<Proxy(typeof<System.Convert>)>]
-type SystemConvertProxy =
+type internal SystemConvertProxy =
     static member ToBoolean(b: bool) : bool = b
     static member ToBoolean(b: byte) : bool =  Helpers.convertToBool b
     static member ToBoolean(c: char) = raise <| System.InvalidCastException()

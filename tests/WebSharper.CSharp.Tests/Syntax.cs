@@ -19,14 +19,16 @@
 // $end{copyright}
 using Microsoft.FSharp.Core;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WebSharper.Testing;
-using System.Collections;
-using System.Runtime.CompilerServices;
+using static WebSharper.Core.JavaScript.Parser;
+using static WebSharper.Sitelets.Http.Method;
 
 [assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
 
@@ -91,7 +93,7 @@ namespace WebSharper.CSharp.Tests
             var a = 0;
             goto x;
             a += 1;
-        x: Equal(a, 0);
+x: Equal(a, 0);
         }
 
         [Test]
@@ -106,7 +108,7 @@ namespace WebSharper.CSharp.Tests
             {
                 a = 1;
             }
-        x: Equal(a, 1);
+x: Equal(a, 1);
         }
 
         [Test]
@@ -118,14 +120,14 @@ namespace WebSharper.CSharp.Tests
             {
                 goto y;
                 b++;
-            y: goto x;
+y: goto x;
             }
             finally
             {
                 a = 1;
             }
             b++;
-        x: Equal(a, 1);
+x: Equal(a, 1);
             Equal(b, 0);
         }
 
@@ -458,7 +460,7 @@ namespace WebSharper.CSharp.Tests
             Equal($"""
                 My name is {lastName}.
                 {firstName} {lastName}.
-            """, 
+            """,
                 """
                     My name is Bond.
                     James Bond.
@@ -466,7 +468,7 @@ namespace WebSharper.CSharp.Tests
         }
 
         const string _firstName = "James";
-        const string _lastName  = "Bond";
+        const string _lastName = "Bond";
 
         const string _introduction = $"My name is {_lastName}. {_firstName} {_lastName}.";
 
@@ -535,6 +537,8 @@ namespace WebSharper.CSharp.Tests
             );
         }
 
+        MyDouble propAddTest = 10.0;
+
         [Test]
         public void Conversions()
         {
@@ -547,13 +551,22 @@ namespace WebSharper.CSharp.Tests
             double intFromFloat = 3.2;
             StrictEqual((int)intFromFloat, 3, "float to int explicit");
 
-            MyNumber custom = 12 + 1;
+            MyDouble custom = 12 + 1;
             StrictEqual(custom.Value, 13.0, "Custom implicit conversion in");
             double val = custom;
             StrictEqual(val, 13.0, "Custom implicit conversion out");
             StrictEqual((double)custom, 13.0, "Custom explicit conversion out");
-            MyNumber addTest = custom + 1;
-            StrictEqual(addTest.Value, 14.0, "Operator overloading");
+            MyDouble addTest = custom + 1;
+            StrictEqual(addTest.Value, 14.0, "Two way conversion");
+            addTest += + 1;
+            StrictEqual(addTest.Value, 15.0, "Conversion with compound operator");
+            addTest++;
+            StrictEqual(addTest.Value, 16.0, "Conversion with increment operator");
+
+            propAddTest += 5.0;
+            StrictEqual(propAddTest.Value, 15.0, "Property conversion with compound operator");
+            propAddTest++;
+            StrictEqual(propAddTest.Value, 16.0, "Property conversion with increment operator");
 
             unchecked
             {
@@ -564,6 +577,17 @@ namespace WebSharper.CSharp.Tests
                 StrictEqual((int)1000000000000, -727379968, "int truncates, unchecked C#");
                 StrictEqual((uint)1000000000000, 3567587328, "uint truncates, unchecked C#");
             }
+        }
+
+        [Test]
+        public void OpearatorOverloading()
+        {
+            MyNumber decrTest = new(16);
+
+            decrTest -= 2; // note: overloaded to decrease with twice the amount
+            StrictEqual(decrTest.Value, 12.0, "Operator overloading, compound operator overload");
+            decrTest--; // note: overloaded to decrement twice
+            StrictEqual(decrTest.Value, 10.0, "Operator overloading, decrement operator overload");
         }
 
         [Test]
@@ -784,6 +808,90 @@ namespace WebSharper.CSharp.Tests
         {
             Equal(DefaultLambdaParameter(x => x + 2), 3);
         }
+
+        [Test("Extension syntax")]
+        public void ExtensionSyntax()
+        {
+            var a = new MyNumber(1);
+            IsFalse(a.IsEven);
+            var b = new MyNumber(2);
+            IsTrue(b.IsEven);
+            Equal(a.AddTo(1).Value, 2);
+            Equal(a.AddToArrow(1).Value, 2);
+            Equal(MyNumber.Add(a, b).Value, 3);
+            Equal(MyNumber.Subtract(a, b).Value, -1);
+            Equal(MyNumber.Zero.Value, 0);
+            a.MutableVal = 3;
+            Equal(a.MutableVal, 3);
+            a += 1;
+            Equal(a.Value, 5, "overloaded assignment operator");
+            Equal((a % new MyNumber(3)).Value, 2, "overloaded operator");
+            a++;
+            Equal(a.Value, 8, "overloaded increment operator");
+        }
+
+        [Test("Null-coalescing assignment")]
+        public void NullCoalescingAssignment()
+        {
+            string x = null;
+            x ??= "hello";
+            Equal(x, "hello");
+
+            x = null;
+            ref var rx = ref x;
+            rx ??= "hi";
+            Equal(x, "hi");
+        }
+
+        [Test("Null-conditional assignment")]
+        public void NullConditionalAssignment()
+        {
+            FSharpRef<string> x = null;
+            x?.Value ??= "hello";
+            Equal(x?.Value, null);
+            x = new("");
+            Equal(x?.Value, "");
+            x?.Value = "hello";
+            Equal(x.Value, "hello");
+
+            int[] a = null;
+            a?[0] = 2;
+            Equal(a?[0], null);
+            a = [1];
+            Equal(a?[0], 1);
+            a?[0] = 2;
+            Equal(a?[0], 2);
+
+            FSharpRef<FSharpRef<int>> rr = new(new(0));
+            rr?.Value?.Value = 3;
+            Equal(rr.Value.Value, 3);
+
+            x.Value = null;
+            ref var rx = ref x;
+            rx?.Value ??= "hi";
+            Equal(x.Value, "hi");
+        }
+
+        [Test()]
+        public void FieldKeywordTest()
+        {
+            var x = new FieldKeyword();
+            Equal(x.Message, "hi");
+            x.Message = "hello";
+            Equal(x.Message, "hello");
+            Raises(() => x.Message = null);
+
+            x.MessageGetSet = "world";
+            Equal(x.MessageGetSet, "hello world!");
+
+            x.MessageGet = "hello";
+            Equal(x.MessageGet, "hello!");
+
+            Equal(FieldKeyword.StaticMessage, "hi");
+            FieldKeyword.StaticMessage = "hello";
+            Equal(FieldKeyword.StaticMessage, "hello");
+            Raises(() => FieldKeyword.StaticMessage = null);
+        }
     }
 
     [JavaScript]
@@ -802,29 +910,144 @@ namespace WebSharper.CSharp.Tests
     }
 
     [JavaScript]
-    public class MyNumber
+    public class MyDouble
     {
         public double val;
-        public MyNumber(double d) { val = d; }
+        public MyDouble(double d) { val = d; }
 
         public double Value => val;
 
-        public static implicit operator double(MyNumber d)
+        public static implicit operator double(MyDouble d)
         {
             return d.val;
         }
-        public static implicit operator MyNumber(double d)
+
+        public static implicit operator MyDouble(double d)
         {
-            return new MyNumber(d);
+            return new MyDouble(d);
         }
-        public static MyNumber operator +(MyNumber a, MyNumber b)
-        {
-            return a.Value + b.Value;
-        }
+
         public override string ToString()
         {
             return val.ToString();
         }
+    }
+
+    [JavaScript]
+    public class MyNumber
+    {
+        public int val;
+        public MyNumber(int d) { val = d; }
+
+        public int Value => val;
+
+        public static MyNumber operator +(MyNumber a, MyNumber b)
+        {
+            return new(a.Value + b.Value);
+        }
+
+        // instance-level -- overload;
+        public void operator --()
+        {
+            val--;
+            val--;
+        }
+
+        // instance-level -= overload;
+        public void operator -=(int d)
+        {
+            val -= 2 * d;
+        }
+    }
+
+    [JavaScript]
+    public static class MyNumberExtension
+    {
+        extension(MyNumber a)
+        {
+            // Extension property shorthand:
+            public bool IsEven => a.Value % 2 == 0;
+
+            // Extension property:
+            public int MutableVal
+            {
+                get { return a.val; }
+                set { a.val = value; }
+            }
+
+            // Extension method:
+            public MyNumber AddTo(int x)
+            {
+                return new(a.Value + x);
+            }
+
+            // Extension method shorthand:
+            public MyNumber AddToArrow(int x) => new(a.Value + x);
+
+            // Static extension method within:
+            public static MyNumber Subtract(MyNumber x, MyNumber y) => new(x.Value - y.Value);
+
+            // instance-level += overload;
+            public void operator +=(int d)
+            {
+                a.val += 2 * d;
+            }
+
+            // instance-level ++ overload;
+            public void operator ++()
+            {
+                a.val += 3;
+            }
+        }
+
+        extension(MyNumber)
+        {
+            // Static extension property:
+            public static MyNumber Zero => new MyNumber(0);
+
+            // Static extension method:
+            public static MyNumber Add(MyNumber a, MyNumber b) => a + b;
+
+            // Static extension operator:
+            public static MyNumber operator %(MyNumber a, MyNumber b)
+            {
+                return new(a.Value % b.Value);
+            }
+        }
+    }
+
+    [JavaScript]
+    public class FieldKeyword {
+        public string Message
+        {
+            get;
+            set => field = value ?? throw new ArgumentNullException(nameof(value));
+        } = "hi";
+
+        public static string StaticMessage
+        {
+            get;
+            set => field = value ?? throw new ArgumentNullException(nameof(value));
+        } = "hi";
+
+        public string MessageGetSet
+        {
+            get => field + "!";
+            set => field = "hello " + value;
+        }
+
+        public string MessageGet
+        {
+            get => field + "!";
+            set;
+        }
+    }
+
+    [JavaScript]
+    public class NameChangeEventArgs : EventArgs
+    {
+        public string OldName { get; set; }
+        public string NewName { get; set; }
     }
 
     // this already has JavaScript attribute
@@ -836,7 +1059,12 @@ namespace WebSharper.CSharp.Tests
         public partial string Name
         {
             get => _name;
-            set => _name = value;
+            set
+            {
+                var oldName = _name;
+                _name = value;
+                _nameChanged(this, new() { OldName = oldName, NewName = _name });
+            }
         }
 
         partial void PartialMethod() { Value = 3; }
@@ -847,5 +1075,16 @@ namespace WebSharper.CSharp.Tests
         {
             Value = 4;
         }
+
+        public partial PartialClass(string name) { Name = name; }
+
+        private EventHandler<NameChangeEventArgs> _nameChanged;
+        
+        public partial event EventHandler<NameChangeEventArgs> OnNameChanged
+        {
+            add { _nameChanged += value; }
+            remove { _nameChanged -= value; }
+        }
+
     }
 }
