@@ -11,20 +11,20 @@ description
 tags
     WebSharper Web JavaScript FSharp CSharp Tests
 dependencies
-    framework: net9.0
+    framework: net10.0
         WebSharper == CURRENTVERSION
         WebSharper.Testing == CURRENTVERSION
 files
-    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.dll ==> lib/net9.0
-    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.Proxy.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.CSharp.Interop.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.CSharp.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.Module.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.Sitelets.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.Web.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/WebSharper.Tests.dll ==> lib/net9.0
-    ../build/Release/Tests/net9.0/Website.dll ==> lib/net9.0
+    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.dll ==> lib/net10.0
+    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.Proxy.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.CSharp.Interop.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.CSharp.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.Module.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.Sitelets.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.Web.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/WebSharper.Tests.dll ==> lib/net10.0
+    ../build/Release/Tests/net10.0/Website.dll ==> lib/net10.0
