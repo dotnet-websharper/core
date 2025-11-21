@@ -247,7 +247,7 @@ namespace WebSharper.CSharp.Tests
             Equal(new StructTest(1, "").X2, 2);
         }
 
-        [Test("C# 14 partial classes", TestKind.Skip)]
+        [Test("C# 14 partial classes")]
         public void PartialClasses()
         {
             var o = new PartialClass();
@@ -262,7 +262,7 @@ namespace WebSharper.CSharp.Tests
             Equal(o.Name, "John");
         }
 
-        [Test("C# 14 partial events and constructors", TestKind.Skip)]
+        [Test("C# 14 partial events and constructors")]
         public void MorePartialClasses()
         {
             // partial constructor

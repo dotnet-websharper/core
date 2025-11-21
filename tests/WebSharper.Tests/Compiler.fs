@@ -109,20 +109,20 @@ module Server =
         
         |]
 
-type MyFeature() =
-    [<JavaScript>]
+[<JavaScript>]
+type MyFeatureClient =
     static let mutable initialized = false
     
-    [<JavaScript>]
     static member Initialize() = initialized <- true
     
-    [<JavaScript>]
     static member IsInitialized() = initialized
+
+type MyFeature() =
     
     member this.InitializeMethod =
-        let thisType = typeof<MyFeature>
-        let initializeMethod = thisType.GetMethod("Initialize")
-        WebSharper.Core.AST.Reflection.ReadTypeDefinition thisType,
+        let clientType = typeof<MyFeatureClient>
+        let initializeMethod = clientType.GetMethod("Initialize")
+        WebSharper.Core.AST.Reflection.ReadTypeDefinition clientType,
         WebSharper.Core.AST.Reflection.ReadMethod initializeMethod
 
     interface IBundleExports with
@@ -131,14 +131,14 @@ type MyFeature() =
 
     interface IRequiresResources with
         member this.Requires(meta, json, getId) =
-            let thisType, initializeMethod = this.InitializeMethod
-            match meta.Classes.TryGetValue(thisType) with
+            let clientType, initializeMethod = this.InitializeMethod
+            match meta.Classes.TryGetValue(clientType) with
             | true, (cAddr, _, Some cls) ->
                 match cls.Methods.TryGetValue(initializeMethod) with
                 | true, mtd ->
                     match mtd.CompiledForm with
-                    | WebSharper.Core.Metadata.CompiledMember.Func (name, _) ->
-                        let initialize = ClientCode.ClientImport (cAddr.Func(name))
+                    | WebSharper.Core.Metadata.CompiledMember.Static (name, _, _) ->
+                        let initialize = ClientCode.ClientImport (cAddr.Static(name))
                         [ ClientCode.ClientApply(initialize, []) ]
                     | _ -> failwith "MyFeature: Expected function compiled form"
                 | _ -> failwith "MyFeature: Failed to look up method"
@@ -159,7 +159,7 @@ let Tests =
         }
 
         Test "RequireFeature" {
-            isTrue (MyFeature.IsInitialized())
+            isTrue (MyFeatureClient.IsInitialized())
         }
     }
 

@@ -443,7 +443,7 @@ let translate isBundle (source: string) =
     
         //printfn "trimmedMeta: %A" trimmedMeta
 
-        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.EntryPointStyle.OptionalEntryPoint
     
         //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
@@ -454,7 +454,7 @@ let translate isBundle (source: string) =
     
     else
 
-        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" false None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" false None WebSharper.Compiler.JavaScriptPackager.EntryPointStyle.OptionalEntryPoint
     
         for (file, p) in pkg do
             printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))

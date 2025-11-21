@@ -1063,7 +1063,7 @@ x: Equal(a, 1);
             {
                 var oldName = _name;
                 _name = value;
-                _nameChanged(this, new() { OldName = oldName, NewName = _name });
+                _nameChanged?.Invoke(this, new() { OldName = oldName, NewName = _name });
             }
         }
 
