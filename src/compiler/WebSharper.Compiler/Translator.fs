@@ -2175,6 +2175,23 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else
             Cast(t, trExpr) 
 
+    override this.TransformValue (value) = 
+        match value with
+        | Literal.Single x when System.Single.IsInfinity x ->
+            Global [ "Infinity" ]
+        | Literal.Single x when System.Single.IsNegativeInfinity x ->
+            Unary(UnaryOperator.``-``, Global [ "Infinity" ])
+        | Literal.Single x when System.Single.IsNaN x ->
+            Global [ "NaN" ]
+        | Literal.Double x when System.Double.IsInfinity x ->
+            Global [ "Infinity" ]
+        | Literal.Double x when System.Double.IsNegativeInfinity x ->
+            Unary(UnaryOperator.``-``, Global [ "Infinity" ])
+        | Literal.Double x when System.Double.IsNaN x ->
+            Global [ "NaN" ]
+        | _ -> 
+            Value value
+
     override this.TransformTypeCheck(expr, typ) =
         match typ with
         | ConcreteType td ->
