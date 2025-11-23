@@ -33,17 +33,38 @@ open System.Runtime.InteropServices
 type private MemoryExtensionsProxy =
 
     [<Inline>]
-    static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>) =
-        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other)     
-
-    [<Inline>]
-    static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>, comparer: IEqualityComparer<'T>) =
-        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other, comparer)     
-
-    [<Inline>]
     static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T) =
         Enumerable.Contains(As<'T[]>span, value)
 
     [<Inline>]
     static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T, comparer: IEqualityComparer<'T>) =
         Enumerable.Contains(As<'T[]>span, value, comparer)
+
+    [<Name "SequenceCompareTo">]
+    static member SequenceCompareToImpl<'T>(x: 'T[], y: 'T[], comparer: IComparer<'T>): int =
+        let rec comp i =
+            match x.JS.Length < i + 1, y.JS.Length < i + 1 with
+            | true, true -> 0
+            | true, false -> -1
+            | false, true -> 1
+            | _ ->
+                match comparer.Compare(x.JS[i], y.JS[i]) with
+                | 0 -> comp (i + 1)
+                | res -> res
+        comp 0
+
+    [<Inline>]
+    static member SequenceCompareTo<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>) =
+        MemoryExtensionsProxy.SequenceCompareToImpl(As<'T[]>span, As<'T[]>other, Comparer<'T>.Default)
+
+    [<Inline>]
+    static member SequenceCompareTo<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>) =
+        MemoryExtensionsProxy.SequenceCompareToImpl(As<'T[]>span, As<'T[]>other, comparer)
+
+    [<Inline>]
+    static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>) =
+        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other)     
+
+    [<Inline>]
+    static member SequenceEqual<'T>(span: ReadOnlySpanProxy<'T>, other: ReadOnlySpanProxy<'T>, comparer: IEqualityComparer<'T>) =
+        Enumerable.SequenceEqual<'T>(As<'T[]>span, As<'T[]>other, comparer)     

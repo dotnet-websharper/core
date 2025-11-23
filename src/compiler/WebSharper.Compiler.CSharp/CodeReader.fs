@@ -580,6 +580,12 @@ module Definitions =
             Generics = 1
         }
 
+    let ReadOnlySpanType =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.ReadOnlySpan`1"
+        }
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
         let l =
@@ -3036,7 +3042,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> None
 
         let emptyColl, addItem, make =
-            if iocType.TypeKind = TypeKind.Array || iocTypOpt |> Option.exists (fun t -> t.Entity = Definitions.SeqType) then
+            if iocType.TypeKind = TypeKind.Array || iocTypOpt |> Option.exists (fun t -> t.Entity = Definitions.SeqType || t.Entity = Definitions.ReadOnlySpanType) then
                 NewArray [],
                 (fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])),
                 None
@@ -3074,9 +3080,9 @@ type RoslynTransformer(env: Environment) =
                         | 1 ->
                             addMethods[0]
                         | 0 ->
-                            failwith "Add method not found for collection initializer"
+                            failwith $"Add method not found for collection initializer on type {iocType.ToDisplayString()}"
                         | _ ->
-                            failwith "Collection initializer is only supported with a non-overloaded Add method"
+                            failwith $"Collection initializer is only supported with a non-overloaded Add method on type {iocType.ToDisplayString()}"
                     let addM = addSymbol |> sr.ReadGenericMethod
                     Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
                     (fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])),

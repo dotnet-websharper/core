@@ -42,6 +42,13 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void AggregateBy()
+        {
+            Equal(arr.AggregateBy(x => x % 2, 0, Add).ToArray(), [new(1, 9), new(0, 12)]);
+            Equal(arr.AggregateBy(x => x % 2, x => x * 10, Add).ToArray(), [new(1, 19), new(0, 12)]);
+        }
+
+        [Test]
         public void All()
         {
             IsTrue(arr.All(x => x > 0 && x < 7));
@@ -93,6 +100,12 @@ namespace WebSharper.CSharp.Tests
         {
             Equal(arr.Count(), 6);
             Equal(narr.Count(x => x == null), 3);
+        }
+
+        [Test]
+        public void CountBy()
+        {
+            Equal(arr.CountBy(x => x % 2).ToArray(), [new(1, 3), new(0, 3)]);
         }
 
         [Test]
@@ -219,6 +232,12 @@ namespace WebSharper.CSharp.Tests
                 new[] { "1", "aaa", "d" },
                 new[] { "2", "bb", "cc" } };
             Equal(g2.ToArray(), expected2, "With equality comparer");
+        }
+
+        [Test]
+        public void InfiniteSequence()
+        {
+            Equal(Enumerable.InfiniteSequence(1, 2).Take(3).ToArray(), [1, 3, 5]);
         }
 
         [Test]
@@ -375,10 +394,25 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void Sequence()
+        {
+            Equal(Enumerable.Sequence(1, 6, 2).ToArray(), [1, 3, 5]);
+        }
+
+        [Test]
+        public void SequenceCompareTo()
+        {
+            Equal((new int[0]).SequenceCompareTo([]), 0);
+            Equal((new[] { 1, 2, 3 }).SequenceCompareTo([1, 2, 3]), 0);
+            Equal((new[] { 1, 2, 3, 4 }).SequenceCompareTo([1, 2, 3]), 1);
+            Equal((new[] { 1, 2, 3 }).SequenceCompareTo([1, 2, 4]), -1);
+        }
+
+        [Test]
         public void SequenceEqual()
         {
             IsTrue(arr.SequenceEqual(arr), "Self array");
-            //IsTrue(seq().SequenceEqual(new[] { 1, 2, 3, 4, 5, 6 }), "Sequence");
+            IsTrue(seq().SequenceEqual(new[] { 1, 2, 3, 4, 5, 6 }), "Sequence");
             IsTrue(arr.SequenceEqual(new[] { 1, 2, 1, 2, 1, 2 }), "With equality comparer");
         }
 
@@ -495,6 +529,20 @@ namespace WebSharper.CSharp.Tests
             {
                 Equal(l[x], x + 1);
             }
+        }
+
+        [Test]
+        public void TryGetNonEnumeratedCount()
+        {
+            int count = -1;
+            IsTrue(arr.TryGetNonEnumeratedCount(out count));
+            Equal(count, 6);
+            count = -1;
+            IsTrue(new HashSet<int>(arr).TryGetNonEnumeratedCount(out count));
+            Equal(count, 6);
+            count = -1;
+            IsFalse(Enumerable.InfiniteSequence(0, 1).TryGetNonEnumeratedCount(out count));
+            Equal(count, 0);
         }
 
         [Test]

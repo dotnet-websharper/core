@@ -32,7 +32,7 @@ type internal IGroupingProxy<'K, 'T> =
     abstract Key : 'K
 
 [<JavaScript>]
-type internal Grouping<'K, 'T> (k: 'K, v: seq<'T>) =
+type internal Grouping<'K, 'T> (k: 'K, v: ResizeArray<'T>) =
 
     interface seq<'T> with
         member this.GetEnumerator() =
@@ -44,6 +44,9 @@ type internal Grouping<'K, 'T> (k: 'K, v: seq<'T>) =
 
     interface System.Linq.IGrouping<'K, 'T> with
         member this.Key = k
+
+    [<Inline>]
+    member this.AsArray() = As<'T[]> v
 
 [<Proxy(typeof<IOrderedEnumerable<_>>)>]
 type internal IOrderedEnumerableProxy<'T> =
@@ -176,6 +179,23 @@ type private LinqProxy =
     static member Aggregate<'T, 'U, 'R>(this: seq<'T>, seed: 'U, func: Func<'U, 'T, 'U>, resultSelector: Func<'U, 'R>) : 'R =
         resultSelector.Invoke(Seq.fold (fun x y -> func.Invoke(x, y)) seed this)
 
+    [<Name "AggregateBy">]
+    static member AggregateByImpl<'T,'K,'A>(source: seq<'T>, keySelector: Func<'T, 'K>, seedSelector: Func<'K,'A>, func: Func<'A,'T,'A>, keyComparer: IEqualityComparer<'K>) : seq<KeyValuePair<'K,'A>> =
+        source.GroupBy(keySelector, keyComparer)
+        |> Seq.map (fun g ->
+            KeyValuePair(g.Key, As<Grouping<'K, 'T>>(g).AsArray() |> Array.fold (fun x y -> func.Invoke(x, y)) (seedSelector.Invoke(g.Key)))
+        )
+    
+    [<Inline>]
+    static member AggregateBy<'T,'K,'A>(source: seq<'T>, keySelector: Func<'T, 'K>, seedSelector: Func<'K,'A>, func: Func<'A,'T,'A>, keyComparer: IEqualityComparer<'K>) : seq<KeyValuePair<'K,'A>> =
+        let keyComparer = if isNull keyComparer then EqualityComparer.Default :> IEqualityComparer<'K> else keyComparer
+        LinqProxy.AggregateByImpl(source, keySelector, seedSelector, func, keyComparer)
+
+    [<Inline>]
+    static member AggregateBy<'T,'K,'A>(source: seq<'T>, keySelector: Func<'T, 'K>, seed: 'A, func: Func<'A,'T,'A>, keyComparer: IEqualityComparer<'K>) : seq<KeyValuePair<'K,'A>> =
+        let keyComparer = if isNull keyComparer then EqualityComparer.Default :> IEqualityComparer<'K> else keyComparer
+        LinqProxy.AggregateByImpl(source, keySelector, (fun _ -> seed), func, keyComparer)
+
     [<Inline>]
     static member All<'T>(this: seq<'T>, predicate: Func<'T, bool>) : bool =
         Seq.forall predicate.Invoke this
@@ -270,6 +290,18 @@ type private LinqProxy =
     [<Inline>]
     static member Count<'T>(this: seq<'T>, predicate: Func<'T, bool>) : int =
         Seq.length (Seq.filter predicate.Invoke this)
+
+    [<Name "CountBy">]
+    static member CountByImpl<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>, keyComparer: IEqualityComparer<'K>) : seq<KeyValuePair<'K, int>> =
+        this.GroupBy(keySelector, keyComparer)
+        |> Seq.map (fun g ->
+            KeyValuePair(g.Key, As<Grouping<'K, 'T>>(g).AsArray().Length)
+        )
+
+    [<Inline>]
+    static member CountBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>, keyComparer: IEqualityComparer<'K>) : seq<KeyValuePair<'K, int>> =
+        let keyComparer = if isNull keyComparer then EqualityComparer.Default :> IEqualityComparer<'K> else keyComparer
+        LinqProxy.CountByImpl(this, keySelector, keyComparer)
 
     [<Inline>]
     static member DefaultIfEmpty<'T>(this: seq<'T>) : seq<'T> =
@@ -420,6 +452,14 @@ type private LinqProxy =
                 a.[i] <- As (resultSelector.Invoke(o, is)))
             As a
         )
+
+    [<Inline>]
+    static member Index<'T>(this: seq<'T>) : seq<struct ('T * int)> =
+        As<seq<struct ('T * int)>>(Seq.indexed this)
+
+    [<Inline>]
+    static member InfiniteSequence<'T when 'T :> System.Numerics.INumber<'T>>(start: 'T, step: 'T) : seq<'T> =
+        Seq.unfold (fun s -> Some (s, s + step)) start
 
     [<Inline>]
     static member Intersect<'T>(this: seq<'T>, second: seq<'T>) : seq<'T> =
@@ -669,6 +709,10 @@ type private LinqProxy =
             cs |> Seq.map (fun c -> collectionSelector.Invoke(t, c)))
 
     [<Inline>]
+    static member Sequence<'T when 'T :> System.Numerics.INumber<'T> and 'T: comparison>(start: 'T, endInclusive: 'T, step: 'T) : seq<'T> =
+        seq { start .. step .. endInclusive }
+
+    [<Inline>]
     static member SequenceEqual<'T>(this: seq<'T>, second: seq<'T>) : bool =
         LinqProxy.SequenceEqualImpl(this, second, EqualityComparer.Default)
 
@@ -892,6 +936,26 @@ type private LinqProxy =
 //    [<Inline>]
 //    static member ToLookup<'T, 'K, 'E>(this: seq<'T>, keySelector: Func<'T, 'K>, elementSelector: Func<'T, 'E>, comparer: IEqualityComparer<'K>) : ILookup<'K, 'E> =
 //        Lookup<'K, 'T, 'E>(this, keySelector, elementSelector, comparer) :> _
+
+    static member TryGetNonEnumeratedCount(this: seq<'T>, count: outref<int>) : bool =
+        match box this with
+        | null ->
+            raise (ArgumentNullException("this"))
+        | :? System.Array as a -> 
+            count <- a.Length
+            true
+        | :? string as s -> 
+            count <- s.Length
+            true
+        | :? ICollection as c -> 
+            count <- c.Count
+            true
+        | :? ICollection<'T> as c -> 
+            count <- c.Count
+            true
+        | _ ->
+            count <- 0
+            false
 
     [<Inline>]
     static member Union<'T>(this: seq<'T>, second: seq<'T>) : seq<'T> =
