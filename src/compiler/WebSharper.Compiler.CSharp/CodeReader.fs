@@ -3266,11 +3266,21 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         env.Compilation.AddBundleExports(Some (typ, meth), ems, None, bundleScope)
                     | _ -> ()
                 //failwithf "Found InvocationExpression: %s.%s" typ.Value.FullName meth.Value.MethodName
-                match env.Compilation.TryLookupQuotedArgMethod(typ, meth) with
-                | Some indexes ->
-                    checkQuotedArgs indexes n.ArgumentList
+                let jsIndexes = 
+                    symbol.Parameters |> Seq.mapi (fun i p ->
+                        let hasJSAttr =
+                            p.GetAttributes() |> Seq.exists (fun a -> 
+                                let atyp = env.SymbolReader.ReadNamedTypeDefinition a.AttributeClass
+                                atyp.Value.FullName = "WebSharper.JavaScriptAttribute"
+                            )
+                        if hasJSAttr then Some i else None
+                    )
+                    |> Seq.choose id
+                    |> Array.ofSeq
+                if not (Array.isEmpty jsIndexes) then
+                    checkQuotedArgs jsIndexes n.ArgumentList
                     default'()
-                | _ ->
+                else
                     let newBundleScope = 
                         match getBundleMethod (typ, meth, n.ArgumentList.Arguments) with
                         | Ok scope -> scope
