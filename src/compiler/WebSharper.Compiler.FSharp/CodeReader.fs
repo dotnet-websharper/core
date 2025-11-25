@@ -1600,18 +1600,29 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             if a.AttributeType.FullName = "WebSharper.RequireFeatureAttribute" then
                                 let args = env.SymbolReader.AttributeReader.GetCtorArgs a
                                 let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
+                                let paramArg = 
+                                    args 
+                                    |> Array.tryItem 1 
+                                    |> Option.map (fun a ->
+                                        match a with
+                                        | :? FSharpType as t -> 
+                                            env.SymbolReader.ReadType Map.empty t 
+                                            |> Reflection.LoadType 
+                                            |> box
+                                        | _ -> a
+                                    )
                                 try 
                                     let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
-                                    System.Activator.CreateInstance(loadedType) |> Some
+                                    Some (System.Activator.CreateInstance(loadedType), paramArg)
                                 with _ -> 
                                     failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
                             else
                                 None
                         )
-                    for rf in requiredFeatures do
+                    for rf, arg in requiredFeatures do
                         match rf with
                         | :? WebSharper.IBundleExports as ems ->
-                            env.Compilation.AddBundleExports(Some (typ, m), ems, None, bundleScope)
+                            env.Compilation.AddBundleExports(Some (typ, m), ems, arg, bundleScope)
                             | _ -> ()
                     let newBundleScope = 
                         match getBundleMethod (typ, m, arguments) with

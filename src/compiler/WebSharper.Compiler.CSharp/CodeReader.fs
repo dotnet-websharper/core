@@ -3252,18 +3252,29 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         if atyp.Value.FullName = "WebSharper.RequireFeatureAttribute" then
                             let args = env.SymbolReader.AttributeReader.GetCtorArgs a
                             let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
+                            let paramArg = 
+                                args 
+                                |> Array.tryItem 1 
+                                |> Option.map (fun a ->
+                                    match a with
+                                    | :? ITypeSymbol as t -> 
+                                        env.SymbolReader.ReadType t 
+                                        |> Reflection.LoadType 
+                                        |> box
+                                    | _ -> a
+                                )
                             try 
                                 let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
-                                System.Activator.CreateInstance(loadedType) |> Some
+                                Some (System.Activator.CreateInstance(loadedType), paramArg)
                             with _ -> 
                                 failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
                         else
                             None
                     )
-                for rf in requiredFeatures do
+                for rf, arg in requiredFeatures do
                     match rf with
                     | :? WebSharper.IBundleExports as ems ->
-                        env.Compilation.AddBundleExports(Some (typ, meth), ems, None, bundleScope)
+                        env.Compilation.AddBundleExports(Some (typ, meth), ems, arg, bundleScope)
                     | _ -> ()
                 //failwithf "Found InvocationExpression: %s.%s" typ.Value.FullName meth.Value.MethodName
                 let jsIndexes = 

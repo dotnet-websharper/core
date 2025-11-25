@@ -409,5 +409,8 @@ type FSharpSourceGeneratorAttribute(fileExtension: string, generatorType: Type) 
 
 /// Marks a feature that can add exported methods to page bundles.
 [<Sealed; U(T.Method, AllowMultiple = true)>]
-type RequireFeatureAttribute(featureType: Type) =
+type RequireFeatureAttribute private () =
     inherit A()
+
+    new (featureType: Type) = RequireFeatureAttribute()
+    new (featureType: Type, parameter: obj) = RequireFeatureAttribute()
