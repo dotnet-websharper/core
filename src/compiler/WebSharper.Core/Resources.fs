@@ -462,7 +462,7 @@ type BundleCss =
             if ctx.GetSetting "IsOffline" = Some "true"
                 || File.Exists(Path.Combine(this.WebRootFolder, "Scripts", "WebSharper", this.BundleName + ".css")) 
             then
-                fun writer -> link ctx.DefaultToHttp (writer Styles) ("/Scripts/WebSharper/" + this.BundleName + ".css")
+                fun writer -> link ctx.DefaultToHttp (writer Styles) ("./Scripts/WebSharper/" + this.BundleName + ".css")
             else
                 ignore
 
