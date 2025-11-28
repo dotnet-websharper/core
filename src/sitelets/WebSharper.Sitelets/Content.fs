@@ -132,7 +132,8 @@ module Content =
                     | ClientReplaceInDom (_, c) 
                     | ClientReplaceInDomWithBody (_, c)
                     | ClientAddEventListener (_, _, c)
-                    | ClientInitialize (_, c) ->
+                    | ClientInitialize (_, c)
+                    | ClientLambda (_, c) ->
                         importsOf c   
                     | _ ->
                         Seq.empty
@@ -303,6 +304,11 @@ module Content =
                         lookupElement i
                     | ClientInitialize (_, c) ->
                         getCode c
+                    | ClientLambda (a, c) ->
+                        let args = a |> Seq.map (fun i -> "_" + string i)
+                        $"({args}) => {getCode c}"
+                    | ClientParam i -> 
+                        "_" + string i
 
                 for ii, a in toActivate do
                     match a with

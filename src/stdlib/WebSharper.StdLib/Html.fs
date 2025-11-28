@@ -38,6 +38,8 @@ type ClientCode =
     | ClientDOMElement of string
     | ClientInitialize of string * ClientCode
     | ClientBundle of string
+    | ClientLambda of int[] * ClientCode
+    | ClientParam of int
 
 /// Use to get a new unique id for an element on a page.
 [<JavaScript(false)>]
