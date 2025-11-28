@@ -732,6 +732,11 @@ let CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata =
         raise e.InnerException
 
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
+#if DEBUG
+    let exitCode = 
+        Compile config warnSettings logger checkerFactory tryGetMetadata
+    exitCode            
+#else
     try 
         let exitCode = 
             CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata
@@ -739,3 +744,4 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
     with _ ->
         clearOutput config logger
         reraise()
+#endif
