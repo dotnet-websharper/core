@@ -459,12 +459,12 @@ type BundleCss =
     }
     interface IResource with
         member this.Render ctx =
-            if ctx.GetSetting "IsOffline" = Some "true"
-                || File.Exists(Path.Combine(this.WebRootFolder, "Scripts", "WebSharper", this.BundleName + ".css")) 
-            then
-                fun writer -> link ctx.DefaultToHttp (writer Styles) ("./Scripts/WebSharper/" + this.BundleName + ".css")
-            else
-                ignore
+            fun writer -> 
+                match ctx.ScriptBaseUrl with
+                | None ->
+                    link ctx.DefaultToHttp (writer Styles) ("/Scripts/WebSharper/" + this.BundleName + ".css")
+                | Some scriptBaseUrl ->
+                    link ctx.DefaultToHttp (writer Styles) (scriptBaseUrl + this.BundleName + ".css")
 
 [<Sealed>]
 type Runtime() =
