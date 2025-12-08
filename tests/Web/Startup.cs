@@ -47,8 +47,11 @@ namespace Web
             //    .UseContentRoot(System.IO.Directory.GetCurrentDirectory())
             //    .UseIIS()
             //    .UseIISIntegration()
-            WebHost.CreateDefaultBuilder(args)
-                .UseStartup<Startup>()
+            Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(webHostBuilder =>
+                {
+                    webHostBuilder.UseStartup<Startup>();
+                })
                 .Build()
                 .Run();
         }
