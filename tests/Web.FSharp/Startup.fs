@@ -37,8 +37,9 @@ type Startup () =
 
 [<EntryPoint>]
 let main args =
-    WebHost.CreateDefaultBuilder(args)
-        .UseStartup<Startup>()
+    Host.CreateDefaultBuilder(args)
+        .ConfigureWebHostDefaults(fun webHostBuilder ->
+            webHostBuilder.UseStartup<Startup>() |> ignore)
         .Build()
         .Run()
     0
