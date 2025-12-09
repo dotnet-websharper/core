@@ -329,17 +329,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             jsUsed.Add(fromJS) |> ignore
                     GlobalAccess address    
                 | JavaScriptModule m ->
-                    let importWhat, importAs =
-                        let fromModuleName() = m.Name.Replace('.', '_').Replace('`', '_')
-                        match address.Address with
-                        | [] -> 
-                            "*", fromModuleName()
-                        | a -> 
-                            let n = List.last a
-                            if n = "default" then
-                                n, fromModuleName()
-                            else
-                                n, n
                     let moduleImports =
                         match imports.TryGetValue m with
                         | true, mi -> mi
@@ -347,18 +336,32 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             let mi = Dictionary()
                             imports.Add(m, mi)
                             mi
-                    let i =
-                        match moduleImports.TryGetValue importWhat with
-                        | true, i -> i
-                        | _ ->
-                            let i = Id.New(importAs)
-                            moduleImports.Add(importWhat, i)
-                            i
-                    let importedAddress =
-                        match address.Address with
-                        | [] -> { address with Module = ImportedModule i }
-                        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
-                    GlobalAccess importedAddress
+                    if sideEffectingImport then
+                        Undefined
+                    else
+                        let importWhat, importAs =
+                            let fromModuleName() = m.Name.Replace('.', '_').Replace('`', '_')
+                            match address.Address with
+                            | [] -> 
+                                "*", fromModuleName()
+                            | a -> 
+                                let n = List.last a
+                                if n = "default" then
+                                    n, fromModuleName()
+                                else
+                                    n, n
+                        let i =
+                            match moduleImports.TryGetValue importWhat with
+                            | true, i -> i
+                            | _ ->
+                                let i = Id.New(importAs)
+                                moduleImports.Add(importWhat, i)
+                                i
+                        let importedAddress =
+                            match address.Address with
+                            | [] -> { address with Module = ImportedModule i }
+                            | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
+                        GlobalAccess importedAddress
                 | NpmPackage p ->
                     if sideEffectingImport then
                         let m = { Assembly = ""; Name = p }
