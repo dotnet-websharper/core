@@ -220,6 +220,13 @@ module Content =
                         elems.Add(i) |> ignore
                     v
 
+                let lookupElements i =
+                    let v = "e" + i
+                    if not (elems.Contains(i)) then
+                        scriptsTw.WriteLine($"""let {v} = document.querySelectorAll("[ws-{i}]");""")
+                        elems.Add(i) |> ignore
+                    v
+
                 let rec getCode a =
                     match a with
                     | ClientBundle _ 
@@ -300,11 +307,11 @@ module Content =
                     | ClientReplaceInDomWithBody (i, c) -> 
                         $"""{getCode c}.Body.ReplaceInDom({lookupElement i})"""
                     | ClientAddEventListener (i, ev, c) ->
-                        let el = lookupElement i
+                        let el = lookupElements i
                         if String.IsNullOrEmpty(ev) then
-                            $"""{el}.addEventListener({el}.getAttribute('ws-{i}'),{getCode c})"""
+                            $"""{el}.forEach(e => e.addEventListener(e.getAttribute('ws-{i}'),{getCode c}))"""
                         else
-                            $"""{el}.addEventListener("{ev}",{getCode c})"""
+                            $"""{el}.forEach(e => e.addEventListener("{ev}",{getCode c}))"""
                     | ClientDOMElement i ->
                         lookupElement i
                     | ClientInitialize (_, c) ->
