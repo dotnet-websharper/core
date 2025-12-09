@@ -142,12 +142,15 @@ module Content =
                 |> Seq.collect importsOf
                 |> Array.ofSeq
 
-#if DEBUG
-            scriptsTw.WriteLine("<!--")
-            scriptsTw.WriteLine("imports needed:")
-            for i in allImports do
-                scriptsTw.WriteLine(i.ToString())
-#endif
+            let logBundleChoice =                
+                match ctx.ResourceContext.GetSetting("LogBundleChoice") with
+                | Some setting -> 
+                    match bool.TryParse(setting) with
+                    | true, v -> v
+                    | _ -> false
+                | _ -> false
+
+            let commentLog = if logBundleChoice then System.Text.StringBuilder() else null
 
             let hasRoot =
                 ctx.Metadata.PreBundle.Count = 1 && ctx.Metadata.PreBundle.ContainsKey("root")
@@ -156,9 +159,6 @@ module Content =
                 if hasRoot then
                     Some "root"
                 elif ctx.Metadata.PreBundle.Count > 0 && allImports.Length > 0 then
-#if DEBUG
-                    scriptsTw.WriteLine($"bundles: %A{requiredBundles}")
-#endif
                     match requiredBundles with
                     | [||] ->
                         if ctx.Metadata.PreBundle.ContainsKey("all") then Some "all" else None
@@ -170,11 +170,14 @@ module Content =
                                 if allImports |> Seq.forall (fun a -> bundle.ContainsKey a.Root) then
                                     true
                                 else
-#if DEBUG
-                                    scriptsTw.WriteLine($"failed to use bundle {b}:")
-                                    for i in bundle.Keys do
-                                        scriptsTw.WriteLine(i.ToString())
-#endif
+                                    if logBundleChoice then
+                                        commentLog.AppendLine($"failed to use bundle {b}, missing import(s):") |> ignore
+                                        for a in allImports do
+                                            if not (bundle.ContainsKey a.Root) then
+                                                commentLog.AppendLine(a.Root.ToString()) |> ignore
+                                        commentLog.AppendLine($"bundle contents:") |> ignore
+                                        for i in bundle.Keys do
+                                            commentLog.AppendLine(i.ToString()) |> ignore
                                     false
                             | _ ->
                                 false
@@ -184,9 +187,11 @@ module Content =
                         )
                 else
                     None
-#if DEBUG
-            scriptsTw.WriteLine("-->")
-#endif
+
+            if logBundleChoice && commentLog.Length > 0 then
+                scriptsTw.WriteLine("<!--")
+                scriptsTw.Write(commentLog.ToString())
+                scriptsTw.WriteLine("-->")
 
             // Render css for bundle if exists
             bundleName |> Option.iter (fun b ->
