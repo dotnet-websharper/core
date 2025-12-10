@@ -148,7 +148,7 @@ type PackageTypeResults =
     }
 
 let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattened (content: PackageContent) =
-    let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
+    let imports = Dictionary<AST.CodeResource, bool * Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
@@ -320,7 +320,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | ImportedFile m ->
                     if not (imports.ContainsKey m) then
                         let mi = Dictionary()
-                        imports.Add(m, mi)
+                        imports.Add(m, (false, mi))
                     if sideEffectingImport then
                         Undefined
                     else
@@ -334,10 +334,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | JavaScriptModule m ->
                     let moduleImports =
                         match imports.TryGetValue m with
-                        | true, mi -> mi
+                        | true, (_, mi) -> mi
                         | _ ->
                             let mi = Dictionary()
-                            imports.Add(m, mi)
+                            imports.Add(m, (true, mi))
                             mi
                     if sideEffectingImport then
                         Undefined
@@ -369,10 +369,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     if sideEffectingImport then
                         let m = { Assembly = ""; Name = p }
                         match imports.TryGetValue m with
-                        | true, mi -> ()
+                        | true, _ -> ()
                         | _ ->
                             let mi = Dictionary()
-                            imports.Add(m, mi)
+                            imports.Add(m, (false, mi))
                         Undefined
                     else
                         let importWhat, importAs =
@@ -389,10 +389,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                         let m = { Assembly = ""; Name = p }
                         let moduleImports =
                             match imports.TryGetValue m with
-                            | true, mi -> mi
+                            | true, (_, mi) -> mi
                             | _ ->
                                 let mi = Dictionary()
-                                imports.Add(m, mi)
+                                imports.Add(m, (false, mi))
                                 mi
                         let i =
                             match moduleImports.TryGetValue importWhat with
@@ -436,10 +436,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                                     n, n
                         let moduleImports =
                             match imports.TryGetValue m with
-                            | true, mi -> mi
+                            | true, (_, mi) -> mi
                             | _ ->
                                 let mi = Dictionary()
-                                imports.Add(m, mi)
+                                imports.Add(m, (true, mi))
                                 mi
                         let i =
                             match moduleImports.TryGetValue importWhat with
@@ -1473,7 +1473,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             | Bundle (_, WorkerBundle, _) -> true
             | _ -> false
 
-        for KeyValue(m, i) in imports do
+        for KeyValue(m, (isJs, i)) in imports do
             if not (currentScope.Contains(m)) then
                 let defaultImport =
                     match i.TryGetValue("default") with
@@ -1493,7 +1493,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     |> List.ofSeq
                 let ext =
                     match output with
-                    | O.JavaScript -> ".js"
+                    | O.JavaScript -> if isJs then ".js" else ""
                     | _ -> ""
                 let fromModule =
                     if isWorkerBundle then

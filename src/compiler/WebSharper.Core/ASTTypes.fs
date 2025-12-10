@@ -1190,7 +1190,7 @@ module Address =
             if name.EndsWith(".js") then
                 JavaScriptModule { Assembly = asmName; Name = name[.. name.Length - 4] }
             else
-                ImportedFile { Assembly = asmName; Name = name[.. name.Length - 4] }
+                ImportedFile { Assembly = asmName; Name = name }
         let m =
             if from.StartsWith("./") then
                 getM asmName from[2 ..] 
