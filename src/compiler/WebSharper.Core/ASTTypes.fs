@@ -1078,7 +1078,7 @@ type Member =
 
 type Module =
     | StandardLibrary
-    | JavaScriptFile of CodeResource
+    | ImportedFile of CodeResource
     | JavaScriptModule of CodeResource
     | DotNetType of CodeResource
     | NpmPackage of string
@@ -1087,7 +1087,7 @@ type Module =
     override this.ToString() =
         match this with
         | StandardLibrary -> ""
-        | JavaScriptFile r
+        | ImportedFile r
         | JavaScriptModule r -> string r
         | DotNetType r -> string r
         | NpmPackage p -> string p
@@ -1104,7 +1104,7 @@ type Address =
     override this.ToString() =
         match this.Module with
         | StandardLibrary
-        | JavaScriptFile _ -> "globalThis."
+        | ImportedFile _ -> "globalThis."
         | JavaScriptModule c 
         | DotNetType c -> string c + "::"
         | NpmPackage p -> p
@@ -1114,7 +1114,7 @@ type Address =
     member this.JSAddress =
         match this.Module with
         | StandardLibrary
-        | JavaScriptFile _ ->
+        | ImportedFile _ ->
             Some this.Address
         | _ -> None
 
@@ -1186,15 +1186,19 @@ module Address =
     let TypeDefaultExport t = { Module = DotNetType t; Address = Instances.DefaultAddress }
     let TypeNamedExport t n = { Module = DotNetType t; Address = [ n ] }
     let Import asmName (export: string option, from: string) = 
-        let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
+        let getM asmName (name: string) =
+            if name.EndsWith(".js") then
+                JavaScriptModule { Assembly = asmName; Name = name[.. name.Length - 4] }
+            else
+                ImportedFile { Assembly = asmName; Name = name[.. name.Length - 4] }
         let m =
             if from.StartsWith("./") then
-                JavaScriptModule { Assembly = asmName; Name = from[2 ..] }
+                getM asmName from[2 ..] 
             elif from.StartsWith("../") then    
                 let from = from[3 ..]
                 match from.IndexOf('/') with
-                | -1 -> JavaScriptModule { Assembly = asmName; Name = from }
-                | i -> JavaScriptModule { Assembly = from[ .. i - 1]; Name = from[i + 1 ..] }
+                | -1 -> getM asmName from
+                | i -> getM from[ .. i - 1] from[i + 1 ..]
             else    
                 NpmPackage from
         match export with

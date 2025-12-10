@@ -437,7 +437,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             List.foldBack (fun n e -> 
                 e.[J.Constant (J.String n)]
             ) a.Address (J.Var (trI v))
-        | StandardLibrary | JavaScriptFile _ ->
+        | StandardLibrary | ImportedFile _ ->
             match List.rev a.Address with
             | [] -> globalThis
             | h :: t ->

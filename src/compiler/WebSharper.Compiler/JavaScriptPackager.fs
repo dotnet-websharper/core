@@ -317,17 +317,20 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                         if StandardLibNames.Set.Contains fromJS then
                             jsUsed.Add(fromJS) |> ignore
                     GlobalAccess address    
-                | JavaScriptFile m ->
+                | ImportedFile m ->
                     if not (imports.ContainsKey m) then
                         let mi = Dictionary()
                         imports.Add(m, mi)
-                    match address.Address with
-                    | [] -> ()
-                    | l -> 
-                        let fromJS = List.last l
-                        if StandardLibNames.Set.Contains fromJS then
-                            jsUsed.Add(fromJS) |> ignore
-                    GlobalAccess address    
+                    if sideEffectingImport then
+                        Undefined
+                    else
+                        match address.Address with
+                        | [] -> ()
+                        | l -> 
+                            let fromJS = List.last l
+                            if StandardLibNames.Set.Contains fromJS then
+                                jsUsed.Add(fromJS) |> ignore
+                        GlobalAccess address    
                 | JavaScriptModule m ->
                     let moduleImports =
                         match imports.TryGetValue m with
@@ -469,7 +472,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
         let t = a.Address |> List.rev
         match a.Module with
         | StandardLibrary
-        | JavaScriptFile _ -> TSType.Named t
+        | ImportedFile _ -> TSType.Named t
         | JavaScriptModule _ 
         | NpmPackage _
         | DotNetType _ ->

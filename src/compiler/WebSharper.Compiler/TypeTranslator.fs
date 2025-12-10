@@ -132,7 +132,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         let t = a.Address |> List.rev
         match a.Module with
         | StandardLibrary
-        | JavaScriptFile _ -> TSType.Named t
+        | ImportedFile _ -> TSType.Named t
         | JavaScriptModule _ 
         | DotNetType _ 
         | NpmPackage _ -> TSType.Importing a
