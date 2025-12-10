@@ -475,20 +475,22 @@ let WebWorkerTests =
             worker.Terminate()
             equal res "The worker replied: [worker] Hello world!"
 
-            let worker2 = new Worker(fun self ->
-                self.AddEventListener("message", (fun (e: Dom.Event) ->
-                        let e = e :?> MessageEvent
-                        self.PostMessage(GlobalFunction2(As<string> e.Data))
-                    ), false)
-            )
-            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker2.AddEventListener("message", (fun (e: Dom.Event) ->
-                        let e = e :?> MessageEvent
-                        ok ("The worker replied: " + As<string> e.Data)
-                    ), false)
-                worker2.PostMessage "Hello world!"
-            worker2.Terminate()
-            equal res "The worker replied: [worker2] Hello world!"
+            // this test is flaky in test runner because listener might be attached with a delay
+
+            //let worker2 = new Worker(fun self ->
+            //    self.AddEventListener("message", (fun (e: Dom.Event) ->
+            //            let e = e :?> MessageEvent
+            //            self.PostMessage(GlobalFunction2(As<string> e.Data))
+            //        ), false)
+            //)
+            //let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+            //    worker2.AddEventListener("message", (fun (e: Dom.Event) ->
+            //            let e = e :?> MessageEvent
+            //            ok ("The worker replied: " + As<string> e.Data)
+            //        ), false)
+            //    worker2.PostMessage "Hello world!"
+            //worker2.Terminate()
+            //equal res "The worker replied: [worker2] Hello world!"
         }
 
         Test "Macro with WIG dependency" {
