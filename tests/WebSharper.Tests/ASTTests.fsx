@@ -528,10 +528,8 @@ open System.Collections.Generic
 [<JavaScript>]
 module Test =
     
-    let test() =
-        async {
-            return 1
-        }
+    let InlineValues() =
+        ("a", "b") ||> fun a b -> Console.Log(a, b)    
 
 """
 

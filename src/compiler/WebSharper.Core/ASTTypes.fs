@@ -1103,8 +1103,8 @@ type Address =
 
     override this.ToString() =
         match this.Module with
-        | StandardLibrary
-        | ImportedFile _ -> "globalThis."
+        | StandardLibrary -> "globalThis."
+        | ImportedFile c
         | JavaScriptModule c 
         | DotNetType c -> string c + "::"
         | NpmPackage p -> p

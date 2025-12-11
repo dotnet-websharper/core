@@ -28,6 +28,20 @@ open System.Collections.Generic
 
 module I = IgnoreSourcePos
 
+let (|PureGlobalAccess|_|) expr = 
+    match expr with 
+    | GlobalAccess { Module = m } ->
+        match m with
+        | StandardLibrary 
+        | JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; Name = "Runtime" }
+        | DotNetType _ 
+        | ImportedModule _ ->
+            true
+        | _ ->
+            false
+    | _ ->
+        false
+
 let rec removePureParts expr =
     match expr with
     | Undefined
@@ -35,7 +49,7 @@ let rec removePureParts expr =
     | Var _
     | Value _
     | Function _ 
-    | GlobalAccess _
+    | PureGlobalAccess
     | JSThis
         -> Undefined
     | Sequential a
@@ -69,7 +83,7 @@ let rec isPureExpr expr =
     | Var _
     | Value _
     | Function _ 
-    | GlobalAccess _
+    | PureGlobalAccess
     | JSThis
         -> true
     | Sequential a 
@@ -113,7 +127,7 @@ let rec isTrivialValue expr =
     match expr with
     | Undefined
     | Value _
-    | GlobalAccess _
+    | PureGlobalAccess
         -> true
     | Var v  ->
         not v.IsMutable
@@ -131,7 +145,7 @@ let rec isStronglyPureExpr expr =
     | Base
     | Value _
     | Function _
-    | GlobalAccess _
+    | PureGlobalAccess
     | JSThis
         -> true
     | Var v ->
@@ -312,9 +326,11 @@ let varEvalOrder (vars : Id list) expr =
             | Base
             | Value _
             | JSThis
-            | GlobalAccess _
-            | SideeffectingImport _
+            | PureGlobalAccess
                 -> ()
+            | SideeffectingImport _
+            | GlobalAccess _ ->
+                stop()
             | Sequential a
             | NewTuple (a, _) ->
                 List.iter eval a
