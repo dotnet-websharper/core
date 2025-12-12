@@ -42,18 +42,17 @@ namespace Web
 
         public static void Main(string[] args)
         {
-            //new WebHostBuilder()
-            //    .UseKestrel()
-            //    .UseContentRoot(System.IO.Directory.GetCurrentDirectory())
-            //    .UseIIS()
-            //    .UseIISIntegration()
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webHostBuilder =>
-                {
-                    webHostBuilder.UseStartup<Startup>();
-                })
-                .Build()
-                .Run();
+            var host =
+                Host.CreateDefaultBuilder(args)
+                    .ConfigureWebHostDefaults(webHostBuilder =>
+                    {
+                        webHostBuilder.UseStartup<Startup>();
+                    })
+                    .Build();
+
+            Console.WriteLine("Application started.");
+
+            host.Run();
         }
     }
 }
