@@ -298,8 +298,6 @@ let rec removeLets expr =
     | Let(a, I.Var b, c) 
         when (not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c)            
-    | Let(a, I.GlobalAccess b, c) when not a.IsMutable ->
-        SubstituteVar(a, GlobalAccess b).TransformExpression(c)
     | Let(var, value, I.Application(func, [I.Var v], info))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
             Application(func, [value], info)
