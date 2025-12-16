@@ -1900,19 +1900,23 @@ let pageInitDependencies =
 let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
     let all = ResizeArray()
+    let addToAll = ResizeArray()
     let bundles = Dictionary()
     bundles.Add("all", all) 
-    
-    let addToBundles names item =
-        all.Add(item)
-        for n in names do
-            match bundles.TryFind(n) with
-            | None -> 
-                let b = ResizeArray()
-                b.Add(item)
-                bundles.Add(n, b)
-            | Some b ->
-                b.Add(item)
+
+    let addToBundles (names: string list) item =
+        if List.isEmpty names then
+            addToAll.Add(item)
+        else
+            all.Add(item)
+            for n in names do
+                match bundles.TryFind(n) with
+                | None -> 
+                    let b = ResizeArray()
+                    b.Add(item)
+                    bundles.Add(n, b)
+                | Some b ->
+                    b.Add(item)
 
     for qi in runtimeMeta.Quotations.Values do
         (qi.TypeDefinition, qi.Method) |> addToBundles qi.PreBundles
@@ -1922,6 +1926,10 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
 
     for wc in runtimeMeta.WebControls do
         (wc.Key.TypeDefinition, Definitions.getBody) |> addToBundles wc.Value    
+
+    for item in addToAll do
+        for b in bundles.Values do
+            b.Add(item)
 
     let results = ResizeArray()
 
