@@ -268,3 +268,13 @@ type ServiceExtensions =
         this.AddWebSharperServices().AddRemotingHandler<'THandler, 'TInstance>() |> ignore
 
         this
+
+    /// <summary>
+    /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
+    /// The client can invoke it using <c>WebSharper.JavaScript.Pervasives.Remote&lt;THandler&gt;</c>.
+    /// </summary>
+    [<Extension>]
+    [<Obsolete "Use .AddWebSharperServices().AddRemotingHandler instead.">]
+    static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
+            (this: IServiceCollection, handler: 'THandler) =
+        this.AddWebSharperServices().AddRemotingHandler<'THandler>(handler) |> ignore
