@@ -993,15 +993,11 @@ type MemberConverter
             | None -> ()
             | Some c -> comments.[pD] <- c
         let isInterface = dT.IsInterface
-        let isMixin = isInterface && not (p.GetterInline.IsSome || p.HasSetter || p.IndexerType.IsSome)
+        let isMixin = isInterface && not (p.GetterInline.IsSome || p.SetterInline.IsSome)
         if p.HasGetter then
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
             mD.IsGetter <- true
-            if isMixin then
-                p.Name 
-                |> nameAttribute
-                |> mD.CustomAttributes.Add
-            else
+            if not isMixin then
                 if not isInterface then
                     mB.AddBody mD
                 iG.GetPropertyGetterInline(td, t, p)
@@ -1016,11 +1012,7 @@ type MemberConverter
         if p.HasSetter then
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
             mD.IsSetter <- true
-            if isMixin then
-                p.Name
-                |> nameAttribute
-                |> mD.CustomAttributes.Add
-            else
+            if not isMixin then
                 if not isInterface then
                     mB.AddBody mD
                 iG.GetPropertySetterInline(td, t, p)
@@ -1033,6 +1025,10 @@ type MemberConverter
             mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
             dT.Methods.Add mD
             pD.SetMethod <- mD
+        if isMixin then
+            p.Name
+            |> nameAttribute
+            |> pD.CustomAttributes.Add
         setObsoleteAttribute p pD.CustomAttributes
         setImportAttribute p pD.CustomAttributes 
         addDependencies p pD.CustomAttributes

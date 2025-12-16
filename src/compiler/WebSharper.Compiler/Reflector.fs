@@ -287,10 +287,18 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some (Inline (true, false)) else 
                         match name with
-                        | Some n -> Some (Instance (n, MemberKind.Simple, Modifier.None)) // named instance members only for mixin interfaces
+                        | Some n -> 
+                            let memberKind = 
+                                if meth.IsGetter then
+                                    MemberKind.Getter
+                                elif meth.IsSetter then
+                                    MemberKind.Setter
+                                else
+                                    MemberKind.Simple
+                            Some (Instance (n, memberKind, Modifier.None)) // named instance members only for mixin interfaces
                         | _ -> None
                 let kind =
-                    if List.isEmpty macros then kindWithoutMacros else
+                    if List.isEmpty macros then kindWithoutMacros else               
                         kindWithoutMacros
                         |> List.foldBack (fun (m, p) x -> Some (Macro(m, p, x))) macros 
                     |> Option.get
@@ -429,7 +437,14 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 | Some n -> n
                 | _ -> meth.Name
             let gc = getConstraints meth.GenericParameters tgen
-            methods.Add(mdef, (name, MemberKind.Simple, gc))
+            let memberKind = 
+                if meth.IsGetter then
+                    MemberKind.Getter
+                elif meth.IsSetter then
+                    MemberKind.Setter
+                else
+                    MemberKind.Simple
+            methods.Add(mdef, (name, memberKind, gc))
 
         interfaces.Add(def,
             {

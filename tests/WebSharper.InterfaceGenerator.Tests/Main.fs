@@ -47,11 +47,20 @@ module Definition =
         |+> [
             "callMixin" => O ^-> String |> WithInline "$this.callMixin('called through mixin')"
             "x" =@ Int
+            "y" =? Int
+        ]
+
+    let IPropertyTest =
+        Interface "IPropertyTest"
+        |+> [
+            "propReadOnly" =? Int
+            "propWriteOnly" =! Int
+            "propReadWrite" =@ Int
         ]
 
     let WIGtestInstance =
         Class "WIGtestInstance"
-        |=> Implements [ IWIGTest; IMixinTest ]
+        |=> Implements [ IWIGTest; IMixinTest; IPropertyTest ]
         |+> Instance [
             "adderFunc" =@ Int * Int ^-> Int
             "adderFuncWithThis" =@ TSelf -* Int * Int ^-> Int
@@ -243,6 +252,7 @@ module Definition =
                  JustX
                  IWIGTest
                  IMixinTest
+                 IPropertyTest
                  WIGtestInstance
                  WIGtest
                  WIGtest2

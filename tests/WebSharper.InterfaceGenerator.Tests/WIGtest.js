@@ -85,6 +85,7 @@
 
     Instance: {
         x: 0,
+        y: 3,
         add:
             function (a, b) {
                 return a + b;
@@ -99,6 +100,7 @@
             },
         stringOrInt: 0,
         jsStringOrNum: 0,
+        propReadOnly: 42,
         callMixin:
             function (a) {
                 if (a = 'called through mixin')

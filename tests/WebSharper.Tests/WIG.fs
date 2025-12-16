@@ -163,6 +163,66 @@ let Tests =
             equal (x.AdderFuncWithThis.Call(x, 1, 2)) 5
         }
 
+        Test "Mixin property" {
+            let x = WIGtest.Instance 
+            equal x.Y 3
+        }
+
+        Test "Property" {
+            let x = WIGtest.Instance 
+            (x :> IPropertyTest).PropReadWrite <- 42
+            equal x?propReadWrite 42
+            equal (x :> IPropertyTest).PropReadWrite 42
+            equal x.PropReadWrite 42
+            x.PropReadWrite <- 43
+            equal x?propReadWrite 43
+            equal (x :> IPropertyTest).PropReadWrite 43
+            equal x.PropReadWrite 43
+        }
+
+        Test "Read only property" {
+            let x = WIGtest.Instance 
+            equal x?propReadOnly 42
+            equal x.PropReadOnly 42
+            equal (x :> IPropertyTest).PropReadOnly 42
+        }
+
+        Test "Write only property" {
+            let x = WIGtest.Instance 
+            (x :> IPropertyTest).PropWriteOnly <- 42
+            equal x?propWriteOnly 42
+            x.PropWriteOnly <- 43
+            equal x?propWriteOnly 43
+        }
+
+        Test "Property implementations" {
+            let wo = ref 0
+            let rw = ref 0
+            let x = 
+                { new IPropertyTest with
+                    member this.PropReadOnly = 10
+                    member this.PropWriteOnly with set(v) = wo.Value <- v
+                    member this.PropReadWrite with get() = rw.Value and set(v) = rw.Value <- v
+                }
+
+            equal x?propReadOnly 10
+            equal x.PropReadOnly 10
+
+            x.PropWriteOnly <- 20
+            equal wo.Value 20
+
+            x?propWriteOnly <- 21
+            equal wo.Value 21
+
+            x.PropReadWrite <- 30
+            equal x?propReadWrite 30
+            equal x.PropReadWrite 30
+
+            x?propReadWrite <- 31
+            equal x?propReadWrite 31
+            equal x.PropReadWrite 31
+        }
+
         Test "Choice property" {
             let x = WIGtest.Instance 
             equal (x.StringOrInt) (Union1Of2 0)
