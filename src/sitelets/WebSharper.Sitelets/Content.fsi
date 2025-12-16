@@ -188,13 +188,16 @@ module Content =
             -> ('EndPoint -> Async<Content<'OuterEndPoint>>)
             -> Async<Content<'OuterEndPoint>>
 
-    /// Sets bundle name to use, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
+    /// Compiler will check the `contents` expression for any client-side calls to include in a bundle, `name` should be a constant string specifying the bundle file name without extension.
+    /// The runtime will also set the given bundle to use if all required exports are found.
     val Bundle : name: string -> contents: #seq<#WebSharper.Web.INode> -> seq<WebSharper.Web.INode>
 
-    /// Sets bundle name to use for any expression scope, compiler will check the expression of `contents` to create the bundle, `name` should be a file name without extension.
+    /// Compiler will check the `contents` expression for any client-side calls to include in a bundle, `name` should be a constant string specifying the bundle file name without extension.
+    /// At runtime, this has no effect, use it to wrap helper functionality needed in a bundle.
     val BundleScope : name: string -> contents: 'A -> 'A
 
-    /// Sets bundle names to use for any expression scope, compiler will check the expression of `contents` to create the bundles, `name` should be a file name without extension.
+    /// Compiler will check the `contents` expression for any client-side calls to include in all given bundles, `name` should be an array of constant strings specifying the bundle file names without extension.
+    /// At runtime, this has no effect, use it to wrap helper functionality needed in multiple bundles.
     val BundleScopes : names: string[] -> contents: 'A -> 'A
 
     type RenderedResources =
