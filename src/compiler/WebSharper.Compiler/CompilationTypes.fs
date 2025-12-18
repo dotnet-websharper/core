@@ -180,7 +180,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
             | _ -> orig[key]
         and set (key: 'TKey) (v: 'TValue): unit = 
             if orig.ContainsKey key then
-                invalidArg "key" "Key is found in immutable part of MergedDictionary"
+                invalidArg "key" $"An item with the same key is found in immutable part of MergedDictionary. Key: {key}"
             else current.[key] <- v
  
     member x.Keys: seq<'TKey> = 
@@ -202,12 +202,15 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
     member this.Original = orig
     member this.Current = current
 
+    member x.ToSeq() =
+        Seq.append current orig |> Seq.distinctBy (fun item -> item.Key)
+
     interface IDictionary<'TKey, 'TValue> with
         member x.Add(key: 'TKey, value: 'TValue): unit = 
             x.Add(key, value)
         
         member x.Add(item: KeyValuePair<'TKey,'TValue>): unit = 
-            current.Add(item)
+            x.Add(item.Key, item.Value)
         
         member x.Clear(): unit = 
             raise (System.NotSupportedException())
@@ -225,10 +228,10 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
             x.Count
         
         member x.GetEnumerator(): IEnumerator<KeyValuePair<'TKey,'TValue>> = 
-            (Seq.append orig current).GetEnumerator()
+            x.ToSeq().GetEnumerator()
         
         member x.GetEnumerator(): System.Collections.IEnumerator = 
-            (Seq.append orig current :> System.Collections.IEnumerable).GetEnumerator()
+            (x.ToSeq() :> System.Collections.IEnumerable).GetEnumerator()
         
         member x.IsReadOnly: bool = false
         
