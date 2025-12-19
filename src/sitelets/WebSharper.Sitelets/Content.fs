@@ -194,14 +194,15 @@ module Content =
                 scriptsTw.WriteLine("-->")
 
             // Render css for bundle if exists
-            bundleName |> Option.iter (fun b ->
-                let r = 
-                    {
-                        WebRootFolder = ctx.WebRootFolder
-                        BundleName = b
-                    } : BundleCss
-                Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
-            )
+            if not hasRoot then
+                bundleName |> Option.iter (fun b ->
+                    let r = 
+                        {
+                            WebRootFolder = ctx.WebRootFolder
+                            BundleName = b
+                        } : BundleCss
+                    Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
+                )
             
             let bundle =
                 bundleName
