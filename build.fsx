@@ -58,9 +58,9 @@ let publish rids (mode: BuildMode) =
                     Runtime = rid
                     Configuration = mode.AsDotNet
                 }) input
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
-    publishExe mode "net8.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
-    publishExe mode "net8.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+    publishExe mode "net10.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+    publishExe mode "net10.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
+    publishExe mode "net10.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt

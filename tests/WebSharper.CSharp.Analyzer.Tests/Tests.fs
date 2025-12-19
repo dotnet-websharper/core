@@ -60,9 +60,9 @@ class TestClass {
 """,
         ReferenceAssemblies = 
             ReferenceAssemblies(
-                "net8.0",
-                new PackageIdentity("Microsoft.NETCore.App.Ref", "8.0.0"), 
-                @"ref\net8.0"
+                "net10.0",
+                new PackageIdentity("Microsoft.NETCore.App.Ref", "10.0.0"), 
+                @"ref\net10.0"
             )
     )
     test.TestState.AdditionalReferences.AddRange(projRefs);
