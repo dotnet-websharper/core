@@ -525,12 +525,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | SourceMember (meth, args, expr) ->        
             if meth.IsProperty 
                 || (fsharpSpecific && meth.IsCompilerGenerated)
-                || (not meth.IsModuleValueOrMember && meth.IsValCompiledAsMethod) // && (meth.IsPropertyGetterMethod || meth.IsPropertySetterMethod))
+                || (not meth.IsModuleValueOrMember && meth.IsValCompiledAsMethod)
                 || meth.IsUnionCaseTester 
             then () else
 
             let mAnnot, isModulePattern = 
-                if fsharpModule && meth.IsCompilerGenerated && i < members.Count then
+                if fsharpModule && meth.IsCompilerGenerated && i < members.Count - 1 then
                     // in module compiler-generated members created for pattern matching on let, look for the next member
                     match members.[i + 1] with
                     | SourceMember (nmeth, _, _) ->  
