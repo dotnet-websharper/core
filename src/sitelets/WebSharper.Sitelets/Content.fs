@@ -295,9 +295,9 @@ module Content =
                                         imported.Add(f, j)
                                         match a with
                                         | "default" ->
-                                            scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                            scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.TypeName}.js";""")
                                         | _ ->
-                                            scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                            scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.TypeName}.js";""")
                                         j
                             | _ ->
                                 f.Address |> List.rev |> String.concat "."

@@ -245,7 +245,7 @@ type Graph =
                             )
                         if isWebControl cls.BaseClass.Value.Entity then
                             match addr.Module with
-                            | JavaScriptModule m -> resNodes.Add i |> ignore
+                            | JavaScriptModule _ -> resNodes.Add i |> ignore
                             | _ -> ()
                     | _ -> ()
                 | _ -> ()

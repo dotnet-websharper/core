@@ -13,6 +13,7 @@
     <Compile Include="Import.fs" />
     <Compile Include="Main.fs" />
     <None Include="lib/sayHi*.js" />
+    <None Include="lib\sayHi.mjs" />
     <None Include="paket.references" />
     <Content Include="wsconfig.json" />
   </ItemGroup>

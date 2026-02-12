@@ -234,7 +234,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     FullName = "$Generated"
                     Assembly = this.AssemblyName 
                 }
-            let addr = { Module = DotNetType { Assembly = this.AssemblyName; Name = "$Generated" }; Address = [] } 
+            let addr = { Module = DotNetType { Assembly = this.AssemblyName; TypeName = "$Generated" }; Address = [] } 
             classes.Add (td,
                 (
                     addr,
@@ -711,7 +711,7 @@ type Compilation(meta: Info, ?hasGraph) =
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
     member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
-        let m = { Assembly = this.AssemblyName; Name = typ.Value.FullName.Replace('+', '.') }
+        let m = { Assembly = this.AssemblyName; TypeName = typ.Value.FullName.Replace('+', '.') }
         if hasWSPrototype then
             Address.TypeDefaultExport m
         else 

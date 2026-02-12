@@ -518,8 +518,37 @@ let test =
     !!i
 
 
+module Test =
+    
+    let config = {| UtcRange = Some (4, 5) |}
+
+    module Time =
+        let milliseconds (x: int) = x * 1000
+        
+    //[<SPAEntryPoint>]
+    let test() =
+        
+        let dynamicLimit =
+            let mutable defaultMin = Option.map (snd >> Time.milliseconds) config.UtcRange
+
+            fun limit ->
+                let l =
+                    match defaultMin with
+                    | Some m ->
+                        if limit > m then 
+                            defaultMin <- Some limit
+                            limit
+                        else
+                            m
+                    | None ->
+                        defaultMin <- Some limit
+                        limit
+                l
+
+        dynamicLimit 1 + dynamicLimit 1
+
 translate false """
-namespace WebSharper.Tests
+namespace MyTests
 
 open WebSharper
 open WebSharper.JavaScript
@@ -528,8 +557,36 @@ open System.Collections.Generic
 [<JavaScript>]
 module Test =
     
-    let InlineValues() =
-        ("a", "b") ||> fun a b -> Console.Log(a, b)    
+    type Config = { UtcRange: option<int * int> }
+    
+    module Time =
+        let milliseconds (x: int) = x * 1000
+    
+    //[<SPAEntryPoint>]
+    let test() =
+        
+        let dynamicLimit config =
+            let mutable defaultMax = Option.map (fst >> Time.milliseconds) config.UtcRange
+
+            let mutable defaultMin = Option.map (snd >> Time.milliseconds) config.UtcRange
+
+            fun limit ->
+                let l =
+                    match defaultMin with
+                    | Some m ->
+                        if limit > m then 
+                            defaultMin <- Some limit
+                            limit
+                        else
+                            m
+                    | None ->
+                        defaultMin <- Some limit
+                        limit
+                l
+
+        let config = { UtcRange = Some (4, 5) }
+
+        dynamicLimit config 1 + dynamicLimit config 1
 
 """
 

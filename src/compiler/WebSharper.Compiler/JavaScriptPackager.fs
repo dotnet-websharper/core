@@ -148,7 +148,7 @@ type PackageTypeResults =
     }
 
 let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattened (content: PackageContent) =
-    let imports = Dictionary<AST.CodeResource, bool * Dictionary<string, Id>>()
+    let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
@@ -195,6 +195,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 visit typ
             ordered.ToArray()
     
+    let ext = 
+        match output with
+        | O.JavaScript -> ".js"
+        | _ -> ""
+
     for typ in orderedTypes do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
@@ -254,7 +259,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 
                 if isMainAddr && not (addresses.ContainsKey classAddr) then
                     addresses.Add(classAddr, Var localClassId)
-                currentScope.Add(classCodeRes) |> ignore
+                currentScope.Add(classCodeRes.ToResource(ext)) |> ignore
                 if isMainAddr && not (classRes.ContainsKey typ) then
                     classRes.Add(typ, (classAddr, classId, localClassId))
             if classAddrs.Count = 0 then
@@ -320,7 +325,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | ImportedFile m ->
                     if not (imports.ContainsKey m) then
                         let mi = Dictionary()
-                        imports.Add(m, (false, mi))
+                        imports.Add(m, mi)
                     if sideEffectingImport then
                         Undefined
                     else
@@ -334,16 +339,16 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                 | JavaScriptModule m ->
                     let moduleImports =
                         match imports.TryGetValue m with
-                        | true, (_, mi) -> mi
+                        | true, mi -> mi
                         | _ ->
                             let mi = Dictionary()
-                            imports.Add(m, (true, mi))
+                            imports.Add(m, mi)
                             mi
                     if sideEffectingImport then
                         Undefined
                     else
                         let importWhat, importAs =
-                            let fromModuleName() = m.Name.Replace('.', '_').Replace('`', '_')
+                            let fromModuleName() = Path.GetFileNameWithoutExtension(m.FileName).Replace('.', '_').Replace('`', '_')
                             match address.Address with
                             | [] -> 
                                 "*", fromModuleName()
@@ -367,12 +372,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                         GlobalAccess importedAddress
                 | NpmPackage p ->
                     if sideEffectingImport then
-                        let m = { Assembly = ""; Name = p }
+                        let m = { Assembly = ""; FileName = p }
                         match imports.TryGetValue m with
                         | true, _ -> ()
                         | _ ->
                             let mi = Dictionary()
-                            imports.Add(m, (false, mi))
+                            imports.Add(m, mi)
                         Undefined
                     else
                         let importWhat, importAs =
@@ -386,13 +391,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                                     n, fromModuleName()
                                 else
                                     n, n
-                        let m = { Assembly = ""; Name = p }
+                        let m = { Assembly = ""; FileName = p }
                         let moduleImports =
                             match imports.TryGetValue m with
-                            | true, (_, mi) -> mi
+                            | true, mi -> mi
                             | _ ->
                                 let mi = Dictionary()
-                                imports.Add(m, (false, mi))
+                                imports.Add(m, mi)
                                 mi
                         let i =
                             match moduleImports.TryGetValue importWhat with
@@ -411,7 +416,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     //    match output with
                     //    | O.JavaScript -> { m with Name = m.Name + ".js" }
                     //    | _ -> m
-                    if currentScope.Contains m then
+                    let rm = m.ToResource(ext)
+                    if currentScope.Contains rm then
                         match address.Address |> List.rev with
                         | [] ->
                             Var (Id.Global())
@@ -424,7 +430,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             Var i
                     else
                         let importWhat, importAs =
-                            let fromModuleName() = (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                            let fromModuleName() = (m.TypeName.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
                             match address.Address with
                             | [] -> 
                                 "*", fromModuleName()
@@ -435,11 +441,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                                 else
                                     n, n
                         let moduleImports =
-                            match imports.TryGetValue m with
-                            | true, (_, mi) -> mi
+                            match imports.TryGetValue rm with
+                            | true, mi -> mi
                             | _ ->
                                 let mi = Dictionary()
-                                imports.Add(m, (true, mi))
+                                imports.Add(rm, mi)
                                 mi
                         let i =
                             match moduleImports.TryGetValue importWhat with
@@ -1473,7 +1479,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             | Bundle (_, WorkerBundle, _) -> true
             | _ -> false
 
-        for KeyValue(m, (isJs, i)) in imports do
+        for KeyValue(m, i) in imports do
             if not (currentScope.Contains(m)) then
                 let defaultImport =
                     match i.TryGetValue("default") with
@@ -1491,25 +1497,21 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             Some (n, i)
                     )
                     |> List.ofSeq
-                let ext =
-                    match output with
-                    | O.JavaScript -> if isJs then ".js" else ""
-                    | _ -> ""
                 let fromModule =
                     if isWorkerBundle then
                         if m.Assembly = "" then
-                            m.Name
+                            m.FileName
                         else
-                            "../" + m.Assembly + "/" + m.Name + ext  
+                            "../" + m.Assembly + "/" + m.FileName  
                     else
                         if m.Assembly = "" then
-                            m.Name
+                            m.FileName
                         elif isSPABundleType then
-                            "./" + m.Assembly + "/" + m.Name + ext  
+                            "./" + m.Assembly + "/" + m.FileName  
                         elif flattened || m.Assembly = asmName then
-                            "./" + m.Name + ext  
+                            "./" + m.FileName  
                         else
-                            "../" + m.Assembly + "/" + m.Name + ext  
+                            "../" + m.Assembly + "/" + m.FileName  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
         {
             Statements = List.ofSeq (Seq.concat [ declarations; statements ])
@@ -1526,7 +1528,7 @@ let analyzeLazyClasses (pkgs: ResizeArray<string * TypeDefinition * PackageTypeR
     
     let pkgLookup = Dictionary()
     pkgs |> Seq.iteri (fun i (fn, td, pkg) ->
-        let m = { Assembly = td.Value.Assembly; Name = makeFileName td }
+        let m = { Assembly = td.Value.Assembly; FileName = makeFileName td }
         pkgLookup.Add(m, i) 
     )
     
@@ -1729,9 +1731,9 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
                     let newName = 
                         match m with
                         | JavaScriptModule m -> 
-                            m.Name.Replace('.', '_').Replace('`', '_')
+                            Path.GetFileNameWithoutExtension(m.FileName).Replace('.', '_').Replace('`', '_')
                         | DotNetType m -> 
-                            (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                            (m.TypeName.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
                         | _ -> "x"
                     let x = Id.New newName
                     namedImports.Add("default", x)
@@ -1742,9 +1744,10 @@ let packageEntryPointReexport (runtimeMeta: M.Info) =
                     finalAddrMap.Add(a, x)
             let moduleName =
                 match m with
-                | JavaScriptModule m 
+                | JavaScriptModule m ->
+                    "../" + m.Assembly + "/" + m.FileName
                 | DotNetType m -> 
-                    "../" + m.Assembly + "/" + m.Name + ".js"
+                    "../" + m.Assembly + "/" + m.TypeName + ".js"
                 | _ -> ""
             ExportDecl (false, Import(None, None, List.ofSeq namedImports, moduleName))
         )
@@ -1782,34 +1785,32 @@ let packageLibraryBundle (current: M.Info) (jsExport: JsExport list) output =
             | _ -> ()
         | _ -> ()
     let reexports = ResizeArray()
+    let getImportName (a: Address) =
+        match a.Module with
+        | JavaScriptModule m -> 
+            Path.GetFileNameWithoutExtension(m.FileName).Replace('.', '_').Replace('`', '_')
+        | DotNetType m -> 
+            (m.TypeName.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+        | _ -> "x"
+    let getModuleName (a: Address) =
+        match a.Module with
+        | JavaScriptModule m -> 
+            "./" + (if output = O.JavaScript then m.FileName else Path.GetFileNameWithoutExtension(m.FileName))
+        | DotNetType m -> 
+            "./" + m.TypeName + (if output = O.JavaScript then ".js" else "")
+        | _ -> ""
     for t in exportTypes do
         match current.Classes.TryFind t with
         | Some (a, _, Some c) when c.HasWSPrototype ->
-            let newName = 
-                match a.Module with
-                | JavaScriptModule m -> 
-                    m.Name.Replace('.', '_').Replace('`', '_')
-                | DotNetType m -> 
-                    (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
-                | _ -> "x"
+            let newName = getImportName a
             let x = Id.New newName
-            let moduleName =
-                match a.Module with
-                | JavaScriptModule m 
-                | DotNetType m -> 
-                    "./" + m.Name + (if output = O.JavaScript then ".js" else "")
-                | _ -> ""
+            let moduleName = getModuleName a
             reexports.Add <| ExportDecl (false, Import(None, None, ["default", x], moduleName))
         | _ -> ()
     for KeyValue(t, fs) in exportFunctions do
         match current.Classes.TryFind t with
         | Some (a, _, Some c) ->
-            let moduleName =
-                match a.Module with
-                | JavaScriptModule m 
-                | DotNetType m -> 
-                    "./" + m.Name + (if output = O.JavaScript then ".js" else "")
-                | _ -> ""
+            let moduleName = getModuleName a
             let namedImports = 
                 fs |> Seq.choose (fun f ->
                     match f with  
@@ -1818,13 +1819,7 @@ let packageLibraryBundle (current: M.Info) (jsExport: JsExport list) output =
                         Some (n, x)
                     | _ -> None
                 ) |> List.ofSeq
-            let newName = 
-                match a.Module with
-                | JavaScriptModule m -> 
-                    m.Name.Replace('.', '_').Replace('`', '_')
-                | DotNetType m -> 
-                    (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
-                | _ -> "x"
+            let newName = getImportName a
             let x = Id.New newName
             reexports.Add <| ExportDecl (false, Import(None, None, namedImports, moduleName))
         | _ -> ()

@@ -609,7 +609,7 @@ let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files:
         let attr = Mono.Cecil.CustomAttribute(webResourceCtor.Value)
         attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, file))
         let mime =
-            if file.EndsWith(".js") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
+            if file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
                 "application/javascript"
             elif file.EndsWith(".css") then
                 "text/css"

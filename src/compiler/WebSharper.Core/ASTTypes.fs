@@ -936,10 +936,23 @@ type [<RequireQualifiedAccess>] MemberKind =
 type CodeResource =
     {
         Assembly : string
-        Name : string
+        FileName : string
     }
     override this.ToString() = 
-        sprintf "%s/%s" this.Assembly this.Name
+        sprintf "%s/%s" this.Assembly this.FileName
+
+type TypeModule =
+    {
+        Assembly : string
+        TypeName : string
+    }
+    override this.ToString() = 
+        sprintf "%s/%s" this.Assembly this.TypeName
+    member this.ToResource(ext) =
+        {
+            Assembly = this.Assembly
+            FileName = this.TypeName + ext
+        }
 
 type [<RequireQualifiedAccess>] TSType =
     | Any
@@ -1080,7 +1093,7 @@ type Module =
     | StandardLibrary
     | ImportedFile of CodeResource
     | JavaScriptModule of CodeResource
-    | DotNetType of CodeResource
+    | DotNetType of TypeModule
     | NpmPackage of string
     | ImportedModule of Id
 
@@ -1105,8 +1118,8 @@ type Address =
         match this.Module with
         | StandardLibrary -> "globalThis."
         | ImportedFile c
-        | JavaScriptModule c 
-        | DotNetType c -> string c + "::"
+        | JavaScriptModule c -> string c + "::"
+        | DotNetType t -> string t + "::"
         | NpmPackage p -> p
         | ImportedModule i -> string i + "::"
         + (this.Address |> List.rev |> String.concat ".")
@@ -1160,7 +1173,7 @@ module internal Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
-    let RuntimeModule = JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; Name = "Runtime" }
+    let RuntimeModule = JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; FileName = "Runtime.js" }
 
     let DefaultAddress = [ "default" ]
 
@@ -1187,10 +1200,10 @@ module Address =
     let TypeNamedExport t n = { Module = DotNetType t; Address = [ n ] }
     let Import asmName (export: string option, from: string) = 
         let getM asmName (name: string) =
-            if name.EndsWith(".js") then
-                JavaScriptModule { Assembly = asmName; Name = name[.. name.Length - 4] }
+            if name.EndsWith(".js") || name.EndsWith(".mjs") || name.EndsWith(".jsx") then
+                JavaScriptModule { Assembly = asmName; FileName = name }
             else
-                ImportedFile { Assembly = asmName; Name = name }
+                ImportedFile { Assembly = asmName; FileName = name }
         let m =
             if from.StartsWith("./") then
                 getM asmName from[2 ..] 

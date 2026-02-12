@@ -327,9 +327,9 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | Var t when t = Id.SourceType() ->
             match b |> List.map trE with
             | [ Value (String n) ] ->
-                GlobalAccess (Address.TypeDefaultExport { Assembly = env.AssemblyName; Name = n})
+                GlobalAccess (Address.TypeDefaultExport { Assembly = env.AssemblyName; TypeName = n})
             | [ Value (String a); Value (String n) ] ->
-                GlobalAccess (Address.TypeDefaultExport { Assembly = a; Name = n})
+                GlobalAccess (Address.TypeDefaultExport { Assembly = a; TypeName = n})
             | _ ->
                 failwithf "$type in inlines can be only used with one or two string arguments, specifying type name in current assembly or assembly name and type name"
         | _->

@@ -33,7 +33,7 @@ let (|PureGlobalAccess|_|) expr =
     | GlobalAccess { Module = m } ->
         match m with
         | StandardLibrary 
-        | JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; Name = "Runtime" }
+        | JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; FileName = "Runtime.js" }
         | DotNetType _ 
         | ImportedModule _ ->
             true

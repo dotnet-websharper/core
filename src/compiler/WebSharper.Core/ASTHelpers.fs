@@ -505,11 +505,11 @@ module TSType =
         | "{d: number, o: number}" -> TSType.TypeLiteral [ "d", MemberKind.Simple, Number; "o", MemberKind.Simple, Number ]
         | "{c: boolean, r: (() => void)[]}" -> TSType.TypeLiteral [ "c", MemberKind.Simple, TSType.Named [ "boolean" ]; "r", MemberKind.Simple, TSType.Named [ "(() => void)[]" ] ]
         | "(a: $wstype(../WebSharper.StdLib/WebSharper.Concurrency.AsyncBody`1)<$0>) => void" -> 
-            Lambda([TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.Concurrency.AsyncBody`1" }), [TSType.Param 0])], Void)            
+            Lambda([TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; TypeName = "WebSharper.Concurrency.AsyncBody`1" }), [TSType.Param 0])], Void)            
         | "$wstype(../WebSharper.StdLib/WebSharper.LazyExtensionsProxy.LazyRecord`1)<$0>" ->
-            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "WebSharper.LazyExtensionsProxy.LazyRecord`1" }), [TSType.Param 0])
+            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; TypeName = "WebSharper.LazyExtensionsProxy.LazyRecord`1" }), [TSType.Param 0])
         | "$wstype(../WebSharper.StdLib/System.Collections.Generic.IEnumerable`1)" ->
-            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; Name = "System.Collections.Generic.IEnumerable`1" }), [TSType.Param 0])
+            TSType.Generic(TSType.Importing (Address.TypeDefaultExport { Assembly = "WebSharper.StdLib"; TypeName = "System.Collections.Generic.IEnumerable`1" }), [TSType.Param 0])
         | "$import(BigNumber, mathjs)" ->
             TSType.Importing (Address.Import "" (Some "BigNumber", "mathjs"))
         | "$import(Complex, mathjs)" ->
