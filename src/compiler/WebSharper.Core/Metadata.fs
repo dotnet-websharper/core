@@ -676,7 +676,7 @@ module IO =
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
     /// Current medata version flag to ensure consistency across WebSharper libraries
-    let CurrentVersion = "10.0"
+    let CurrentVersion = "10.1"
 
     /// Deserialize metadata from a stream
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
