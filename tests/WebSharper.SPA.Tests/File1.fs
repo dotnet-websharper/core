@@ -19,7 +19,15 @@
 // $end{copyright}
 module WebSharper.SPA.Tests.JavaScriptExportTest1
 
+open WebSharper
 open WebSharper.JavaScript
 
 let testThatThisIsIncluded1 () =
     Console.Log "Hello from JavaScriptExportTest1"
+
+[<Import("sayHi", "./sayHi.mjs")>]
+[<Inline "$import($name)">]
+let sayHi name = X<string>
+
+let testThatThisIsIncluded2 () =
+    Console.Log (sayHi "from copied script")

@@ -632,7 +632,7 @@ let HandleExtraFiles (assembly : Assembly option) (assemblyName: string) (projec
     let asmOutputDir =
         outputDir |> Option.map (fun d ->
             if isBundle then
-                Path.Combine(d, "Scripts", assemblyName) 
+                Path.Combine(d, assemblyName) 
             else
                 Path.Combine(d, "Scripts", "WebSharper", assemblyName)
         )
