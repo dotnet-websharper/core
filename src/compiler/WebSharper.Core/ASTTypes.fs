@@ -1200,7 +1200,7 @@ module Address =
     let TypeNamedExport t n = { Module = DotNetType t; Address = [ n ] }
     let Import asmName (export: string option, from: string) = 
         let getM asmName (name: string) =
-            if name.EndsWith(".js") || name.EndsWith(".mjs") || name.EndsWith(".jsx") then
+            if name.EndsWith(".js") || name.EndsWith(".mjs") || name.EndsWith(".cjs") || name.EndsWith(".jsx") then
                 JavaScriptModule { Assembly = asmName; FileName = name }
             else
                 ImportedFile { Assembly = asmName; FileName = name }

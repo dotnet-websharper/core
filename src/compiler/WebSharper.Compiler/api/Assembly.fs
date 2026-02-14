@@ -102,7 +102,7 @@ module AssemblyUtility =
     let ParseAllScriptResources (def: Mono.Cecil.AssemblyDefinition) (t: O) =
         if IsWebSharperAssembly def then
             match t with 
-            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js") || n.EndsWith(".mjs") || n.EndsWith(".jsx"))
+            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js") || n.EndsWith(".mjs") || n.EndsWith(".cjs") || n.EndsWith(".jsx"))
             | O.TypeScript -> ReadAllScriptResources def (fun n -> (n.EndsWith(".ts") && not (n.EndsWith(".d.ts")) || n.EndsWith(".tsx")))
             | O.TypeScriptDeclaration -> ReadAllScriptResources def (fun n -> n.EndsWith(".d.ts"))
         else Array.empty
@@ -110,7 +110,7 @@ module AssemblyUtility =
     let ParseAllMapResources (def: Mono.Cecil.AssemblyDefinition) (t: O) =
         if IsWebSharperAssembly def then
             match t with 
-            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js.map") || n.EndsWith(".mjs.map") || n.EndsWith(".jsx.map"))
+            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js.map") || n.EndsWith(".mjs.map") || n.EndsWith(".cjs.map") || n.EndsWith(".jsx.map"))
             | O.TypeScript -> ReadAllScriptResources def (fun n -> (n.EndsWith(".ts.map") && not (n.EndsWith(".d.ts.map")) || n.EndsWith(".tsx.map")))
             | O.TypeScriptDeclaration -> [||]
         else Array.empty
