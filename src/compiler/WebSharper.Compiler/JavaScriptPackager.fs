@@ -1507,7 +1507,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                         if m.Assembly = "" then
                             m.FileName
                         elif isSPABundleType then
-                            "./" + m.Assembly + "/" + m.FileName  
+                            if m.Assembly = asmName then
+                                "./" + m.FileName  
+                            else
+                                "./" + m.Assembly + "/" + m.FileName  
                         elif flattened || m.Assembly = asmName then
                             "./" + m.FileName  
                         else
