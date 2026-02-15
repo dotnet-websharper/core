@@ -1501,6 +1501,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     if isWorkerBundle then
                         if m.Assembly = "" then
                             m.FileName
+                        elif m.Assembly = asmName then
+                            "../" + m.FileName
                         else
                             "../" + m.Assembly + "/" + m.FileName  
                     else
