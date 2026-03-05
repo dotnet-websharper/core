@@ -37,7 +37,14 @@ module QR = WebSharper.Compiler.QuotationReader
 type FSIFD = FSharpImplementationFileDeclaration
 type FSMFV = FSharpMemberOrFunctionOrValue
 
-type private StartupCode = ResizeArray<Statement> * ResizeArray<Statement> * Dictionary<string, Type> 
+type private StartupCode = 
+    {
+        TypeDefinition : TypeDefinition
+        RecDecls : ResizeArray<Statement>
+        Statements : ResizeArray<Statement>
+        Fields : Dictionary<string, Type>
+        Quotations : ResizeArray<SourcePos * Method * string list * Expression * string list>
+    }
 
 type private N = NotResolvedMemberKind
 
@@ -215,15 +222,20 @@ let isAbstractClass (e: FSharpEntity) =
         a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
     )
 
-let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) recMembers a =
+let private transformInitAction (sc: Lazy<StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) recMembers a =
+    let sc = sc.Value
+    
     if annot.IsJavaScript then
-        let _, (_, statements, _) = sc.Value
         let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
-        statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
+        sc.Statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
+    
+    let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)
+    let quotations = CodeReader.scanExpression env sc.TypeDefinition.Value.FullName a
+    sc.Quotations.AddRange(quotations)
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -693,8 +705,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         let fb = CodeReader.transformExpression env expr 
                                         SubstituteVar(i, Lambda ([], None, fb)).TransformExpression(b)
                                     | _ -> b
-                                let _, (recContent, _, _) = sc.Value
-                                recContent.Add (VarDeclaration (i, bWithFunc)) 
+                                sc.Value.RecDecls.Add (VarDeclaration (i, bWithFunc)) 
                             | _ -> ()
                             let b = 
                                 match memdef with
@@ -713,21 +724,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | _ -> b
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
-                                    let scDef, (_, scContent, scFields) = sc.Value   
                                     let var = Id.New(mut = false)
-                                    scContent.Add (VarDeclaration (var, TailCalls.optimize None inlinesOfClass b))
+                                    sc.Value.Statements.Add (VarDeclaration (var, TailCalls.optimize None inlinesOfClass b))
                                     Var var
                                 elif isInline then
                                     b
                                 else
-                                    let scDef, (_, scContent, scFields) = sc.Value   
+                                    let sc = sc.Value
                                     let mtyp =
                                         match memdef with
                                         | Member.Method (_, mdef) -> mdef.Value.ReturnType
                                         | _ -> failwith "F# Module value or member should be represented as a static method"
-                                    let name = Resolve.getRenamedInDict meth.CompiledName mtyp scFields
-                                    scContent.Add (ExprStatement (ItemSet(JSThis, Value (String name), TailCalls.optimize None inlinesOfClass b)))
-                                    Lambda([], Some mtyp, FieldGet(None, NonGeneric scDef, name))
+                                    let name = Resolve.getRenamedInDict meth.CompiledName mtyp sc.Fields
+                                    sc.Statements.Add (ExprStatement (ItemSet(JSThis, Value (String name), TailCalls.optimize None inlinesOfClass b)))
+                                    Lambda([], Some mtyp, FieldGet(None, NonGeneric sc.TypeDefinition, name))
                             else
                                 let thisVar, vars =
                                     match argsAndVars with 
@@ -989,7 +999,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         let methods = 
             clsMembers |> Array.ofSeq |> Array.choose (fun m ->
                 match m with
-                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn; Generics = gc }) ->
+                | NotResolvedMember.Method (mem, {Kind = N.Abstract; StrongName = sn; Generics = gc }) ->
                     clsMembers.Remove(m) |> ignore
                     Some (mem, sn, gc)
                 | _ -> None 
@@ -1183,7 +1193,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             )
                         let newCaseM =
                             {
-                                Kind = NotResolvedMemberKind.Static
+                                Kind = N.Static
                                 StrongName = Some c.Name
                                 Generics = []
                                 Macros = []
@@ -1683,8 +1693,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     Assembly = comp.FindProxiedAssembly(assemblyName)
                     FullName = name
                 }
-            def, 
-            (ResizeArray(), ResizeArray(), Dictionary() : StartupCode)
+            {
+                TypeDefinition = def
+                RecDecls = ResizeArray()
+                Statements = ResizeArray()
+                Fields = Dictionary()
+                Quotations = ResizeArray()
+            }
 
         let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
@@ -1752,13 +1767,12 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 intf |> Option.iter comp.AddInterface
                 transformClass sc comp argCurrying sr classAnnotations isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
             
-        let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
+        let getStartupCodeClass (sc: StartupCode) =
 
-            let recDecls, statements, fields = sc       
-            let cctor = Block (List.ofSeq (Seq.append recDecls statements))
+            let cctor = Block (List.ofSeq (Seq.append sc.RecDecls sc.Statements))
             let members =
                 [
-                    for KeyValue(f, t) in fields -> 
+                    for KeyValue(f, t) in sc.Fields -> 
                         NotResolvedMember.Field(f, 
                             {
                                 StrongName = None
@@ -1770,9 +1784,27 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                             } 
                         )
                     yield NotResolvedMember.StaticConstructor cctor
+                    for pos, mdef, argNames, e, bundleScope in sc.Quotations ->
+                        let nr =
+                            {
+                                Kind = N.Quotation (pos, argNames, bundleScope)
+                                StrongName = None
+                                Generics = []
+                                Macros = []
+                                Generator = None
+                                Compiled = false
+                                Pure = false
+                                FuncArgs = None
+                                Args = []
+                                Body = e
+                                Requires = []
+                                Warn = None
+                                JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                            }
+                        NotResolvedMember.Method (mdef, nr)    
                 ]
             
-            def,
+            sc.TypeDefinition,
             {
                 StrongName = None
                 Generics = []
