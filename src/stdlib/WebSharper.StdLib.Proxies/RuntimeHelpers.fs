@@ -113,7 +113,7 @@ let EnumerateWhile (f: unit -> bool) (s: seq<'T>) : seq<'T> =
         Enumerator.NewDisposing null (fun en -> safeDispose en.State) next)
 
 [<Name "createEvent">]
-let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate> 
+let CreateEvent<'D, 'A when 'D : delegate<'A, unit> and 'D :> System.Delegate and 'D : not null>
         (add: 'D -> unit) 
         (remove: 'D -> unit)
         (create: (obj -> 'A -> unit) -> 'D) : IEvent<'D, 'A> =

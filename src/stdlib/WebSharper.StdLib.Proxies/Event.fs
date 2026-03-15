@@ -66,7 +66,9 @@ module internal DelegateEvent =
     open WebSharper.JavaScript
 
     [<JavaScript>]
-    type DelegateEvent<'T when 'T :> System.Delegate and 'T: equality> = private { Handlers : ResizeArray<'T> } with
+    type DelegateEvent<'T when 'T :> System.Delegate and 'T : equality and 'T : not null> = 
+        
+        private { Handlers : ResizeArray<'T> }
 
         member this.Trigger(x: obj[]) =
             for h in this.Handlers.ToArray() do

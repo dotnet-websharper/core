@@ -34,7 +34,7 @@ type private FSharpEvent<'T> [<JavaScript>] () =
 
 [<Proxy(typeof<DelegateEvent<_>>)>]
 [<Name "WebSharper.Control.FSharpDelegateEvent">]
-type private FSharpDelegateEvent<'T when 'T :> System.Delegate and 'T: equality> [<JavaScript>] () =
+type private FSharpDelegateEvent<'T when 'T :> System.Delegate and 'T : equality and 'T : not null> [<JavaScript>] () =
     let event = DelegateEvent.New ()
 
     [<Inline>]

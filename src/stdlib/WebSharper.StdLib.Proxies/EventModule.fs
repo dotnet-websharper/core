@@ -49,9 +49,11 @@ module private EventModule =
         r :> _
 
     let Merge<'D1,'T,'D2 when 'D1 :> Delegate
-                          and 'D1 :  delegate<'T,unit>
+                          and 'D1 : delegate<'T,unit>
+                          and 'D1 : not null
                           and 'D2 :> Delegate
-                          and 'D2 :  delegate<'T,unit>>
+                          and 'D2 : delegate<'T,unit>
+                          and 'D2 : not null>
             (e1: IEvent<'D1,'T>) (e2: IEvent<'D2,'T>) : IEvent<_> =
         let r = Event.New ()
         e1.Add r.Trigger
