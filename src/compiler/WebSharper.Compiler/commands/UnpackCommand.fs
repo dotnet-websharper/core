@@ -137,7 +137,7 @@ module UnpackCommand =
             aR.Wrap <| fun () ->
                 for p in cmd.Assemblies do
                     DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
-            cmd.Logger.TimedStage "Download Resource"
+            cmd.Logger.TimedStage "Downloaded resources"
 
         for p in cmd.Assemblies do
             match (try loader.LoadFile (p, false) |> Some with _ -> None) with 
@@ -191,6 +191,7 @@ module UnpackCommand =
                         writeText script m.FileName m.Content false                   
                 for s in a.GetSources() do
                     writeText script s.FileName s.Content false
+            cmd.Logger.TimedStage ("Unpacking from " + a.Name)
         
         if errors.Count = 0 then
             C.Ok

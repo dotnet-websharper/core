@@ -58,8 +58,8 @@ let findEntries (basePath: string) (pattern: Pattern) =
 
     let findFileChildren p pat =
         match pat with
-        | None -> Directory.GetFiles(toAbsolutePath p)
-        | Some pat -> Directory.GetFiles(toAbsolutePath p, pat)
+        | None -> Directory.EnumerateFiles(toAbsolutePath p)
+        | Some pat -> Directory.EnumerateFiles(toAbsolutePath p, pat)
         |> Seq.map (fun x ->
             FileEntry (p /. Path.GetFileName(x)))
 
@@ -70,7 +70,7 @@ let findEntries (basePath: string) (pattern: Pattern) =
             seq {
                 yield d
                 yield! findFileChildren path None
-                for d in Directory.GetDirectories(ap) do
+                for d in Directory.EnumerateDirectories(ap) do
                     yield! findAllEntries (path /. Path.GetFileName(d))
             }
         | Some e -> Seq.singleton e
@@ -88,7 +88,7 @@ let findEntries (basePath: string) (pattern: Pattern) =
             |> Seq.collect (fun dir ->
                 let p = toAbsolutePath dir
                 let dirs =
-                    Directory.GetDirectories(p, p2)
+                    Directory.EnumerateDirectories(p, p2)
                     |> Seq.map (fun n ->
                         DirectoryEntry (dir /. Path.GetFileName(n)))
                 let files = findFileChildren dir (Some p2)
@@ -116,12 +116,13 @@ let makeDir (path: string) =
 
 let copyFile (source: string) (dest: string) =
     let destDir = Path.GetDirectoryName(dest)
-    makeDir destDir
+    if not (String.IsNullOrEmpty destDir) then
+        makeDir destDir
     let doCopy () =
         File.Copy(source, dest, true)
         stdout.WriteLine("Copied {0} to {1}", source, dest)
     let getLastWriteTime p =
-        FileInfo(p).LastWriteTimeUtc
+        File.GetLastWriteTimeUtc(p)
     if File.Exists(dest) then
         if getLastWriteTime dest < getLastWriteTime source then
             doCopy ()
@@ -129,10 +130,12 @@ let copyFile (source: string) (dest: string) =
         doCopy ()
 
 let rec copyDirectory (src: string) (dest: string) =
-    for s in Directory.GetFiles(src) do
+    // ensure destination directory exists
+    makeDir dest
+    for s in Directory.EnumerateFiles(src) do
         let d = Path.Combine(dest, Path.GetFileName(s))
         copyFile s d
-    for dir in Directory.GetDirectories(src) do
+    for dir in Directory.EnumerateDirectories(src) do
         let d = Path.Combine(dest, Path.GetFileName(dir))
         copyDirectory dir d
 
@@ -197,7 +200,9 @@ let ProcessFiles (dir: string) (plainDest: string option) (asmDest: string optio
                     | None ->
                         stderr.WriteLine("Invalid pattern: {0}", line)
                 )
-    embed.ToArray()
+        Some (embed.ToArray())
+    else
+        None
 
 let FindAllFiles (dir: string) (paths: string list) =
      [

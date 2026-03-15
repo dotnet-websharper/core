@@ -27,6 +27,7 @@ val CopyFiles : dir: string -> dest: string -> unit
 /// Finds all files in a directory that match the given patterns.
 val FindAllFiles: dir: string -> paths: string list -> string list
 
-/// Copies files specified in extra.files to the output directory.
+/// Copies files specified in extra.files to the output directory if present.
 /// Returns extra resources to be potentially embedded in the assembly.
-val ProcessFiles : dir: string -> plainDest: string option -> asmDest: string option -> string[]
+/// Returns None if extra.files is not present.
+val ProcessFiles : dir: string -> plainDest: string option -> asmDest: string option -> string[] option

@@ -60,6 +60,7 @@
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask
+      StandardOutputImportance="$(WebSharperLogImportance)"
       FscCommandLineArgs="@(FscCommandLineArgs)"
       Configuration="$(Configuration)"
       MSBuildProjectFullPath="$(MSBuildProjectFullPath)"

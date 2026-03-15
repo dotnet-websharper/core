@@ -57,7 +57,7 @@ let createAssemblyResolver (config : WsConfig) includeCurrent =
             .SearchDirectories([compilerDir])
     aR
 
-let handleCommandResult logger config warnSettings stageName exitContext cmdRes =  
+let handleCommandResult logger config warnSettings stageName cmdRes =  
     let res =
         match cmdRes with
         | C.Ok -> 0
@@ -68,8 +68,7 @@ let handleCommandResult logger config warnSettings stageName exitContext cmdRes 
             else
                 errors |> List.iter (PrintGlobalError logger)
                 1
-    if exitContext then
-        logger.ExitContext()
+    logger.ExitContext()
     logger.TimedStage stageName
     res
 
@@ -429,7 +428,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     aR.Wrap <| fun () ->
                         Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
                 try
-                    HandleExtraFiles None comp.AssemblyName config.ProjectFile config.OutputDir true
+                    HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
@@ -506,7 +505,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     | Some (Bundle | Website | Html) -> None
                     | _ -> Some assem
                 try
-                    HandleExtraFiles extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                    HandleExtraFiles logger extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
 
@@ -565,7 +564,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let unpack() =
             match ExecuteCommands.GetWebRoot config with
             | Some webRoot ->
-                ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking" false
+                ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking"
             | None ->
                 PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
                 1
@@ -584,7 +583,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | Some Html ->
             logger.Out "Start writing offline sitelet"
             logger.EnterContext()
-            let htmlRes = ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet" true
+            let htmlRes = ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Writing offline sitelet"
             if htmlRes = 0 then
                 unpack()
             else

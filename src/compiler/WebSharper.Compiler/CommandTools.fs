@@ -365,6 +365,7 @@ module ExecuteCommands =
     let Unpack webRoot settings loader (logger: LoggerBase) =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
+        logger.EnterContext()
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))
             if not dir.Exists then
@@ -377,13 +378,18 @@ module ExecuteCommands =
             let rootDir = Path.GetDirectoryName(settings.ProjectFile)
             let currentAssembly = Path.Combine(rootDir, settings.AssemblyFile)
             let fullDir = Path.Combine(rootDir, dir)
-            [
+            seq {
                 yield! Directory.EnumerateFiles(fullDir, "*.dll")
                 yield! Directory.EnumerateFiles(fullDir, "*.exe")
                 yield currentAssembly
                 yield! settings.References
-            ]        
-            |> List.distinct
+            }        
+            |> Seq.filter (fun p ->
+                let name = Path.GetFileName p
+                not (name.Contains "System." || name.Contains "Microsoft.")
+            )
+            |> Seq.distinct
+            |> List.ofSeq
             , currentAssembly
         let cfg =
             {
@@ -477,7 +483,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
     let cmp = InterfaceGenerator.Compiler.Create(logger)
     // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
     let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
-    FrontEnd.HandleExtraFiles (Some out.Assembly) name.Name config.ProjectFile config.OutputDir false
+    FrontEnd.HandleExtraFiles logger (Some out.Assembly) name.Name config.ProjectFile config.OutputDir false
     out.Save config.AssemblyFile
     logger.TimedStage "Writing final dll"
 

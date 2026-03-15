@@ -60,7 +60,8 @@
     <ItemGroup Condition="$(CompilerGeneratedFilesOutputPath) != ''">
       <Compile Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />
     </ItemGroup>
-    <WebSharperTask 
+    <WebSharperTask
+      StandardOutputImportance="$(WebSharperLogImportance)"
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"
       Sources="@(Compile)"
@@ -77,11 +78,11 @@
       WebSharperConfigFile="$(WebSharperConfigFile)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperSourceMap="$(WebSharperSourceMap)"          
-      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
-      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"          
+      WebSharperSourceMap="$(WebSharperSourceMap)"
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)" 
+      WebSharperProject="$(WebSharperProject)"
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"

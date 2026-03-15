@@ -137,7 +137,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             try
-                HandleExtraFiles None comp.AssemblyName config.ProjectFile config.OutputDir true
+                HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
             None, currentMeta, currentMeta, sources, extraBundles
@@ -214,7 +214,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 | Some (Bundle | Website | Html) -> None
                 | _ -> Some assem
             try
-                HandleExtraFiles extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                HandleExtraFiles logger extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
 
@@ -257,7 +257,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     //    logger.TimedStage ("Writing " + path)
     //| _ -> ()
 
-    let handleCommandResult stageName exitContext cmdRes =  
+    let handleCommandResult stageName cmdRes =  
         let res =
             match cmdRes with
             | C.Ok -> 0
@@ -268,15 +268,14 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 else
                     errors |> List.iter (PrintGlobalError logger)
                     1
-        if exitContext then
-            logger.ExitContext()
+        logger.ExitContext()
         logger.TimedStage stageName
         if res = 1 then argError "" // exits without printing more errors    
 
     let unpack() =
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult "Unpacking" false
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult "Unpacking"
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
 
@@ -291,10 +290,10 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         let htmlRes = ExecuteCommands.Html config runtimeMeta logger 
         match htmlRes with
         | C.Ok -> 
-            htmlRes |> handleCommandResult "Finished writing offline sitelet" true
+            htmlRes |> handleCommandResult "Writing offline sitelet"
             unpack()
         | _ ->
-            htmlRes |> handleCommandResult "Finished writing offline sitelet" true
+            htmlRes |> handleCommandResult "Writing offline sitelet"
     | Some Website ->
         unpack()
     | _ when Option.isSome config.OutputDir && config.DeadCodeElimination <> Some true ->

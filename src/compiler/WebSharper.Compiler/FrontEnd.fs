@@ -438,17 +438,16 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                 addRes name contents
             )
 
+        logger.EnterContext()
+
         for n, js, map, isJSX in jss do
             let x = if isJSX then "x" else ""
-            addRes (n + ".js" + x) js
+            let jsName = n + ".js" + x
+            addRes jsName js
+            let jsMapName = n + ".js" + x + ".map"
             map |> Option.iter (fun m ->
-                addRes (n + ".js.map") m)
-            logger.TimedStage (if sourceMap then sprintf "Writing %s.js and %s.js.map.js" n n else sprintf "Writing %s.js" n)
-            //let minJs, minMap = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Compact getCodeWriter
-            //addRes (n + ".min.js") (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
-            //minMap |> Option.iter (fun m ->
-            //    addRes (n + ".min.map") None (Some (getBytes m)))        
-            //logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+                addRes jsMapName m)
+            logger.TimedStage (if sourceMap then sprintf "Writing %s and %s" jsName jsMapName else sprintf "Writing %s" jsName)
         
         if ts then
             let tspkg = 
@@ -461,8 +460,9 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                     |> fun (prog, jsx) ->
                         WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
                 let x = if isJSX then "x" else ""
-                addRes (n + ".ts" + x) ts
-            logger.TimedStage "Writing .ts files"
+                let tsName = n + ".ts" + x
+                addRes tsName ts
+                logger.TimedStage (sprintf "Writing %s" tsName)
 
         if dts then
             let dtspkg = 
@@ -474,8 +474,12 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                     |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
                     |> fun (prog, jsx) ->
                         WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
-                addRes (n + ".d.ts") ts
-            logger.TimedStage "Writing .d.ts files"
+                let dTsName = n + ".d.ts"
+                addRes dTsName ts
+                logger.TimedStage (sprintf "Writing %s" dTsName)
+
+        logger.EnterContext()
+        logger.TimedStage "Writing per-class code files"
 
     match resFor with
     | CreateResourcesFor.Assembly a ->
@@ -626,7 +630,7 @@ let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files:
 
         a.MainModule.Resources.Add(Mono.Cecil.EmbeddedResource(file, Mono.Cecil.ManifestResourceAttributes.Public, contents))
 
-let HandleExtraFiles (assembly : Assembly option) (assemblyName: string) (projectFile: string) (outputDir: string option) (isBundle: bool) = 
+let HandleExtraFiles (logger: LoggerBase) (assembly : Assembly option) (assemblyName: string) (projectFile: string) (outputDir: string option) (isBundle: bool) = 
     let projectDir = Path.GetDirectoryName projectFile
     
     let asmOutputDir =
@@ -636,14 +640,19 @@ let HandleExtraFiles (assembly : Assembly option) (assemblyName: string) (projec
             else
                 Path.Combine(d, "Scripts", "WebSharper", assemblyName)
         )
+
     match assembly, outputDir with
     | None, None -> ()
     | _ ->
-        let embeds = Extra.ProcessFiles projectDir outputDir asmOutputDir
-    
-        match assembly with
-        | Some asm ->
-            AddWebResourceAnnotations asm projectDir embeds
+        match Extra.ProcessFiles projectDir outputDir asmOutputDir with
+        | Some embeds ->
+            logger.TimedStage "Processing extra.files"
+            if embeds.Length > 0 then
+                match assembly with
+                | Some asm ->
+                    AddWebResourceAnnotations asm projectDir embeds
+                    logger.TimedStage "Adding WebResource annotations from extra.files"
+                | _ -> ()
         | _ -> ()
 
 /// Represents a resource content file.
