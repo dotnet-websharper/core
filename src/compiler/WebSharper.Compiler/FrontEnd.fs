@@ -478,7 +478,7 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                 addRes dTsName ts
                 logger.TimedStage (sprintf "Writing %s" dTsName)
 
-        logger.EnterContext()
+        logger.ExitContext()
         logger.TimedStage "Writing per-class code files"
 
     match resFor with

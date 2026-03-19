@@ -543,7 +543,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 for (fname, js) in jss do
                     let jsPath = Path.Combine(asmPath, fname)
                     File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
-                    logger.TimedStage ("Writing " + jsPath)
             else
                 for (name, content) in textOutputs do
                     if not <| name.ToLower().EndsWith ".meta" then
@@ -551,7 +550,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath)
                         Directory.CreateDirectory(Path.GetDirectoryName fullPath) |> ignore
                         File.WriteAllText(fullPath, content)
-                        logger.TimedStage ("Writing " + name)
+            logger.TimedStage ("Writing code files to " + asmPath)
         | _ -> ()
 
         // TODO minimized output

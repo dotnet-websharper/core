@@ -247,7 +247,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         for (fname, js) in jss do
             let jsPath = Path.Combine(asmPath, fname)
             File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
-            logger.TimedStage ("Writing " + jsPath)
+        logger.TimedStage ("Writing code files to " + asmPath)
     | _ -> ()
 
     // TODO minimized output
