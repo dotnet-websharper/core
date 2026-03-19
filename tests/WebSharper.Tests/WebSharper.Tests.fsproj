@@ -7,6 +7,7 @@
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   	<LangVersion>preview</LangVersion>
     <Tests>True</Tests>
+    <WebSharperLogImportance>High</WebSharperLogImportance>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="FromUI/AppendList.fsi" />

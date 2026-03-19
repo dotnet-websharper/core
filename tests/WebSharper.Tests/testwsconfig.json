@@ -1,5 +1,4 @@
 {
   "JavaScript": [ "WebSharper.Tests.Basis+SameName" ],
-  "JsOutput": "obj/jsoutput",
   "WarnOnly": true
 }

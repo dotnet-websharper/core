@@ -11,8 +11,8 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
     <RollForward>LatestMajor</RollForward>
-    <!--<PublishReadyToRun>true</PublishReadyToRun>
-    <ReadyToRunUseCrossgen2>true</ReadyToRunUseCrossgen2>-->
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <ReadyToRunUseCrossgen2>true</ReadyToRunUseCrossgen2>
 	<ApplicationIcon>../../../tools/WebSharper.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
