@@ -477,6 +477,7 @@ let varEvalOrder (vars : Id list) expr =
             | CSharpSwitch _
             | Continuation _
             | Continue _
+            | Debugger
             | DoNotReturn
             | DoWhile _
             | For _

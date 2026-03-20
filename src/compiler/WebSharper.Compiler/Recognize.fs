@@ -497,7 +497,7 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         failwith "Currently unsupported: TS declare in inline"   
     | S.DeclareGlobal a ->
         failwith "Currently unsupported: TS declare global in inline"   
-    | S.Debugger -> failwith "Currently unsupported: JS debugger"
+    | S.Debugger -> Debugger
     | S.Do (a, b) -> DoWhile (trS a, trE b)
     | S.Empty -> Empty
     | S.Export (a, b) ->

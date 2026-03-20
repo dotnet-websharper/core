@@ -1010,6 +1010,7 @@ and private breakSt statement : Statement seq =
     | Goto _ 
     | ClassProperty _
     | ClassStatic _
+    | Debugger
         -> Seq.singleton statement
     | GotoCase a -> 
         match a with

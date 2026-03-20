@@ -306,3 +306,6 @@ type JS =
     /// String interpolation is supported to include expressions.
     [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
     static member html<'T> (jsx: string) = X<'T>
+
+    [<Inline "debugger">]
+    static member Debugger = X<unit>

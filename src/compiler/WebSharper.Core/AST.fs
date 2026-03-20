@@ -279,6 +279,8 @@ and Statement =
     | Break of Label:option<Id>
     /// continue statement
     | Continue of Label:option<Id>
+    /// debugger statement
+    | Debugger
     /// Expression as statement
     | ExprStatement of Expression:Expression
     /// Return a value
@@ -531,6 +533,9 @@ type Transformer() =
     /// continue statement
     abstract TransformContinue : Label:option<Id> -> Statement
     override this.TransformContinue a = Continue (Option.map this.TransformId a)
+    /// debugger statement
+    abstract TransformDebugger : unit -> Statement
+    override this.TransformDebugger () = Debugger 
     /// Expression as statement
     abstract TransformExprStatement : Expression:Expression -> Statement
     override this.TransformExprStatement a = ExprStatement (this.TransformExpression a)
@@ -703,6 +708,7 @@ type Transformer() =
         | Empty  -> this.TransformEmpty ()
         | Break a -> this.TransformBreak a
         | Continue a -> this.TransformContinue a
+        | Debugger  -> this.TransformDebugger ()
         | ExprStatement a -> this.TransformExprStatement a
         | Return a -> this.TransformReturn a
         | Block a -> this.TransformBlock a
@@ -921,6 +927,9 @@ type Visitor() =
     /// continue statement
     abstract VisitContinue : Label:option<Id> -> unit
     override this.VisitContinue a = (Option.iter this.VisitId a)
+    /// debugger statement
+    abstract VisitDebugger : unit -> unit
+    override this.VisitDebugger () = ()
     /// Expression as statement
     abstract VisitExprStatement : Expression:Expression -> unit
     override this.VisitExprStatement a = (this.VisitExpression a)
@@ -1091,6 +1100,7 @@ type Visitor() =
         | Empty  -> this.VisitEmpty ()
         | Break a -> this.VisitBreak a
         | Continue a -> this.VisitContinue a
+        | Debugger  -> this.VisitDebugger ()
         | ExprStatement a -> this.VisitExprStatement a
         | Return a -> this.VisitReturn a
         | Block a -> this.VisitBlock a
@@ -1197,6 +1207,7 @@ module IgnoreSourcePos =
     let (|Empty|_|) x = match ignoreStatementSourcePos x with Empty  -> Some () | _ -> None
     let (|Break|_|) x = match ignoreStatementSourcePos x with Break a -> Some a | _ -> None
     let (|Continue|_|) x = match ignoreStatementSourcePos x with Continue a -> Some a | _ -> None
+    let (|Debugger|_|) x = match ignoreStatementSourcePos x with Debugger  -> Some () | _ -> None
     let (|ExprStatement|_|) x = match ignoreStatementSourcePos x with ExprStatement a -> Some a | _ -> None
     let (|Return|_|) x = match ignoreStatementSourcePos x with Return a -> Some a | _ -> None
     let (|Block|_|) x = match ignoreStatementSourcePos x with Block a -> Some a | _ -> None
@@ -1298,6 +1309,7 @@ module Debug =
         | Empty  -> "Empty" + ""
         | Break a -> "Break" + "(" + defaultArg (Option.map string a) "_" + ")"
         | Continue a -> "Continue" + "(" + defaultArg (Option.map string a) "_" + ")"
+        | Debugger  -> "Debugger" + ""
         | ExprStatement a -> "ExprStatement" + "(" + PrintExpression a + ")"
         | Return a -> "Return" + "(" + PrintExpression a + ")"
         | Block a -> "Block" + "(" + "[" + String.concat "; " (List.map PrintStatement a) + "]" + ")"
