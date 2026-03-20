@@ -6,6 +6,7 @@
     <Tests>True</Tests>
     <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
     <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
+    <WebSharperLogImportance>High</WebSharperLogImportance>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />

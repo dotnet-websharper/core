@@ -385,8 +385,8 @@ module ExecuteCommands =
                 yield! settings.References
             }        
             |> Seq.filter (fun p ->
-                let name = Path.GetFileName p
-                not (name.Contains "System." || name.Contains "Microsoft.")
+                let name = Path.GetFileNameWithoutExtension p
+                not (Utility.IsKnownNotWebSharperAssemblyName name)
             )
             |> Seq.distinct
             |> List.ofSeq

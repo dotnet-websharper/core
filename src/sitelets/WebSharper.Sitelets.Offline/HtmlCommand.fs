@@ -75,14 +75,16 @@ type HtmlCommand() =
                                 file
                 let (sitelet, actions) = loadSite options.MainAssemblyPath
 
-                options.Logger.TimedStage "Finished loading assemblies"
+                options.Logger.TimedStage "Loading assemblies"
 
                 if options.DownloadResources then
                     let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
+                    options.Logger.EnterContext()
+                    let writeLog line = options.Logger.TimedStage line
                     for p in assemblies do
-                        D.DownloadResource p options.OutputDirectory |> errors.AddRange
-
-                    options.Logger.TimedStage "Finished downloading resources"
+                        D.DownloadResource writeLog p options.OutputDirectory |> errors.AddRange
+                    options.Logger.ExitContext()
+                    options.Logger.TimedStage "Downloading resources"
 
                 // Write site content.
                 let writeErrors =

@@ -134,10 +134,13 @@ module UnpackCommand =
         let content = PC.ResourceKind.Content
 
         if cmd.DownloadResources then
+            cmd.Logger.EnterContext()
             aR.Wrap <| fun () ->
+                let writeLog line = cmd.Logger.TimedStage line
                 for p in cmd.Assemblies do
-                    DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
-            cmd.Logger.TimedStage "Downloaded resources"
+                    DownloadResources.DownloadResource writeLog p cmd.RootDirectory |> errors.AddRange
+            cmd.Logger.ExitContext()
+            cmd.Logger.TimedStage "Downloading resources"
 
         for p in cmd.Assemblies do
             match (try loader.LoadFile (p, false) |> Some with _ -> None) with 

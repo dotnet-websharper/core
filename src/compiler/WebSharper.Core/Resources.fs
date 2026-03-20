@@ -199,7 +199,7 @@ and IResource =
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
 type IDownloadableResource =
-    abstract Unpack : string -> unit    
+    abstract Unpack : path:string * writeLog:(string -> unit) -> unit    
     abstract member GetImports : unit -> string[]
 
 type IExternalScriptResource =
@@ -400,7 +400,7 @@ type BaseResource(kind: Kind) as this =
                         else script dHttp (writer Scripts) false url
 
     interface IDownloadableResource with
-        member this.Unpack path =
+        member this.Unpack (path, writeLog) =
             let download (paths: string list) =
                 let urls =
                     paths |> List.choose (fun p ->
@@ -419,13 +419,13 @@ type BaseResource(kind: Kind) as this =
                         let localPath = Path.Combine(localDir, f)
                         if not (Directory.Exists localDir) then
                             Directory.CreateDirectory localDir |> ignore
-                        printfn "Downloading %A to %s" url localPath
                         let tempLocalPath = localPath + ".download"
                         wc.DownloadFile(url, tempLocalPath)
                         if File.Exists tempLocalPath then
                             if File.Exists localPath then
                                 File.Delete localPath
                             File.Move(tempLocalPath, localPath)
+                        writeLog ("Downloading " + url.ToString())
             match kind with
             | Basic spec ->
                 download [ spec ]

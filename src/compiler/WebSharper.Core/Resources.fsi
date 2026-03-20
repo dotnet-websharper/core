@@ -105,7 +105,8 @@ val EmptyResource : IResource
 type IDownloadableResource =
 
     /// Gets the WebSharper output root directory.
-    abstract Unpack : string -> unit    
+    /// Can use the writeLog callback to log messages during unpacking.
+    abstract Unpack : path:string * writeLog:(string -> unit) -> unit    
 
     /// Returns JavaScript imports to include in .ts files depending on this resource.
     abstract member GetImports : unit -> string[]

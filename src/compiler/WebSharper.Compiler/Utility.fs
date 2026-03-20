@@ -22,6 +22,7 @@ namespace WebSharper.Compiler
 
 open System
 open System.IO
+open System.Collections.Generic
 module CT = WebSharper.Core.ContentTypes
 module M = WebSharper.Core.Metadata
 
@@ -67,3 +68,29 @@ module internal Utility =
             (content, contentType)
         with e ->
             ("", CT.Text.Plain)
+
+    let private knownNotWebSharperAssemblyNames = 
+        HashSet [| 
+            "DiffPlex"
+            "FSharp.Core" 
+            "Mono.Cecil"
+            "Mono.Cecil.Mdb"
+            "Mono.Cecil.Pdb"
+            "Mono.Cecil.Rocks"
+            "mscorlib" 
+            "netstandard" 
+            "WebSharper.AspNetCore"
+            "WebSharper.Compiler"
+            "WebSharper.Compiler.CSharp"
+            "WebSharper.Compiler.FSharp"
+            "WebSharper.Core"
+            "WebSharper.InterfaceGenerator"
+            "WindowsBase"
+        |]
+
+    /// Heuristic to determine if an assembly is not a WebSharper assembly, 
+    /// to avoid trying to load it for unpacking/downloading resources.
+    let IsKnownNotWebSharperAssemblyName (n: string) =
+        n.StartsWith("System.") 
+        || n.StartsWith("Microsoft.") 
+        || knownNotWebSharperAssemblyNames.Contains(n)

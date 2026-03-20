@@ -38,16 +38,12 @@ module DownloadResources =
                     }
                 String.concat " - " (messages e)
 
-    let DownloadResource (path: string) (root: string) =
+    let DownloadResource (writeLog: string -> unit) (path: string) (root: string) =
         let errors = ResizeArray()
         let name = Path.GetFileNameWithoutExtension path
         try
             let asm = 
-                if name.Contains "System." 
-                    || name.Contains "Microsoft." 
-                    || name = "WebSharper.Sitelets" 
-                    || name = "WebSharper.AspNetCore" 
-                then
+                if Utility.IsKnownNotWebSharperAssemblyName name then
                     null
                 else
                     try
@@ -66,7 +62,7 @@ module DownloadResources =
                     if isDownloadableResource then
                         try
                             let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
-                            res.Unpack(root)
+                            res.Unpack(root, writeLog)
                         with e ->
                             errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)   
         with e ->
