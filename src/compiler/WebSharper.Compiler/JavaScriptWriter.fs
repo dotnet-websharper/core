@@ -588,6 +588,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.Function(id, args, None)
     | While(a, b) -> 
         J.While (trE a, trS b)
+    | Debugger ->
+        J.Debugger
     | DoWhile(a, b) ->
         J.Do (trS a, trE b)
     | For(a, b, c, d) -> 

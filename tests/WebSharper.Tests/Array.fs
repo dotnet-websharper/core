@@ -34,6 +34,7 @@ let Tests =
         }
 
         Test "Comprehensions" {
+            JS.Debugger
             let l1 = [| for x in 1 .. 10 -> x * x |]
             equalMsg l1 [| 1; 4; 9; 16; 25; 36; 49; 64; 81; 100 |] "squares"
             let vec1 = [| 1; 2; 3 |]

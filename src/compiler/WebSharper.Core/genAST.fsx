@@ -223,6 +223,8 @@ let StatementDefs =
             , "break statement"
         "Continue", [ Option Id, "label" ]
             , "continue statement"
+        "Debugger", [ ]
+            , "debugger statement"
         "ExprStatement", [ Expr, "expression" ]
             , "Expression as statement"
         "Return", [ Expr, "value" ]
