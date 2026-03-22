@@ -134,6 +134,7 @@ module UnpackCommand =
         let content = PC.ResourceKind.Content
 
         if cmd.DownloadResources then
+            cmd.Logger.DebugWrite "Starting downloading resources"
             cmd.Logger.EnterContext()
             aR.Wrap <| fun () ->
                 let writeLog line = cmd.Logger.TimedStage line

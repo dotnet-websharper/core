@@ -20,6 +20,8 @@
 
 namespace WebSharper.Compiler
 
+open System.Diagnostics
+
 [<AbstractClass>]
 #if DEBUG
 // Persisting logger as static for assembly resolution logging in when debugging the compiler
@@ -31,7 +33,7 @@ type LoggerBase() as self =
 type LoggerBase() =
 #endif
     
-    let mutable timeStamps = [ System.DateTime.Now ]
+    let mutable timeStamps = [ Stopwatch.GetTimestamp() ]
 
     member _.Indent (s: string) =
         String.replicate (timeStamps.Length - 1) "  " + s
@@ -46,9 +48,10 @@ type LoggerBase() =
         timeStamps <- timeStamps.Tail
 
     member x.TimedStage name =
-        let now = System.DateTime.Now
+        let now = Stopwatch.GetTimestamp()
         let lastTimestamp = timeStamps.Head
-        sprintf "%s: %O" name (now - lastTimestamp)
+        let elapsed = float (now - lastTimestamp) / float Stopwatch.Frequency
+        sprintf "%s: %O" name elapsed
         |> x.Out
         timeStamps <- now :: timeStamps.Tail        
 

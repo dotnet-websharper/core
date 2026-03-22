@@ -78,6 +78,7 @@ type HtmlCommand() =
                 options.Logger.TimedStage "Loading assemblies"
 
                 if options.DownloadResources then
+                    options.Logger.DebugWrite "Starting downloading resources"
                     let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
                     options.Logger.EnterContext()
                     let writeLog line = options.Logger.TimedStage line

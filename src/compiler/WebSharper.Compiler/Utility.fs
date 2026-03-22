@@ -79,6 +79,7 @@ module internal Utility =
             "Mono.Cecil.Rocks"
             "mscorlib" 
             "netstandard" 
+            "System"
             "WebSharper.AspNetCore"
             "WebSharper.Compiler"
             "WebSharper.Compiler.CSharp"
