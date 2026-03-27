@@ -57,6 +57,13 @@ let publish rids (mode: BuildMode) =
                     SelfContained = false |> Some
                     Runtime = rid
                     Configuration = mode.AsDotNet
+                    Common = 
+                        if rid = Some "win-x64" || rid = Some "linux-x64" then
+                            { p.Common with 
+                                CustomParams = Some "-p:PublishReadyToRun=true" 
+                            }
+                        else 
+                            p.Common
                 }) input
     publishExe mode "net10.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
     publishExe mode "net10.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
