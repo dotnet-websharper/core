@@ -72,6 +72,10 @@ let handleCommandResult logger config warnSettings stageName cmdRes =
     logger.TimedStage stageName
     res
 
+let fullTime (logger: LoggerBase) =
+    logger.ExitContext()
+    logger.TimedStage "Total compilation time"
+
 let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
     let isSupportedFile (f: string) =
@@ -184,12 +188,13 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                         propsFileTimeStamp, outputs
                                     )
                                 )    
+                            let printOut s = logger.Out (sprintf "[%s generator] %s" ext s)
                             let generateInput =
                                 {
                                     RelativeFilePath = f
                                     FilePath = fullPath
                                     ProjectFilePath = config.ProjectFile
-                                    Print = logger.Out
+                                    Print = printOut
                                     PrintError = logger.Error
                                     PreviousOutputFiles = prevOutputOpt
                                 } : WebSharper.GenerateCall
@@ -237,6 +242,7 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                         """</Project>"""
                     }
                 File.WriteAllLines(propsFile, propsFileLines)
+            logger.TimedStage "Running F# source generators"
             let otherArgs = config.CompilerArgs[1 ..] |> Array.filter (fun a -> a.StartsWith "-")
             { config with CompilerArgs = Array.concat [| [| config.CompilerArgs[0] |]; otherArgs;  transformedFiles |] }
     else
@@ -278,6 +284,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.Out "Written Proxies.args"
         0 
     else
+       
+    logger.TimedStage "Reading configuration"
+    logger.EnterContext()
 
     let checker = checkerFactory()
     
@@ -317,14 +326,17 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 1
             
     if exitCode <> 0 then 
+        fullTime logger
         exitCode
     elif config.ProjectType = Some WIG then  
         let aR = createAssemblyResolver config true
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config logger
+                fullTime logger
                 0
             with e ->
+                fullTime logger
                 PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
                 1
     else 
@@ -353,6 +365,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             None, 0
 
     if exitCode <> 0 then 
+        fullTime logger
         exitCode
     else
     
@@ -606,6 +619,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 exitCode
             | None -> 0
 
+    fullTime logger
     exitCode
 
 type ParseOptionsResult =

@@ -31,6 +31,10 @@ open WebSharper.Compiler.CSharp.ErrorPrinting
 
 module C = WebSharper.Compiler.Commands
 
+let fullTime (logger: LoggerBase) =
+    logger.ExitContext()
+    logger.TimedStage "Total compilation time"
+
 let Compile config (logger: LoggerBase) tryGetMetadata =
     config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
 
@@ -42,8 +46,11 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
     if not (isBundleOnly || File.Exists config.AssemblyFile) then 
-        ()
+        logger.Out "Assembly file does not exist"
     else
+
+    logger.TimedStage "Reading configuration"
+    logger.EnterContext()
 
     let mergeDirs =
         match config.ChangeTracking, config.OutputDir with
@@ -117,6 +124,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 #if !DEBUG
     if assem.IsSome && assem.Value.HasWebSharperMetadata then
         logger.TimedStage "WebSharper resources already exist, skipping"
+        fullTime logger
     else
 #endif
 
@@ -125,6 +133,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             compiler.Compile(refMeta, config, logger)
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        fullTime logger
         PrintWebSharperErrors logger config.WarnOnly comp
         argError "" // exits without printing more errors
     else
@@ -307,6 +316,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             argError "" // exits without printing more errors   
         logger.TimedStage "Merging output with previously existing changes"
     | None -> ()
+
+    fullTime logger
 
 let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
 

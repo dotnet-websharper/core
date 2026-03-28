@@ -21,6 +21,7 @@
 namespace WebSharper.Compiler
 
 open System.Diagnostics
+open System
 
 [<AbstractClass>]
 #if DEBUG
@@ -50,7 +51,7 @@ type LoggerBase() =
     member x.TimedStage name =
         let now = Stopwatch.GetTimestamp()
         let lastTimestamp = timeStamps.Head
-        let elapsed = float (now - lastTimestamp) / float Stopwatch.Frequency
+        let elapsed = TimeSpan.FromSeconds (float (now - lastTimestamp) / float Stopwatch.Frequency)
         sprintf "%s: %O" name elapsed
         |> x.Out
         timeStamps <- now :: timeStamps.Tail        
