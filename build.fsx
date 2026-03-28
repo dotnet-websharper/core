@@ -53,7 +53,6 @@ let publish rids (mode: BuildMode) =
                 { p with
                     Framework = Some fw
                     OutputPath = Some outputPath
-                    NoRestore = true
                     SelfContained = false |> Some
                     Runtime = rid
                     Configuration = mode.AsDotNet
