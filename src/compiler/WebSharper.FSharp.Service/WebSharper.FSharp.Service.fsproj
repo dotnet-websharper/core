@@ -13,6 +13,9 @@
     <RollForward>LatestMajor</RollForward>
 	<ApplicationIcon>../../../tools/WebSharper.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'linux-x64'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
   <ItemGroup>
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
