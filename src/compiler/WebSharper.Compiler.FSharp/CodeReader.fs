@@ -336,6 +336,11 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
         | _ -> expr
     else expr
 
+let getQualifiedName (typ: FSharpEntity) =
+    typ.QualifiedName
+    |> Option.map (fun n -> n.Split([|','|]).[0])
+    |> Option.defaultValue ""
+
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
     let mutable anonRecords = null : IDictionary<string[], string>
@@ -351,7 +356,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     let attrReader =
         { new A.AttributeReader<FSharpAttribute>() with
             override this.GetAssemblyName attr =
-                readSimpleName attr.AttributeType.Assembly (attr.AttributeType.QualifiedName.Split([|','|]).[0])
+                readSimpleName attr.AttributeType.Assembly (getQualifiedName attr.AttributeType)
             override this.GetName attr = attr.AttributeType.LogicalName
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (_, n, _, v) -> n, v) |> Array.ofSeq
@@ -417,7 +422,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let td = getOrigDef td
         let fullName =
             if td.IsProvidedAndErased then td.LogicalName else
-            td.QualifiedName.Split([|','|]).[0] 
+            getQualifiedName td
         let res =
             {
                 Assembly = comp.FindProxiedAssembly(readSimpleName td.Assembly fullName)

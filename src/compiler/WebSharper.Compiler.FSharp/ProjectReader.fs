@@ -182,7 +182,9 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
 
 let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
     cls.AllInterfaces |> Seq.exists (fun i ->
-        i.BasicQualifiedName = "WebSharper.IRequiresResources"
+        match i.BasicQualifiedName with
+        | Some "WebSharper.IRequiresResources" -> true
+        | _ -> false
     )
 
 let isAugmentedFSharpType (e: FSharpEntity) =
