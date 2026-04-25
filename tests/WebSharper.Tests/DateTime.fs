@@ -34,21 +34,21 @@ let private d = DateTime(2010, 4, 8, 15, 5, 39)
 
 [<JavaScript>]
 let timeZoneOffsetSimple =
-    let offsetMins = Date().GetTimezoneOffset()
+    let offsetMins = Date(2024, 11, 1).GetTimezoneOffset()
     let offsetHours = -(int offsetMins) / 60;
     let sign = if offsetHours >= 0 then "+" else "-"
     sign + string (abs offsetHours)
 
 [<JavaScript>]
 let timeZoneOffsetPadded =
-    let offsetMins = Date().GetTimezoneOffset()
+    let offsetMins = Date(2024, 11, 1).GetTimezoneOffset()
     let offsetHours = -(int offsetMins) / 60;
     let sign = if offsetHours >= 0 then "+" else "-"
     sign + (string (abs offsetHours)).PadLeft(2, '0')
 
 [<JavaScript>]
 let timeZoneOffsetWithMinutes =
-    let offsetMins = Date().GetTimezoneOffset()
+    let offsetMins = Date(2024, 11, 1).GetTimezoneOffset()
     let totalMins = abs (int offsetMins)
     let hours = (string (totalMins / 60)).PadLeft(2, '0')
     let minutes = (string (totalMins % 60)).PadLeft(2, '0')
