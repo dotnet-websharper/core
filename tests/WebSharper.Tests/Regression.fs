@@ -1176,4 +1176,34 @@ let Tests =
                 counter, result
             equal (inlineMutableCapture()) (1, 1)
         }
+
+        Test "#1525 Mutable variable definition misplaced" {
+            let Test () =
+                let heavyCompute (x:int) = [for i in 1..x -> i * x]
+                let pickNames xs = xs |> List.map (fun n -> sprintf "n%d" n) |> Set.ofList
+                let config = {| Range = Some (1,3); Count = 5 |}
+                let mutable arr = heavyCompute config.Count
+                let mutable names = pickNames arr |> Set.toList
+                let mutable acc = 0
+                let innerInc x =
+                    acc <- acc + x
+                    acc
+                let addAndGet x =
+                    let t = innerInc x
+                    arr <- arr @ [t]
+                    t
+                let closureA () =
+                    let r = addAndGet 2
+                    names <- names @ [string r]
+                    r
+                let closureB () =
+                    let r = addAndGet 3
+                    names <- List.rev names
+                    r
+                fun () ->
+                    closureA, closureB
+            let a, b = Test ()()
+            equal (a()) 2
+            equal (b()) 5
+        }
     }

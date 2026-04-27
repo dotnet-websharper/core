@@ -631,8 +631,12 @@ let rec breakExpr expr : Broken<BreakResult> =
                         | ResultVar hv -> hv <> v
                         | ResultExpr e -> CountVarOccurence(v).Get(e) = 0
                     h, 
-                    t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) | _ -> None) |> List.rev,
-                    t |> List.choose (function ResultVar v -> (if notUsed v then Some v else None) | _ -> None)
+                    t |> List.choose (function 
+                        | ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) 
+                        | _ -> None) |> List.rev,
+                    t |> List.choose (function
+                        | ResultVar v when not v.IsMutable && notUsed v -> Some v
+                        | _ -> None)
             {
                 Body = b
                 Statements = 
