@@ -825,11 +825,6 @@ let rec breakExpr expr : Broken<BreakResult> =
                                 Variables = brB.Variables @ brC.Variables
                             }
                         else
-                            //{
-                            //    Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
-                            //    Statements = []
-                            //    Variables = (a, None) :: brB.Variables @ brC.Variables
-                            //}
                             {
                                 Body = ResultExpr(brC.Body)
                                 Statements = [ declA ]

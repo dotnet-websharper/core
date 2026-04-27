@@ -1164,4 +1164,16 @@ let Tests =
         Test "#1455 Inlines not resolved from base classes" {
             equal (Bug1455.test()) "test"
         }
+
+        Test "#1578 Invalid inlining of expression with mutable set" {
+            let inlineMutableCapture () : int * int =
+                let mutable counter = 0
+                let incBy (n:int) : int =
+                    counter <- counter + n
+                    counter
+                // `incBy` is a local inlinable function and is used exactly once
+                let result = incBy 1
+                counter, result
+            equal (inlineMutableCapture()) (1, 1)
+        }
     }

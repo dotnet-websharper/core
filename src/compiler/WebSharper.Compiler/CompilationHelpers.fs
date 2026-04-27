@@ -376,6 +376,8 @@ let varEvalOrder (vars : Id list) expr =
                         if a = hv then
                             vars <- tv
                         else fail() 
+                else if a.IsMutable then 
+                    stop()
             | VarSet(a, b) ->
                 if watchedVars.Contains a then
                     fail()
