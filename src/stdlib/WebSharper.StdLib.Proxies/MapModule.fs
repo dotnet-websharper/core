@@ -82,6 +82,9 @@ module internal MapModule =
     [<Inline>]
     let IsEmpty (m: Map<'K, 'V>) : bool = m.IsEmpty
 
+    [<Inline>]
+    let Count (m: Map<'K, 'V>) : int = m.Count
+
     let rec Iterate (f: 'K -> 'V -> unit) (m: Map<'K, 'V>) : unit =
         m |> Seq.iter (fun kv -> f kv.Key kv.Value)
 

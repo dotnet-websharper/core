@@ -33,6 +33,11 @@ let Tests =
             isFalse (Map.isEmpty (Map.add 1 2 Map.empty))
         }
 
+        Test "Map.count" {
+            let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
+            equal (Map.count m) 6
+        }
+
         Test "Map.remove" {
             let map1 = Map.ofSeq [(1,"a"); (2,"b"); (3,"c"); (4,"d")]
             let map2 = Map.remove 1 map1 // remove existing element 
