@@ -41,7 +41,7 @@ group fcs
     nuget System.Configuration.ConfigurationManager ~> 10.0.0
     nuget NLog ~> 6.0.0
     nuget FSharp.Core
-    nuget FSharp.Compiler.Service
+    nuget FSharp.Compiler.Service 43.12.202
 
 group nunit
     framework: net10.0, net472
