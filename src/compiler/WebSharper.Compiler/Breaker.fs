@@ -630,12 +630,13 @@ let rec breakExpr expr : Broken<BreakResult> =
                         match h with
                         | ResultVar hv -> hv <> v
                         | ResultExpr e -> CountVarOccurence(v).Get(e) = 0
+                        && brA.Statements |> List.forall (fun s -> CountVarOccurence(v).GetForStatement(s) = 0)
                     h, 
                     t |> List.choose (function 
                         | ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) 
                         | _ -> None) |> List.rev,
                     t |> List.choose (function
-                        | ResultVar v when not v.IsMutable && notUsed v -> Some v
+                        | ResultVar v when notUsed v -> Some v
                         | _ -> None)
             {
                 Body = b
