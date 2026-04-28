@@ -475,9 +475,43 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         sequential s (function IgnoreSourcePos.Unary(UnaryOperator.``void``, e) | e -> ExprStatement e)    
     let flatten s =
         let res = ResizeArray()
-        let rec add a =
+        let varDeclarationPrefix (s: Statement list) : list<Id * Expression> * Statement list =
+            let rec collect acc rest =
+                match rest with
+                | h :: t ->
+                    match IgnoreStatementSourcePos h with
+                    | VarDeclaration (id, e) -> collect ((id, e) :: acc) t
+                    | _ -> List.rev acc, rest
+                | [] -> List.rev acc, []
+            collect [] s
+        let writeVarDeclarations (decls: list<Id * Expression>) =
+            let undefined, withValues =
+                decls
+                |> List.partition (fun (_, e) ->
+                    match e with
+                    | IgnoreSourcePos.Undefined -> true
+                    | _ -> false
+                )
+            [
+                match undefined with
+                | [] -> ()
+                | xs ->
+                    yield J.Vars(xs |> List.map (fun (id, _) -> transformIdTyped env id, None), J.LetDecl)
+                for id, e in withValues do
+                    let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
+                    yield J.Vars([transformIdTyped env id, Some (trE e)], kind)
+            ]
+        let rec addBlock s =
+            let decls, rest = varDeclarationPrefix s
+            match decls with
+            | _ :: _ :: _ ->
+                writeVarDeclarations decls |> List.iter res.Add
+                rest |> List.iter add
+            | _ ->
+                s |> List.iter add
+        and add a =
             match IgnoreStatementSourcePos a with 
-            | Block b -> b |> List.iter add
+            | Block b -> addBlock b
             | Empty 
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | ExprStatement (IgnoreSourcePos.Sequential s) ->
@@ -498,7 +532,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 sequential s Throw |> List.iter add
             | _ -> 
                 res.Add(trS a)
-        s |> List.iter add
+        s |> List.filter (function
+            | IgnoreSourcePos.Empty 
+            | IgnoreSourcePos.ExprStatement IgnoreSourcePos.Undefined -> false
+            | _ -> true
+        ) |> addBlock
         let mutable skip = false
         res |> Seq.filter (fun s ->
             if skip then
