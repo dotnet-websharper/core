@@ -1529,11 +1529,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
 let makeFileName (typ: TypeDefinition) =
     typ.Value.FullName.Replace('+', '.')
 
-let analyzeLazyClasses (pkgs: ResizeArray<string * TypeDefinition * PackageTypeResults>) =
+let analyzeLazyClasses ext (pkgs: ResizeArray<string * TypeDefinition * PackageTypeResults>) =
     
     let pkgLookup = Dictionary()
     pkgs |> Seq.iteri (fun i (fn, td, pkg) ->
-        let m = { Assembly = td.Value.Assembly; FileName = makeFileName td }
+        let m = { Assembly = td.Value.Assembly; FileName = makeFileName td + ext }
         pkgLookup.Add(m, i) 
     )
     
@@ -1626,7 +1626,11 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName flattened
         let pkg = packageType output refMeta current asmName flattened (Bundle ([| epTyp |], entryPointStyle, entryPoint))
         pkgs.Add("$EntryPoint", epTyp, pkg)
     if output <> O.TypeScriptDeclaration then
-        analyzeLazyClasses pkgs
+        let ext = 
+            match output with
+            | O.JavaScript -> ".js"
+            | _ -> ""
+        analyzeLazyClasses ext pkgs
     pkgs |> Seq.map (fun (fn, _, pkg) -> fn, pkg.Statements) |> Array.ofSeq
 
 let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
