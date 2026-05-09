@@ -36,6 +36,7 @@ let Main() =
         WebSharper.Collections.Tests.Main.RunTests()
         WebSharper.CSharp.Tests.Tests.RunTests()
         WebSharper.Html5.Tests.Main.RunTests()
+        //WebSharper.Module.Tests.Main.RunTests() // needs fix for JS.ImportDynamic test
         WebSharperWebTestsMain.RunTests "" false
     ]
 

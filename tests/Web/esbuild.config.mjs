@@ -1,5 +1,6 @@
 ﻿import { cpSync, readdirSync } from 'fs'
 import { build } from 'esbuild'
+import cssModulesPlugin from "esbuild-css-modules-plugin";
 
 cpSync('./build/', './wwwroot/', { recursive: true });
 
@@ -18,7 +19,8 @@ files.forEach(file => {
       minify: false,
       format: 'iife',
       outfile: 'wwwroot/Scripts/WebSharper/' + file,
-      globalName: 'wsbundle'
+      globalName: 'wsbundle',
+      plugins: [cssModulesPlugin()]
     };
 
     build(options);

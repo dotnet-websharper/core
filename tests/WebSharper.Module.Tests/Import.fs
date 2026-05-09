@@ -64,6 +64,10 @@ module JSXTest =
         let kecske x = JS.Html $"<div>{x?children}</div>" 
         JS.Html $"<h1>{x}</h1><{kecske}>{x}</{kecske}>"
 
+[<Import ("default", "./lib/button.module.css")>]
+[<Inline "$import.button">]
+let buttonCss = X<string> 
+
 [<JavaScript>]
 module NPMTest =
     let npmImportTest() =
@@ -144,5 +148,9 @@ let Tests =
         Test "npm import" {
             isTrue (isSorted([| 1; 2; 3 |]))
             isFalse (isSorted([| 1; 3; 2 |]))
+        }
+
+        Test "css module import" {
+            isTrue (buttonCss.Contains "button")
         }
     }

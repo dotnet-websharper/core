@@ -102,3 +102,13 @@ let ClientSideClassTest (x: SimpleClass) =
 [<JavaScript>]
 let InitSPA(where: string) =
     Console.Log($"Hello world from {where}!")
+
+[<JavaScript>]
+let ExtraModuleTests() =
+    Runner.RunTests [|
+        TestCategory "Module from another project" {
+            Test "Import attribute on function" {
+                equal (WebSharper.Module.Tests.Import.sayHiFunc "World") "Hello, World!"
+            }
+        }
+    |]

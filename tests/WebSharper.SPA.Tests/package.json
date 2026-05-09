@@ -2,7 +2,8 @@
   "name": "websharper.spa.tests",
   "version": "1.0.0",
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "esbuild-css-modules-plugin": "^3.1.5"
   },
   "dependencies": {
     "is-sorted": "^1.0.5"

@@ -1498,25 +1498,37 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     )
                     |> List.ofSeq
                 let fromModule =
-                    if isWorkerBundle then
-                        if m.Assembly = "" then
-                            m.FileName
-                        elif m.Assembly = asmName then
-                            "../" + m.FileName
-                        else
-                            "../" + m.Assembly + "/" + m.FileName  
-                    else
-                        if m.Assembly = "" then
-                            m.FileName
-                        elif isSPABundleType then
-                            if m.Assembly = asmName then
-                                "./" + m.FileName  
+                    let asm = m.Assembly
+                    let file = m.FileName                        
+                    if asm = "" then
+                        file
+                    elif file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".cjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
+                        if isWorkerBundle then
+                            if asm = asmName then
+                                "../" + file
                             else
-                                "./" + m.Assembly + "/" + m.FileName  
-                        elif flattened || m.Assembly = asmName then
-                            "./" + m.FileName  
+                                "../" + asm + "/" + file  
                         else
-                            "../" + m.Assembly + "/" + m.FileName  
+                            if isSPABundleType then
+                                if asm = asmName then
+                                    "./" + file  
+                                else
+                                    "./" + asm + "/" + file  
+                            elif flattened || asm = asmName then
+                                "./" + file  
+                            else
+                                "../" + asm + "/" + file  
+                    else
+                        if isWorkerBundle then
+                            "../../../Content/WebSharper/" + asm + "/" + file  
+                        else
+                            if isSPABundleType then
+                                "./" + asm + "/" + file  
+                            elif flattened then
+                                "../../Content/WebSharper/" + asm + "/" + file  
+                            else
+                                "../../../Content/WebSharper/" + asm + "/" + file  
+                        
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
         {
             Statements = List.ofSeq (Seq.concat [ declarations; statements ])

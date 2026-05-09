@@ -45,9 +45,6 @@ type HtmlCommand() =
             //    options.ProjectDirectory
             //    options.OutputDirectory
             //options.Logger.TimedStage "Finished copying extra.files"
-            let scriptDir =
-                System.IO.Path.Combine(options.OutputDirectory, "Scripts")
-                |> Directory.CreateDirectory
             let aR =
                 let aR = aR.SearchPaths(options.ReferenceAssemblyPaths)
                 options.ReferenceAssemblyPaths

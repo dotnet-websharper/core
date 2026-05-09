@@ -141,6 +141,7 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                 if runServerTests then
                     Web.InlineControl ( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri )
                     Web.InlineControl ( WebSharper.Module.Tests.Main.RunTests() )
+                    Web.InlineControl ( Client.ExtraModuleTests() )
                 Web.InlineControl ( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests )
             ]
         ),

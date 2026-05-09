@@ -1,5 +1,6 @@
 ﻿import { cpSync, readdirSync, existsSync } from 'fs'
 import { build } from 'esbuild'
+import cssModulesPlugin from "esbuild-css-modules-plugin";
 
 cpSync('./build/', './wwwroot/Scripts/', { recursive: true });
 
@@ -14,7 +15,8 @@ prebundles.forEach(file => {
       minify: true,
       format: 'iife',
       outfile: 'wwwroot/Scripts/' + file,
-      globalName: 'wsbundle'
+      globalName: 'wsbundle',
+      plugins: [cssModulesPlugin()]
     };
 
     console.log("Bundling:", file);

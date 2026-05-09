@@ -12,6 +12,7 @@
     <Compile Include="StubInterfaces.fs" />
     <Compile Include="Import.fs" />
     <Compile Include="Main.fs" />
+    <Content Include="lib\button.module.css" />
     <None Include="lib/sayHi*.js" />
     <None Include="lib\sayHi.mjs" />
     <None Include="paket.references" />
