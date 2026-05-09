@@ -471,13 +471,13 @@ module Bundling =
                 |> Seq.append (
                     refAssemblies
                     |> Seq.collect (fun asm ->
-                        let scripts = asm.GetResScripts() |> List.ofSeq
-                        if List.isEmpty scripts then
+                        let res = Seq.append (asm.GetResScripts()) (asm.GetContents()) |> List.ofSeq
+                        if List.isEmpty res then
                             []
                         else
                             [
                                 asm.Name,
-                                scripts |> List.map (fun js -> js.FileName, js.Content )
+                                res |> List.map (fun r -> r.FileName, r.Content )
                             ]
                     )
                 )
