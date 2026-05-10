@@ -35,7 +35,11 @@ It is possible to work on WebSharper on Windows, Linux, and macOS.
 
 To compile WebSharper, you need the following installed:
 
-* **.NET SDK 9.0 (or newer in the 9.x band)**. You can download it [here](https://www.microsoft.com/net/download).
+* **.NET SDK 10.0 (or newer)**. Download the SDK from the official site:
+
+  https://dotnet.microsoft.com/download/dotnet/10
+
+  This repository uses `global.json` to pin the SDK to `10.0.0`; ensure `dotnet --version` reports a 10.x version when building.
 
 <a name="build-cli"></a>
 ### Building WebSharper from the command line
@@ -76,7 +80,7 @@ The following options are available:
 
 We recommend that you use one of the following development environments:
 
-* On Windows: [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
+* On Windows: [Visual Studio 2026](https://visualstudio.microsoft.com/vs/) (install the workloads for .NET development and ensure .NET 10 SDK support).
 * On all platforms: [Visual Studio Code](https://code.visualstudio.com/) with:
   * `ms-dotnettools.csharp` (C# for VS Code)
   * `ms-dotnettools.csdevkit` (C# Dev Kit)
@@ -108,9 +112,12 @@ To find where to add tests for your code, check the project structure below.
 If you’re on Linux (e.g., Ubuntu 24.04) or Windows using **WSL2**, here’s a minimal setup:
 
 ```bash
-# 1) Install .NET 9 SDK (Ubuntu 24.04)
-sudo add-apt-repository ppa:dotnet/backports -y
-sudo apt-get update && sudo apt-get install -y dotnet-sdk-9.0
+# 1) Install .NET 10 SDK (Ubuntu 24.04)
+# Add the Microsoft package feed and install the SDK
+wget https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y dotnet-sdk-10.0
 
 # 2) Install Node via nvm (LTS recommended)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
@@ -196,6 +203,8 @@ Here is the detail of the project structure. The repository contains multiple so
   * `WebSharper.CSharp.Analyzer` contains the Roslyn analyzer, which provides the code service for C#.
 
 * `WebSharper.sln` contains the standard libraries, tests, and their dependencies.
+
+* `WebSharper.NoTests.sln` is a variant of `WebSharper.sln` with test projects excluded; use it for faster local iteration when you don't need to run the full test suite with `./build BuildAll`.
 
   * Under `src/stdlib/`:
 
