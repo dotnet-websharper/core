@@ -56,6 +56,14 @@ let Run () =
 
     Test "numbers" {
         p "0"    =? !~ (S.Number "0")
+        p "20n"  =? !~ (S.Number "20n")
+        p "0b101n" =? !~ (S.Number "0b101n")
+        p "0o77n"  =? !~ (S.Number "0o77n")
+        p "0xFFn"  =? !~ (S.Number "0xFFn")
+        p "1_000" =? !~ (S.Number "1_000")
+        p "1_000n" =? !~ (S.Number "1_000n")
+        p "1_2_3.4_5" =? !~ (S.Number "1_2_3.4_5")
+        p "1.2e3_4" =? !~ (S.Number "1.2e3_4")
         p "1E-1" =? !~ (S.Number "1E-1")
         p "1.25" =? !~ (S.Number "1.25")
     }

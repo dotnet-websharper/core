@@ -432,15 +432,23 @@ let lexSingleQuotedString s =
             loop ()
     loop ()
 
-let readManyDecimalDigits s =
-    let rec loop () =
+let private readManyWithSeparators isDigit s =
+    let rec loop lastWasSep =
         match peek s with
-        | i when i >= int '0' && i <= int '9' ->
+        | i when i = int '_' ->
+            if lastWasSep then error s "Invalid numeric separator."
             read s |> ignore
-            loop ()
-        | _ ->
-            ()
-    loop ()
+            match peek s with
+            | j when j <> -1 && isDigit (char j) -> loop false
+            | _ -> error s "Invalid numeric separator."
+        | i when i <> -1 && isDigit (char i) ->
+            read s |> ignore
+            loop false
+        | _ -> ()
+    loop false
+
+let readManyDecimalDigits s =
+    readManyWithSeparators (fun c -> c >= '0' && c <= '9') s
 
 let readExponentPart s =
     match peek s with
@@ -479,16 +487,47 @@ let lexAfterZero s =
         match char i with
         | 'x' | 'X' ->
             read s |> ignore
-            if not (isHexDigit (readChar s)) then
-                error s "Invalid hexadecimal integer literal."
-            let rec loop () =
+            match peek s with
+            | j when j <> -1 && isHexDigit (char j) ->
+                read s |> ignore
+                readManyWithSeparators isHexDigit s
+            | _ -> error s "Invalid hexadecimal integer literal."
+            match peek s with
+            | i when i = int 'n' ->
+                read s |> ignore
+                NumericLiteral (pop s)
+            | _ ->
+                NumericLiteral (pop s)
+        | 'b' | 'B' ->
+            read s |> ignore
+            match peek s with
+            | j when j <> -1 && (char j = '0' || char j = '1') ->
+                read s |> ignore
+                readManyWithSeparators (fun c -> c = '0' || c = '1') s
                 match peek s with
-                | -1 -> ()
-                | i ->
-                    if isHexDigit (char i) then
-                        read s |> ignore
-                        loop ()
-            loop ()
+                | i when i = int 'n' ->
+                    read s |> ignore
+                    NumericLiteral (pop s)
+                | _ ->
+                    NumericLiteral (pop s)
+            | _ ->
+                error s "Invalid binary integer literal."
+        | 'o' | 'O' ->
+            read s |> ignore
+            match peek s with
+            | j when j <> -1 && (char j >= '0' && char j <= '7') ->
+                read s |> ignore
+                readManyWithSeparators (fun c -> c >= '0' && c <= '7') s
+                match peek s with
+                | i when i = int 'n' ->
+                    read s |> ignore
+                    NumericLiteral (pop s)
+                | _ ->
+                    NumericLiteral (pop s)
+            | _ ->
+                error s "Invalid octal integer literal."
+        | 'n' ->
+            read s |> ignore
             NumericLiteral (pop s)
         | c when c >= '0' && c <= '9' ->
             error s "Invalid integer literal."
@@ -500,8 +539,13 @@ let lexAfterZero s =
 
 let lexAfterNonZeroDigit s =
     readManyDecimalDigits s
-    readDecimalLiteralTail s
-    NumericLiteral (pop s)
+    match peek s with
+    | i when i = int 'n' ->
+        read s |> ignore
+        NumericLiteral (pop s)
+    | _ ->
+        readDecimalLiteralTail s
+        NumericLiteral (pop s)
 
 let lexAfterDot s =
     match peek s with
