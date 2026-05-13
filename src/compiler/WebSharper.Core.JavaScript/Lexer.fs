@@ -104,6 +104,7 @@ type Symbol =
     | ``|=`` = 46
     | ``^=`` = 47
     | ``**`` = 48
+    | ``=>`` = 49
 
 type Lexeme =
     | EndOfInput
@@ -835,6 +836,9 @@ let lexToken s =
         | Kind.``=`` ->
             skip s |> ignore
             match peekChar s with
+            | '>' ->
+                skip s |> ignore
+                Punctuator Symbol.``=>``
             | '=' ->
                 skip s |> ignore
                 match peekChar s with

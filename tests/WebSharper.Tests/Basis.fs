@@ -834,4 +834,11 @@ let Tests =
             equal res 0
             equal x.Value 1
         }
+        
+        Test "Parsing arrow functions" {
+            equal (JS.Inline<int>("(() => 42)()")) 42
+            equal (JS.Inline<int>("((x) => x + 1)(2)")) 3
+            equal (JS.Inline<int>("((x,y) => x + y)(2,3)")) 5
+            equal (JS.Inline<int>("((x,y) => { return x + y; })(2,3)")) 5
+        }
     }

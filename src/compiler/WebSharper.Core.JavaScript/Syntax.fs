@@ -171,27 +171,27 @@ and Accessor =
 
 /// Represents JavaScript expressions.
 and Expression =
-    | Application of E * list<Id> * list<E>
-    | Binary      of E * BinaryOperator * E
-    | Conditional of E * E * E
-    | Constant    of Literal
-    | Lambda      of option<Id> * list<Id> * list<S> * bool
-    | New         of E * list<Id> * list<E>
-    | NewArray    of list<option<E>>
-    | NewObject   of list<string * Accessor * E>
+    | Application of func: E * generics: list<Id> * args: list<E>
+    | Binary      of left: E * op: BinaryOperator * right: E
+    | Conditional of test: E * consequent: E * alternate: E
+    | Constant    of lit: Literal
+    | Lambda      of name: option<Id> * formals: list<Id> * body: list<S> * isArrow: bool
+    | New         of callee: E * generics: list<Id> * args: list<E>
+    | NewArray    of elements: list<option<E>>
+    | NewObject   of fields: list<string * Accessor * E>
     | NewRegex    of Regex
-    | Postfix     of E * PostfixOperator
+    | Postfix     of expr: E * op: PostfixOperator
     | This
     | Super
-    | Unary       of UnaryOperator * E
-    | Var         of Id
-    | VarNamed    of Id * string
-    | Cast        of Expression * Expression
-    | ExprPos     of Expression * SourcePos
-    | ExprComment of E * string
+    | Unary       of op: UnaryOperator * expr: E
+    | Var         of id: Id
+    | VarNamed    of id: Id * name: string
+    | Cast        of target: Expression * expr: Expression
+    | ExprPos     of expr: Expression * pos: SourcePos
+    | ExprComment of expr: E * comment: string
     | ImportFunc
-    | ClassExpr   of option<Id> * option<E * list<Id>> * list<E> * list<Member>
-    | Verbatim    of list<string> * list<E>
+    | ClassExpr   of name: option<Id> * baseAndGenerics: option<E * list<Id>> * args: list<E> * members: list<Member>
+    | Verbatim    of tokens: list<string> * exprs: list<E>
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -228,47 +228,47 @@ and Expression =
 
 /// JavaScript statements.
 and Statement =
-    | Block        of list<S>
-    | Break        of option<Label>
-    | Continue     of option<Label>
+    | Block            of statements: list<S>
+    | Break            of label: option<Label>
+    | Continue         of label: option<Label>
     | Debugger     
-    | Do           of S * E
+    | Do               of body: S * expr: E
     | Empty        
-    | For          of option<E> * option<E> * option<E> * S
-    | ForIn        of E * E * S
-    | ForVarIn     of Id * option<E> * E * S
-    | ForVars      of list<Id * option<E>> * option<E> * option<E> * S
-    | If           of E * S * S
-    | Ignore       of E
-    | Labelled     of Label * S
-    | Return       of option<E>
-    | Switch       of E * list<SwitchElement>
-    | Throw        of E
-    | TryFinally   of S * S
-    | TryWith      of S * Id * S * option<S>
-    | Vars         of list<Id * option<E>> * DeclKind
-    | While        of E * S
-    | With         of E * S
-    | Function     of Id * list<Id> * option<list<S>>
-    | Export       of bool * S 
-    | ExportAlias  of Id * Id 
-    | Import       of option<Id> * option<Id> * list<string  * Id> * string
-    | ImportAll    of option<Id> * string
-    | ImportAlias  of Id * E
-    | TypeAlias    of Id * E
-    | Declare      of S
-    | DeclareGlobal of list<S>
-    | Namespace    of Id * list<S>
-    | Class        of Id * bool * option<E * list<Id>> * list<E> * list<Member>
-    | Interface    of Id * list<E> * list<Member>
-    | StatementPos of S * SourcePos
-    | StatementComment of S * string
+    | For              of init: option<E> * cond: option<E> * step: option<E> * body: S
+    | ForIn            of lhs: E * rhs: E * body: S
+    | ForVarIn         of id: Id * value: option<E> * expr: E * body: S
+    | ForVars          of vars: list<Id * option<E>> * cond: option<E> * step: option<E> * body: S
+    | If               of test: E * thenBranch: S * elseBranch: S
+    | Ignore           of expr: E
+    | Labelled         of label: Label * statement: S
+    | Return           of expr: option<E>
+    | Switch           of expr: E * cases: list<SwitchElement>
+    | Throw            of expr: E
+    | TryFinally       of tryBlock: S * finallyBlock: S
+    | TryWith          of tryBlock: S * id: Id * catchBlock: S * finallyOpt: option<S>
+    | Vars             of vars: list<Id * option<E>> * kind: DeclKind
+    | While            of test: E * body: S
+    | With             of expr: E * body: S
+    | Function         of id: Id * args: list<Id> * bodyOpt: option<list<S>>
+    | Export           of isDefault: bool * decl: S 
+    | ExportAlias      of fromId: Id * toId: Id 
+    | Import           of a: option<Id> * b: option<Id> * items: list<string  * Id> * path: string
+    | ImportAll        of id: option<Id> * path: string
+    | ImportAlias      of id: Id * expr: E
+    | TypeAlias        of id: Id * expr: E
+    | Declare          of decl: S
+    | DeclareGlobal    of items: list<S>
+    | Namespace        of id: Id * body: list<S>
+    | Class            of id: Id * isExport: bool * baseAndGenerics: option<E * list<Id>> * implements: list<E> * members: list<Member>
+    | Interface        of id: Id * generics: list<E> * members: list<Member>
+    | StatementPos     of stmt: S * pos: SourcePos
+    | StatementComment of stmt: S * comment: string
 
 and Member =
     | Method      of isStatic:bool * isAbstract:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
-    | Constructor of list<Id * Modifiers> * option<list<S>>
+    | Constructor of args: list<Id * Modifiers> * body: option<list<S>>
     | Property    of isStatic:bool * Id * option<E>
-    | Static      of list<S>
+    | Static      of body: list<S>
 
 /// Represents switch elements.
 and SwitchElement =

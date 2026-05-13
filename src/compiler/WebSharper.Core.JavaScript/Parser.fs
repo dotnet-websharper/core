@@ -126,10 +126,31 @@ let (|UnaryOp|_|) (t: L.IToken) =
     | _ ->
         None
 
+let rec private exprToParamIds (e: S.Expression) : option<list<S.Id>> =
+    match e with
+    | S.Var id -> Some [id]
+    | S.Binary (a, op, b) when string op = "," ->
+        match exprToParamIds a, exprToParamIds b with
+        | Some la, Some lb -> Some (la @ lb)
+        | _ -> None
+    | _ -> None
+
 let rec primExpr i =
     let t = peek i
     match t.Lexeme with
-    | L.Identifier x -> skipDiv i; S.Var (S.Id.New x)
+    | L.Identifier x ->
+        // Could be an arrow function with a single identifier parameter: x => ...
+        skipDiv i // consume identifier
+        match (peek i).Lexeme with
+        | L.Punctuator s when string s = "=>" ->
+            skipRx i // consume '=>'
+            // parse body: block or expression
+            match (peek i).Lexeme with
+            | L.Punctuator Sy.``{`` -> S.Lambda (None, [S.Id.New x], funBody i, true)
+            | _ ->
+                let e = expr true i
+                S.Lambda (None, [S.Id.New x], [S.Return (Some e)], true)
+        | _ -> S.Var (S.Id.New x)
     | L.ReservedWord Kw.``this`` -> skipDiv i; S.This
     | L.ReservedWord Kw.``null`` -> skipDiv i; S.Constant S.Null
     | L.ReservedWord Kw.``false`` -> skipDiv i; S.Constant S.False
@@ -142,11 +163,38 @@ let rec primExpr i =
     | L.Punctuator Sy.``{`` -> skipRx i; objectLiteral i
     | L.Punctuator Sy.``(`` ->
         skipRx i
-        let e = expr true i
-        let t = readDiv i
-        match t.Lexeme with
-        | L.Punctuator Sy.``)`` -> e
-        | _ -> error t "Expecting ')'."
+        // Support arrow parameter list: (x, y) => ... or () => ...
+        match (peek i).Lexeme with
+        | L.Punctuator Sy.``)`` ->
+            // empty parameter list
+            let t = readDiv i // consume ')'
+            match (peek i).Lexeme with
+            | L.Punctuator s when string s = "=>" ->
+                skipRx i // consume '=>'
+                match (peek i).Lexeme with
+                | L.Punctuator Sy.``{`` -> S.Lambda (None, [], funBody i, true)
+                | _ -> let e = expr true i in S.Lambda (None, [], [S.Return (Some e)], true)
+            | _ -> error t "Expecting a primary expression."
+        | _ ->
+            let e = expr true i
+            let t = readDiv i
+            match t.Lexeme with
+            | L.Punctuator Sy.``)`` ->
+                // If followed by '=>' this is a parameter list rather than grouping
+                match (peek i).Lexeme with
+                | L.Punctuator s when string s = "=>" ->
+                    // Try to convert parsed expression into a list of identifier parameters
+                    match exprToParamIds e with
+                    | Some ids ->
+                        skipRx i // consume '=>'
+                        match (peek i).Lexeme with
+                        | L.Punctuator Sy.``{`` -> S.Lambda (None, ids, funBody i, true)
+                        | _ -> let be = expr true i in S.Lambda (None, ids, [S.Return (Some be)], true)
+                    | None ->
+                        // Not a valid parameter list, treat as grouped expression
+                        e
+                | _ -> e
+            | _ -> error t "Expecting ')'."
     | _ -> error t "Expecting a primary expression."
 
 and arrayLiteral i =
