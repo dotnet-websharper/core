@@ -40,7 +40,6 @@ fsi.ShowDeclarationValues <- false
 
 open System
 open System.IO
-open System.Collections.Generic
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 
@@ -53,8 +52,6 @@ let wsRefs =
         "WebSharper.JavaScript"
         "WebSharper.StdLib"
         "WebSharper.Web"
-        "WebSharper.MathJS"
-        "WebSharper.MathJS.Extensions"
         "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
@@ -68,10 +65,7 @@ let metas =
     )
 
 let metadata =
-    { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-    }
+    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
 
 let csharpRefs = 
     let fwDir = Path.GetDirectoryName(typeof<obj>.Assembly.Location)
@@ -105,34 +99,22 @@ let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
 
 let translate isBundle (source: string) = 
 
-    let fileName1 = Path.ChangeExtension(Path.GetTempFileName(), ".fs")
-    let base2 = Path.GetTempFileName()
-    let dllName = Path.ChangeExtension(base2, ".dll")
-    let projFileName = Path.ChangeExtension(base2, ".fsproj")
-    let fileSource1 = source
-    File.WriteAllText(fileName1, fileSource1)
-
-    //let args = mkProjectCommandLineArgs (dllName, [fileName1])
-    //let options =  checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
-
-    //let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
-    //if wholeProjectResults.HasCriticalErrors then
-    //    for err in wholeProjectResults.Diagnostics |> Seq.filter (fun e -> e.Severity = Diagnostics.FSharpDiagnosticSeverity.Error) do
-    //        printfn "F# Error: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
-    //else
-    //let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
-
-    //let fsDeclarations = 
-    //     file1.Declarations |> Utils.printDeclarations None |> List.ofSeq
-
     let logger = WebSharper.Compiler.ConsoleLogger()
 
-    let parseOptions = CSharpParseOptions(kind = SourceCodeKind.Script)
+    let fileName = Path.ChangeExtension(Path.GetTempFileName(), ".cs")
+    File.WriteAllText(fileName, source)
 
-    let syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions)
+    let parseOptions = CSharpParseOptions(kind = SourceCodeKind.Regular)
+
+    let syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions, path = fileName)
     
     let csharpCompilation =
-        CSharpCompilation.CreateScriptCompilation("Script", syntaxTree, csharpRefs)
+        CSharpCompilation.Create(
+            "TestProject",
+            [ syntaxTree ],
+            csharpRefs,
+            CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+        )
 
     let diag = csharpCompilation.GetDiagnostics()
 
@@ -141,6 +123,7 @@ let translate isBundle (source: string) =
 
     let comp = 
         WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
+            logger
             (WebSharper.Compiler.Compilation(metadata, UseLocalMacros = false))
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             csharpCompilation
@@ -209,21 +192,23 @@ let translate isBundle (source: string) =
     
         //printfn "trimmedMeta: %A" trimmedMeta
 
-        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.EntryPointStyle.OptionalEntryPoint
     
         //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
-        let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        let trPkg, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable pkg
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trPkg false
         printfn "%s" js
 
     else
         
-        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" false None WebSharper.Compiler.JavaScriptPackager.EntryPointStyle.OptionalEntryPoint
     
         let jsFiles = 
             pkg 
             |> Array.map (fun (file, p) ->
-                let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                let trP, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable p
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trP false
                 file, js
             )
 
@@ -231,24 +216,9 @@ let translate isBundle (source: string) =
         for (name, js) in jsFiles do 
             printfn "File: %s" name
             printfn "%s" js
-            
 
-translate true """
-using System;
-using WebSharper;
-using WebSharper.JavaScript;
+let toJSFiles source =
+    translate false source
 
-[JavaScript]
-class TestDefaultImpl
-{
-    [SPAEntryPoint]
-    public static void Main() 
-    {
-        var arr = new[] { 1 };
-        foreach (var a in arr) 
-        {
-            Console.Log(a);
-        }
-    }
-}
-"""
+let toJSBundle source =
+    translate true source

@@ -21,9 +21,9 @@
 #r "../../build/Release/FSharp/net10.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net10.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net10.0/Mono.Cecil.Pdb.dll"
-#r "../../build/Debug/netstandard2.0/WebSharper.Core.dll"
-#r "../../build/Debug/netstandard2.0/WebSharper.Core.JavaScript.dll"
-#r "../../build/Debug/netstandard2.0/WebSharper.Compiler.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.StdLib.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
@@ -147,7 +147,7 @@ let translate expr =
         let nodes = graph.GetDependencies [ epNode ]
         let trimmed = trimMetadata metadata nodes
         let pkg =
-            JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.Output.JavaScript trimmed trimmed "fsi" (Some ep) JavaScriptPackager.EntryPointStyle.ForceImmediate
+            JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.Output.JavaScript trimmed trimmed "fsi" (Some ep) JavaScriptPackager.EntryPointStyle.OptionalEntryPoint
         let trPkg, _ = WebSharper.Compiler.JavaScriptWriter.transformProgram WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable pkg
 
         let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter trPkg false

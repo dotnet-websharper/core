@@ -19,7 +19,13 @@
 .vs
 /msbuild.log
 .fake
-/.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+!.vscode/*.code-snippets
 /netcore/
 /netfx/
 /.paket/fake.exe
@@ -37,3 +43,4 @@ websharper.log
 /tests/WebSharper.SPA.Tests/wwwroot/Scripts
 /tests/Web/build
 /tests/Web.FSharp/.websharper
+/build-output.txt
