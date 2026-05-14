@@ -32,6 +32,7 @@ module PathUtility =
     val CreatePath : list<string> -> Path
     val ParsePath : string -> Path
     val ParsePattern : string -> Pattern
+    val StartsWithPath : parent: Path -> child: Path -> bool
     val RootPath : Path
     val ShowPath : Path -> string
     val ShowPattern : Pattern -> string

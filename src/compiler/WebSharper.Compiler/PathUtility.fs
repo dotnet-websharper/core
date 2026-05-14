@@ -75,6 +75,16 @@ module PathUtility =
             | P1 (x, y) -> loop (y :: acc) x
         loop [] pat
 
+    let StartsWithPath (parent: Path) (child: Path) =
+        let pfrags = pathToFrags parent
+        let cfrags = pathToFrags child
+        let rec loop p c =
+            match p, c with
+            | [], _ -> true
+            | ph::pt, ch::ct when String.Equals(ph, ch, StringComparison.OrdinalIgnoreCase) -> loop pt ct
+            | _ -> false
+        loop pfrags cfrags
+
     let (|RootPath|SubPath|) path =
         match path with
         | P0 -> RootPath

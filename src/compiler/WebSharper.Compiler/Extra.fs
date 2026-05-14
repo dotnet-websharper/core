@@ -163,13 +163,14 @@ let CopyFiles (dir: string) (dest: string) =
     stdout.WriteLine(dir)
     let extras = Path.Combine(dir, "extra.files")
     if File.Exists(extras) then
+        let entries = ResizeArray()
         for line in readLines extras do
             match P.TryParsePattern(line) with
             | Some p ->
-                findEntries dir p
-                |> Seq.iter (copyEntryTo dir dest)
+                for e in findEntries dir p do entries.Add(e)
             | None ->
                 stderr.WriteLine("Invalid pattern: {0}", line)
+        entries |> Seq.iter (copyEntryTo dir dest)
     else
         stdout.WriteLine("No extra.files specified. Skipping...")
 
@@ -177,29 +178,46 @@ let ProcessFiles (dir: string) (plainDest: string option) (asmDest: string optio
     let extras = Path.Combine(dir, "extra.files")
     let embed = ResizeArray()
     if File.Exists(extras) then
+        let asmEntries = ResizeArray()
+        let plainEntries = ResizeArray()
+
+        let plainPathOpt =
+            match plainDest with
+            | Some pd when not (String.IsNullOrWhiteSpace pd) ->
+                P.TryParsePath(pd)
+            | _ -> None
+
         for line in readLines extras do
             if line.StartsWith("{") && line.EndsWith("}") then
                 let line = line.[1..line.Length - 2]
                 match P.TryParsePattern(line) with
                 | Some p ->
-                    findEntries dir p
-                    |> Seq.iter (fun e ->
-                        asmDest |> Option.iter (fun d ->
-                            e |> copyEntryTo dir d
-                        )
-                        embed.Add(P.ToAbsolute "" e.Path)
-                    )
+                    for e in findEntries dir p do
+                        asmEntries.Add(e)
+                        match e with
+                        | FileEntry f ->
+                            let shouldAdd =
+                                match plainPathOpt with
+                                | Some pp -> not (P.StartsWithPath pp f)
+                                | None -> true
+                            if shouldAdd then embed.Add(P.ToAbsolute "" f)
+                        | DirectoryEntry _ -> ()
                 | None ->
                     stderr.WriteLine("Invalid pattern: {0}", line)
             else
-                plainDest |> Option.iter (fun d ->
-                    match P.TryParsePattern(line) with
-                    | Some p ->
-                        findEntries dir p
-                        |> Seq.iter (copyEntryTo dir d)
-                    | None ->
-                        stderr.WriteLine("Invalid pattern: {0}", line)
-                )
+                match P.TryParsePattern(line) with
+                | Some p ->
+                    for e in findEntries dir p do plainEntries.Add(e)
+                | None ->
+                    stderr.WriteLine("Invalid pattern: {0}", line)
+
+        asmDest |> Option.iter (fun d ->
+            asmEntries |> Seq.iter (copyEntryTo dir d)
+        )
+        plainDest |> Option.iter (fun d ->
+            plainEntries |> Seq.iter (copyEntryTo dir d)
+        )
+
         Some (embed.ToArray())
     else
         None
