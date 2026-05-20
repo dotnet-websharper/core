@@ -26,6 +26,26 @@ open WebSharper
 open WebSharper.Testing
 
 [<JavaScript>]
+type TestAsyncEnumerator(n: int) =
+    let mutable i = 0
+
+    interface System.Collections.Generic.IAsyncEnumerator<int> with
+        member this.Current = i
+
+        member this.MoveNextAsync() =
+            i <- i + 1
+            System.Threading.Tasks.ValueTask<bool>(i <= n)
+
+        member this.DisposeAsync() =
+            System.Threading.Tasks.ValueTask.CompletedTask
+
+[<JavaScript>]
+type TestAsyncEnumerable(n: int) =
+    interface System.Collections.Generic.IAsyncEnumerable<int> with
+        member this.GetAsyncEnumerator(ct: System.Threading.CancellationToken) =
+            upcast TestAsyncEnumerator(n)
+
+[<JavaScript>]
 let Tests =
     TestCategory "Task" {
         Test "Run" {
@@ -178,21 +198,45 @@ let Tests =
             equal !res 1
         }
 
-        //Skip "UsingAsync" {
-        //    let res = ref 0
-        //    let d =
-        //        { new System.IAsyncDisposable with
-        //            member x.DisposeAsync() =
-        //                incr res
-        //                ValueTask.CompletedTask
-        //        }
-        //    let x = 
-        //        task {
-        //            use dd = d
-        //            return !res
-        //        }
-        //    let! xRes = Async.AwaitTask x
-        //    equal xRes 0
-        //    equal !res 1
-        //}
+        Test "UsingAsyncManual" {
+            let res = ref 0
+            let d =
+                { new System.IAsyncDisposable with
+                    member x.DisposeAsync() =
+                        incr res
+                        System.Threading.Tasks.ValueTask.CompletedTask
+                }
+            let x = 
+                task {
+                    let dd = d
+                    let before = !res
+                    do! Async.AwaitTask (dd.DisposeAsync().AsTask())
+                    return before
+                }
+            let! xRes = Async.AwaitTask x
+            equal xRes 0
+            equal !res 1
+        }
+
+        Test "IAsyncEnumerable" {
+            let seq = TestAsyncEnumerable(3)
+            let x =
+                task {
+                    let e = (seq :> System.Collections.Generic.IAsyncEnumerable<int>).GetAsyncEnumerator(System.Threading.CancellationToken())
+                    let l = ref []
+                    let rec loop() = task {
+                        let! has = Async.AwaitTask (e.MoveNextAsync().AsTask())
+                        if has then
+                            l := e.Current :: !l
+                            return! loop()
+                        else
+                            return ()
+                    }
+                    do! loop()
+                    do! Async.AwaitTask (e.DisposeAsync().AsTask())
+                    return List.rev !l
+                }
+            let! res = Async.AwaitTask x
+            equal res [ 1; 2; 3 ]
+        }
     }

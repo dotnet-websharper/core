@@ -161,6 +161,9 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     static member FromResult (res: 'T) = 
         As<Task<'T>> (TaskProxy<'T>(null, CT.None, TaskStatus.RanToCompletion, null, res)) 
 
+    static member CompletedTask =
+        As<Task> (TaskProxy(null, CT.None, TaskStatus.RanToCompletion, null))
+
     [<Inline>]
     static member Run(action : System.Action) =
        TaskProxy.Run(action, CT.None)
@@ -393,3 +396,66 @@ type private TaskCompletionSourceProxy<'T>() =
             task.RunContinuations()
             true
         else false
+
+[<Proxy(typeof<ValueTask>); Prototype false>]
+type private ValueTaskProxy =
+
+    [<Inline "$task">]
+    new (task: Task) = {}
+
+    [<Inline "$type('System.Threading.Tasks.Task').FromResult(null)">]
+    new () = {}
+
+    [<Inline "$type('System.Threading.Tasks.Task').FromResult(null)">]
+    static member CompletedTask = X<ValueTask>
+
+    [<Inline "$this">]
+    member this.AsTask() = X<Task>
+
+    [<Inline "$this">]
+    member this.Preserve() = X<ValueTask>
+
+    [<Inline "$this.status === 5">]
+    member this.IsCompletedSuccessfully = X<bool>
+
+    [<Inline "$this.status === 5 || $this.status === 7 || $this.status === 6">]
+    member this.IsCompleted = X<bool>
+
+    [<Inline "$this.status === 7">]
+    member this.IsFaulted = X<bool>
+
+    [<Inline "$this.status === 6">]
+    member this.IsCanceled = X<bool>
+
+[<Proxy(typeof<ValueTask<_>>); Prototype false>]
+type private ValueTaskProxy<'T> =
+
+    [<Inline "$task">]
+    new (task: Task<'T>) = {}
+
+    [<Inline "$type('System.Threading.Tasks.Task').FromResult($result)">]
+    new (result: 'T) = {}
+
+    [<Inline "$type('System.Threading.Tasks.Task').FromResult(null)">]
+    new () = {}
+
+    [<Inline "$this">]
+    member this.AsTask() = X<Task<'T>>
+
+    [<Inline "$this">]
+    member this.Preserve() = X<ValueTask<'T>>
+
+    [<Inline>]
+    member this.Result = (As<Task<'T>> this).Result
+
+    [<Inline "$this.status === 5">]
+    member this.IsCompletedSuccessfully = X<bool>
+
+    [<Inline "$this.status === 5 || $this.status === 7 || $this.status === 6">]
+    member this.IsCompleted = X<bool>
+
+    [<Inline "$this.status === 7">]
+    member this.IsFaulted = X<bool>
+
+    [<Inline "$this.status === 6">]
+    member this.IsCanceled = X<bool>

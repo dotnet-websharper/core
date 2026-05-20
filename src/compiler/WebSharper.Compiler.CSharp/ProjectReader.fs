@@ -661,13 +661,24 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         m.Body
                                     ]    
                             let b2 =
-                                let isSeq =
+                                let isNamedType name =
                                     match m.ReturnType with
                                     | ConcreteType ct ->
                                         let t = ct.Entity.Value
-                                        t.Assembly = "netstandard" && t.FullName.StartsWith "System.Collections.Generic.IEnumerable"
+                                        t.Assembly = "netstandard" && t.FullName.StartsWith name
                                     | _ -> false
-                                if isSeq && hasYield b1 then
+                                let isSeq = isNamedType "System.Collections.Generic.IEnumerable"
+                                let isAsyncSeq = isNamedType "System.Collections.Generic.IAsyncEnumerable"
+                                if isAsyncSeq && hasYield b1 then
+                                    let b =
+                                        b1 |> Continuation.addLastReturnIfNeeded (Value (Bool false))
+                                        |> Continuation.AwaitTransformer().TransformStatement
+                                        |> BreakStatement
+                                        |> Scoping.fix
+                                        |> Continuation.FreeNestedGotos().TransformStatement
+                                    let labels = Continuation.CollectLabels.Collect b
+                                    Continuation.AsyncGeneratorTransformer(labels).TransformMethodBody(b)
+                                elif isSeq && hasYield b1 then
                                     let b = 
                                         b1 |> Continuation.addLastReturnIfNeeded (Value (Bool false))
                                         |> Scoping.fix

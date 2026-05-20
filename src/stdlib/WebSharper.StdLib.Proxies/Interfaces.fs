@@ -106,6 +106,11 @@ type private IDisposableProxy =
     [<Name "Dispose">]
     abstract member Dispose : unit -> unit
 
+[<Proxy(typeof<System.IAsyncDisposable>)>]
+type private IAsyncDisposableProxy =
+    [<Name "DisposeAsync">]
+    abstract member DisposeAsync : unit -> System.Threading.Tasks.ValueTask
+
 [<Proxy(typeof<System.Collections.IEnumerable>)>]  
 type private IEnumerableProxy =
     [<Name "GetEnumerator0">]
@@ -119,6 +124,11 @@ type private IEnumerableProxy<'T> =
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
     [<Inline>]
     default this.GetEnumerator() = Enumerator.Get (As<System.Collections.Generic.IEnumerable<'T>> this)
+
+[<Proxy(typeof<System.Collections.Generic.IAsyncEnumerable<_>>)>]
+type private IAsyncEnumerableProxy<'T> =
+    [<Name "GetAsyncEnumerator">]
+    abstract GetAsyncEnumerator : System.Threading.CancellationToken -> System.Collections.Generic.IAsyncEnumerator<'T>
 
 [<AbstractClass; Proxy(typeof<System.Collections.ICollection>, [| typeof<System.Collections.IEnumerable> |])>]
 type private ICollectionProxy =
@@ -377,6 +387,14 @@ type private IEnumeratorProxy =
 type private IEnumeratorProxy<'T> =
     [<Name "Current">]
     abstract member Current : 'T
+
+[<AbstractClass; Proxy(typeof<System.Collections.Generic.IAsyncEnumerator<_>>, [| typeof<System.IAsyncDisposable> |])>]
+type private IAsyncEnumeratorProxy<'T> =
+    [<Name "Current">]
+    abstract member Current : 'T
+
+    [<Name "MoveNextAsync">]
+    abstract member MoveNextAsync : unit -> System.Threading.Tasks.ValueTask<bool>
 
 [<Proxy(typeof<System.IObservable<_>>)>]
 type private IObservableProxy<'T> =

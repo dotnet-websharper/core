@@ -552,6 +552,40 @@ module Definitions =
         ([] : list<Expression>),
         (id : Expression -> Expression)
 
+    let IDisposable =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.IDisposable"
+        }
+
+    let IDisposableDispose =
+        Method {
+            MethodName = "Dispose"
+            Parameters = []
+            ReturnType = VoidType
+            Generics = 0
+        }
+
+    let IAsyncDisposable =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.IAsyncDisposable"
+        }
+
+    let ValueTask =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Threading.Tasks.ValueTask"
+        }
+
+    let IAsyncDisposableDisposeAsync =
+        Method {
+            MethodName = "DisposeAsync"
+            Parameters = []
+            ReturnType = NonGenericType ValueTask
+            Generics = 0
+        }
+
     let SeqModule =
         TypeDefinition {
             Assembly = "FSharp.Core"
@@ -2183,27 +2217,50 @@ type RoslynTransformer(env: Environment) =
         let declaration = x.Declaration |> Option.map (this.TransformVariableDeclaration)
         let expression = x.Expression |> Option.map (this.TransformExpression)
         let statement = x.Statement |> this.TransformStatement
+        let isAsync = x.Node.AwaitKeyword.Kind() <> SyntaxKind.None
         
         let disp e =
             Call(
-                Some e, 
-                NonGeneric (TypeDefinition { Assembly = "netstandard"; FullName = "System.IDisposable" }),
-                NonGeneric (Method { MethodName = "Dispose"; Parameters = []; ReturnType = VoidType; Generics = 0 }),
+                Some e,
+                NonGeneric Definitions.IDisposable,
+                NonGeneric Definitions.IDisposableDispose,
                 []            
+            )
+
+        let adisp e =
+            Call(
+                Some e,
+                NonGeneric Definitions.IAsyncDisposable,
+                NonGeneric Definitions.IAsyncDisposableDisposeAsync,
+                []
             )
 
         match declaration with
         | Some d ->
-            Block [
-                for ve in d -> VarDeclaration ve
-                yield TryFinally(statement, ExprStatement <| Sequential (d |> List.map (fun (v, _) -> disp (Var v))))
-            ]
+            if isAsync then
+                Block [
+                    for ve in d -> VarDeclaration ve
+                    yield statement
+                    for v, _ in d -> ExprStatement <| Await (adisp (Var v))
+                ]
+            else
+                Block [
+                    for ve in d -> VarDeclaration ve
+                    yield TryFinally(statement, ExprStatement <| Sequential (d |> List.map (fun (v, _) -> disp (Var v))))
+                ]
         | _ ->
             let v = Id.New("$using")
-            Block [
-                VarDeclaration (v, expression.Value)
-                TryFinally(statement, ExprStatement <| disp (Var v))
-            ]
+            if isAsync then
+                Block [
+                    VarDeclaration (v, expression.Value)
+                    statement
+                    ExprStatement <| Await (adisp (Var v))
+                ]
+            else
+                Block [
+                    VarDeclaration (v, expression.Value)
+                    TryFinally(statement, ExprStatement <| disp (Var v))
+                ]
 
     member this.TransformTryStatement (x: TryStatementData) : _ =
         let block = x.Block |> this.TransformBlock
@@ -2264,44 +2321,67 @@ type RoslynTransformer(env: Environment) =
     member this.TransformFinallyClause (x: FinallyClauseData) : _ =
         x.Block |> this.TransformBlock
 
-    member this.TransformForEach (varSet, expression, statement, info: ForEachStatementInfo) = 
-        let call e m =
+    member this.TransformForEach (varSet, expression, statement, info: ForEachStatementInfo, isAsync) =
+        let callWithArgs e m args =
             let typ, meth = getTypeAndMethod m
-            Call(Some e, typ, meth, [])
+            Call(Some e, typ, meth, args)
+
+        let call e m =
+            callWithArgs e m []
 
         let en = Id.New ()
-        Block [
-            VarDeclaration (en, call expression info.GetEnumeratorMethod)
-            TryFinally(
-                While(
-                    call (Var en) info.MoveNextMethod, 
-                    Block [
-                        ExprStatement <| varSet (call (Var en) info.CurrentProperty.GetMethod)
-                        statement
-                    ]
-                ), 
-                ExprStatement <| call (Var en) info.DisposeMethod
+        let getEnumeratorArgs =
+            if isAsync then
+                info.GetEnumeratorMethod.Parameters
+                |> Seq.map (fun p -> DefaultValueOf (sr.ReadType p.Type))
+                |> List.ofSeq
+            else
+                []
+        let moveNext = call (Var en) info.MoveNextMethod
+        let loop =
+            While(
+                (if isAsync then Await moveNext else moveNext),
+                Block [
+                    ExprStatement <| varSet (call (Var en) info.CurrentProperty.GetMethod)
+                    statement
+                ]
             )
+        let dispose =
+            match Option.ofObj info.DisposeMethod with
+            | Some disposeMethod ->
+                let d = call (Var en) disposeMethod
+                ExprStatement <| if isAsync then Await d else d
+            | None ->
+                Empty
+        Block [
+            yield VarDeclaration (en, callWithArgs expression info.GetEnumeratorMethod getEnumeratorArgs)
+            if isAsync then
+                yield loop
+                yield dispose
+            else
+                yield TryFinally(loop, dispose)
         ]        
 
     member this.TransformForEachStatement (x: ForEachStatementData) : _ =
         let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
+        let isAsync = x.Node.AwaitKeyword.Kind() <> SyntaxKind.None
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
 
-        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info)
+        this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info, isAsync)
         |> withStatementSourcePos x.Node
 
     member this.TransformForEachVariableStatement (x: ForEachVariableStatementData) : _ =
         let info = env.SemanticModel.GetForEachStatementInfo(x.Node)
+        let isAsync = x.Node.AwaitKeyword.Kind() <> SyntaxKind.None
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
         let varSet c = this.PatternSet(variable, c, Some info.ElementType)
-        this.TransformForEach (varSet, expression, statement, info)
+        this.TransformForEach (varSet, expression, statement, info, isAsync)
         |> withStatementSourcePos x.Node
 
     member this.TransformCommonForEachStatement (x: CommonForEachStatementData) : _ =

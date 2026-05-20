@@ -537,6 +537,92 @@ type AsyncTransformer(labels, returns) =
                 yield Return (Var task)
         ]
 
+type AsyncGeneratorTransformer(labels) =
+    inherit ContinuationTransformer(labels)
+
+    let en = Id.New "$enum"
+    let task = Id.New "$task"
+    let run = Id.New "$run"
+
+    let completeTask result =
+        Block [
+            ExprStatement <| ItemSet(Var task, Value (String "result"), result)
+            ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
+            ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
+            Return Undefined
+        ]
+
+    override this.Yield(v) =
+        match IgnoreExprSourcePos v with
+        | Var awaited when awaited.Name = Some "$await" ->
+            Block [
+                ExprStatement <| Call(Some v, NonGeneric Definitions.Task, TaskMethod.OnCompleted, [ Var run ])
+                Return Undefined
+            ]
+        | _ ->
+            CombineStatements [
+                ExprStatement <| ItemSet(Var en, Value (String "Current"), v)
+                completeTask (Value (Bool true))
+            ]
+
+    override this.TransformReturn(a) =
+        completeTask a
+
+    override this.TransformThrow(a) =
+        if this.TryScope = 0 then
+            Block [
+                if IgnoreExprSourcePos a <> Undefined then
+                    yield ExprStatement <| ItemSet(Var task, Value (String "exc"), a)
+                yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.Faulted)))
+                yield ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
+                yield Return Undefined
+            ]
+        else
+            Throw(a)
+
+    member this.TransformMethodBody(s: Statement) =
+        let extract = ExtractVarDeclarations()
+        let inner =
+            this.TransformMethodBodyInner s |> extract.TransformStatement
+
+        Return <| Object [
+            "GetAsyncEnumerator", MemberKind.Simple,
+                Function ([], None, None,
+                    Block [
+                        yield VarDeclaration(en, Object [
+                            "Current", MemberKind.Simple, Undefined
+                            "DisposeAsync", MemberKind.Simple,
+                                Function ([], None, None,
+                                    Return <| CopyCtor (Definitions.Task, Object [
+                                        "status", MemberKind.Simple, Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion))
+                                        "continuations", MemberKind.Simple, NewArray []
+                                    ])
+                                )
+                        ])
+                        yield VarDeclaration(task, Undefined)
+                        yield VarDeclaration(run, Undefined)
+                        yield VarDeclaration(this.StateVar, Value (Int 0))
+                        yield! this.LocalFunctions
+                        for v in extract.Vars do
+                            yield VarDeclaration(v, Undefined)
+                        yield ExprStatement <| ItemSet(Var en, Value (String "MoveNextAsync"),
+                            Function ([], None, None,
+                                Block [
+                                    yield ExprStatement <| VarSet(task,
+                                        CopyCtor (Definitions.Task1, Object [
+                                            "status", MemberKind.Simple, Value (Int (int System.Threading.Tasks.TaskStatus.Running))
+                                            "continuations", MemberKind.Simple, NewArray []
+                                        ]))
+                                    yield ExprStatement <| VarSet(run, Function ([], None, None, inner))
+                                    yield ExprStatement <| Appl (Var run, [], NonPure, Some 0)
+                                    yield Return (Var task)
+                                ]
+                            ))
+                        yield Return (Var en)
+                    ]
+                )
+        ]
+
 type GotoTransformer(labels) =
     inherit ContinuationTransformer(labels)
 
