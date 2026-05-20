@@ -1,6 +1,23 @@
 ﻿# WebSharper Core Agent Instructions
 
-First, always check if serena MCP server is running for any coding requests or questions/investigation about code. If not, STOP and ask the user to start it with `serena start-mcp-server` or if not available, install globally with `uv tool install -p 3.13 serena-agent@latest --prerelease=allow`. The other three MCP servers are also recommended, ask the user to run them when they would be helpful: microsoft-learn for .NET documentation, nuget for available packages, github for accessing tickets and repo history.
+## MCP Setup
+
+- Serena is required for semantic search and code diagnostics during code work. This repo is initialized with `.serena/project.yml` using `fsharp`, `csharp`, and `typescript`.
+- If Serena is not installed, prompt the user to run `uv tool install -p 3.13 serena-agent@latest --prerelease=allow`.
+- For VS Code and GitHub Copilot, `.vscode/mcp.json` should contain a `serena` stdio server with command `serena` and args `["start-mcp-server"]`, alongside the `microsoft-learn`, `nuget`, and `github` servers.
+- For Codex, run `serena setup codex` or ensure `%USERPROFILE%\.codex\config.toml` contains:
+
+```toml
+[mcp_servers.serena]
+command = "serena"
+args = ["start-mcp-server"]
+enabled = true
+```
+
+- MCP clients usually load server config only at session startup. If `serena.exe start-mcp-server` is running but the client exposes no Serena tools/resources, restart the Codex/VS Code session after fixing MCP config.
+- If `.serena/project.yml` is missing, recreate it from the repo root with `serena project create . --name core --language fsharp --language csharp --language typescript --index`.
+- Use `serena project health-check .` when semantic tools behave oddly, and `serena project index .` when the symbol cache is stale. On Windows consoles using cp1252, Serena can finish successfully and then fail printing Unicode status symbols; rerun as `$env:PYTHONIOENCODING='utf-8'; serena project health-check .` if that happens. Serena diagnostics do not replace proper `dotnet build`: WebSharper translation errors, including non-JavaScript-compatible method calls, are build-time errors.
+- Other three MCP servers are also recommended, ask the user to run them when they would be helpful: microsoft-learn for .NET documentation, nuget for available packages, github for accessing tickets and repo history.
 
 ## Repository Map
 
@@ -38,7 +55,19 @@ Each skill description should eventually include prerequisites, exact commands, 
 
 ### Build for debugging
 
-Run `./build BuildDebug` to build the compiler and libraries in debug mode. A debug mode compiler is needed for debug build of libraries, if it's there, it can be used for iterating on library code.
+`build.cmd`/`build.sh` run `dotnet fsi build.fsx` and add `-t` automatically when the first argument is a target name. `build.fsx` defaults to Release unless `--debug` is passed after `--`.
+
+Useful targets:
+
+- `.\build.cmd Build` builds `WebSharper.Compiler.sln` in Release.
+- `.\build.cmd Build -- --debug` builds `WebSharper.Compiler.sln` in Debug.
+- `.\build.cmd WS-BuildRelease` runs the main Release build action: compiler solution, published compiler tools, `WebSharper.sln`, then stops the compiler service.
+- `.\build.cmd WS-BuildDebug` runs the same build action in Debug.
+- `.\build.cmd CI-Release` restores, builds Release, runs compiler tests, runs browser/QUnit tests, and packages.
+
+When changing compiler behavior, rebuild the compiler before snippet tests or downstream test projects. The snippet testers currently use Release builds, so prefer `.\build.cmd Build` for a fast compiler rebuild, then use a narrower project build or snippet run. Use `.\build.cmd WS-BuildRelease` when the web test projects or libraries need regenerated Release outputs from the changed compiler.
+
+When changing `WebSharper.StdLib.Proxies`, first build `WebSharper.StdLib.Proxies`, then build `WebSharper.StdLib`; the latter reports the proxy translation warnings/errors. `WS-BuildRelease` does this as part of the full solution build, but direct project builds are faster for a tight proxy loop.
 
 If a debug or test build fails during clean with `Access to the path 'WebSharper.MSBuild.FSharp.dll' is denied`, check for language-server or build-server processes holding the compiler task DLL. First run `dotnet build-server shutdown`. If the lock persists, identify the holder with:
 
@@ -62,6 +91,46 @@ Expected passing output includes:
 
 Warnings are currently present in a passing run, including NuGet pruning/duplicate package warnings, .NET target framework support warnings, F# deprecation warnings, and expected WebSharper test warnings.
 
+### Run QUnit Puppeteer Tests Without Rebuilding
+
+`RunMainTestsRelease` depends on `WS-BuildRelease`, so running it through FAKE rebuilds first. Use `RunMainTestsNoBuildRelease` when Release outputs are already current and you only want the browser test pass:
+
+```powershell
+.\build.cmd RunMainTestsNoBuildRelease
+```
+
+This target starts `build/Release/Tests/net10.0/Web.dll` from `tests/Web`, waits for `Application started.`, runs `npm install`, then executes `node runtests.js`. `runtests.js` drives `node-qunit-puppeteer` against `https://localhost:44336/tests` with a 120 second timeout.
+
+If the no-build target says `Release Web test project not found`, build the web tests first. For compiler or proxy changes, prefer:
+
+```powershell
+.\build.cmd WS-BuildRelease
+```
+
+For a faster loop after the compiler and libraries are already current, rebuild only the web test app:
+
+```powershell
+dotnet build tests/Web/Web.csproj -c Release --no-restore
+.\build.cmd RunMainTestsNoBuildRelease
+```
+
+Manual equivalent for debugging the browser runner:
+
+```powershell
+Push-Location tests/Web
+dotnet exec ..\..\build\Release\Tests\net10.0\Web.dll --server.urls https://localhost:44336
+Pop-Location
+```
+
+Then from repo root in another terminal:
+
+```powershell
+npm install
+node runtests.js
+```
+
+If port `44336` is already in use, stop the old `dotnet exec ... Web.dll` process before retrying.
+
 ### Build NuGet Packages For Local Repo Consumption
 
 - Set env var `WSPackageFolder=../localnuget` for the session.
@@ -74,12 +143,24 @@ Warnings are currently present in a passing run, including NuGet pruning/duplica
 
 ### Spot-test compiler changes with snippets
 
-The `core/tests/Scripts/FSharpTester.fsx` script contains helpers to run the F# compiler on small snippets, and `FSharpTester.fsx` does the same for C#. These scripts use Release builds of the compiler now.
+The `core/tests/Scripts/FSharpTester.fsx` script contains helpers to run the F# compiler on small snippets, and `core/tests/Scripts/CSharpTester.fsx` does the same for C#. These scripts use Release builds of the compiler now.
 
-Put runnable F# snippets in `core/tests/Scripts/fsharp`. Each snippet script should `#load "../FSharpTester.fsx"` and call `FSharpTester.toJSFiles source` or `FSharpTester.toJSBundle source`. Run `dotnet fsi tests/WebSharper.Tests/Scripts/fsharp/add1.fsx` from `core` for the basic smoke test.
+Put runnable F# snippets in `core/tests/Scripts/fsharp`. Each snippet script should `#load "../FSharpTester.fsx"` and call `FSharpTester.toJSFiles source` or `FSharpTester.toJSBundle source`. Run `dotnet fsi tests/Scripts/fsharp/add1.fsx` from `core` for the basic smoke test.
 
-The C# tester follows the same patterns, run `dotnet fsi tests/WebSharper.Tests/Scripts/csharp/add1.fsx` from `core` for the C# smoke test.
+Current caveat: with .NET SDK `10.0.300`, the F# snippet smoke test can fail before WebSharper translation with `FS0193` because `dotnet fsi` hosts `FSharp.Compiler.Service` `43.11.300` while this repo pins `FSharp.Compiler.Service` `43.12.202`. Treat that as a tester-host mismatch, not a WebSharper translation failure; use a matching SDK/FSI host or fall back to project builds until the F# snippet runner is moved to a compiled host. The C# snippet smoke test is not affected.
+
+The C# tester follows the same patterns, run `dotnet fsi tests/Scripts/csharp/add1.fsx` from `core` for the C# smoke test.
 
 These tester scripts will log type names defined, and the AST in various stages. This can be used for debugging exactly where does a transformation happens, see the scripts for the steps they call from the compiler and what they log.
 
 If a fix is found for a bug, move it as proper code to `core/tests/WebSharper.Tests/Regression.fs` and make a unit test out of it for F#, or `core/tests/WebSharper.CSharp.Tests/Regression.cs` for C#.
+
+### Fast Compiler/Proxy Iteration Loop
+
+1. Use Serena semantic search and diagnostics to find the relevant compiler/proxy code without recompiling.
+2. For compiler changes, rebuild only the compiler first with `.\build.cmd Build`; use `.\build.cmd Build -- --debug` only when a Debug compiler is needed.
+3. For proxy changes, directly build the proxy/library projects when possible, or use `.\build.cmd WS-BuildRelease` when generated Release outputs must be refreshed.
+4. Spot-check translation with `dotnet fsi tests/Scripts/fsharp/<snippet>.fsx` or `dotnet fsi tests/Scripts/csharp/<snippet>.fsx`.
+5. Add focused tests near the affected suite. Bug-fix/regression tests go in `tests/WebSharper.Tests/Regression.fs` or `tests/WebSharper.CSharp.Tests/Regression.cs`; other tests should go in dedicated files such as `Task.fs`/`Task.cs`, or in generic feature files such as `Basis.fs`/`Syntax.cs` when that matches the surrounding context. Examine nearby tests before choosing.
+6. Rebuild the affected test project or `tests/Web/Web.csproj` in Release, then run `.\build.cmd RunMainTestsNoBuildRelease` for QUnit/Puppeteer without another compiler rebuild.
+7. Before finishing, run the appropriate broader verification: `.\build.cmd RunCompilerTestsRelease` for compiler test coverage, `.\build.cmd RunMainTestsRelease` when a rebuild plus browser tests is needed, or `.\build.cmd CI-Release` for the full final pass.

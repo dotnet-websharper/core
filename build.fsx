@@ -246,58 +246,69 @@ Target.create "RunSPATestsRelease" <| fun _ ->
     //if res <> 0 then
     //    failwith "Chutzpah test run failed for SPA tests"
 
-Target.create "RunMainTestsRelease" <| fun _ ->
+let runMainTestsRelease () =
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "QUnit Puppeteer testing skipped"
     else
+        Trace.log "Starting Web test project"
+        let mutable startedOk = false
+        let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
-    Trace.log "Starting Web test project"
-    let mutable startedOk = false
-    let started = new EventWaitHandle(false, EventResetMode.ManualReset)
+        let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net10.0/Web.dll"
+        let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
 
-    let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net10.0/Web.dll"
-    let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
+        if not (File.Exists webDll) then
+            failwithf "Release Web test project not found: %s. Build it first with WS-BuildRelease or `dotnet build tests/Web/Web.csproj -c Release`." webDll
 
-    use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- "dotnet"
-    webTestsProc.StartInfo.Arguments <- $"exec \"{webDll}\" --server.urls https://localhost:44336"
-    webTestsProc.StartInfo.WorkingDirectory <- webDir
-    webTestsProc.StartInfo.UseShellExecute <- false
-    webTestsProc.StartInfo.RedirectStandardOutput <- true
-    
-    webTestsProc.OutputDataReceived.Add(fun d -> 
-        if not (isNull d) then
-            if not startedOk then            
-                Trace.log d.Data
-            if d.Data.Contains("Application started.") then
-                startedOk <- true   
-                started.Set() |> ignore
-    )
-    webTestsProc.Exited.Add(fun _ -> 
-        if not startedOk then
-            failwith "Starting Web test project failed."    
-    )
+        use webTestsProc = new Process()
+        webTestsProc.StartInfo.FileName <- "dotnet"
+        webTestsProc.StartInfo.Arguments <- $"exec \"{webDll}\" --server.urls https://localhost:44336"
+        webTestsProc.StartInfo.WorkingDirectory <- webDir
+        webTestsProc.StartInfo.UseShellExecute <- false
+        webTestsProc.StartInfo.RedirectStandardOutput <- true
+        
+        webTestsProc.OutputDataReceived.Add(fun d -> 
+            if not (isNull d) then
+                if not startedOk then            
+                    Trace.log d.Data
+                if d.Data.Contains("Application started.") then
+                    startedOk <- true   
+                    started.Set() |> ignore
+        )
+        webTestsProc.Exited.Add(fun _ -> 
+            if not startedOk then
+                failwith "Starting Web test project failed."    
+        )
 
-    webTestsProc.Start() |> ignore
-    webTestsProc.BeginOutputReadLine()
-    started.WaitOne() |> ignore
-    
-    Thread.Sleep(1000)
+        webTestsProc.Start() |> ignore
+        webTestsProc.BeginOutputReadLine()
+        try
+            started.WaitOne() |> ignore
+            
+            Thread.Sleep(1000)
 
-    Npm.install id
+            Npm.install id
 
-    let node =
-        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
-            @"C:\Program Files\nodejs\node.exe"
-        else
-            "node"
+            let node =
+                if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+                    @"C:\Program Files\nodejs\node.exe"
+                else
+                    "node"
 
-    let res =
-        Shell.Exec(node, "runtests.js")
+            let res =
+                Shell.Exec(node, "runtests.js")
 
-    webTestsProc.Kill()
-    if res <> 0 then
-        failwith "QUnit Puppeteer test run failed"
+            if res <> 0 then
+                failwith "QUnit Puppeteer test run failed"
+        finally
+            if not webTestsProc.HasExited then
+                webTestsProc.Kill()
+
+Target.create "RunMainTestsNoBuildRelease" <| fun _ ->
+    runMainTestsRelease()
+
+Target.create "RunMainTestsRelease" <| fun _ ->
+    runMainTestsRelease()
 
 "WS-BuildRelease"
 //    ?=> "RunSPATestsRelease"

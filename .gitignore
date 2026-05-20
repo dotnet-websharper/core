@@ -20,12 +20,7 @@
 /msbuild.log
 .fake
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 !.vscode/mcp.json
-!.vscode/*.code-snippets
 /netcore/
 /netfx/
 /.paket/fake.exe
@@ -44,3 +39,4 @@ websharper.log
 /tests/Web/build
 /tests/Web.FSharp/.websharper
 /build-output.txt
+.codex/config.toml
