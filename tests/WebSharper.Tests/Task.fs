@@ -139,6 +139,44 @@ let Tests =
             equal task2Res 2
         }
 
+        Test "MergeSources" {
+            let taskTask =
+                task {
+                    let! r1 = Task.FromResult 1
+                    and! r2 = Task.FromResult 2
+                    return r1 + r2
+                }
+            let! taskTaskRes = Async.AwaitTask taskTask
+            equal taskTaskRes 3
+
+            let taskAsync =
+                task {
+                    let! r1 = Task.FromResult 3
+                    and! r2 = async { return 4 }
+                    return r1 + r2
+                }
+            let! taskAsyncRes = Async.AwaitTask taskAsync
+            equal taskAsyncRes 7
+
+            let asyncTask =
+                task {
+                    let! r1 = async { return 5 }
+                    and! r2 = Task.FromResult 6
+                    return r1 + r2
+                }
+            let! asyncTaskRes = Async.AwaitTask asyncTask
+            equal asyncTaskRes 11
+
+            let asyncAsync =
+                task {
+                    let! r1 = async { return 7 }
+                    and! r2 = async { return 8 }
+                    return r1 + r2
+                }
+            let! asyncAsyncRes = Async.AwaitTask asyncAsync
+            equal asyncAsyncRes 15
+        }
+
         Test "For" {
             let x = task {
                 let l = ref []
@@ -191,6 +229,29 @@ let Tests =
             let x = 
                 task {
                     use dd = d
+                    return !res
+                }
+            let! xRes = Async.AwaitTask x
+            equal xRes 0
+            equal !res 1
+        }
+
+        Test "UsingAsync" {
+            let res = ref 0
+            let d =
+                { new System.IAsyncDisposable with
+                    member x.DisposeAsync() =
+                        let disposeTask =
+                            task {
+                                do! Async.Sleep 1
+                                incr res
+                            }
+                        System.Threading.Tasks.ValueTask(disposeTask :> Task)
+                }
+            let x =
+                task {
+                    use! dd = task { return d }
+                    ignore dd
                     return !res
                 }
             let! xRes = Async.AwaitTask x

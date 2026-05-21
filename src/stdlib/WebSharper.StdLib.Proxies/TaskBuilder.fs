@@ -75,10 +75,24 @@ type internal TaskBuilderBaseProxy() =
         async.For(sequence, As<'T -> Async<unit>> body)
         |> As<ResumableCode<TaskStateMachineData<'TOverall>, unit>>
 
-    //[<Inline>]
-    //member x.Using<'TResource, 'TOverall, 'T when 'TResource :> IAsyncDisposable>(resource: 'TResource, body: 'TResource -> ResumableCode<TaskStateMachineData<'TOverall>, 'T>) =
-    //    0
-    //    |> As<ResumableCode<TaskStateMachineData<'TOverall>, 'T>>   
+    [<Inline>]
+    member x.Using<'TResource, 'TOverall, 'T when 'TResource :> IAsyncDisposable>(resource: 'TResource, body: 'TResource -> ResumableCode<TaskStateMachineData<'TOverall>, 'T>) =
+        async {
+            let! result =
+                async {
+                    try
+                        let! r = As<Async<'T>> (body resource)
+                        return Choice1Of2 r
+                    with e ->
+                        return Choice2Of2 e
+                }
+            if not (isNull (box resource)) then
+                do! resource.DisposeAsync().AsTask() |> Async.AwaitTask
+            match result with
+            | Choice1Of2 r -> return r
+            | Choice2Of2 e -> return raise e
+        }
+        |> As<ResumableCode<TaskStateMachineData<'TOverall>, 'T>>
 
 [<Proxy(typeof<TaskBuilder>); Name "TaskBuilder">]
 type private TaskBuilderProxy() =
@@ -111,6 +125,16 @@ module internal TaskBuilderExtensionsHighPriorityProxy =
         Async.AwaitTask task
         |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
 
+    [<Inline>]
+    let ``TaskBuilder.MergeSources``<'TResult1, 'TResult2>
+        (_: TaskBuilder, task1: Task<'TResult1>, task2: Task<'TResult2>) =
+            async {
+                let! r1 = Async.AwaitTask task1
+                let! r2 = Async.AwaitTask task2
+                return struct (r1, r2)
+            }
+            |> Async.StartAsTask
+
 [<Name "TaskBuilderExtensions">]
 [<Proxy "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority, FSharp.Core">]
 module internal TaskBuilderExtensionsMediumPriorityProxy =
@@ -124,6 +148,40 @@ module internal TaskBuilderExtensionsMediumPriorityProxy =
     let ``TaskBuilderBase.ReturnFrom``<'T>(this: TaskBuilderBase, computation: Async<'T>) =
         computation
         |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
+
+    [<Inline; CompiledName "TaskBuilder.MergeSources">]
+    let TaskBuilderMergeSourcesAsyncTask<'TResult1, 'TResult2>
+        (_: TaskBuilder, computation1: Async<'TResult1>, task2: Task<'TResult2>) =
+            let task1 = Async.StartAsTask computation1
+            async {
+                let! r1 = Async.AwaitTask task1
+                let! r2 = Async.AwaitTask task2
+                return struct (r1, r2)
+            }
+            |> Async.StartAsTask
+
+    [<Inline; CompiledName "TaskBuilder.MergeSources">]
+    let TaskBuilderMergeSourcesTaskAsync<'TResult1, 'TResult2>
+        (_: TaskBuilder, task1: Task<'TResult1>, computation2: Async<'TResult2>) =
+            let task2 = Async.StartAsTask computation2
+            async {
+                let! r1 = Async.AwaitTask task1
+                let! r2 = Async.AwaitTask task2
+                return struct (r1, r2)
+            }
+            |> Async.StartAsTask
+
+    [<Inline; CompiledName "TaskBuilder.MergeSources">]
+    let TaskBuilderMergeSourcesAsyncAsync<'TResult1, 'TResult2>
+        (_: TaskBuilder, computation1: Async<'TResult1>, computation2: Async<'TResult2>) =
+            let task1 = Async.StartAsTask computation1
+            let task2 = Async.StartAsTask computation2
+            async {
+                let! r1 = Async.AwaitTask task1
+                let! r2 = Async.AwaitTask task2
+                return struct (r1, r2)
+            }
+            |> Async.StartAsTask
 
 [<Name "TaskBuilderExtensions">]
 [<Proxy "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority, FSharp.Core">]
