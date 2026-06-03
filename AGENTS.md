@@ -31,6 +31,8 @@ enabled = true
 
 - `build-script` has GitHub actions to build the whole WebSharper stack, test templates, and release to nuget.org on `master` branch. It also has common build script helpers on the `websharper80` branch.
 
+- `dotnet-ws` contains a `dotnet` tool that can run the WS compiler as quick compile with cached MSBuild parameters, one-file compile, file/folder watcher, as well as manage the F# compiler booster process (`core/src/compiler/WebSharper.FSharp.Service`).
+
 ## Dependencies
 
 WebSharper uses F#-based community tools: Paket for Nuget dependency management, and Fake for build script. It also supports the Giraffe web library.
