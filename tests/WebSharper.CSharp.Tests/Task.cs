@@ -145,13 +145,13 @@ namespace WebSharper.CSharp.Tests
             {
                 var worker = new JavaScript.Worker(self =>
                 {
-                    self.Onmessage = e =>
+                    self.OnMessage = e =>
                     {
                         self.PostMessage(GlobalClass.GlobalFunction((string)e.Data));
                     };
                 });
                 var t = new TaskCompletionSource<string>();
-                worker.Onmessage = e =>
+                worker.OnMessage = e =>
                 {
                     t.SetResult("The worker replied: " + (string)e.Data);
                 };

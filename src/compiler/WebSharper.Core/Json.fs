@@ -686,8 +686,6 @@ let seqEncoder dE (i: FormatSettings) (ta: TAttrs) =
             |> Seq.map e
             |> Seq.toList
             |> Array
-        | _ ->
-            raise EncoderException
 
 let seqDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type

@@ -7,7 +7,7 @@ strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp 5.0.0
+nuget Microsoft.CodeAnalysis.CSharp 5.3.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Reflection.Emit.Lightweight 4.7.0
@@ -41,7 +41,7 @@ group fcs
     nuget System.Configuration.ConfigurationManager ~> 10.0.0
     nuget NLog ~> 6.0.0
     nuget FSharp.Core
-    nuget FSharp.Compiler.Service 43.12.202
+    nuget FSharp.Compiler.Service 43.12.204
 
 group nunit
     framework: net10.0, net472
@@ -51,7 +51,7 @@ group nunit
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
     nuget FSUnit ~> 4.0.4
-    nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.NUnit ~> 1.1.0
+    nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing ~> 1.1.0
     nuget Microsoft.VisualStudio.Composition ~> 17.1.20
     nuget FSharp.Core
     nuget System.Runtime.Loader 4.3.0

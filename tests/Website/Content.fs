@@ -128,21 +128,21 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
             WebSharper.Tests.Compiler.RequireMyFeature()
             [
                 WebSharper.Tests.Compiler.MyFeature() :> Web.INode
-                Web.InlineControl ( WebSharper.Tests.Main.RunTests runServerTests autoStart )
-                Web.InlineControl ( WebSharper.Collections.Tests.Main.RunTests() )
+                new Web.InlineControl<_>( WebSharper.Tests.Main.RunTests runServerTests autoStart )
+                new Web.InlineControl<_>( WebSharper.Collections.Tests.Main.RunTests() )
                 WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
-                Web.InlineControl ( Client.ClientSideTupleTest t12 )
-                Web.InlineControl ( Client.ClientSideUnionTest u )
-                Web.InlineControl ( Client.ClientSideListTest l )
-                Web.InlineControl ( Client.ClientSideRecordTest r )
-                Web.InlineControl ( Client.ClientSideClassTest c )
-                Web.InlineControl ( WebSharper.Html5.Tests.Main.RunTests() )
-                Web.InlineControl ( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests )
+                new Web.InlineControl<_>( Client.ClientSideTupleTest t12 )
+                new Web.InlineControl<_>( Client.ClientSideUnionTest u )
+                new Web.InlineControl<_>( Client.ClientSideListTest l )
+                new Web.InlineControl<_>( Client.ClientSideRecordTest r )
+                new Web.InlineControl<_>( Client.ClientSideClassTest c )
+                new Web.InlineControl<_>( WebSharper.Html5.Tests.Main.RunTests() )
+                new Web.InlineControl<_>( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests )
                 if runServerTests then
-                    Web.InlineControl ( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri )
-                    Web.InlineControl ( WebSharper.Module.Tests.Main.RunTests() )
-                    Web.InlineControl ( Client.ExtraModuleTests() )
-                Web.InlineControl ( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests )
+                    new Web.InlineControl<_>( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri )
+                    new Web.InlineControl<_>( WebSharper.Module.Tests.Main.RunTests() )
+                    new Web.InlineControl<_>( Client.ExtraModuleTests() )
+                new Web.InlineControl<_>( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests )
             ]
         ),
         Bundle = "tests"

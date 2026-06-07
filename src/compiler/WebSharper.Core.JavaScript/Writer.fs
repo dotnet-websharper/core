@@ -817,9 +817,9 @@ let ToLines mode layout =
 
 let base64Digits =
     lazy [|
-        yield! { 'A' .. 'Z' }
-        yield! { 'a' .. 'z' }
-        yield! { '0' .. '9' }
+        yield! seq { 'A' .. 'Z' }
+        yield! seq { 'a' .. 'z' }
+        yield! seq { '0' .. '9' }
         yield '+'
         yield '/'
     |]

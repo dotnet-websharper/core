@@ -34,8 +34,8 @@ let Tests =
             let value i1 i2 = i1 + i2
             let arr = Array2D.init n1 n2 value
 
-            forEach { 0 .. n1 - 1 } (fun i -> Do {
-                forEach { 0 .. n2 - 1 } (fun j -> Do {
+            forEach (seq { 0 .. n1 - 1 }) (fun i -> Do {
+                forEach (seq { 0 .. n2 - 1 }) (fun j -> Do {
                     equal arr.[i, j] (value i j)
                 })
             })
@@ -46,8 +46,8 @@ let Tests =
             let n2 = 10
             let arr = Array2D.create n1 n2 "hello"
 
-            forEach { 0 .. n1 - 1 } (fun i -> Do {
-                forEach { 0 .. n2 - 1 } (fun j -> Do {
+            forEach (seq { 0 .. n1 - 1 }) (fun i -> Do {
+                forEach (seq { 0 .. n2 - 1 }) (fun j -> Do {
                     equal arr.[i, j] "hello"
                 })
             })
@@ -89,8 +89,8 @@ let Tests =
             let arr = Array2D.init n1 n2 value
 
             Array2D.iter (fun x -> x := !x + 1) arr
-            forEach { 0 .. n1 - 1 } (fun i -> Do {
-                forEach { 0 .. n2 - 1 } (fun j -> Do {
+            forEach (seq { 0 .. n1 - 1 }) (fun i -> Do {
+                forEach (seq { 0 .. n2 - 1 }) (fun j -> Do {
                     let cell = arr.[i, j]
                     equal (!cell) (i + j + 1)
                 })
@@ -102,8 +102,8 @@ let Tests =
             let n2 = 10
             let arr = Array2D.init n1 n2 (fun r c -> r + c)
             Array2D.iteri (fun i j x -> arr.[i, j] <- x + 1) arr
-            forEach { 0 .. n1 - 1 } (fun i -> Do {
-                forEach { 0 .. n2 - 1 } (fun j -> Do {
+            forEach (seq { 0 .. n1 - 1 }) (fun i -> Do {
+                forEach (seq { 0 .. n2 - 1 }) (fun j -> Do {
                     equal arr.[i, j] (i + j + 1)
                 })
             })

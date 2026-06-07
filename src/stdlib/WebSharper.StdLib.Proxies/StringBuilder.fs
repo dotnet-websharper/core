@@ -74,58 +74,6 @@ module StringBuilder =
             strings.JS.Push("\n") |> ignore
             this |> As<System.Text.StringBuilder>
         
-        [<Inline>]
-        member this.AppendLine(part: int) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: int64) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: int16) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: int8) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: uint) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: uint64) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: uint16) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: uint8) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: bool) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: obj) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: double) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: single) =
-            this.AppendLine(string part)
-        
-        [<Inline>]
-        member this.AppendLine(part: char) =
-            this.AppendLine(string part)
-        
         override this.ToString() =
             let res = strings.JS.Join("")
             strings <- [| res |]

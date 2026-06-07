@@ -72,7 +72,7 @@ let Tests =
         Test "Catching" {
             let k =
                 try raise (E3 "OOPS") with
-                | E0 _ -> 0
+                | E0 -> 0
                 | E1 _ -> 1
                 | :? E3 -> 3
                 | E2 _ -> 2
@@ -86,7 +86,7 @@ let Tests =
                         raise (E3 "OOPS")
                         "Success"
                     with
-                    | E0 _ -> "E0"
+                    | E0 -> "E0"
                     | E2 _ -> "E2"
                 with e ->
                     e.Message)

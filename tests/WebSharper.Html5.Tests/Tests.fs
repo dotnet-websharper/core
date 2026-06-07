@@ -566,7 +566,7 @@ let WebWorkerTests =
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker.OnMessage <- fun e -> ok (e.Data :?> string)
-                worker.PostMessage(())
+                worker.PostMessage(null)
             worker.Terminate()
             equalMsg res "exported function" "true includes js exports"
 
@@ -580,7 +580,7 @@ let WebWorkerTests =
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
-                worker.PostMessage(())
+                worker.PostMessage(null)
             worker.Terminate()
             equalMsg res "missing" "false doesn't include js exports"
 
@@ -594,7 +594,7 @@ let WebWorkerTests =
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
-                worker.PostMessage(())
+                worker.PostMessage(null)
             worker.Terminate()
             equalMsg res "missing" "default doesn't include js exports"
         }

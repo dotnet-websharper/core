@@ -113,19 +113,19 @@ type private TimeSpanProxy =
     static member FromMinutes(min: float) = X<TS>
 
     [<Inline "$min * 6E4">]
-    static member FromMinutes(min: int) = X<TS>
+    static member FromMinutes(min: int64) = X<TS>
 
     [<Inline "$sec * 1E3">]
     static member FromSeconds(sec: float) = X<TS>
 
     [<Inline "$sec * 1E3">]
-    static member FromSeconds(sec: int) = X<TS>
+    static member FromSeconds(sec: int64) = X<TS>
 
     [<Inline "$msec">]
     static member FromMilliseconds(msec: float) = X<TS>
 
     [<Inline "$msec">]
-    static member FromMilliseconds(msec: int) = X<TS>
+    static member FromMilliseconds(msec: int64) = X<TS>
 
     [<Inline "Number($ticks) / 1E4">]
     static member FromTicks(ticks: int64) = X<TS>

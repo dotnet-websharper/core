@@ -2,7 +2,7 @@
    NUnit
    NUnit3TestAdapter
    Microsoft.NET.Test.Sdk
-   Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.NUnit
+   Microsoft.CodeAnalysis.CSharp.Analyzer.Testing
    FSUnit
    FSharp.Core
    System.Runtime.Loader

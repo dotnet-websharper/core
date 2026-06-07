@@ -380,7 +380,7 @@ let Tests =
         Test "NaN" {
             notEqualMsg (box nan) null "box nan <> null"
             forEach [(+); (-); (*); (/)] (fun op -> Do {
-                forEach { 0. .. 10. } (fun x -> Do {
+                forEach (seq { 0. .. 10. }) (fun x -> Do {
                     isTrueMsg (isNaN (op x nan)) ("op(x,nan) = nan where x=" + string x)
                 })
             })
@@ -389,7 +389,7 @@ let Tests =
         Test "Infinity" {
             notEqualMsg (box infinity) null   "infinity <> null"
             equalMsg (1./0.) infinity         "1./0. = infinity"
-            forEach { 0. .. 10. } (fun x -> Do {
+            forEach (seq { 0. .. 10. }) (fun x -> Do {
                 equalMsg (x / infinity) 0. ("x/infinity = 0 where x = " + string x)
             })
         }

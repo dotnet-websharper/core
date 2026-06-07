@@ -43,7 +43,7 @@ type NodeProxy<'T> =
     member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
     member this.Value    with [<Inline "$this.v">] get () = X<'T> 
                          and  [<Inline "$this.v = $v">] set (v: 'T) = X<unit>
-    member this.List     with [<Inline "$this.l">] get () = X<'T>
+    member this.List     with [<Inline "$this.l">] get () = X<LL<'T>>
 
 [<Inline "{p: $p, n: $n, v: $v, l: $l}">]
 let newNode<'T> (p: LLN<'T>) (n: LLN<'T>) (v: 'T) (l: LL<'T>) = X<LLN<'T>>

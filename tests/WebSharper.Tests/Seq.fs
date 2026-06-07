@@ -678,6 +678,10 @@ let Tests =
             equal (Seq.indexed Seq.empty |> Array.ofSeq) [||]
         }
 
+        Test "Enumerable.Index" {
+            equal (System.Linq.Enumerable.Index(seq { 10 .. 12 }) |> Array.ofSeq) [| struct (0, 10); struct (1, 11); struct (2, 12) |]
+        }
+
         Test "Seq.item" {
             equal (Seq.item 2 [1; 2; 3]) 3
         }

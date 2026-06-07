@@ -204,7 +204,7 @@ module SampleSite =
                     yield! t.Login
                     yield! t.Menu
                     yield! t.Body
-                    yield Content.BundleScopes [| "samplehome"; "samplecontact"; "samplelogin" |] (Web.InlineControl ( Client.Widget bt )) :> _
+                    yield Content.BundleScopes [| "samplehome"; "samplecontact"; "samplelogin" |] (new Web.InlineControl<_>( Client.Widget bt )) :> _
                 ]
             )
         }
@@ -235,7 +235,7 @@ module SampleSite =
 
     type ClientServer =
         static member clientInDiv ([<ReflectedDefinition; WebSharper.JavaScript>] expr: Quotations.Expr<#WebSharper.IControlBody>) = 
-            Elt("div", Web.InlineControl(%expr))
+            Elt("div", new Web.InlineControl<_>(%expr))
 
     /// The pages of this website.
     module Pages =
@@ -253,7 +253,7 @@ module SampleSite =
                             Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
                         )
                         Elt("div",
-                            Web.InlineControl
+                            new Web.InlineControl<_>
                                 ( Client.Elt "i" [|
                                     Client.Text "On the "
                                     Client.Elt "b" [|Client.Text "client side"|]

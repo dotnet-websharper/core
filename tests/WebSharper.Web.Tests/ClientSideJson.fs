@@ -538,8 +538,8 @@ module ClientSideJson =
             xhr.Open("POST", url)
             xhr.SetRequestHeader("Content-Type", "application/json")
             xhr.ResponseType <- XMLHttpRequestResponseType.Json
-            xhr.Onload <- fun _ -> ok (decode xhr.Response)
-            xhr.Onerror <- fun _ -> ko <| (System.Exception xhr.StatusText)
+            xhr.OnLoad <- fun _ -> ok (decode xhr.Response)
+            xhr.OnError <- fun _ -> ko <| (System.Exception xhr.StatusText)
             xhr.Send(serializedArg)
 
     let echoObj jsonBaseUri (r: 'T) : Async<'T> =

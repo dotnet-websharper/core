@@ -13,5 +13,6 @@
   <ItemGroup>
     <PackageReference Include="NBomber" Version="2.0.2" />
     <PackageReference Include="NBomber.Http" Version="2.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 </Project>

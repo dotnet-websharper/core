@@ -752,8 +752,8 @@ module Router =
                 | Some m -> As m
                 | None -> "POST"
             Async.FromContinuations (fun (ok, err, cc) ->
-                xhr.Onload <- fun _ -> ok (As<string> xhr.Response)
-                xhr.Onerror <- fun _ -> err <| exn xhr.StatusText
+                xhr.OnLoad <- fun _ -> ok (As<string> xhr.Response)
+                xhr.OnError <- fun _ -> err <| exn xhr.StatusText
                 // todo: cancellation
                 let url = path.ToLink()
                 conf.Url <-

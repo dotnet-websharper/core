@@ -278,15 +278,16 @@ let generate() =
                         let fn = f.Name
                         let ft = f.Type
                         if ft = "SyntaxToken" then
-                            let fklen = f.Kinds |> List.length
+                            let kinds = f.Kinds |> List.distinct
+                            let fklen = kinds |> List.length
                             if fklen > 1 then
                                 let unionName = short name + fn
-                                createTokenUnion unionName f.Kinds
+                                createTokenUnion unionName kinds
                                 if f.Optional then
                                     yield sprintf "    member this.%s = node.%s |> optionalToken |> Option.map %s.FromToken" fn fn unionName
                                 else
                                     yield sprintf "    member this.%s = node.%s |> %s.FromToken" fn fn unionName
-                            elif f.Kinds |> List.exists tokenTextNeeded then
+                            elif kinds |> List.exists tokenTextNeeded then
                                 yield sprintf  "    member this.%s = node.%s" fn fn
                         else
                             if f.IsList then 

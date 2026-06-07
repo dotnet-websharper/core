@@ -765,7 +765,7 @@ module Remoting =
             }
 
             Test "Seq<int> -> Seq<int>" {
-                let! r = Server.f35 { 1 .. 5 }
+                let! r = Server.f35 (seq { 1 .. 5 })
                 equal (Array.ofSeq r) [| 2 .. 6 |]
             }
 

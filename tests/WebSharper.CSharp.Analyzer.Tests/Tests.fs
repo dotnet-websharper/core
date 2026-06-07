@@ -8,7 +8,6 @@ open System.IO
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp.Testing
 open Microsoft.CodeAnalysis.Diagnostics
-open Microsoft.CodeAnalysis.Testing.Verifiers
 
 open WebSharper.CSharp.Analyzer
 open Microsoft.CodeAnalysis.Testing
@@ -46,7 +45,7 @@ let packageRefs =
 [<Test>]
 let ``Analyzer test`` () =
     WebSharperCSharpAnalyzer.IsTest <- true
-    let test = CSharpAnalyzerTest<WebSharperCSharpAnalyzer, NUnitVerifier>(
+    let test = CSharpAnalyzerTest<WebSharperCSharpAnalyzer, DefaultVerifier>(
         TestCode = """
 using System;
 using WebSharper;    
@@ -67,7 +66,7 @@ class TestClass {
     )
     test.TestState.AdditionalReferences.AddRange(projRefs);
     let expectedDiagnostic =
-        CSharpAnalyzerVerifier<WebSharperCSharpAnalyzer, NUnitVerifier>.Diagnostic("WebSharperError")
+        CSharpAnalyzerVerifier<WebSharperCSharpAnalyzer, DefaultVerifier>.Diagnostic("WebSharperError")
             .WithSpan(8, 9, 8, 23)
             .WithArguments("Method name not found in JavaScript compilation: System.Console.(Beep : unit -> unit), Members: get_Error, get_Out, WriteLine")
     test.ExpectedDiagnostics.Add(expectedDiagnostic);

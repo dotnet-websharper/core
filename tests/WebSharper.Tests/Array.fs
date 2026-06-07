@@ -76,7 +76,7 @@ let Tests =
 
         Test "One is one" {
             equal 1 1 
-            forEach { 1 .. 3 } (fun x -> 
+            forEach (seq { 1 .. 3 }) (fun x ->
                 Do {
                     equal x x
                 }
@@ -245,7 +245,7 @@ let Tests =
         Test "Array.get & Array.set" {
             let size = 6
             let arr = [| 0 .. size - 1 |]
-            forEach { 0 .. size - 1 } (fun n -> Do {
+            forEach (seq { 0 .. size - 1 }) (fun n -> Do {
                 equalMsg (Array.get arr n) n ("get " + string n)
             })
             equalMsg arr.[3] 3 "before set"

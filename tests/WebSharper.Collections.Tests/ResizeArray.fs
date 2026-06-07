@@ -55,7 +55,7 @@ let Tests =
         Test "AsReadOnly" {
             property (fun (a: ResizeArray<_>) -> Do {
                 let b = a.AsReadOnly()
-                forEach {0 .. a.Count - 1} (fun i -> Do {
+                forEach (seq {0 .. a.Count - 1}) (fun i -> Do {
                     equal (As<_[]> b).[i] a.[i]
                 })
             })
@@ -130,7 +130,7 @@ let Tests =
             property (fun (a: ResizeArray<int>) -> Do {
                 let b = a.ConvertAll(fun x -> string (x + 1))
                 equal a.Count b.Count
-                forEach {0 .. a.Count - 1} (fun i -> Do {
+                forEach (seq {0 .. a.Count - 1}) (fun i -> Do {
                     equal b.[i] (string (a.[i] + 1))
                 })
             })
@@ -353,13 +353,13 @@ let Tests =
             ) (fun (keys, index, length) -> Do {
                 let origKeys = ResizeArray(keys)
                 keys.Sort(index, length, invComparer)
-                forEach {0 .. index - 1} (fun i -> Do {
+                forEach (seq {0 .. index - 1}) (fun i -> Do {
                     equalMsg keys.[i] origKeys.[i] "keys before index aren't touched"
                 })
-                forEach {index + length .. keys.Count - 1} (fun i -> Do {
+                forEach (seq {index + length .. keys.Count - 1}) (fun i -> Do {
                     equalMsg keys.[i] origKeys.[i] "keys after index aren't touched"
                 })
-                forEach {index .. index + length - 2} (fun i -> Do {
+                forEach (seq {index .. index + length - 2}) (fun i -> Do {
                     isTrueMsg (invComparer.Compare(keys.[i], keys.[i + 1]) <= 0) "keys are sorted"
                 })
             })

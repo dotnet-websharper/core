@@ -35,13 +35,13 @@ module ApiTests =
                 xhr.Open("GET", (apiBaseUri + "person?id=" + string id))
                 xhr.SetRequestHeader("Content-Type", "application/json")
                 xhr.ResponseType <- XMLHttpRequestResponseType.Json
-                xhr.Onload <- fun _ ->
+                xhr.OnLoad <- fun _ ->
                     try
                         match Json.Decode<Result<PersonDataNoDates>> (As<string> xhr.Response) with
                         | Result.Success p -> ok p
                         | Result.Failure e -> ko (exn e)
                     with e -> ko e
-                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.OnError <- fun _ -> ko <| exn xhr.StatusText
                 xhr.Send()
 
         let updatePerson id person =
@@ -51,16 +51,16 @@ module ApiTests =
                 xhr.SetRequestHeader("Content-Type", "application/json")
                 xhr.ResponseType <- XMLHttpRequestResponseType.Json
                 let data = Json.Serialize<PersonDataNoDates> person
-                xhr.Onload <- fun _ -> ok ()
-                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.OnLoad <- fun _ -> ok ()
+                xhr.OnError <- fun _ -> ko <| exn xhr.StatusText
                 xhr.Send(data)
 
         let testDateTime date =
             Async.FromContinuations <| fun (ok, ko, _) ->
                 let xhr = XMLHttpRequest()
                 xhr.Open("GET", (apiBaseUri + "test-datetime-format/" + date))
-                xhr.Onload <- fun _ -> ok (As<string> xhr.Response)
-                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.OnLoad <- fun _ -> ok (As<string> xhr.Response)
+                xhr.OnError <- fun _ -> ko <| exn xhr.StatusText
                 xhr.Send()
                 |> ignore
 

@@ -34,7 +34,7 @@ let Tests =
         Test "AsReadOnly" {
             property (fun (a: _[]) -> Do {
                 let b = System.Array.AsReadOnly(a)
-                forEach {0 .. a.Length - 1} (fun i -> Do {
+                forEach (seq {0 .. a.Length - 1}) (fun i -> Do {
                     equal (As<_[]> b).[i] a.[i]
                 })
             })
@@ -120,9 +120,9 @@ let Tests =
             ) (fun (a, s, l) -> Do {
                 let b = Array.copy a
                 System.Array.Clear(b, s, l)
-                forEach {0 .. s - 1} (fun i -> Do { equal b.[i] a.[i] })
-                forEach {s .. s + l - 1} (fun i -> Do { equal b.[i] 0 })
-                forEach {s + l .. a.Length - 1} (fun i -> Do { equal b.[i] a.[i] })
+                forEach (seq {0 .. s - 1}) (fun i -> Do { equal b.[i] a.[i] })
+                forEach (seq {s .. s + l - 1}) (fun i -> Do { equal b.[i] 0 })
+                forEach (seq {s + l .. a.Length - 1}) (fun i -> Do { equal b.[i] a.[i] })
             })
         }
 
@@ -130,7 +130,7 @@ let Tests =
             property (fun (a: int[]) -> Do {
                 let b = System.Array.ConvertAll(a, fun x -> string (x + 1))
                 equal a.Length b.Length
-                forEach {0 .. a.Length - 1} (fun i -> Do {
+                forEach (seq {0 .. a.Length - 1}) (fun i -> Do {
                     equal b.[i] (string (a.[i] + 1))
                 })
             })
@@ -278,8 +278,8 @@ let Tests =
                 let r = ref a
                 System.Array.Resize(r, n)
                 equal (!r).Length n
-                forEach {0 .. min n a.Length - 1} (fun i -> Do { equal (!r).[i] a.[i] })
-                forEach {min n a.Length .. n - 1} (fun i -> Do { equal (!r).[i] Unchecked.defaultof<_> })
+                forEach (seq {0 .. min n a.Length - 1}) (fun i -> Do { equal (!r).[i] a.[i] })
+                forEach (seq {min n a.Length .. n - 1}) (fun i -> Do { equal (!r).[i] Unchecked.defaultof<_> })
             })
         }
 
@@ -293,18 +293,18 @@ let Tests =
                 let origKeys = Array.copy keys
                 let origItems = Array.copy items
                 System.Array.Sort(keys, items, index, length, invComparer)
-                forEach {0 .. index - 1} (fun i -> Do {
+                forEach (seq {0 .. index - 1}) (fun i -> Do {
                     equalMsg keys.[i] origKeys.[i] "keys before index aren't touched"
                     equalMsg items.[i] origItems.[i] "items before index aren't touched"
                 })
-                forEach {index + length .. keys.Length - 1} (fun i -> Do {
+                forEach (seq {index + length .. keys.Length - 1}) (fun i -> Do {
                     equalMsg keys.[i] origKeys.[i] "keys after index aren't touched"
                     equalMsg items.[i] origItems.[i] "items after index aren't touched"
                 })
-                forEach {index .. index + length - 2} (fun i -> Do {
+                forEach (seq {index .. index + length - 2}) (fun i -> Do {
                     isTrueMsg (invComparer.Compare(keys.[i], keys.[i + 1]) <= 0) "keys are sorted"
                 })
-                forEach {index .. index + length - 1} (fun i -> Do {
+                forEach (seq {index .. index + length - 1}) (fun i -> Do {
                     let k = origKeys.[i]
                     let v = origItems.[i]
                     isTrueMsg

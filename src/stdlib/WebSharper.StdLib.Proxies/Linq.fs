@@ -454,8 +454,8 @@ type private LinqProxy =
         )
 
     [<Inline>]
-    static member Index<'T>(this: seq<'T>) : seq<struct ('T * int)> =
-        As<seq<struct ('T * int)>>(Seq.indexed this)
+    static member Index<'T>(this: seq<'T>) : seq<struct (int * 'T)> =
+        this |> Seq.mapi (fun i x -> struct (i, x))
 
     [<Inline>]
     static member InfiniteSequence<'T when 'T :> System.Numerics.INumber<'T>>(start: 'T, step: 'T) : seq<'T> =
