@@ -46,6 +46,64 @@ let NonGenericType td = ConcreteType (NonGeneric td)
 /// Constructs a ConcreteType with fully unresolved generics for the type.
 let DefaultGenericType td = GenericType td (List.init td.Value.GenericLength TypeParameter)
 
+/// Checks whether a type is or contains an anonymous record type.
+let TypeHasAnonRecord (tryGetAnonRecordFields: TypeDefinition -> string list option) typ =
+    let rec hasAnonRecord typ =
+        match typ with
+        | ConcreteType t ->
+            Option.isSome (tryGetAnonRecordFields t.Entity)
+            || List.exists hasAnonRecord t.Generics
+        | ArrayType (t, _) ->
+            hasAnonRecord t
+        | TupleType (ts, _) ->
+            List.exists hasAnonRecord ts
+        | FSharpFuncType (a, r) ->
+            hasAnonRecord a || hasAnonRecord r
+        | ByRefType t ->
+            hasAnonRecord t
+        | _ -> false
+    hasAnonRecord typ
+
+/// Checks whether a method signature contains an anonymous record type.
+let MethodHasAnonRecord tryGetAnonRecordFields (meth: Method) =
+    let meth = meth.Value
+    List.exists (TypeHasAnonRecord tryGetAnonRecordFields) meth.Parameters
+    || TypeHasAnonRecord tryGetAnonRecordFields meth.ReturnType
+
+/// Compares types exactly, except anonymous record types can match by sorted field names.
+let TypeMatchesAnonRecordShape (tryGetAnonRecordFields: TypeDefinition -> string list option) t1 t2 =
+    let rec matches t1 t2 =
+        if t1 = t2 then true else
+        match t1, t2 with
+        | ConcreteType t1, ConcreteType t2 ->
+            let genericsMatch =
+                t1.Generics.Length = t2.Generics.Length
+                && List.forall2 matches t1.Generics t2.Generics
+            if not genericsMatch then false else
+            match tryGetAnonRecordFields t1.Entity, tryGetAnonRecordFields t2.Entity with
+            | Some f1, Some f2 -> f1 = f2
+            | _ -> t1.Entity = t2.Entity
+        | ArrayType (t1, r1), ArrayType (t2, r2) ->
+            r1 = r2 && matches t1 t2
+        | TupleType (ts1, s1), TupleType (ts2, s2) ->
+            s1 = s2 && ts1.Length = ts2.Length && List.forall2 matches ts1 ts2
+        | FSharpFuncType (a1, r1), FSharpFuncType (a2, r2) ->
+            matches a1 a2 && matches r1 r2
+        | ByRefType t1, ByRefType t2 ->
+            matches t1 t2
+        | _ -> false
+    matches t1 t2
+
+/// Compares methods exactly, except anonymous record types in the signature can match by sorted field names.
+let MethodMatchesAnonRecordShape tryGetAnonRecordFields (expected: Method) (candidate: Method) =
+    let expected = expected.Value
+    let candidate = candidate.Value
+    expected.MethodName = candidate.MethodName
+    && expected.Generics = candidate.Generics
+    && expected.Parameters.Length = candidate.Parameters.Length
+    && List.forall2 (TypeMatchesAnonRecordShape tryGetAnonRecordFields) expected.Parameters candidate.Parameters
+    && TypeMatchesAnonRecordShape tryGetAnonRecordFields expected.ReturnType candidate.ReturnType
+
 /// Removes wrapping ExprSourcePos case if present from an AST.Expression
 let IgnoreExprSourcePos expr =
     match expr with

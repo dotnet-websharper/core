@@ -274,6 +274,19 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                         ReturnType = this.ReadType inv.ReturnType
                     }
                 comp.AddCustomType(def, info)
+            elif td.MetadataName.StartsWith("<>f__AnonymousType") then
+                let fields =
+                    td.GetMembers()
+                    |> Seq.choose (function
+                        | :? IPropertySymbol as p when not p.IsStatic && p.Parameters.Length = 0 ->
+                            Some p.Name
+                        | _ -> None
+                    )
+                    |> Seq.sort
+                    |> List.ofSeq
+                match fields with
+                | [] -> ()
+                | _ -> comp.AddCustomType(def, M.FSharpAnonRecordInfo fields)
 
     member this.ReadNamedTypeDefinition (x: INamedTypeSymbol) =
         let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =

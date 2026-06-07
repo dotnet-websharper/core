@@ -858,87 +858,162 @@ type Compilation(meta: Info, ?hasGraph) =
             cls.Constructors.ContainsKey ctor || compilingConstructors.ContainsKey (typ, ctor)
         | _ -> false
 
+    member private this.TryGetAnonRecordFields(typ) =
+        let typ = this.FindProxied typ
+        let getFields =
+            function
+            | FSharpAnonRecordInfo fields -> Some fields
+            | _ -> None
+        match notResolvedCustomTypes.TryGetValue typ with
+        | true, ct -> getFields ct
+        | _ ->
+            match classes.TryFind typ with
+            | Some (_, ct, _) -> getFields ct
+            | _ -> None
+
+    member private this.MethodNeedsAnonRecordShapeLookup(meth: Method) =
+        MethodHasAnonRecord (fun t -> this.TryGetAnonRecordFields t) meth
+
+    member private this.MethodMatchesForLookup(expected: Method, candidate: Method) =
+        MethodMatchesAnonRecordShape (fun t -> this.TryGetAnonRecordFields t) expected candidate
+
+    member private this.MethodExistsByAnonRecordShape(methods: IDictionary<Method, 'T>, meth, methodNeedsAnonRecordShapeLookup: Lazy<bool>) =
+        methodNeedsAnonRecordShapeLookup.Value
+        && (methods.Keys |> Seq.exists (fun candidate -> this.MethodMatchesForLookup(meth, candidate)))
+
+    member private this.MethodExists(methods: IDictionary<Method, 'T>, meth, methodNeedsAnonRecordShapeLookup: Lazy<bool>) =
+        methods.ContainsKey meth || this.MethodExistsByAnonRecordShape(methods, meth, methodNeedsAnonRecordShapeLookup)
+
+    member private this.CompilingMethodExistsByAnonRecordShape(typ, meth, methodNeedsAnonRecordShapeLookup: Lazy<bool>) =
+        methodNeedsAnonRecordShapeLookup.Value
+        && (
+            compilingMethods
+            |> Seq.exists (fun (KeyValue((t, candidate), _)) ->
+                typ = t && this.MethodMatchesForLookup(meth, candidate)
+            )
+        )
+
     member this.MethodExistsInMetadata (typ, meth) =
         let typ = this.FindProxied typ
+        let methodNeedsAnonRecordShapeLookup = lazy (this.MethodNeedsAnonRecordShapeLookup meth)
         match interfaces.TryFind typ with
         | Some intf -> 
-            intf.Methods.ContainsKey meth
+            this.MethodExists(intf.Methods, meth, methodNeedsAnonRecordShapeLookup)
         | _ -> false
         || 
         match classes.TryFind typ with
         | Some (_, _, Some cls) ->
-            cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
+            cls.Methods.ContainsKey meth
+            || compilingMethods.ContainsKey (typ, meth)
+            || this.MethodExistsByAnonRecordShape(cls.Methods, meth, methodNeedsAnonRecordShapeLookup)
+            || this.CompilingMethodExistsByAnonRecordShape(typ, meth, methodNeedsAnonRecordShapeLookup)
         | _ -> false
 
     member private this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl) = 
         let typ = this.FindProxied typ
+        let methodNeedsAnonRecordShapeLookup = lazy (this.MethodNeedsAnonRecordShapeLookup meth)
                 
         let tryFindClassMethod () =
             match classes.TryFind typ with
             | Some (_, _, Some cls) ->
                 let applyClsMacros cm =
                     List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros cm |> Option.get    
-                match cls.Methods.TryFind meth with
-                | Some m -> 
+                let tryFindMethod() =
+                    cls.Methods.TryFind meth
+                let tryFindMethodByAnonRecordShape() =
+                    if methodNeedsAnonRecordShapeLookup.Value then
+                        cls.Methods
+                        |> Seq.tryPick (fun (KeyValue(candidate, m)) ->
+                            if this.MethodMatchesForLookup(meth, candidate) then Some m else None
+                        )
+                    else None
+                let tryFindCompilingMethod() =
+                    compilingMethods.TryFind (typ, meth)
+                let tryFindCompilingMethodByAnonRecordShape() =
+                    if methodNeedsAnonRecordShapeLookup.Value then
+                        compilingMethods
+                        |> Seq.tryPick (fun (KeyValue((t, candidate), m)) ->
+                            if typ = t && this.MethodMatchesForLookup(meth, candidate) then Some m else None
+                        )
+                    else None
+                let compiledMethod (m: CompiledMethodInfo) =
                     if List.isEmpty cls.Macros then
                         Compiled (m.CompiledForm, m.Optimizations, m.Generics, m.Expression)
                     else
                         Compiled (applyClsMacros (Some m.CompiledForm), m.Optimizations, m.Generics, m.Expression)
+                let compilingMethod ((cm, p, e) as m) =
+                    if List.isEmpty cls.Macros then
+                        Compiling m
+                    else
+                        Compiling ({ cm with CompiledMember = applyClsMacros (Some cm.CompiledMember) }, p, e)
+                match tryFindMethod() with
+                | Some m -> compiledMethod m
                 | _ -> 
-                    match compilingMethods.TryFind (typ, meth) with
-                    | Some ((cm, p, e) as m) -> 
-                        if List.isEmpty cls.Macros then
-                            Compiling m
-                        else
-                            Compiling ({ cm with CompiledMember = applyClsMacros (Some cm.CompiledMember) }, p, e)
+                    match tryFindCompilingMethod() with
+                    | Some m -> compilingMethod m
                     | _ -> 
-                        if not (List.isEmpty cls.Macros) then
-                            let info = applyClsMacros None
-                            Compiled (info, Optimizations.None, [], Undefined)
-                        else
-                            match this.GetCustomType typ with
-                            | NotCustomType -> 
-                                let mName = meth.Value.MethodName
-                                let candidates = 
-                                    [
-                                        for m in cls.Methods.Keys do
-                                            if m.Value.MethodName = mName then
-                                                yield m
-                                        for t, m in compilingMethods.Keys do
-                                            if typ = t && m.Value.MethodName = mName then
-                                                yield m
-                                    ]
-                                let bres =
-                                    match cls.BaseClass with
-                                    | Some bTyp -> 
-                                        match this.LookupMethodInfoInternal(bTyp.Entity, meth, noDefIntfImpl) with
-                                        | LookupMemberError _ -> None
-                                        | res -> Some res
-                                    | None -> None
-                                match bres with
-                                | Some m -> m
-                                | None ->
-                                    if List.isEmpty candidates then
-                                        let names =
-                                            seq {
+                        match tryFindMethodByAnonRecordShape() with
+                        | Some m -> compiledMethod m
+                        | _ ->
+                            match tryFindCompilingMethodByAnonRecordShape() with
+                            | Some m -> compilingMethod m
+                            | _ ->
+                                if not (List.isEmpty cls.Macros) then
+                                    let info = applyClsMacros None
+                                    Compiled (info, Optimizations.None, [], Undefined)
+                                else
+                                    match this.GetCustomType typ with
+                                    | NotCustomType ->
+                                        let mName = meth.Value.MethodName
+                                        let candidates =
+                                            [
                                                 for m in cls.Methods.Keys do
-                                                    yield m.Value.MethodName
+                                                    if m.Value.MethodName = mName then
+                                                        yield m
                                                 for t, m in compilingMethods.Keys do
-                                                    if typ = t then
-                                                        yield m.Value.MethodName
-                                            }
-                                            |> Seq.distinct |> List.ofSeq
-                                        LookupMemberError (MethodNameNotFound (typ, meth, names))
-                                    else
-                                        LookupMemberError (MethodNotFound (typ, meth, candidates))
-                            | i -> CustomTypeMember i
+                                                    if typ = t && m.Value.MethodName = mName then
+                                                        yield m
+                                            ]
+                                        let bres =
+                                            match cls.BaseClass with
+                                            | Some bTyp ->
+                                                match this.LookupMethodInfoInternal(bTyp.Entity, meth, noDefIntfImpl) with
+                                                | LookupMemberError _ -> None
+                                                | res -> Some res
+                                            | None -> None
+                                        match bres with
+                                        | Some m -> m
+                                        | None ->
+                                            if List.isEmpty candidates then
+                                                let names =
+                                                    seq {
+                                                        for m in cls.Methods.Keys do
+                                                            yield m.Value.MethodName
+                                                        for t, m in compilingMethods.Keys do
+                                                            if typ = t then
+                                                                yield m.Value.MethodName
+                                                    }
+                                                    |> Seq.distinct |> List.ofSeq
+                                                LookupMemberError (MethodNameNotFound (typ, meth, names))
+                                            else
+                                                LookupMemberError (MethodNotFound (typ, meth, candidates))
+                                    | i -> CustomTypeMember i
                 |> Some
             | _ -> None
 
         let tryFindInterfaceMethod () = 
             match interfaces.TryFind typ with
             | Some intf -> 
-                match intf.Methods.TryFind meth with
+                let tryFindMethod() =
+                    match intf.Methods.TryFind meth with
+                    | Some m -> Some m
+                    | _ when methodNeedsAnonRecordShapeLookup.Value ->
+                        intf.Methods
+                        |> Seq.tryPick (fun (KeyValue(candidate, m)) ->
+                            if this.MethodMatchesForLookup(meth, candidate) then Some m else None
+                        )
+                    | _ -> None
+                match tryFindMethod() with
                 | Some (m, mt, gpars) ->
                     Compiled (Instance (m, mt, Modifier.None), Optimizations.None, gpars, Undefined)              
                 | _ ->
@@ -2679,7 +2754,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 Generics = 0
             } 
         let jP = Json.ServerSideProvider
-        let st = Verifier.State(jP)
+        let st = Verifier.State((fun t -> this.TryGetAnonRecordFields t), jP)
         for KeyValue(t, cls) in classes.Current do
             match cls with
             | _, _, None -> ()

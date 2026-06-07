@@ -209,8 +209,59 @@ exception RemotingException of message: string with
 type Server(info: M.Info, jP, handlers: Func<System.Type, obj>) =
     let remotePaths = info.RemoteMethods
     let d = ConcurrentDictionary()
+    let tryGetAnonRecordFields typ =
+        match info.Classes.TryGetValue typ with
+        | true, (_, M.FSharpAnonRecordInfo fields, _) -> Some fields
+        | _ -> None
+    let runtimeAnonRecordFields = ConcurrentDictionary<AST.TypeDefinition, string list option>()
+    let tryGetRuntimeAnonRecordFields (typ: System.Type) =
+        let typ =
+            if typ.IsGenericType then typ.GetGenericTypeDefinition()
+            else typ
+        if isNull typ.FullName || not (typ.FullName.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)) then
+            None
+        else
+            typ.GetProperties(BindingFlags.Instance ||| BindingFlags.Public)
+            |> Seq.filter (fun p -> p.GetIndexParameters().Length = 0)
+            |> Seq.map (fun p -> p.Name)
+            |> Seq.sort
+            |> List.ofSeq
+            |> function
+                | [] -> None
+                | fields -> Some fields
+    let tryGetAnonRecordFieldsForMatch typ =
+        match tryGetAnonRecordFields typ with
+        | Some _ as fields -> fields
+        | None ->
+            runtimeAnonRecordFields.GetOrAdd(typ, fun typ ->
+                try
+                    AST.Reflection.LoadTypeDefinition typ
+                    |> tryGetRuntimeAnonRecordFields
+                with _ ->
+                    None
+            )
+    let methodMatches (expected: AST.Method) =
+        let methodNeedsAnonRecordShapeLookup =
+            lazy (AST.ASTHelpers.MethodHasAnonRecord tryGetAnonRecordFieldsForMatch expected)
+        fun (candidate: MethodInfo) ->
+            let candidate = AST.Reflection.ReadMethod candidate
+            expected = candidate
+            || (
+                methodNeedsAnonRecordShapeLookup.Value
+                && AST.ASTHelpers.MethodMatchesAnonRecordShape tryGetAnonRecordFieldsForMatch expected candidate
+            )
+    let loadMethod td (m: AST.Method) =
+        let methodInfos = (AST.Reflection.LoadTypeDefinition td).GetMethods(AST.Reflection.AllMethodsFlags)
+        try
+            methodInfos
+            |> Seq.find (methodMatches m)
+        with _ ->
+            failwithf "Could not load method %O candidates: %A" m.Value (methodInfos |> Seq.choose (fun c ->
+                let cm = AST.Reflection.ReadMethod c
+                if cm.Value.MethodName = m.Value.MethodName then Some (string cm.Value) else None
+            ) |> Array.ofSeq)
     let getConverter (td, m) =
-        toConverter jP handlers (AST.Reflection.LoadMethod td m)
+        toConverter jP handlers (loadMethod td m)
     let getCachedConverter p =
         match remotePaths.TryFind p with
         | None ->

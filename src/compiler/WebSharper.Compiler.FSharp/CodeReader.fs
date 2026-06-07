@@ -343,8 +343,6 @@ let getQualifiedName (typ: FSharpEntity) =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
-    let mutable anonRecords = null : IDictionary<string[], string>
-    
     let readSimpleName (a: FSharpAssembly) typeFullName =
         if Option.isNone a.FileName then // currently compiled assembly
             comp.AssemblyName
@@ -367,50 +365,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     member this.ResolveAnonRecord (d: FSharpAnonRecordTypeDetails) =
         let asmName = readSimpleName d.Assembly d.CompiledName
         
-        let fallback() =
-            TypeDefinition {
-                Assembly = asmName
-                FullName = d.CompiledName
-            }
-            
-        // anon records have a timestamp in their compiled name, use reflection to find name in dll if possible
-        // only for currently compiled assembly
-        if Option.isNone d.Assembly.FileName && Option.isNone comp.ProxyTargetName then
-            if isNull anonRecords then
-                let asmOpt = 
-                    try Some (Reflection.LoadAssembly comp.AssemblyName)
-                    with _ -> None
-                match asmOpt with
-                | Some asm ->
-                    anonRecords <-
-                        asm.DefinedTypes 
-                        |> Seq.filter (fun t -> t.Name.StartsWith("<>f__AnonymousType")) 
-                        |> Seq.map (fun t ->
-                            let sortedFieldNames = 
-                                t.DeclaredProperties
-                                |> Seq.sortBy(fun p ->
-                                    let a = p.GetCustomAttributes(typeof<CompilationMappingAttribute>, false)[0] :?> CompilationMappingAttribute
-                                    a.SequenceNumber
-                                )
-                                |> Seq.map(fun p -> p.Name)
-                                |> Array.ofSeq
-                            sortedFieldNames, t.Name
-                        )
-                        |> dict
-                | _ -> 
-                    anonRecords <- dict []
-            match anonRecords.TryFind(d.SortedFieldNames) with
-            | Some rname ->
-                TypeDefinition {
-                    Assembly = asmName
-                    FullName = rname
-                }
-            | None ->
-                // fallback for bundle-only projects (no compiled dll)
-                fallback()
-        else
-            // for referenced libs and proxied lib
-            fallback()
+        TypeDefinition {
+            Assembly = asmName
+            FullName = d.CompiledName
+        }
 
     member this.ReadTypeDefinition (td: FSharpEntity) =
         if td.IsArrayType then

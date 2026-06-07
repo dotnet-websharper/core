@@ -46,42 +46,62 @@ type Status =
     | CriticallyIncorrect of string
 
 [<Sealed>]
-type State(jP: J.Provider) =
+type State(tryGetAnonRecordFields: TypeDefinition -> string list option, jP: J.Provider) =
 
-    let memoize (f: Type -> VerifyEncoderResult) : Type -> VerifyEncoderResult =
-        let cache = Dictionary()
-        fun x ->
-            match cache.TryGetValue(x) with
-            | true, x -> x
-            | _ ->
-                cache.[x] <- Ok
-                let v = f x
-                cache.[x] <- v
-                v
+    let combineVerifyResults results =
+        if results |> List.exists ((=) CantLoad) then CantLoad
+        elif results |> List.exists ((=) CantGet) then CantGet
+        else Ok
 
     let canEncodeToJson =
-        memoize <| fun t ->
-            try 
-                let t = Reflection.LoadType t
-                try
-                    let enc = jP.GetEncoder(t)
-                    Ok
-                with _ ->
-                    CantGet
-            with _ ->
-                CantLoad
+        let cache = Dictionary<Type, VerifyEncoderResult>()
+        let rec check typ =
+            match cache.TryGetValue typ with
+            | true, value -> value
+            | _ ->
+                cache.[typ] <- Ok
+                let value =
+                    try
+                        let runtimeType = Reflection.LoadType typ
+                        try
+                            jP.GetEncoder(runtimeType) |> ignore
+                            Ok
+                        with _ ->
+                            CantGet
+                    with _ ->
+                        match typ with
+                        | ConcreteType { Entity = td; Generics = args } when Option.isSome (tryGetAnonRecordFields td) ->
+                            args |> List.map check |> combineVerifyResults
+                        | _ ->
+                            CantLoad
+                cache.[typ] <- value
+                value
+        check
 
     let canDecodeFromJson =
-        memoize <| fun t ->
-            try 
-                let t = Reflection.LoadType t
-                try
-                    let enc = jP.GetDecoder(t)
-                    Ok
-                with _ ->
-                    CantGet
-            with _ ->
-                CantLoad
+        let cache = Dictionary<Type, VerifyEncoderResult>()
+        let rec check typ =
+            match cache.TryGetValue typ with
+            | true, value -> value
+            | _ ->
+                cache.[typ] <- Ok
+                let value =
+                    try
+                        let runtimeType = Reflection.LoadType typ
+                        try
+                            jP.GetDecoder(runtimeType) |> ignore
+                            Ok
+                        with _ ->
+                            CantGet
+                    with _ ->
+                        match typ with
+                        | ConcreteType { Entity = td; Generics = args } when Option.isSome (tryGetAnonRecordFields td) ->
+                            args |> List.map check |> combineVerifyResults
+                        | _ ->
+                            CantLoad
+                cache.[typ] <- value
+                value
+        check
    
     let getRemoteContractError (td: TypeDefinition) (m: Method) : Status =
         let m = m.Value

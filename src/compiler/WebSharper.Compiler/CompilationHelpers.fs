@@ -1068,10 +1068,30 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 res.Append(c) |> ignore
                 lastSpace <- false
         res.ToString()
+    let tryGetAnonRecordFields typ =
+        match meta.Classes.TryGetValue typ with
+        | true, (_, FSharpAnonRecordInfo fields, _) -> Some fields
+        | _ -> None
+    let tryFindMethod (methods: IDictionary<Method, 'T>) meth =
+        match methods.TryGetValue meth with
+        | true, value -> Some (meth, value)
+        | _ when MethodHasAnonRecord tryGetAnonRecordFields meth ->
+            methods
+            |> Seq.tryPick (fun (KeyValue(candidate, value)) ->
+                if MethodMatchesAnonRecordShape tryGetAnonRecordFields meth candidate then
+                    Some (candidate, value)
+                else None
+            )
+        | _ -> None
     let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) kind (td: TypeDefinition) key =
         match fromDic.TryGetValue(key) with
         | true, value -> toDic.[key] <- value
         | false, _ ->
+            eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
+    let moveMethodToDict (fromDic: IDictionary<Method, _>) (toDic: IDictionary<Method, _>) kind (td: TypeDefinition) key =
+        match tryFindMethod fromDic key with
+        | Some (key, value) -> toDic.[key] <- value
+        | None ->
             eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
     for n in nodes do
         match n with
@@ -1080,10 +1100,10 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 interfaces[td] <- meta.Interfaces[td]
             else
                 let cls = getOrAddClassNeeded td 
-                m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method" td
+                m |> moveMethodToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method" td
         | MethodNode (td, m) -> 
             let cls = getOrAddClassNeeded td 
-            m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "method" td
+            m |> moveMethodToDict (meta.ClassInfo(td).Methods) cls.Methods "method" td
         | ConstructorNode (td, c) -> 
             let cls = getOrAddClassNeeded td
             c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor" td
@@ -1107,7 +1127,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                                 ()
                                 //eprintfn "WebSharper warning: JS member not found for interface implementation %s on type %s" jsName (string td |> toOneLine)
                     | _ ->
-                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" td
+                        m |> moveMethodToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" td
                 | _ ->
                     // this will fail but report original error
                     k |> moveToDict clsImpl cls.Implementations "implementation" td
