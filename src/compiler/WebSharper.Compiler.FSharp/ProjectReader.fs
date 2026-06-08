@@ -180,6 +180,41 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
         sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
+let private getProxyTargetMembers (sr: CodeReader.SymbolReader) (lookupTypeDefinition: TypeDefinition -> FSharpEntity option) (typ: TypeDefinition) =
+    let rec getPublicMembers includeConstructors (typ: FSharpEntity) =
+        seq {
+            for m in typ.TryGetMembersFunctionsAndValues() do
+                if m.Accessibility.IsPublic && (includeConstructors || m.CompiledName <> ".ctor") then
+                    yield m
+            match typ.BaseType with
+            | Some t when t.HasTypeDefinition ->
+                yield! getPublicMembers false t.TypeDefinition
+            | _ -> ()
+        }
+
+    let getInterfaceMembers (typ: FSharpEntity) =
+        seq {
+            if typ.IsInterface then
+                for t in typ.AllInterfaces do
+                    if t.HasTypeDefinition then
+                        yield! getPublicMembers false t.TypeDefinition
+        }
+
+    lookupTypeDefinition typ
+    |> Option.map (fun typ ->
+        Seq.append (getPublicMembers true typ) (getInterfaceMembers typ)
+        |> Seq.choose (fun m ->
+            try Some (sr.ReadMember m)
+            with _ -> None
+        )
+        |> Seq.collect (fun m ->
+            match m with
+            | Member.Override (_, me) -> [ Member.Method (true, me); m ]
+            | _ -> [ m ]
+        )
+        |> HashSet
+    )
+
 let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
     cls.AllInterfaces |> Seq.exists (fun i ->
         match i.BasicQualifiedName with
@@ -237,7 +272,7 @@ let private transformInitAction (sc: Lazy<StartupCode>) (comp: Compilation) (sr:
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (lookupTypeDefinition: TypeDefinition -> FSharpEntity option) (isInterface: TypeDefinition -> bool) isNotWSInterface (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -256,15 +291,9 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
             if cls.Accessibility.IsPublic then
                 warn "Proxy type should not be public"
             let proxied =
-                try
-                    let t = Reflection.LoadTypeDefinition p
-                    t.GetMembers(Reflection.AllPublicMethodsFlags) |> Seq.choose Reflection.ReadMember
-                    |> Seq.collect (fun m ->
-                        match m with
-                        | Member.Override (_, me) -> [ Member.Method (true, me); m ]
-                        | _ -> [ m ]
-                    ) |> HashSet
-                with _ ->
+                match getProxyTargetMembers sr lookupTypeDefinition p with
+                | Some members -> members
+                | None ->
                     warn ("Proxy target type could not be loaded for signature verification: " + p.Value.FullName)
                     HashSet()
             p, Some proxied
@@ -989,11 +1018,11 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                 | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots isInterface false recMembers ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots lookupTypeDefinition isInterface false recMembers ent nmembers |> Option.iter comp.AddClass
         | SourceInterface (i, nmembers) ->
             let intf, isNotWSInterface = transformInterface sr classAnnots i 
             intf |> Option.iter comp.AddInterface
-            transformClass sc comp ac sr classAnnots isInterface isNotWSInterface recMembers i nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots lookupTypeDefinition isInterface isNotWSInterface recMembers i nmembers |> Option.iter comp.AddClass
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1463,7 +1492,11 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 if t.Assembly = "netstandard" then
                     lookupAssembly.Value |> Map.toSeq |> Seq.choose (fun (n, a) -> if n.StartsWith "System" then Some a else None)     
                 else
-                    [| lookupAssembly.Value.[t.Assembly] |]
+                    seq {
+                        match lookupAssembly.Value |> Map.tryFind t.Assembly with
+                        | Some a -> yield a
+                        | None -> ()
+                    }
             let path = t.FullName.Split('+')
             let mutable res =
                 assemblies |> Seq.collect (fun a -> a.Entities) |> Seq.tryFind (fun e ->
@@ -1763,11 +1796,11 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations isInterface false recMembers c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface false recMembers c m |> Option.iter comp.AddClass
             | SourceInterface (i, m) ->
                 let intf, isNotWSInterface = transformInterface sr classAnnotations i 
                 intf |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
             
         let getStartupCodeClass (sc: StartupCode) =
 

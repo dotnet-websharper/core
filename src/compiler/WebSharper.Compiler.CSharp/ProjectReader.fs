@@ -230,6 +230,42 @@ let private isResourceType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
         sr.ReadNamedTypeDefinition i = Definitions.IResource
     )
 
+let private getProxyTargetMembers (rcomp: CSharpCompilation) (sr: R.SymbolReader) (typ: TypeDefinition) =
+    let rec getPublicMembers includeConstructors (typ: INamedTypeSymbol) =
+        seq {
+            for m in typ.GetMembers().OfType<IMethodSymbol>() do
+                if m.DeclaredAccessibility = Accessibility.Public
+                    && (includeConstructors || m.MethodKind <> MethodKind.Constructor)
+                then
+                    yield m
+            match typ.BaseType with
+            | null -> ()
+            | t -> yield! getPublicMembers false t
+        }
+
+    let getInterfaceMembers (typ: INamedTypeSymbol) =
+        seq {
+            if typ.TypeKind = TypeKind.Interface then
+                for t in typ.AllInterfaces do
+                    yield! getPublicMembers false t
+        }
+
+    rcomp.GetTypeByMetadataName(typ.Value.FullName)
+    |> Option.ofObj
+    |> Option.map (fun typ ->
+        Seq.append (getPublicMembers true typ) (getInterfaceMembers typ)
+        |> Seq.choose (fun m ->
+            try Some (sr.ReadMember m)
+            with _ -> None
+        )
+        |> Seq.collect (fun m ->
+            match m with
+            | Member.Override (_, me) -> [ Member.Method (true, me); m ]
+            | _ -> [ m ]
+        )
+        |> HashSet
+    )
+
 let rec private isIRequiresResources (sr: R.SymbolReader) (c: INamedTypeSymbol) =
     c.AllInterfaces |> Seq.exists (fun i ->
         i.Name = "IRequiresResources"
@@ -337,15 +373,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             if cls.DeclaredAccessibility = Accessibility.Public then
                 warn "Proxy type should not be public"
             let proxied =
-                try
-                    let t = Reflection.LoadTypeDefinition p
-                    t.GetMembers(Reflection.AllPublicMethodsFlags) |> Seq.choose Reflection.ReadMember
-                    |> Seq.collect (fun m ->
-                        match m with
-                        | Member.Override (_, me) -> [ Member.Method (true, me); m ]
-                        | _ -> [ m ]
-                    ) |> HashSet
-                with _ ->
+                match getProxyTargetMembers rcomp sr p with
+                | Some members -> members
+                | None ->
                     warn ("Proxy target type could not be loaded for signature verification: " + p.Value.FullName)
                     HashSet()
             p, Some proxied

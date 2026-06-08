@@ -91,7 +91,21 @@ Expected passing output includes:
 - `Finished (Success) 'RunMainTestsRelease'`, `Finished (Success) 'RunCompilerTestsRelease'`, `Finished (Success) 'WS-Package'`, and `Finished (Success) 'CI-Release'`.
 - The final build time report ends with `Status:                   Ok`.
 
-Warnings are currently present in a passing run, including NuGet pruning/duplicate package warnings, .NET target framework support warnings, F# deprecation warnings, and expected WebSharper test warnings.
+#### Expected warning baseline
+
+Do not rely on total warning counts alone: the full build can print the same warning in both the build output and the MSBuild summary. Use warning locations and messages when comparing against the baseline.
+
+The following warnings are expected in a passing full build while they stay at the current locations:
+
+- `NETSDK1138` for `src/sitelets/WebSharper.AspNetCore` targeting `net5.0`.
+- F# compiler warnings from current fixtures: `FS0040` in `tests/WebSharper.Tests/Regression.fs`, `FS3511` in `tests/WebSharper.Tests/Task.fs`, `FS0044` in `tests/WebSharper.StaticHtml.Tests.NetStandard/Main.fs`, and `FS0988` in `src/sitelets/WebSharper.AspNetCore/ApplicationBuilderExtensions.fs`.
+- C# compiler/analyzer warnings in `tests/WebSharper.CSharp.Tests`: unreachable code, always-true type tests, nullability, same-variable comparison, unused fields, and constructor/override analyzer cases used by the tests.
+- WebSharper warning-logic tests in `tests/WebSharper.Tests`: dollar-prefixed inline/direct JavaScript variables, ignored `JavaScript(false)`, explicit macro/generator/WIG warnings that say "you should see this", and the missing `System.Net.WebUtility` translation warning.
+- WebSharper C# future/skipped tests in `tests/WebSharper.CSharp.Tests`: current warnings for not-yet-supported syntax or intentionally invalid translation forms, including collection/index/range syntax, variable designation forms, `System.Index`, delegate `op_Subtraction`, numeric macro failures, `goto`/`break` invalid forms, mutable struct remoting, erased type tests, abstract members with inline/macro attributes, inlined delegate equality, and string format specifier coverage.
+- WebSharper web test warnings in `tests/WebSharper.Web.Tests` for intentionally unsupported remote return types and synchronous RPC deprecation on `f3`.
+- WebSharper warning fixtures in `tests/WebSharper.Collections.Tests` for `DefaultOf` with local type parameters and the `InternalProxy` public-proxy warning test, plus the standard API warning in `tests/WebSharper.Html5.Tests`.
+
+The following are not part of the expected baseline and should be cleaned instead of documented as accepted noise: Paket/NuGet warnings such as `NU1510`, `NU1504`, `NU1506`, and `NU1901`; warnings from `src/stdlib/WebSharper.StdLib.Proxies`; and proxy signature/target verification warnings for real proxies. The only currently expected proxy-related warning is the `InternalProxy` test fixture noted above.
 
 ### Run QUnit Puppeteer Tests Without Rebuilding
 
