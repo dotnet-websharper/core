@@ -479,8 +479,8 @@ let code =
             cprintfn "    with"
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
-            cprintfn "    [<System.Obsolete>] member a.Item b = ItemGet (a, b, Pure)"
-            cprintfn "    [<System.Obsolete>] member a.Item b = Application (a, b, ApplicationInfo.None)"
+            cprintfn "    member a.Item b = ItemGet (a, b, Pure)"
+            cprintfn "    member a.Item b = Application (a, b, ApplicationInfo.None)"
 
     let ExprAndStatementDefs =
         seq {

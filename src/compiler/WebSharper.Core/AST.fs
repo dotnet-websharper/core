@@ -270,8 +270,8 @@ and Expression =
     static member (^^) (a, b) = Binary (a, BinaryOperator.``^``, b)
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
-    [<System.Obsolete>] member a.Item b = ItemGet (a, b, Pure)
-    [<System.Obsolete>] member a.Item b = Application (a, b, ApplicationInfo.None)
+    member a.Item b = ItemGet (a, b, Pure)
+    member a.Item b = Application (a, b, ApplicationInfo.None)
 and Statement =
     /// Empty statement
     | Empty
