@@ -52,6 +52,7 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperAnalyzeClosures { get; set; }
         public string WebSharperJsOutput { get; set; }
         public string WebSharperMinJsOutput { get; set; }
+        public string WebSharperTimingLog { get; set; }
         public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
         public string DefineConstants { get; set; } = "";
@@ -115,6 +116,7 @@ namespace WebSharper.MSBuild.CSharp
 
                 WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
                 WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
+                WriteIfSet(w, "--wstimings:", WebSharperTimingLog);
 
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");

@@ -76,6 +76,7 @@
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
+      WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       TargetType="$(OutputType)"
       NoConfig="true"

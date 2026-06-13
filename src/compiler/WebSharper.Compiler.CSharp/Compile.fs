@@ -36,6 +36,8 @@ let fullTime (logger: LoggerBase) =
     logger.TimedStage "Total compilation time"
 
 let Compile config (logger: LoggerBase) tryGetMetadata =
+    logger.ProjectFile <- config.ProjectFile
+    logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
 
     if config.AssemblyFile = null then

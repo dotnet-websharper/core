@@ -249,6 +249,8 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
         config
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
+    logger.ProjectFile <- config.ProjectFile
+    logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
     
     if config.AssemblyFile = null then

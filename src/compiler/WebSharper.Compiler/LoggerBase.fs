@@ -22,6 +22,9 @@ namespace WebSharper.Compiler
 
 open System.Diagnostics
 open System
+open System.Globalization
+open System.IO
+open System.Text
 
 [<AbstractClass>]
 #if DEBUG
@@ -35,9 +38,60 @@ type LoggerBase() =
 #endif
     
     let mutable timeStamps = [ Stopwatch.GetTimestamp() ]
+    let mutable projectFile = ""
+    let mutable timingLogPath = ""
+    static let timingLock = obj()
+
+    static let jsonString (value: string) =
+        if isNull value then
+            "null"
+        else
+            let b = StringBuilder()
+            b.Append('"') |> ignore
+            for c in value do
+                match c with
+                | '"' -> b.Append("\\\"") |> ignore
+                | '\\' -> b.Append("\\\\") |> ignore
+                | '\b' -> b.Append("\\b") |> ignore
+                | '\f' -> b.Append("\\f") |> ignore
+                | '\n' -> b.Append("\\n") |> ignore
+                | '\r' -> b.Append("\\r") |> ignore
+                | '\t' -> b.Append("\\t") |> ignore
+                | c when int c < 32 -> b.Append("\\u").Append((int c).ToString("x4", CultureInfo.InvariantCulture)) |> ignore
+                | c -> b.Append(c) |> ignore
+            b.Append('"').ToString()
+
+    let writeTimingRecord (stage: string) (elapsed: TimeSpan) (depth: int) =
+        if not (String.IsNullOrWhiteSpace timingLogPath) then
+            try
+                let dir = Path.GetDirectoryName timingLogPath
+                if not (String.IsNullOrWhiteSpace dir) then
+                    Directory.CreateDirectory dir |> ignore
+                let project =
+                    if String.IsNullOrWhiteSpace projectFile then ""
+                    else Path.GetFileNameWithoutExtension projectFile
+                let json =
+                    sprintf
+                        """{"t":%s,"project":%s,"stage":%s,"ms":%s,"depth":%d}"""
+                        (jsonString (DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture)))
+                        (jsonString project)
+                        (jsonString stage)
+                        (elapsed.TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture))
+                        depth
+                lock timingLock (fun () -> File.AppendAllText(timingLogPath, json + Environment.NewLine))
+            with _ ->
+                ()
 
     member _.Indent (s: string) =
         String.replicate (timeStamps.Length - 1) "  " + s
+
+    member _.ProjectFile
+        with get() = projectFile
+        and set value = projectFile <- value
+
+    member _.TimingLogPath
+        with get() = timingLogPath
+        and set value = timingLogPath <- value
 
     abstract Error : string -> unit
     abstract Out : string -> unit
@@ -54,6 +108,7 @@ type LoggerBase() =
         let elapsed = TimeSpan.FromSeconds (float (now - lastTimestamp) / float Stopwatch.Frequency)
         sprintf "%s: %O" name elapsed
         |> x.Out
+        writeTimingRecord name elapsed (timeStamps.Length - 1)
         timeStamps <- now :: timeStamps.Tail        
 
     [<System.Diagnostics.Conditional "DEBUG">]

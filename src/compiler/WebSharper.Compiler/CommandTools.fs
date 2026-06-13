@@ -105,6 +105,7 @@ type WsConfig =
         TargetProfile : string
         Standalone : bool
         BuildServiceLogging : bool
+        TimingLog : string option
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
         PreBundle : bool
@@ -164,6 +165,7 @@ type WsConfig =
                     match bool.TryParse(envVar) with
                     | true, v -> v
                     | _ -> true                
+            TimingLog = None
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
             PreBundle = false
@@ -297,6 +299,8 @@ type WsConfig =
                 res <- { res with JSOutputPath = Some path }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
+            | "timinglog" ->
+                res <- { res with TimingLog = Some (getPath k v) }
             | "singlenojserrors" ->
                 res <- { res with SingleNoJSErrors = getBool k v }
             | "proxytargetname" ->
@@ -635,6 +639,8 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with JSOutputPath = Some f }
     | StartsWith "--minjsoutput:" f ->
         Some { wsArgs with MinJSOutputPath = Some f }
+    | StartsWith "--wstimings:" f ->
+        Some { wsArgs with TimingLog = Some f }
     | Flag "--closures" v ->
         Some { wsArgs with AnalyzeClosures = Some v }
     | StartsWith "--closures:" c ->

@@ -80,6 +80,7 @@
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
+      WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
     />
