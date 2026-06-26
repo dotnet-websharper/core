@@ -606,8 +606,14 @@ let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files:
 
     let webResourceCtor =
         lazy
-            typeof<WebSharper.WebResourceAttribute>.GetConstructor([| typeof<string>; typeof<string> |])
-            |> a.MainModule.ImportReference
+            let t = typeof<WebSharper.WebResourceAttribute>
+            let asmName = t.Assembly.GetName()
+            let wsRef = Mono.Cecil.AssemblyNameReference(asmName.Name, asmName.Version)
+            let declType = Mono.Cecil.TypeReference(t.Namespace, t.Name, a.MainModule, wsRef)
+            let m = Mono.Cecil.MethodReference(".ctor", a.MainModule.TypeSystem.Void, declType)
+            m.Parameters.Add(Mono.Cecil.ParameterDefinition(a.MainModule.TypeSystem.String))
+            m.Parameters.Add(Mono.Cecil.ParameterDefinition(a.MainModule.TypeSystem.String))
+            m
 
     for file in files do
         let attr = Mono.Cecil.CustomAttribute(webResourceCtor.Value)
