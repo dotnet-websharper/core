@@ -124,7 +124,7 @@ let translate isBundle (source: string) =
     let comp = 
         WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
             logger
-            (WebSharper.Compiler.Compilation(metadata, UseLocalMacros = false))
+            (WebSharper.Compiler.Compilation(metadata, LocalMetaprogramming = false))
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             csharpCompilation
 

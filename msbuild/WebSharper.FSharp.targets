@@ -83,6 +83,7 @@
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperLocalMetaprogramming="$(WebSharperLocalMetaprogramming)"
     />
   </Target>
 </Project>

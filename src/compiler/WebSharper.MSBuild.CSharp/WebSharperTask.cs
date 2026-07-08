@@ -63,6 +63,7 @@ namespace WebSharper.MSBuild.CSharp
         public string DebugType { get; set; } = "";
         public string SubsystemVersion { get; set; } = "";
         public string LangVersion { get; set; } = "";
+        public string WebSharperLocalMetaprogramming { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -108,6 +109,9 @@ namespace WebSharper.MSBuild.CSharp
 
                 if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
                     w.WriteLine("--dce" + (parsed ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperLocalMetaprogramming, out bool lmp))
+                    w.WriteLine("--localmetaprogramming" + (lmp ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");

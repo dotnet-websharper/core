@@ -83,6 +83,7 @@
       DebugType="$(DebugType)"
       SubsystemVersion="$(SubsystemVersion)"
       LangVersion="$(LangVersion)"
+      WebSharperLocalMetaprogramming="$(WebSharperLocalMetaprogramming)"
     />
   </Target>
 </Project>

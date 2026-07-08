@@ -130,7 +130,12 @@ type Compilation(meta: Info, ?hasGraph) =
             )
         remotes
 
-    member val UseLocalMacros = true with get, set
+    member val LocalMetaprogramming = false with get, set
+
+    [<System.Obsolete("Use LocalMetaprogramming instead.")>]
+    member this.UseLocalMacros
+        with get() = this.LocalMetaprogramming
+        and set(v) = this.LocalMetaprogramming <- v
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
@@ -410,41 +415,47 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
-        | _ ->            
+        | _ ->
+          if not this.LocalMetaprogramming && macro.Value.Assembly = this.AssemblyName then
+            this.AddError(None, SourceError(
+                sprintf "Macro '%s' is defined in the current project. Set \"localMetaprogramming\": true in wsconfig.json to use it, or move it to a referenced assembly." macro.Value.FullName))
+            macros.Add(macro, None)
+            None
+          else
             let res =
                 maybe {
                     let! mt =
-                        try                                                             
+                        try
                             match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.UseLocalMacros then
+                                if this.LocalMetaprogramming then
                                     this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.FullName))
                                 None
                             | t -> Some t
-                        with e -> 
-                            if this.UseLocalMacros then
+                        with e ->
+                            if this.LocalMetaprogramming then
                                 this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([||]) with
-                        | null -> 
-                            if this.UseLocalMacros then
+                        | null ->
+                            if this.LocalMetaprogramming then
                                 this.AddError(None, SourceError(sprintf "Macro does not have supported constructor: '%s'" macro.Value.FullName))
                             None
-                        | mctor -> Some (mctor, [||]) 
+                        | mctor -> Some (mctor, [||])
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.UseLocalMacros then
+                            if this.LocalMetaprogramming then
                                 this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
-                    match inv with 
-                    | :? WebSharper.Core.Macro as m -> 
+                    match inv with
+                    | :? WebSharper.Core.Macro as m ->
                         return m
-                    | _ -> 
-                        if this.UseLocalMacros then
+                    | _ ->
+                        if this.LocalMetaprogramming then
                             this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.FullName))
-                } 
+                }
             macros.Add(macro, res)
             res
 
@@ -455,43 +466,49 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.GetGeneratorInstance(gen) =
         match generators.TryFind gen with
         | Some res -> res
-        | _ ->            
+        | _ ->
+          if not this.LocalMetaprogramming && gen.Value.Assembly = this.AssemblyName then
+            this.AddError(None, SourceError(
+                sprintf "Generator '%s' is defined in the current project. Set \"localMetaprogramming\": true in wsconfig.json to use it, or move it to a referenced assembly." gen.Value.FullName))
+            generators.Add(gen, None)
+            None
+          else
             let res =
                 maybe {
                     let! mt =
-                        try                                                             
+                        try
                             match System.Type.GetType(gen.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.UseLocalMacros then
+                                if this.LocalMetaprogramming then
                                     this.AddError(None, SourceError(sprintf "Failed to find generator type: '%s'" gen.Value.FullName))
                                 None
                             | t -> Some t
-                        with e -> 
-                            if this.UseLocalMacros then
+                        with e ->
+                            if this.LocalMetaprogramming then
                                 this.AddError(None, SourceError(sprintf "Failed to load generator type: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([|typeof<Compilation>|]) with
                         | null ->
                             match mt.GetConstructor([||]) with
-                            | null -> 
-                                if this.UseLocalMacros then  
+                            | null ->
+                                if this.LocalMetaprogramming then
                                     this.AddError(None, SourceError(sprintf "Generator does not have supported constructor: '%s'" gen.Value.FullName))
                                 None
-                            | mctor -> Some (mctor, [||]) 
-                        | mctor -> Some (mctor, [|box this|]) 
+                            | mctor -> Some (mctor, [||])
+                        | mctor -> Some (mctor, [|box this|])
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.UseLocalMacros then
+                            if this.LocalMetaprogramming then
                                 this.AddError(None, SourceError(sprintf "Creating generator instance failed: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
-                    match inv with 
+                    match inv with
                     | :? WebSharper.Core.Generator as g -> return g
-                    | _ -> 
-                        if this.UseLocalMacros then
+                    | _ ->
+                        if this.LocalMetaprogramming then
                             this.AddError(None, SourceError(sprintf "Generator type does not inherit from WebSharper.Core.Generator: '%s'" gen.Value.FullName))
-                } 
+                }
             generators.Add(gen, res)
             res
 

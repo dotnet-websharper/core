@@ -90,7 +90,7 @@ type WebSharperFSharpCompiler(?checker) =
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
+                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors, LocalMetaprogramming = config.LocalMetaprogramming))
                 assemblyName
                 config
                 checkProjectResults
@@ -115,7 +115,7 @@ type WebSharperFSharpCompiler(?checker) =
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
+                (WebSharper.Compiler.Compilation(refMeta, useGraphs, LocalMetaprogramming = false))
                 assemblyName
                 (defaultArg config WsConfig.Empty)
                 checkProjectResults

@@ -1,4 +1,5 @@
 {
   "Project": "Library",
-  "WarnOnly": true
+  "WarnOnly": true,
+  "LocalMetaprogramming": true
 }

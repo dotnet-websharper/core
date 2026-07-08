@@ -375,7 +375,7 @@ let translate isBundle (source: string) =
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             logger
-            (WebSharper.Compiler.Compilation(metadata, true, UseLocalMacros = false))
+            (WebSharper.Compiler.Compilation(metadata, true, LocalMetaprogramming = false))
             "TestProject"
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             wholeProjectResults
@@ -474,7 +474,7 @@ let translate isBundle (source: string) =
 
 let translateQ q =
     let comp = 
-        WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false)
+        WebSharper.Compiler.Compilation(metadata, false, LocalMetaprogramming = false)
     WebSharper.Compiler.QuotationReader.readExpression comp q
 
 let toJSFiles source =

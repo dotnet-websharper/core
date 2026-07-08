@@ -1,4 +1,5 @@
 {
   "Project": "Library",
-  "StubInterfaces": true
+  "StubInterfaces": true,
+  "LocalMetaprogramming": true
 }

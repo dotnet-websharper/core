@@ -23,6 +23,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "debug": {
           "type": "object",
@@ -75,6 +76,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
@@ -133,6 +135,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "preBundle": { "$ref": "#/$defs/preBundle" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
@@ -181,6 +184,7 @@
         "warnOnly": { "$ref": "#/$defs/warnOnly" },
         "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
         "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "jsOutput": { "$ref": "#/$defs/jsOutput" },
         "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
         "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
@@ -241,6 +245,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
         "debug": {
           "type": "object",
@@ -301,6 +306,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
           "type": "object",
@@ -362,6 +368,7 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
+        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
         "dce": { "$ref": "#/$defs/dce" },
         "debug": {
           "type": "object",
@@ -540,6 +547,11 @@
       "enum": [ "inlines", "notinlines", "full", "noexpressions" ],
       "description": "Specifies what compliled expressions to use for WebSharper runtime. Only needed if the WebSharper compiler is invoked by the server to produce js code output on-the-fly.",
       "default": "noexpressions"
+    },
+    "localMetaprogramming": {
+      "type": "boolean",
+      "description": "If true, allows macros/generators defined in the current project to be used within the same project. Default false; referenced-assembly macros/generators are unaffected.",
+      "default": false
     }
   }
 }
