@@ -5,7 +5,7 @@
     <IsPackable>false</IsPackable>
     <SignAssembly>false</SignAssembly>
     <GenerateProgramFile>false</GenerateProgramFile>
-    <FSharpTool>true</FSharpTool>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Tests.fs" />
