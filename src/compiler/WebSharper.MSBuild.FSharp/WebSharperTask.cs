@@ -52,6 +52,7 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperUseLocalReflection { get; set; } = "";
         public string WebSharperVerifyRPCSignatures { get; set; } = "";
         public string WebSharperParallelCompilation { get; set; } = "";
+        public string WebSharperExternalFSharpCompiler { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -93,6 +94,9 @@ namespace WebSharper.MSBuild.FSharp
 
                 if (bool.TryParse(WebSharperParallelCompilation, out bool pc))
                     w.WriteLine("--parallelcompilation" + (pc ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperExternalFSharpCompiler, out bool efc))
+                    w.WriteLine("--externalfsharpcompiler" + (efc ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");

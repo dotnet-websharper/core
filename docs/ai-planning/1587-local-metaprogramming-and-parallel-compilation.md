@@ -3,6 +3,24 @@
 Tracking issue: [#1587 — Make using macros/generators from current project opt-in](https://github.com/dotnet-websharper/core/issues/1587)
 Depends on: [#1547 — remove Reflection reliance on the current project's compiled DLL](https://github.com/dotnet-websharper/core/issues/1547)
 
+### Implementation status
+
+- **Phase 1** (setting + gating): done. Shipped as `useLocalReflection` (renamed from `localMetaprogramming` during
+  Phase 2 implementation — see below), on `master`.
+- **Phase 2, Step 2.0 (audit)**: done. Found two more current-DLL reflection dependencies beyond what this doc
+  anticipated — `[<ReflectedDefinition>]` bodies and `RequireFeature` type instantiation — now gated the same
+  way as macros/generators. RPC signature verification (`VerifyRPCs`) turned out to be a third: rather than
+  gating it, it became its own opt-in flag, `verifyRPCSignatures` (default `false`, a breaking-change flip from
+  "always ran").
+- **Step 2.1 (Mode A, `parallelCompilation`)**: done, on branch `perf-experiments`.
+- **Step 2.2 (Mode B, `WebSharperExternalFSharpCompiler`)**: done, on branch `perf-experiments`.
+- **Step 2.3 (combined mode, `--awaitdll`/file-watcher launch+join)**: not started.
+- **Steps 2.4–2.5 (benchmarking, GHA `msbuildProperties` input)**: not started.
+
+The rename from `localMetaprogramming` to `useLocalReflection` (and the two new gated call sites) means the
+flag now covers *all* current-project reflection during translation, not just macros/generators — the design
+below still refers to it by its original name throughout; read `localMetaprogramming` as `useLocalReflection`.
+
 ## Goal
 
 Today the WebSharper compiler can use **macros and generators defined in the same project that is being compiled** ("local metaprogramming"). To run those, the compiler must reflection-load the project's freshly-emitted DLL during translation. That reflection dependency forces WS translation to run *after* the .NET assembly exists, which blocks parallelizing the WS pipeline with F# compilation.

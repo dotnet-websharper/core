@@ -13,6 +13,7 @@
     <Compile Include="ParserTests.fs" />
     <Compile Include="CompilerTests.fs" />
     <Compile Include="LocalMetaprogrammingTests.fs" />
+    <Compile Include="ParallelCompilationTests.fs" />
     <Compile Include="Program.fs" />
     <Content Include="App.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

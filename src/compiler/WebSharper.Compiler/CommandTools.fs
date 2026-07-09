@@ -114,6 +114,9 @@ type WsConfig =
         UseLocalReflection : bool
         VerifyRPCSignatures : bool
         ParallelCompilation : bool
+        /// MSBuild-only (not settable via wsconfig.json): true when the real fsc
+        /// (not wsfsc) produced the assembly, via WebSharperExternalFSharpCompiler.
+        ExternalFSharpCompiler : bool
     }
 
     member this.ProjectDir =
@@ -177,6 +180,7 @@ type WsConfig =
             UseLocalReflection = false
             VerifyRPCSignatures = false
             ParallelCompilation = false
+            ExternalFSharpCompiler = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -634,6 +638,7 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--uselocalreflection" v -> Some { wsArgs with UseLocalReflection = v }
     | Flag "--verifyrpcsignatures" v -> Some { wsArgs with VerifyRPCSignatures = v }
     | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
+    | Flag "--externalfsharpcompiler" v -> Some { wsArgs with ExternalFSharpCompiler = v }
     | StartsWith "--ws:" wsProjectType ->
         let pt = ProjectType.Parse wsProjectType
         let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(wsProjectType, pt))

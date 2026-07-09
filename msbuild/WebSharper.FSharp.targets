@@ -36,9 +36,13 @@
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net10.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
-    <SkipCompilerExecution>True</SkipCompilerExecution>
+    <WebSharperExternalFSharpCompiler Condition=" '$(WebSharperExternalFSharpCompiler)' == '' ">False</WebSharperExternalFSharpCompiler>
+    <!-- Mode B (WebSharperExternalFSharpCompiler=True): let the real fsc (CoreCompile) produce the
+         assembly; wsfsc then only runs its own FCS check + WS translation against it, instead of
+         also owning F# compilation. Left unset (SDK defaults) in that mode rather than forced. -->
+    <SkipCompilerExecution Condition=" '$(WebSharperExternalFSharpCompiler)' != 'True' ">True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <ProduceReferenceAssembly Condition=" '$(WebSharperExternalFSharpCompiler)' != 'True' ">False</ProduceReferenceAssembly>
     <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
@@ -86,6 +90,7 @@
       WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
       WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperExternalFSharpCompiler="$(WebSharperExternalFSharpCompiler)"
     />
   </Target>
 </Project>

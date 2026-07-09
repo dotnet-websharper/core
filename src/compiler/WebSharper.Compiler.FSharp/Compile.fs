@@ -311,15 +311,26 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     // Mode A (parallelCompilation): overlap F# IL emission with WS translation.
     // Requires useLocalReflection=false (translation must not need to reflect into the
     // not-yet-complete current-project assembly); WIG and bundle-only builds are excluded.
+    // Also excluded when the real fsc already produced the assembly (Mode B, below): under
+    // today's MSBuild target ordering (WebSharperCompile runs AfterTargets="CoreCompile")
+    // there is nothing left to overlap with by the time wsfsc starts in that case.
     let useParallel =
-        config.ParallelCompilation && not config.UseLocalReflection && not isBundleOnly && config.ProjectType <> Some WIG
+        config.ParallelCompilation && not config.UseLocalReflection && not config.ExternalFSharpCompiler
+        && not isBundleOnly && config.ProjectType <> Some WIG
 
     if config.ParallelCompilation && config.UseLocalReflection then
         PrintGlobalWarning warnSettings logger "\"parallelCompilation\" requires \"useLocalReflection\" to be false; ignoring parallel compilation."
 
+    // Mode B (WebSharperExternalFSharpCompiler, MSBuild-only): the real fsc, not wsfsc,
+    // produced the assembly (via CoreCompile, which runs before this MSBuild-level
+    // WebSharperCompile target). wsfsc only needs to verify it exists, not emit it.
     let runIlEmit () =
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
+            0
+        elif config.ExternalFSharpCompiler then
+            if not (File.Exists config.AssemblyFile) then
+                argError "Output assembly not found (expected the real fsc, via WebSharperExternalFSharpCompiler, to have produced it)"
             0
         else
             let errors, exnOpt =
