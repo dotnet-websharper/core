@@ -83,7 +83,8 @@
       DebugType="$(DebugType)"
       SubsystemVersion="$(SubsystemVersion)"
       LangVersion="$(LangVersion)"
-      WebSharperLocalMetaprogramming="$(WebSharperLocalMetaprogramming)"
+      WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
+      WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
     />
   </Target>
 </Project>

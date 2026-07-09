@@ -1,5 +1,5 @@
 {
   "Project": "Library",
   "WarnOnly": true,
-  "LocalMetaprogramming": true
+  "UseLocalReflection": true
 }

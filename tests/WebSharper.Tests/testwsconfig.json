@@ -1,5 +1,5 @@
 {
   "JavaScript": [ "WebSharper.Tests.Basis+SameName" ],
   "WarnOnly": true,
-  "LocalMetaprogramming": true
+  "UseLocalReflection": true
 }

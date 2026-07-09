@@ -1,4 +1,4 @@
 {
   "Project": "Library",
-  "LocalMetaprogramming": true
+  "UseLocalReflection": true
 }

@@ -29,14 +29,14 @@ open WebSharper.Compiler
 open WebSharper.Compiler.CommandTools
 
 let private mentionsSetting (err: CompilationError) =
-    (string err).Contains("localMetaprogramming")
+    (string err).Contains("useLocalReflection")
 
-/// Runs f against a fresh Compilation with the given LocalMetaprogramming value
+/// Runs f against a fresh Compilation with the given UseLocalReflection value
 /// and returns the compiled errors recorded on it.
-let private errorsAfter lmp (f: Compilation -> unit) =
+let private errorsAfter ulr (f: Compilation -> unit) =
     let c = Compilation(WebSharper.Core.Metadata.Info.Empty, true)
     c.AssemblyName <- "CurrentAsm"
-    c.LocalMetaprogramming <- lmp
+    c.UseLocalReflection <- ulr
     f c
     c.Errors
 
@@ -48,54 +48,54 @@ let private refAsmGen = TypeDefinition { Assembly = "OtherAsm"; FullName = "Test
 [<Test>]
 let Run () =
 
-    Section "LocalMetaprogramming"
+    Section "UseLocalReflection"
 
-    Test "WsConfig defaults localMetaprogramming to false" {
-        WsConfig.Empty.LocalMetaprogramming =? false
+    Test "WsConfig defaults useLocalReflection to false" {
+        WsConfig.Empty.UseLocalReflection =? false
     }
 
-    Test "AddJson parses localMetaprogramming" {
-        WsConfig.Empty.AddJson("""{ "localMetaprogramming": true }""", "wsconfig.json", "Release").LocalMetaprogramming =? true
+    Test "AddJson parses useLocalReflection" {
+        WsConfig.Empty.AddJson("""{ "useLocalReflection": true }""", "wsconfig.json", "Release").UseLocalReflection =? true
     }
 
-    Test "RecognizeWebSharperArg parses --localmetaprogramming+ flag" {
-        (RecognizeWebSharperArg "--localmetaprogramming+" WsConfig.Empty |> Option.map (fun c -> c.LocalMetaprogramming)) =? Some true
+    Test "RecognizeWebSharperArg parses --uselocalreflection+ flag" {
+        (RecognizeWebSharperArg "--uselocalreflection+" WsConfig.Empty |> Option.map (fun c -> c.UseLocalReflection)) =? Some true
     }
 
-    Test "RecognizeWebSharperArg parses --localmetaprogramming- flag" {
-        (RecognizeWebSharperArg "--localmetaprogramming-" { WsConfig.Empty with LocalMetaprogramming = true } |> Option.map (fun c -> c.LocalMetaprogramming)) =? Some false
+    Test "RecognizeWebSharperArg parses --uselocalreflection- flag" {
+        (RecognizeWebSharperArg "--uselocalreflection-" { WsConfig.Empty with UseLocalReflection = true } |> Option.map (fun c -> c.UseLocalReflection)) =? Some false
     }
 
-    Test "UseLocalMacros is a deprecated alias for LocalMetaprogramming (get)" {
+    Test "UseLocalMacros is a deprecated alias for UseLocalReflection (get)" {
         let c = Compilation(WebSharper.Core.Metadata.Info.Empty, true)
-        c.LocalMetaprogramming <- true
+        c.UseLocalReflection <- true
         c.UseLocalMacros =? true
     }
 
-    Test "UseLocalMacros is a deprecated alias for LocalMetaprogramming (set)" {
+    Test "UseLocalMacros is a deprecated alias for UseLocalReflection (set)" {
         let c = Compilation(WebSharper.Core.Metadata.Info.Empty, true)
         c.UseLocalMacros <- true
-        c.LocalMetaprogramming =? true
+        c.UseLocalReflection =? true
     }
 
     Test "Current-project macro lookup returns None whether gated or reflection-loaded" {
         (Compilation(WebSharper.Core.Metadata.Info.Empty, true, AssemblyName = "CurrentAsm")).GetMacroInstance(currentAsmMacro) =? None
     }
 
-    Test "Current-project macro is gated with a directed error when localMetaprogramming is off" {
+    Test "Current-project macro is gated with a directed error when useLocalReflection is off" {
         (errorsAfter false (fun c -> c.GetMacroInstance(currentAsmMacro) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ true ]
     }
 
-    Test "Current-project macro is not gated when localMetaprogramming is on" {
+    Test "Current-project macro is not gated when useLocalReflection is on" {
         // reaches the reflection-load path instead, which fails to find the (nonexistent) test type
         (errorsAfter true (fun c -> c.GetMacroInstance(currentAsmMacro) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ false ]
     }
 
-    Test "Referenced-assembly macro load failure is silent when localMetaprogramming is off" {
+    Test "Referenced-assembly macro load failure is silent when useLocalReflection is off" {
         errorsAfter false (fun c -> c.GetMacroInstance(refAsmMacro) |> ignore) =? []
     }
 
-    Test "Referenced-assembly macro load failure errors when localMetaprogramming is on" {
+    Test "Referenced-assembly macro load failure errors when useLocalReflection is on" {
         (errorsAfter true (fun c -> c.GetMacroInstance(refAsmMacro) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ false ]
     }
 
@@ -103,18 +103,18 @@ let Run () =
         (Compilation(WebSharper.Core.Metadata.Info.Empty, true, AssemblyName = "CurrentAsm")).GetGeneratorInstance(currentAsmGen) =? None
     }
 
-    Test "Current-project generator is gated with a directed error when localMetaprogramming is off" {
+    Test "Current-project generator is gated with a directed error when useLocalReflection is off" {
         (errorsAfter false (fun c -> c.GetGeneratorInstance(currentAsmGen) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ true ]
     }
 
-    Test "Current-project generator is not gated when localMetaprogramming is on" {
+    Test "Current-project generator is not gated when useLocalReflection is on" {
         (errorsAfter true (fun c -> c.GetGeneratorInstance(currentAsmGen) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ false ]
     }
 
-    Test "Referenced-assembly generator load failure is silent when localMetaprogramming is off" {
+    Test "Referenced-assembly generator load failure is silent when useLocalReflection is off" {
         errorsAfter false (fun c -> c.GetGeneratorInstance(refAsmGen) |> ignore) =? []
     }
 
-    Test "Referenced-assembly generator load failure errors when localMetaprogramming is on" {
+    Test "Referenced-assembly generator load failure errors when useLocalReflection is on" {
         (errorsAfter true (fun c -> c.GetGeneratorInstance(refAsmGen) |> ignore) |> List.map (snd >> mentionsSetting)) =? [ false ]
     }

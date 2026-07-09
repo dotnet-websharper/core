@@ -532,7 +532,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     getExpr gres
             getExpr genResult |> breakExpr, cm
         | None ->
-            if comp.LocalMetaprogramming then
+            if comp.UseLocalReflection then
                 this.Error("Getting generator failed"), cm
             else
                 this.Warning("Could not run generator in code service.")
@@ -1131,7 +1131,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         }
                     with e -> MacroError (e.Message + " at " + e.StackTrace) 
                 | _ ->
-                    if comp.LocalMetaprogramming then
+                    if comp.UseLocalReflection then
                         MacroError "Macro type failed to load"
                     else
                         MacroWarning(

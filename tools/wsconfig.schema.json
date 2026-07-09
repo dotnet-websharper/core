@@ -23,7 +23,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "debug": {
           "type": "object",
@@ -76,7 +78,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
@@ -135,7 +139,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "preBundle": { "$ref": "#/$defs/preBundle" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
@@ -184,7 +190,9 @@
         "warnOnly": { "$ref": "#/$defs/warnOnly" },
         "singleNoJSErrors": { "$ref": "#/$defs/singleNoJSErrors" },
         "useJavaScriptSymbol": { "$ref": "#/$defs/useJavaScriptSymbol" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "jsOutput": { "$ref": "#/$defs/jsOutput" },
         "minJsOutput": { "$ref": "#/$defs/minJsOutput" },
         "analyzeClosures": { "$ref": "#/$defs/analyzeClosures" },
@@ -245,7 +253,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
         "debug": {
           "type": "object",
@@ -306,7 +316,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "runtimeMetadata": { "$ref": "#/$defs/runtimeMetadata" },
         "debug": {
           "type": "object",
@@ -368,7 +380,9 @@
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
-        "localMetaprogramming": { "$ref": "#/$defs/localMetaprogramming" },
+        "useLocalReflection": { "$ref": "#/$defs/useLocalReflection" },
+        "verifyRPCSignatures": { "$ref": "#/$defs/verifyRPCSignatures" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "dce": { "$ref": "#/$defs/dce" },
         "debug": {
           "type": "object",
@@ -548,9 +562,19 @@
       "description": "Specifies what compliled expressions to use for WebSharper runtime. Only needed if the WebSharper compiler is invoked by the server to produce js code output on-the-fly.",
       "default": "noexpressions"
     },
-    "localMetaprogramming": {
+    "useLocalReflection": {
       "type": "boolean",
-      "description": "If true, allows macros/generators defined in the current project to be used within the same project. Default false; referenced-assembly macros/generators are unaffected.",
+      "description": "If true, allows reflection-based access to types defined in the current project during compilation: macros/generators, [<ReflectedDefinition>] bodies, and RequireFeature types. Default false; referenced-assembly macros/generators/features are unaffected.",
+      "default": false
+    },
+    "verifyRPCSignatures": {
+      "type": "boolean",
+      "description": "If true, verifies at compile time that remote (RPC) method parameter and return types can be encoded/decoded as JSON. Default false.",
+      "default": false
+    },
+    "parallelCompilation": {
+      "type": "boolean",
+      "description": "F# only. If true, overlaps F# IL emission with WebSharper translation for faster builds. Requires \"useLocalReflection\": false; ignored with a warning otherwise.",
       "default": false
     }
   }

@@ -39,6 +39,7 @@ type WebSharperFSharpCompiler(?checker) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
+    member val WaitForAssembly : unit -> unit = ignore with get, set
 
     member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase) = 
         let path = config.ProjectFile
@@ -90,7 +91,7 @@ type WebSharperFSharpCompiler(?checker) =
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors, LocalMetaprogramming = config.LocalMetaprogramming))
+                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors, UseLocalReflection = config.UseLocalReflection, WaitForCurrentAssembly = this.WaitForAssembly))
                 assemblyName
                 config
                 checkProjectResults
@@ -115,7 +116,7 @@ type WebSharperFSharpCompiler(?checker) =
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, useGraphs, LocalMetaprogramming = false))
+                (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalReflection = false))
                 assemblyName
                 (defaultArg config WsConfig.Empty)
                 checkProjectResults

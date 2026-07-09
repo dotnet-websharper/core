@@ -87,7 +87,7 @@ type WebSharperCSharpCompiler() =
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, SingleNoJSErrors = config.SingleNoJSErrors, LocalMetaprogramming = config.LocalMetaprogramming))
+                (WebSharper.Compiler.Compilation(refMeta, SingleNoJSErrors = config.SingleNoJSErrors, UseLocalReflection = config.UseLocalReflection))
                 config
                 compilation
 
@@ -111,7 +111,7 @@ type WebSharperCSharpCompiler() =
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
                 logger
-                (WebSharper.Compiler.Compilation(refMeta, useGraphs, LocalMetaprogramming = false))
+                (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalReflection = false))
                 (defaultArg config WsConfig.Empty)
                 compilation
 

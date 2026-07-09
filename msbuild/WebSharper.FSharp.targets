@@ -83,7 +83,9 @@
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
-      WebSharperLocalMetaprogramming="$(WebSharperLocalMetaprogramming)"
+      WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
+      WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
     />
   </Target>
 </Project>

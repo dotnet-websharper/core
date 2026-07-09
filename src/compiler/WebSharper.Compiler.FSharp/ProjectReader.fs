@@ -648,17 +648,22 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                             let hasRD =
                                 meth.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute")
                             if hasRD then
+                                if not comp.UseLocalReflection && def.Value.Assembly = comp.AssemblyName then
+                                    comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError(
+                                        sprintf "'%s' has a ReflectedDefinition body defined in the current project. Set \"useLocalReflection\": true in wsconfig.json to use it, or move it to a referenced assembly." def.Value.FullName))
+                                    None
+                                else
                                 let info =
                                     match memdef with
-                                    | Member.Method (_, mdef) 
-                                    | Member.Override (_, mdef) 
+                                    | Member.Method (_, mdef)
+                                    | Member.Override (_, mdef)
                                     | Member.Implementation (_, mdef) ->
                                         Reflection.LoadMethod def mdef :> System.Reflection.MethodBase
                                     | Member.Constructor cdef ->
                                         Reflection.LoadConstructor def cdef :> _
                                     | Member.StaticConstructor ->
                                         (Reflection.LoadTypeDefinition def).GetConstructors(System.Reflection.BindingFlags.Static).[0] :> _
-                                WebSharper.Compiler.ReflectedDefinitionReader.readReflected comp info 
+                                WebSharper.Compiler.ReflectedDefinitionReader.readReflected comp info
                             else None
                         match fromRD with
                         | Some rd ->

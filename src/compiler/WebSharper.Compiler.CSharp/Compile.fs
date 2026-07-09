@@ -117,6 +117,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | Some refMeta ->
 
     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler()
+    compiler.UseVerifier <- config.VerifyRPCSignatures
 
     if config.ProjectFile = null then
         argError "You must provide project file path."

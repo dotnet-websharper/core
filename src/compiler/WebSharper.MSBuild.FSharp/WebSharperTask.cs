@@ -49,7 +49,9 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperTimingLog { get; set; }
         public string WebSharperToolPath { get; set; } = "wsfsc.exe";
         public string WebSharperStandalone { get; set; } = "";
-        public string WebSharperLocalMetaprogramming { get; set; } = "";
+        public string WebSharperUseLocalReflection { get; set; } = "";
+        public string WebSharperVerifyRPCSignatures { get; set; } = "";
+        public string WebSharperParallelCompilation { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -83,8 +85,14 @@ namespace WebSharper.MSBuild.FSharp
                 if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
                     w.WriteLine("--dce" + (parsed ? "+" : "-"));
 
-                if (bool.TryParse(WebSharperLocalMetaprogramming, out bool lmp))
-                    w.WriteLine("--localmetaprogramming" + (lmp ? "+" : "-"));
+                if (bool.TryParse(WebSharperUseLocalReflection, out bool ulr))
+                    w.WriteLine("--uselocalreflection" + (ulr ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperVerifyRPCSignatures, out bool vrpc))
+                    w.WriteLine("--verifyrpcsignatures" + (vrpc ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperParallelCompilation, out bool pc))
+                    w.WriteLine("--parallelcompilation" + (pc ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");

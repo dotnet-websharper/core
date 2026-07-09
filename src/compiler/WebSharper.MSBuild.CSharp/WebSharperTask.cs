@@ -63,7 +63,8 @@ namespace WebSharper.MSBuild.CSharp
         public string DebugType { get; set; } = "";
         public string SubsystemVersion { get; set; } = "";
         public string LangVersion { get; set; } = "";
-        public string WebSharperLocalMetaprogramming { get; set; } = "";
+        public string WebSharperUseLocalReflection { get; set; } = "";
+        public string WebSharperVerifyRPCSignatures { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -110,8 +111,11 @@ namespace WebSharper.MSBuild.CSharp
                 if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
                     w.WriteLine("--dce" + (parsed ? "+" : "-"));
 
-                if (bool.TryParse(WebSharperLocalMetaprogramming, out bool lmp))
-                    w.WriteLine("--localmetaprogramming" + (lmp ? "+" : "-"));
+                if (bool.TryParse(WebSharperUseLocalReflection, out bool ulr))
+                    w.WriteLine("--uselocalreflection" + (ulr ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperVerifyRPCSignatures, out bool vrpc))
+                    w.WriteLine("--verifyrpcsignatures" + (vrpc ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");

@@ -3345,21 +3345,26 @@ let scanExpression (env: Environment) (node: SyntaxNode) =
                         if atyp.Value.FullName = "WebSharper.RequireFeatureAttribute" then
                             let args = env.SymbolReader.AttributeReader.GetCtorArgs a
                             let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
-                            let paramArg = 
-                                args 
-                                |> Array.tryItem 1 
+                            if not env.Compilation.UseLocalReflection && typeArg.Value.Assembly = env.Compilation.AssemblyName then
+                                env.Compilation.AddError(Some (getSourcePos n), WebSharper.Compiler.SourceError(
+                                    sprintf "RequireFeature type '%s' is defined in the current project. Set \"useLocalReflection\": true in wsconfig.json to use it, or move it to a referenced assembly." typeArg.Value.FullName))
+                                None
+                            else
+                            let paramArg =
+                                args
+                                |> Array.tryItem 1
                                 |> Option.map (fun a ->
                                     match a with
-                                    | :? ITypeSymbol as t -> 
-                                        env.SymbolReader.ReadType t 
-                                        |> Reflection.LoadType 
+                                    | :? ITypeSymbol as t ->
+                                        env.SymbolReader.ReadType t
+                                        |> Reflection.LoadType
                                         |> box
                                     | _ -> a
                                 )
-                            try 
+                            try
                                 let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
                                 Some (System.Activator.CreateInstance(loadedType), paramArg)
-                            with _ -> 
+                            with _ ->
                                 failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
                         else
                             None

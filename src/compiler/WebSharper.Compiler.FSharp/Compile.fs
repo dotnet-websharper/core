@@ -308,17 +308,26 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         else
             Array.append ca [|"--define:JAVASCRIPT"|]
 
-    let exitCode = 
+    // Mode A (parallelCompilation): overlap F# IL emission with WS translation.
+    // Requires useLocalReflection=false (translation must not need to reflect into the
+    // not-yet-complete current-project assembly); WIG and bundle-only builds are excluded.
+    let useParallel =
+        config.ParallelCompilation && not config.UseLocalReflection && not isBundleOnly && config.ProjectType <> Some WIG
+
+    if config.ParallelCompilation && config.UseLocalReflection then
+        PrintGlobalWarning warnSettings logger "\"parallelCompilation\" requires \"useLocalReflection\" to be false; ignoring parallel compilation."
+
+    let runIlEmit () =
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             0
         else
-            let errors, exnOpt = 
+            let errors, exnOpt =
                 checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
-    
+
             PrintFSharpErrors warnSettings logger errors
-    
-            if Option.isNone exnOpt then 
+
+            if Option.isNone exnOpt then
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
@@ -326,11 +335,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 0
             else
                 1
-            
-    if exitCode <> 0 then 
+
+    // When not running in parallel, this evaluates runIlEmit eagerly right here,
+    // matching today's fully-synchronous ordering exactly.
+    let ilEmitTask : System.Threading.Tasks.Task<int> =
+        if useParallel then
+            System.Threading.Tasks.Task.Run(runIlEmit)
+        else
+            System.Threading.Tasks.Task.FromResult(runIlEmit())
+
+    let exitCode = if useParallel then 0 else ilEmitTask.Result
+
+    if exitCode <> 0 then
         fullTime logger
         exitCode
-    elif config.ProjectType = Some WIG then  
+    elif config.ProjectType = Some WIG then
         let aR = createAssemblyResolver config true
         aR.Wrap <| fun () ->
             try 
@@ -409,6 +428,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
     compiler.WarnSettings <- warnSettings
+    compiler.UseVerifier <- config.VerifyRPCSignatures
+    if useParallel then
+        compiler.WaitForAssembly <- (fun () -> ilEmitTask.Wait())
 
     let comp =
         aR.Wrap <| fun () ->
@@ -416,15 +438,24 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let exitCode =
         match comp with
-        | None ->        
+        | None ->
+            // Always join the IL-emission task before returning, so no background
+            // checker.Compile work is orphaned when the process exits.
+            ilEmitTask.Wait()
             1
         | Some comp ->
 
-        if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        // Join point: block here (a no-op unless still running) before touching the
+        // compiled assembly, since translation up to this point never needed it.
+        let ilExitCode = ilEmitTask.Result
+
+        if ilExitCode <> 0 then
+            ilExitCode
+        elif not (List.isEmpty comp.Errors || config.WarnOnly) then
             PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
             1
         else
-    
+
         let getRefMeta() =
             match wsRefsMeta.Result with 
             | Some (_, _, m) -> m 

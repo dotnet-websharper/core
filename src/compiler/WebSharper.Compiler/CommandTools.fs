@@ -111,7 +111,9 @@ type WsConfig =
         PreBundle : bool
         ChangeTracking : bool
         RemotingProvider: string option
-        LocalMetaprogramming : bool
+        UseLocalReflection : bool
+        VerifyRPCSignatures : bool
+        ParallelCompilation : bool
     }
 
     member this.ProjectDir =
@@ -172,7 +174,9 @@ type WsConfig =
             PreBundle = false
             ChangeTracking = false
             RemotingProvider = None
-            LocalMetaprogramming = false
+            UseLocalReflection = false
+            VerifyRPCSignatures = false
+            ParallelCompilation = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -330,8 +334,12 @@ type WsConfig =
                 res <- { res with ChangeTracking = res.ChangeTracking || getBool k v }
             | "remotingProvider" ->
                 res <- { res with RemotingProvider = Some (getString k v) }
-            | "localmetaprogramming" ->
-                res <- { res with LocalMetaprogramming = getBool k v }
+            | "uselocalreflection" ->
+                res <- { res with UseLocalReflection = getBool k v }
+            | "verifyrpcsignatures" ->
+                res <- { res with VerifyRPCSignatures = getBool k v }
+            | "parallelcompilation" ->
+                res <- { res with ParallelCompilation = getBool k v }
             | "$schema" | "debug" | "release" -> ()
             | c when c.StartsWith("config-") -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
@@ -623,7 +631,9 @@ let RecognizeWebSharperArg a wsArgs =
     | "--site" -> Some { wsArgs with ProjectType = Some Website }
     | Flag "--wswarnonly" v -> Some { wsArgs with WarnOnly = v }
     | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = Some v }
-    | Flag "--localmetaprogramming" v -> Some { wsArgs with LocalMetaprogramming = v }
+    | Flag "--uselocalreflection" v -> Some { wsArgs with UseLocalReflection = v }
+    | Flag "--verifyrpcsignatures" v -> Some { wsArgs with VerifyRPCSignatures = v }
+    | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
     | StartsWith "--ws:" wsProjectType ->
         let pt = ProjectType.Parse wsProjectType
         let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(wsProjectType, pt))

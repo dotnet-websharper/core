@@ -130,12 +130,17 @@ type Compilation(meta: Info, ?hasGraph) =
             )
         remotes
 
-    member val LocalMetaprogramming = false with get, set
+    member val UseLocalReflection = false with get, set
 
-    [<System.Obsolete("Use LocalMetaprogramming instead.")>]
+    [<System.Obsolete("Use UseLocalReflection instead.")>]
     member this.UseLocalMacros
-        with get() = this.LocalMetaprogramming
-        and set(v) = this.LocalMetaprogramming <- v
+        with get() = this.UseLocalReflection
+        and set(v) = this.UseLocalReflection <- v
+
+    /// Blocks until the current project's assembly file exists on disk.
+    /// A no-op unless parallel compilation mode has set it to wait on IL emission.
+    member val WaitForCurrentAssembly : unit -> unit = ignore with get, set
+
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
@@ -416,9 +421,9 @@ type Compilation(meta: Info, ?hasGraph) =
         match macros.TryFind macro with
         | Some res -> res
         | _ ->
-          if not this.LocalMetaprogramming && macro.Value.Assembly = this.AssemblyName then
+          if not this.UseLocalReflection && macro.Value.Assembly = this.AssemblyName then
             this.AddError(None, SourceError(
-                sprintf "Macro '%s' is defined in the current project. Set \"localMetaprogramming\": true in wsconfig.json to use it, or move it to a referenced assembly." macro.Value.FullName))
+                sprintf "Macro '%s' is defined in the current project. Set \"useLocalReflection\": true in wsconfig.json to use it, or move it to a referenced assembly." macro.Value.FullName))
             macros.Add(macro, None)
             None
           else
@@ -428,32 +433,32 @@ type Compilation(meta: Info, ?hasGraph) =
                         try
                             match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.LocalMetaprogramming then
+                                if this.UseLocalReflection then
                                     this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.FullName))
                                 None
                             | t -> Some t
                         with e ->
-                            if this.LocalMetaprogramming then
+                            if this.UseLocalReflection then
                                 this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([||]) with
                         | null ->
-                            if this.LocalMetaprogramming then
+                            if this.UseLocalReflection then
                                 this.AddError(None, SourceError(sprintf "Macro does not have supported constructor: '%s'" macro.Value.FullName))
                             None
                         | mctor -> Some (mctor, [||])
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.LocalMetaprogramming then
+                            if this.UseLocalReflection then
                                 this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
                             None
                     match inv with
                     | :? WebSharper.Core.Macro as m ->
                         return m
                     | _ ->
-                        if this.LocalMetaprogramming then
+                        if this.UseLocalReflection then
                             this.AddError(None, SourceError(sprintf "Macro type does not inherit from WebSharper.Core.Macro: '%s'" macro.Value.FullName))
                 }
             macros.Add(macro, res)
@@ -467,9 +472,9 @@ type Compilation(meta: Info, ?hasGraph) =
         match generators.TryFind gen with
         | Some res -> res
         | _ ->
-          if not this.LocalMetaprogramming && gen.Value.Assembly = this.AssemblyName then
+          if not this.UseLocalReflection && gen.Value.Assembly = this.AssemblyName then
             this.AddError(None, SourceError(
-                sprintf "Generator '%s' is defined in the current project. Set \"localMetaprogramming\": true in wsconfig.json to use it, or move it to a referenced assembly." gen.Value.FullName))
+                sprintf "Generator '%s' is defined in the current project. Set \"useLocalReflection\": true in wsconfig.json to use it, or move it to a referenced assembly." gen.Value.FullName))
             generators.Add(gen, None)
             None
           else
@@ -479,12 +484,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         try
                             match System.Type.GetType(gen.Value.AssemblyQualifiedName, true) with
                             | null ->
-                                if this.LocalMetaprogramming then
+                                if this.UseLocalReflection then
                                     this.AddError(None, SourceError(sprintf "Failed to find generator type: '%s'" gen.Value.FullName))
                                 None
                             | t -> Some t
                         with e ->
-                            if this.LocalMetaprogramming then
+                            if this.UseLocalReflection then
                                 this.AddError(None, SourceError(sprintf "Failed to load generator type: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     let! mctor, arg =
@@ -492,7 +497,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | null ->
                             match mt.GetConstructor([||]) with
                             | null ->
-                                if this.LocalMetaprogramming then
+                                if this.UseLocalReflection then
                                     this.AddError(None, SourceError(sprintf "Generator does not have supported constructor: '%s'" gen.Value.FullName))
                                 None
                             | mctor -> Some (mctor, [||])
@@ -500,13 +505,13 @@ type Compilation(meta: Info, ?hasGraph) =
                     let! inv =
                         try mctor.Invoke(arg) |> Some
                         with e ->
-                            if this.LocalMetaprogramming then
+                            if this.UseLocalReflection then
                                 this.AddError(None, SourceError(sprintf "Creating generator instance failed: '%s', Error: %s" gen.Value.FullName e.Message))
                             None
                     match inv with
                     | :? WebSharper.Core.Generator as g -> return g
                     | _ ->
-                        if this.LocalMetaprogramming then
+                        if this.UseLocalReflection then
                             this.AddError(None, SourceError(sprintf "Generator type does not inherit from WebSharper.Core.Generator: '%s'" gen.Value.FullName))
                 }
             generators.Add(gen, res)
@@ -2753,6 +2758,7 @@ type Compilation(meta: Info, ?hasGraph) =
             graph.AddEdge(TypeNode Definitions.Decimal, createDecimalBitsIndex)
 
     member this.VerifyRPCs () =
+        this.WaitForCurrentAssembly()
         let rec isWebControl (cls: ClassInfo) =
             match cls.BaseClass with
             | Some { Entity = bT } ->
