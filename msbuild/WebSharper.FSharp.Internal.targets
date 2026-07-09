@@ -34,9 +34,10 @@
     <WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
-    <SkipCompilerExecution>True</SkipCompilerExecution>
+    <WebSharperExternalFSharpCompiler Condition=" '$(WebSharperExternalFSharpCompiler)' == '' ">False</WebSharperExternalFSharpCompiler>
+    <SkipCompilerExecution Condition=" '$(WebSharperExternalFSharpCompiler)' != 'True' ">True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <ProduceReferenceAssembly Condition=" '$(WebSharperExternalFSharpCompiler)' != 'True' ">False</ProduceReferenceAssembly>
     <NoWarn>$(NoWarn);3366;3370</NoWarn>
     <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
@@ -81,6 +82,10 @@
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
+      WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperExternalFSharpCompiler="$(WebSharperExternalFSharpCompiler)"
     />
   </Target>
 </Project>
