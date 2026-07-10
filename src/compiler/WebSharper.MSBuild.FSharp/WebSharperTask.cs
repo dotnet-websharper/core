@@ -27,7 +27,7 @@ using Microsoft.Build.Utilities;
 
 namespace WebSharper.MSBuild.FSharp
 {
-    public sealed class WebSharperTask : ToolTask
+    public sealed class WebSharperTask : ToolTask, IWebSharperTaskArgs
     {
         public ITaskItem[] FscCommandLineArgs { get; set; } = new ITaskItem[] { };
         public string Configuration { get; set; } = "";
@@ -61,111 +61,19 @@ namespace WebSharper.MSBuild.FSharp
             return WebSharperToolPath;
         }
 
-        private void WriteAtFileName(string filename)
-        {
-            using (FileStream f = File.OpenWrite(filename))
-            using (StreamWriter w = new StreamWriter(f))
-            {
-                if (FscCommandLineArgs.Length == 0)
-                {
-                    throw new Exception("Expecting FscCommandLineArgs set, needs ProvideCommandLineArgs=True");
-                }
-
-                foreach (var a in FscCommandLineArgs)
-                    WriteIfSet(w, "", a);
-
-                WriteIfSet(w, "--ws:", WebSharperProject);
-
-                WriteIfSet(w, "--configuration:", Configuration);
-                WriteIfSet(w, "--project:", MSBuildProjectFullPath);
-
-                WriteIfSet(w, "--wsoutput:", WebProjectOutputDir);
-                WriteIfSet(w, "--wsoutput:", WebSharperBundleOutputDir);
-                WriteIfSet(w, "--wsoutput:", WebSharperHtmlDirectory);
-
-                if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
-                    w.WriteLine("--dce" + (parsed ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperUseLocalReflection, out bool ulr))
-                    w.WriteLine("--uselocalreflection" + (ulr ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperVerifyRPCSignatures, out bool vrpc))
-                    w.WriteLine("--verifyrpcsignatures" + (vrpc ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperParallelCompilation, out bool pc))
-                    w.WriteLine("--parallelcompilation" + (pc ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperExternalFSharpCompiler, out bool efc))
-                    w.WriteLine("--externalfsharpcompiler" + (efc ? "+" : "-"));
-
-                if (TryParseBool(WebSharperDownloadResources))
-                    w.WriteLine("--dlres");
-
-                WriteIfSet(w, "--closures:", WebSharperAnalyzeClosures);
-
-                WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
-                WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
-                WriteIfSet(w, "--wstimings:", WebSharperTimingLog);
-
-                if (TryParseBool(WebSharperSourceMap))
-                    w.WriteLine("--jsmap");
-
-                if (TryParseBool(WebSharperTypeScriptDeclaration))
-                    w.WriteLine("--dts");
-
-                if (TryParseBool(WebSharperTypeScriptOutput))
-                    w.WriteLine("--ts");
-
-                if (TryParseBool(WebSharperErrorsAsWarnings))
-                    w.WriteLine("--wswarnonly");
-
-                if (TryParseBool(WebSharperStandalone))
-                    w.WriteLine("--standalone");
-
-                if (WebProjectOutputDir != null && WebSharperProject == null)
-                    w.WriteLine("--site");
-
-                WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
-            }
-        }
-
         protected override string GenerateCommandLineCommands()
         {
             var atFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
-            WriteAtFileName(atFileName);
+            WebSharperArgsWriter.WriteAtFileName(this, atFileName, forceAwaitDll: false, forceExternalFSharpCompiler: false);
             var builder = new CommandLineBuilder();
             builder.AppendFileNameIfNotNull("@" + atFileName);
             return builder.ToString();
         }
 
-        private static bool TryParseBool(string s)
-        {
-            return bool.TryParse(s, out bool parsed) && parsed;
-        }
-
-        private void WriteIfSet(TextWriter w, string name, string value)
-        {
-            if (!string.IsNullOrEmpty(value))
-                w.WriteLine(name + value);
-        }
-
-        private void WriteIfSet(TextWriter w, string name, ITaskItem value)
-        {
-            if (value != null)
-                WriteIfSet(w, name, value.ItemSpec);
-        }
-
         protected override bool HandleTaskExecutionErrors()
         {
-            var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), FscCommandLineArgs[0].ItemSpec.Replace("-o:", "").Trim());
-            if (File.Exists(dllOutput))
-            {
-                if (File.Exists(dllOutput + ".failed"))
-                {
-                    File.Delete(dllOutput + ".failed");
-                }
-                File.Move(dllOutput, dllOutput + ".failed");
-            }
+            var dllOutput = WebSharperArgsWriter.GetExpectedAssemblyOutput(FscCommandLineArgs, MSBuildProjectFullPath);
+            WebSharperArgsWriter.MarkOutputFailed(dllOutput);
             return base.HandleTaskExecutionErrors();
         }
     }

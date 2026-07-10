@@ -14,7 +14,11 @@ Depends on: [#1547 — remove Reflection reliance on the current project's compi
   "always ran").
 - **Step 2.1 (Mode A, `parallelCompilation`)**: done, on branch `perf-experiments`.
 - **Step 2.2 (Mode B, `WebSharperExternalFSharpCompiler`)**: done, on branch `perf-experiments`.
-- **Step 2.3 (combined mode, `--awaitdll`/file-watcher launch+join)**: not started.
+- **Step 2.3 (combined mode, `--awaitdll` launch+join)**: done, on branch `perf-experiments`. Built with the
+  recommended launched-process + in-process file-watcher design (not the `wsfscservice` booster). Several
+  planned details were refined during implementation — see the resolved "Synchronization details" below and
+  the new "Resolved during Step 2.3 implementation" section. Reviewed and tested end-to-end (combined-mode
+  success and error paths, plus `--awaitdll` unit tests).
 - **Steps 2.4–2.5 (benchmarking, GHA `msbuildProperties` input)**: not started.
 
 The rename from `localMetaprogramming` to `useLocalReflection` (and the two new gated call sites) means the
@@ -116,10 +120,10 @@ This is the trickiest case and must work. WS work is **launched before `CoreComp
 
 So the booster service and the file watcher are **alternative synchronization mechanisms** for the same launch+join shape; the file-watcher option is simpler (no service lifecycle, no service protocol) and is the recommended path. The persistent `wsfscservice` booster stays orthogonal — it is a cold-start perf optimization, not required for parallelism.
 
-Synchronization details to resolve during Phase 2:
-- **Process handoff** from launch target to join target: pass the PID via an MSBuild output property, or write a `<dll>.wsrunning` marker the join target waits on; prefer waiting on process exit by PID.
-- **DLL-complete detection** (avoid reading a partially-written DLL): `FileSystemWatcher` `Changed`/`Renamed` plus a "can open for exclusive read / size stable for N ms" check; fsc typically writes to a temp path and renames, so also watch for `Renamed`.
-- **fsc-failure propagation**: if `fsc` fails after WS started, the launched WS process must be cancellable (marker file / kill by PID from the join target) and the build must fail cleanly; mirror the existing `.failed` rename logic in `HandleTaskExecutionErrors` / `clearOutput`.
+Synchronization details (**resolved during Step 2.3 implementation**):
+- **Process handoff** from launch target to join target: **resolved** by publishing the PID as an MSBuild output property (`LaunchedProcessId`) *and* handing the live `System.Diagnostics.Process` object across within the MSBuild node via a static registry (`WebSharperLaunchedProcesses`). A fresh `Process.GetProcessById(pid)` is unreliable once the launched wsfsc has already exited (a likely, benign outcome — it can finish very close to the real fsc), so the join reuses the original `Process` object when present and only falls back to `GetProcessById`. `WaitForExit(Timeout.Infinite)` is used rather than the parameterless overload (which can leave a `GetProcessById` object unable to read `ExitCode`). No `<dll>.wsrunning` marker was needed.
+- **DLL-complete detection**: **resolved** with a **quiet-period** signal (not exclusive-open / size-stable). A `FileSystemWatcher` on the assembly directory records `Created`/`Changed`/`Renamed` activity; the wait completes once the file opens **with `FileShare.ReadWrite` (not exclusive)** *and* there has been ≥500 ms of no filesystem activity. fsc writes in several passes holding restrictive share modes, so a point-in-time open can land in a gap and wrongly declare readiness; requesting `ReadWrite` for our own probe avoids claiming an exclusivity that would make fsc's own re-open fail. 100 ms poll fallback, 10-minute overall timeout.
+- **fsc-failure propagation**: **resolved** — on a non-zero launched-process exit the join task renames the output to `.failed` (`WebSharperArgsWriter.MarkOutputFailed`, mirroring `HandleTaskExecutionErrors`). The launched process is **not** actively killed by the join target: on `CoreCompile` failure the join target simply never runs (MSBuild stops the build), and the orphaned wsfsc self-terminates via its 10-minute await-DLL timeout. To stop it holding the output DLL for the next build under the default `nodeReuse=true`, `build.fsx stopService()` now also kills stray `wsfsc` under the source dir (not just `wsfscservice`). Note: in practice the real fsc reports F# errors and fails the build well before the launched wsfsc finishes its own check, so the launched process is usually torn down before it can surface anything of its own.
 
 ## Implementation steps
 
@@ -224,7 +228,7 @@ Implications:
 - [WebSharperTask.cs](../../src/compiler/WebSharper.MSBuild.FSharp/WebSharperTask.cs): add a task parameter (e.g. `ExternalFSharpCompiler`) and, when set, pass a corresponding CLI flag to `wsfsc` so it runs translation-only. `wsfsc` still needs a typed AST — it runs its own FCS check (accepted double front-end; see Risks) unless a shared-check optimization is added later.
 - **F# only** — leave [WebSharper.CSharp.targets](../../msbuild/WebSharper.CSharp.targets) unchanged.
 
-**Step 2.3 — Combined mode (A + B together)** — the hard case. Recommended design uses a **launched process + in-process file watcher** (not the persistent `wsfscservice` booster); see the "Combined" design section for why the launch+join two-target shape is unavoidable under MSBuild's single-threaded target execution.
+**Step 2.3 — Combined mode (A + B together)** — the hard case. Recommended design uses a **launched process + in-process file watcher** (not the persistent `wsfscservice` booster); see the "Combined" design section for why the launch+join two-target shape is unavoidable under MSBuild's single-threaded target execution. *(This is the original plan; for what was actually built and where it diverged — args harvesting, quiet-period DLL detection, PID+`Process` handoff, forced flags — see "Resolved during Step 2.3 implementation" at the end.)*
 - **`wsfsc` flag** `--awaitdll`: when set, `wsfsc` starts FCS check + WS translation immediately, then before the resource-embed step waits for `config.AssemblyFile` via `FileSystemWatcher` (initial `File.Exists` check + `Renamed`/`Changed` handlers + a "file openable for exclusive read and size-stable" confirmation + a bounded fallback poll and timeout).
 - **Launch target** (`BeforeTargets="CoreCompile"`): a task (extend or add alongside `WebSharperTask`) that `Process.Start`s `wsfsc --awaitdll` **non-blocking** and returns immediately; publish the PID as an MSBuild output property and/or write a `<dll>.wsrunning` marker.
 - **Join target** (repurpose the existing `WebSharperCompile` slot, `AfterTargets="CoreCompile"`): wait on the launched process by PID, surface exit code and captured output; on WS failure fail the build.
@@ -278,3 +282,50 @@ All three are also settable ad-hoc via `dotnet build /p:<Property>=true` and via
 - **Phases are separated**: Phase 1 ships on its own (delivers the opt-in + the breaking change) ahead of #1547; Phase 2 follows.
 - Mode A and Mode B are **combinable**, and the combined mode is a required, explicitly-planned case.
 - **All new settings get an MSBuild property** (`WebSharperLocalMetaprogramming`, `WebSharperParallelCompilation`, plus the MSBuild-only `WebSharperExternalFSharpCompiler`) in addition to wsconfig/CLI, and the GHA workflow gains an `msbuildProperties` input so perf-testing can flip modes for a whole CI run without editing projects.
+
+## Resolved during Step 2.3 implementation
+
+Naming and choices made while building the combined mode (branch `perf-experiments`); the prospective
+"Implementation steps > Step 2.3" above is left as the original plan.
+
+- **New artifacts**: MSBuild tasks `WebSharperLaunchTask` (non-blocking, a plain `Task` — deliberately *not* a
+  `ToolTask`, whose `Execute()` would block and re-create the deadlock) and `WebSharperJoinTask`; the shared
+  `WebSharperArgsWriter` + `IWebSharperTaskArgs` (the `@file`-writing logic factored out of `WebSharperTask`
+  so the blocking and launched tasks emit identical args); the in-node `WebSharperLaunchedProcesses` registry;
+  a new `WebSharperLaunch` target (`BeforeTargets="CoreCompile"`); and the `wsfsc` flag `--awaitdll` backed by
+  a new `WsConfig.AwaitDll`. The join runs from the existing `WebSharperCompile` target, guarded on whether a
+  PID was published (`_WebSharperLaunchedPid`); when no launch happened it falls back to the normal blocking
+  `WebSharperTask`.
+- **`AwaitDll` is MSBuild-internal, not user-facing**: it has no wsconfig key (`AddJson` rejects `awaitDll`)
+  and no public MSBuild property. `WebSharperLaunchTask` forces it (together with `--externalfsharpcompiler+`,
+  `--parallelcompilation+`, and `--standalone`) whenever it launches. Users opt into combined mode via the two
+  existing properties `WebSharperExternalFSharpCompiler` + `WebSharperParallelCompilation`; `--awaitdll` and
+  `--standalone` are internal consequences (standalone avoids the `wsfscservice` booster's client only catching
+  its own `PipeException` around the long await, which would otherwise crash the launched process silently).
+- **Compiler args are harvested, not reconstructed**: `@(FscCommandLineArgs)` only exists as a side effect of
+  the `Fsc` task *inside* `CoreCompile`, which has not run yet at launch time. `WebSharperLaunch` therefore
+  self-invokes this same project's `FindReferenceAssembliesForReferences` **then** `CoreCompile` with
+  `SkipCompilerExecution=true;ProvideCommandLineArgs=true;WebSharperRunCompiler=False` (two separate `<MSBuild>`
+  calls — the reference-assemblies target populates `@(ReferencePathWithRefAssemblies)`, which feeds Fsc's
+  `-r:` args; targeting `CoreCompile` alone, or even with `ResolveReferences`, produced **zero** `-r:` args).
+  Accepted extra build cost for faithful (not reconstructed) args. Launched wsfsc stdout/stderr are captured to
+  `<dll>.launch.log`.
+- **WIG projects excluded**: the `WebSharperLaunch` target condition excludes `binding`/`extension`/`wig`/
+  `interfacegenerator` project types (they reflection-load and execute the current-project assembly by design),
+  matching Mode A's exclusion.
+- **Combined mode reuses Mode A's parallelism**: `useParallel` (Compile.fs) was widened from
+  `… && not config.ExternalFSharpCompiler` to `… && (not config.ExternalFSharpCompiler || config.AwaitDll)`, so
+  the launched wsfsc overlaps its FCS check + WS translation with the awaited real-fsc DLL emission.
+- **F# check-error printing gated** (Main.fs): surfacing F# errors from wsfsc's *own* check is conditional on
+  `config.ExternalFSharpCompiler || assemblyName = "WebSharper.StdLib" || BundleOnly || Proxy` — i.e. only in the
+  modes where `runIlEmit` does not itself print them. An earlier unconditional version double-reported every F#
+  error in Mode A (MSBuild showed "2 Error(s)" for a single mistake); the gate restores single reporting there
+  while still surfacing errors in external/combined mode.
+- **Build-script cleanup**: `build.fsx stopService()` now also terminates stray `wsfsc` processes under the
+  source directory (previously only `wsfscservice`), covering combined mode's orphaned launched process on a
+  failed build.
+- **Verification**: exercised end-to-end on `tests/WebSharper.Collections.Tests`, kept switched to combined mode
+  (`WebSharperExternalFSharpCompiler` + `WebSharperParallelCompilation`) as an ongoing smoke test. Confirmed: the
+  success path (launch → await DLL → concurrent check/translation → embed resources into the real DLL → clean
+  join, no orphan), the error path (real fsc surfaces the F# error and fails the build cleanly), and the
+  `--awaitdll` flag/`AwaitDll` default/`AddJson`-rejection unit tests in `ParallelCompilationTests`.

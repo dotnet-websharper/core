@@ -58,9 +58,71 @@
     </ReorderCompileItemsTask>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperLaunchTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperJoinTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+
+  <!-- Combined mode (Step 2.3) - see WebSharper.FSharp.targets for the full explanation,
+       including why WIG projects (binding/extension/wig/interfacegenerator) are excluded. -->
+  <Target Name="WebSharperLaunch"
+          Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperExternalFSharpCompiler)' == 'True' AND '$(WebSharperParallelCompilation)' == 'True'
+                      AND '$(WebSharperProject)' != 'binding' AND '$(WebSharperProject)' != 'extension' AND '$(WebSharperProject)' != 'wig' AND '$(WebSharperProject)' != 'interfacegenerator' "
+          BeforeTargets="CoreCompile">
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <!-- Two separate calls, not Targets="FindReferenceAssembliesForReferences;CoreCompile" -
+         see WebSharper.FSharp.targets for the full explanation (Fsc's References= is fed by
+         @(ReferencePathWithRefAssemblies), populated by FindReferenceAssembliesForReferences,
+         not by CoreCompile's own dependency chain or plain ResolveReferences). -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="FindReferenceAssembliesForReferences"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);TargetFramework=$(TargetFramework);WebSharperRunCompiler=False;SkipCompilerExecution=true;ProvideCommandLineArgs=true" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="CoreCompile"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);TargetFramework=$(TargetFramework);WebSharperRunCompiler=False;SkipCompilerExecution=true;ProvideCommandLineArgs=true">
+      <Output TaskParameter="TargetOutputs" ItemName="_WebSharperHarvestedFscArgs" />
+    </MSBuild>
+    <WebSharperLaunchTask
+      Condition=" '@(_WebSharperHarvestedFscArgs)' != '' "
+      FscCommandLineArgs="@(_WebSharperHarvestedFscArgs)"
+      Configuration="$(Configuration)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"
+      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
+      WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperJsOutput="$(WebSharperJsOutput)"
+      WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
+      WebSharperTimingLog="$(WebSharperTimingLog)"
+      WebSharperToolPath="$(WebSharperToolPath)"
+      WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
+      WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperExternalFSharpCompiler="$(WebSharperExternalFSharpCompiler)"
+    >
+      <Output TaskParameter="LaunchedProcessId" PropertyName="_WebSharperLaunchedPid" />
+    </WebSharperLaunchTask>
+  </Target>
+
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+
+    <WebSharperJoinTask
+      Condition=" '$(_WebSharperLaunchedPid)' != '' "
+      LaunchedProcessId="$(_WebSharperLaunchedPid)"
+      FscCommandLineArgs="@(FscCommandLineArgs)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+    />
+
     <WebSharperTask
+      Condition=" '$(_WebSharperLaunchedPid)' == '' "
       StandardOutputImportance="$(WebSharperLogImportance)"
       FscCommandLineArgs="@(FscCommandLineArgs)"
       Configuration="$(Configuration)"
@@ -69,10 +131,10 @@
       WebSharperConfigFile="$(WebSharperConfigFile)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)" 
-      WebSharperSourceMap="$(WebSharperSourceMap)"          
-      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
-      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"          
+      WebSharperProject="$(WebSharperProject)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"

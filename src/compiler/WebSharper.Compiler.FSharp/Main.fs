@@ -83,7 +83,12 @@ type WebSharperFSharpCompiler(?checker) =
         logger.TimedStage "Waiting on merged metadata"
 
         if checkProjectResults.Diagnostics |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
-            if assemblyName = "WebSharper.StdLib" || config.ProjectType = Some BundleOnly || config.ProjectType = Some Proxy then
+            // Only surface F# check errors here in the modes where runIlEmit (Compile.fs) will
+            // NOT itself print them: external/combined mode (it only waits for / checks the real
+            // fsc's assembly) and bundle-only (MakeDummyDll). In the in-process modes - including
+            // Mode A (parallelCompilation) - runIlEmit runs checker.Compile, which already prints
+            // via PrintFSharpErrors, so printing again here double-reports every error.
+            if config.ExternalFSharpCompiler || assemblyName = "WebSharper.StdLib" || config.ProjectType = Some BundleOnly || config.ProjectType = Some Proxy then
                 PrintFSharpErrors this.WarnSettings logger checkProjectResults.Diagnostics
             None
         else

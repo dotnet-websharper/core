@@ -117,6 +117,10 @@ type WsConfig =
         /// MSBuild-only (not settable via wsconfig.json): true when the real fsc
         /// (not wsfsc) produced the assembly, via WebSharperExternalFSharpCompiler.
         ExternalFSharpCompiler : bool
+        /// MSBuild-only (not settable via wsconfig.json): true when this wsfsc process was
+        /// launched before CoreCompile and must wait for the real fsc to produce the
+        /// assembly, rather than treating a missing file as an error (combined A+B mode).
+        AwaitDll : bool
     }
 
     member this.ProjectDir =
@@ -181,6 +185,7 @@ type WsConfig =
             VerifyRPCSignatures = false
             ParallelCompilation = false
             ExternalFSharpCompiler = false
+            AwaitDll = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -639,6 +644,7 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--verifyrpcsignatures" v -> Some { wsArgs with VerifyRPCSignatures = v }
     | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
     | Flag "--externalfsharpcompiler" v -> Some { wsArgs with ExternalFSharpCompiler = v }
+    | Flag "--awaitdll" v -> Some { wsArgs with AwaitDll = v }
     | StartsWith "--ws:" wsProjectType ->
         let pt = ProjectType.Parse wsProjectType
         let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(wsProjectType, pt))

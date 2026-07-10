@@ -128,8 +128,14 @@ Target.create "Prepare" <| fun _ ->
 
 let stopService() =
     try
+        // Also kill "wsfsc" (not just the "wsfscservice" booster): in combined mode
+        // (WebSharperExternalFSharpCompiler + WebSharperParallelCompilation) a wsfsc process is
+        // launched before CoreCompile and, on a build failure, is orphaned (its join target never
+        // runs) and can linger until its ~10 min await-DLL timeout, keeping the output DLL busy for
+        // the next build. Cleaning both here on WS-Stop/end-of-build prevents that lock.
         Process.GetProcessesByName("wsfscservice")
-        |> Array.iter (fun x -> 
+        |> Array.append (Process.GetProcessesByName("wsfsc"))
+        |> Array.iter (fun x ->
             if x.MainModule.FileName.StartsWith(__SOURCE_DIRECTORY__) then
                 x.Kill()
         )

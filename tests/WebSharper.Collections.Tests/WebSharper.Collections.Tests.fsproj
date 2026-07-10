@@ -4,6 +4,8 @@
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
     <Tests>True</Tests>
+    <WebSharperExternalFSharpCompiler>true</WebSharperExternalFSharpCompiler>
+    <WebSharperParallelCompilation>true</WebSharperParallelCompilation>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Dictionary.fs" />

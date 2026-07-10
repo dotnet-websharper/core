@@ -62,10 +62,96 @@
     </ReorderCompileItemsTask>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperLaunchTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperJoinTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+
+  <!-- Combined mode (Step 2.3): both WebSharperExternalFSharpCompiler and WebSharperParallelCompilation
+       set. wsfsc is launched (non-blocking) before CoreCompile so its own FCS check + WS translation
+       run concurrently with the real fsc.exe; WebSharperCompile below then only joins it. This needs
+       wsfsc's exact compiler args before CoreCompile has produced @(FscCommandLineArgs) (that item only
+       exists as a side effect of the Fsc task running inside CoreCompile) - resolved by harvesting them
+       via a separate, cheap (SkipCompilerExecution=true) self-build of this same project's CoreCompile
+       target. This is real extra build-time cost, accepted for the sake of faithful (not reconstructed)
+       compiler args - see docs/ai-planning/1587-local-metaprogramming-and-parallel-compilation.md.
+       WIG projects (binding/extension/wig/interfacegenerator - see ProjectType.Parse in
+       CommandTools.fs) are excluded entirely, matching Mode A: they reflection-load and execute
+       the current-project assembly by design (to run the interface generator itself), which needs
+       the real, fully-settled assembly - not a moving target being raced against CoreCompile. -->
+  <Target Name="WebSharperLaunch"
+          Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperExternalFSharpCompiler)' == 'True' AND '$(WebSharperParallelCompilation)' == 'True'
+                      AND '$(WebSharperProject)' != 'binding' AND '$(WebSharperProject)' != 'extension' AND '$(WebSharperProject)' != 'wig' AND '$(WebSharperProject)' != 'interfacegenerator' "
+          BeforeTargets="CoreCompile">
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <!-- CoreCompile does not itself depend on reference resolution: for F#,
+         CoreCompileDependsOn is just "_ComputeNonExistentFileProperty" (Microsoft.FSharp.Targets).
+         The real dependency chain lives on the *outer* Compile target instead
+         (Microsoft.Common.CurrentVersion.targets' CompileDependsOn: ResolveReferences ;
+         FindReferenceAssembliesForReferences ; ... ; CoreCompile), and the Fsc task's own
+         References= attribute is fed by @(ReferencePathWithRefAssemblies), which is populated
+         by FindReferenceAssembliesForReferences specifically (not by ResolveReferences' own
+         @(ReferencePath) output). Targeting CoreCompile alone - or even
+         CoreCompile+ResolveReferences - silently produced zero -r: args (a real, confirmed bug
+         during end-to-end testing). Two separate <MSBuild> calls (not one call listing both
+         targets): FindReferenceAssembliesForReferences has its own Returns, of a different
+         item shape than @(FscCommandLineArgs), so combining both targets on one call would
+         pollute _WebSharperHarvestedFscArgs. Both calls use the same Properties=, so MSBuild
+         resolves them to the same cached project instance - the second call sees the first
+         call's already-populated state without rerunning it. -->
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="FindReferenceAssembliesForReferences"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);TargetFramework=$(TargetFramework);WebSharperRunCompiler=False;SkipCompilerExecution=true;ProvideCommandLineArgs=true" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="CoreCompile"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);TargetFramework=$(TargetFramework);WebSharperRunCompiler=False;SkipCompilerExecution=true;ProvideCommandLineArgs=true">
+      <Output TaskParameter="TargetOutputs" ItemName="_WebSharperHarvestedFscArgs" />
+    </MSBuild>
+    <WebSharperLaunchTask
+      Condition=" '@(_WebSharperHarvestedFscArgs)' != '' "
+      FscCommandLineArgs="@(_WebSharperHarvestedFscArgs)"
+      Configuration="$(Configuration)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"
+      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"
+      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
+      WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperJsOutput="$(WebSharperJsOutput)"
+      WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
+      WebSharperTimingLog="$(WebSharperTimingLog)"
+      WebSharperToolPath="$(WebSharperToolPath)"
+      WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperUseLocalReflection="$(WebSharperUseLocalReflection)"
+      WebSharperVerifyRPCSignatures="$(WebSharperVerifyRPCSignatures)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperExternalFSharpCompiler="$(WebSharperExternalFSharpCompiler)"
+    >
+      <Output TaskParameter="LaunchedProcessId" PropertyName="_WebSharperLaunchedPid" />
+    </WebSharperLaunchTask>
+  </Target>
+
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <Exec Command="chmod u+x '$(WebSharperBoosterToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(WebSharperBoosterToolPath)' != ''" />
+
+    <!-- Combined mode: wsfsc was already launched by WebSharperLaunch above; just join it. -->
+    <WebSharperJoinTask
+      Condition=" '$(_WebSharperLaunchedPid)' != '' "
+      LaunchedProcessId="$(_WebSharperLaunchedPid)"
+      FscCommandLineArgs="@(FscCommandLineArgs)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+    />
+
+    <!-- Every other case (including combined mode's condition being true but the launch not
+         actually happening, e.g. no compilable sources): the normal blocking compile. -->
     <WebSharperTask
+      Condition=" '$(_WebSharperLaunchedPid)' == '' "
       StandardOutputImportance="$(WebSharperLogImportance)"
       FscCommandLineArgs="@(FscCommandLineArgs)"
       Configuration="$(Configuration)"

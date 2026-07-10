@@ -43,6 +43,54 @@ let clearOutput config logger =
     with _ ->
         PrintGlobalError logger "Failed to clean intermediate output!"
 
+/// Combined mode (--awaitdll): this wsfsc process was launched before CoreCompile and
+/// must wait for the real fsc to produce config.AssemblyFile, rather than treating a
+/// missing file as an immediate error like plain ExternalFSharpCompiler mode does.
+let waitForRealAssembly (config: WsConfig) (logger: LoggerBase) =
+    let path = Path.GetFullPath config.AssemblyFile
+    // Neither "file exists" nor "file size is stable" nor even "a single open attempt
+    // succeeds" is sufficient: fsc appears to write its output in more than one pass (open,
+    // write, close, briefly reopen for a further pass), holding a restrictive share mode while
+    // each handle is open. A point-in-time probe can land exactly in a gap between passes and
+    // wrongly declare readiness moments before the next reopen makes a *later* reader's own
+    // open fail - confirmed via combined-mode end-to-end testing (a WIG project's own,
+    // separate reflection-load of the assembly kept failing this way). Waiting for a quiet
+    // period with no filesystem change activity, not just a successful open, is the robust
+    // signal - the file-system-level analogue of "wait for the upload to finish".
+    // Requesting FileShare.ReadWrite (not None) for *our own* open is deliberate too: it
+    // correctly fails while fsc's handle is still open, without itself claiming exclusivity
+    // that could make a subsequent re-open by fsc fail (a related race hit earlier).
+    let canOpen () =
+        File.Exists path &&
+        (try
+            use fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            true
+         with _ -> false)
+    let dir = Path.GetDirectoryName path
+    let fileName = Path.GetFileName path
+    use watcher = new FileSystemWatcher(dir, fileName)
+    let lastActivity = ref DateTime.UtcNow
+    let onEvent = fun (_: obj) -> lastActivity.Value <- DateTime.UtcNow
+    watcher.Created.Add(onEvent)
+    watcher.Changed.Add(onEvent)
+    watcher.Renamed.Add(onEvent)
+    watcher.EnableRaisingEvents <- true
+    let quietPeriod = TimeSpan.FromMilliseconds 500.
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    let timeout = TimeSpan.FromMinutes 10.
+    let rec loop () =
+        if sw.Elapsed > timeout then
+            argError (
+                sprintf "Timed out after %O waiting for the real F# compiler to produce '%s' (combined WebSharperExternalFSharpCompiler + WebSharperParallelCompilation mode)."
+                    timeout path)
+        elif canOpen() && DateTime.UtcNow - lastActivity.Value >= quietPeriod then
+            ()
+        else
+            Threading.Thread.Sleep 100
+            loop ()
+    loop ()
+    logger.TimedStage "Waiting for real F# compiler output"
+
 let createAssemblyResolver (config : WsConfig) includeCurrent =
     let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
@@ -311,25 +359,32 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     // Mode A (parallelCompilation): overlap F# IL emission with WS translation.
     // Requires useLocalReflection=false (translation must not need to reflect into the
     // not-yet-complete current-project assembly); WIG and bundle-only builds are excluded.
-    // Also excluded when the real fsc already produced the assembly (Mode B, below): under
+    // Also excluded when the real fsc already produced the assembly (Mode B alone): under
     // today's MSBuild target ordering (WebSharperCompile runs AfterTargets="CoreCompile")
-    // there is nothing left to overlap with by the time wsfsc starts in that case.
+    // there is nothing left to overlap with by the time wsfsc starts in that case - unless
+    // this is combined mode (awaitDll), where wsfsc was launched *before* CoreCompile and
+    // genuinely needs to wait, giving WS translation something real to overlap with.
     let useParallel =
-        config.ParallelCompilation && not config.UseLocalReflection && not config.ExternalFSharpCompiler
+        config.ParallelCompilation && not config.UseLocalReflection
+        && (not config.ExternalFSharpCompiler || config.AwaitDll)
         && not isBundleOnly && config.ProjectType <> Some WIG
 
     if config.ParallelCompilation && config.UseLocalReflection then
         PrintGlobalWarning warnSettings logger "\"parallelCompilation\" requires \"useLocalReflection\" to be false; ignoring parallel compilation."
 
     // Mode B (WebSharperExternalFSharpCompiler, MSBuild-only): the real fsc, not wsfsc,
-    // produced the assembly (via CoreCompile, which runs before this MSBuild-level
-    // WebSharperCompile target). wsfsc only needs to verify it exists, not emit it.
+    // produced the assembly. Plain Mode B: WebSharperCompile runs AfterTargets="CoreCompile",
+    // so the assembly already exists by the time wsfsc starts - a missing file is an error.
+    // Combined mode (AwaitDll): wsfsc was launched *before* CoreCompile, so the assembly may
+    // not exist yet - wait for it instead of failing immediately.
     let runIlEmit () =
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             0
         elif config.ExternalFSharpCompiler then
-            if not (File.Exists config.AssemblyFile) then
+            if config.AwaitDll then
+                waitForRealAssembly config logger
+            elif not (File.Exists config.AssemblyFile) then
                 argError "Output assembly not found (expected the real fsc, via WebSharperExternalFSharpCompiler, to have produced it)"
             0
         else

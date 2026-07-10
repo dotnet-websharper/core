@@ -73,3 +73,23 @@ let Run () =
     Test "externalFSharpCompiler is MSBuild-only: AddJson rejects it in wsconfig.json" {
         rejectsExternalFSharpCompilerInJson =? true
     }
+
+    Test "WsConfig defaults awaitDll to false" {
+        WsConfig.Empty.AwaitDll =? false
+    }
+
+    Test "RecognizeWebSharperArg parses --awaitdll+/- flags" {
+        (RecognizeWebSharperArg "--awaitdll+" WsConfig.Empty |> Option.map (fun c -> c.AwaitDll)) =? Some true
+        (RecognizeWebSharperArg "--awaitdll-" { WsConfig.Empty with AwaitDll = true } |> Option.map (fun c -> c.AwaitDll)) =? Some false
+    }
+
+    let rejectsAwaitDllInJson =
+        try
+            WsConfig.Empty.AddJson("""{ "awaitDll": true }""", "wsconfig.json", "Release") |> ignore
+            false
+        with _ ->
+            true
+
+    Test "awaitDll is MSBuild-only: AddJson rejects it in wsconfig.json" {
+        rejectsAwaitDllInJson =? true
+    }
