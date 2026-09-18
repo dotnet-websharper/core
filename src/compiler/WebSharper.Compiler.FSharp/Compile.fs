@@ -468,6 +468,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
                 let isSitelet =
                     match config.ProjectType with
+                    | Some Service
                     | Some Html ->
                         true
                     | Some Website

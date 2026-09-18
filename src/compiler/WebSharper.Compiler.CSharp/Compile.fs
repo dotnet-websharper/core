@@ -173,6 +173,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let isSitelet =
                 match config.ProjectType with
+                | Some Service
                 | Some Html ->
                     true
                 | Some Website
