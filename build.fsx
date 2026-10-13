@@ -1,6 +1,4 @@
-// #r "FSharp.Core, 6.0.3"
 #r "System.Xml.Linq"
-
 #r "nuget: FAKE.Core"
 #r "nuget: Fake.Core.Target"
 #r "nuget: Fake.IO.FileSystem"
@@ -9,11 +7,9 @@
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
 #r "nuget: Fake.JavaScript.Npm"
-#r "nuget: Paket.Core, 10.3.1"
-#r "nuget: MSBuild.StructuredLogger"
+#r "nuget: Paket.Core, 12.0.0-alpha001"
 #r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"
-
 
 open System.IO
 open System.Diagnostics
@@ -57,9 +53,9 @@ let publish rids (mode: BuildMode) =
                     Runtime = rid
                     Configuration = mode.AsDotNet
                 }) input
-    publishExe mode "net10.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
-    publishExe mode "net10.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
-    publishExe mode "net10.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
+    publishExe mode "net11.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
@@ -254,7 +250,7 @@ let runMainTestsRelease () =
         let mutable startedOk = false
         let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
-        let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net10.0/Web.dll"
+        let webDll = __SOURCE_DIRECTORY__ </> "build/Release/Tests/net11.0/Web.dll"
         let webDir = __SOURCE_DIRECTORY__ </> "tests/Web"
 
         if not (File.Exists webDll) then

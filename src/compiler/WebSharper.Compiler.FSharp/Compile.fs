@@ -276,9 +276,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let fixedArgs =
             config.CompilerArgs 
             |> Array.map (fun s -> 
-                s.Replace(@"net10.0\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs", 
+                s.Replace(@"net11.0\.NETCoreApp,Version=v11.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
-                    ).Replace(@"net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.fs", 
+                    ).Replace(@"net11.0/.NETCoreApp,Version=v11.0.AssemblyAttributes.fs", 
                         @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)

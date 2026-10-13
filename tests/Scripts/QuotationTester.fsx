@@ -18,9 +18,9 @@
 //
 // $end{copyright}
 #I __SOURCE_DIRECTORY__
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.Pdb.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
