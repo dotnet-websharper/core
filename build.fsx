@@ -145,7 +145,7 @@ let targets =
                 BuildAction.Multiple [
                     BuildAction.Projects ["WebSharper.Compiler.sln"]
                     //BuildAction.Custom (publish [ Some "win-x64" ])
-                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
+                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64"; Some "osx-arm64" ])
                     BuildAction.Projects ["WebSharper.sln"]
                     BuildAction.Custom (fun _ -> stopService())
                 ]
