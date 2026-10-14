@@ -68,6 +68,19 @@ files
     ../build/Release/FSharp/net10.0/osx-x64/deploy/NLog.config ==> tools/net10.0/osx-x64
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net10.0/osx-x64
 
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/*.dll ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/**/*.dll ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfsc ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfsc.dll.config ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfsc.sh ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfsc.runtimeconfig.json ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfscservice ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfscservice.dll.config ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfscservice_start.sh ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/wsfscservice.runtimeconfig.json ==> tools/net10.0/osx-arm64
+    ../build/Release/FSharp/net10.0/osx-arm64/deploy/NLog.config ==> tools/net10.0/osx-arm64
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net10.0/osx-arm64
+
     ../build/Release/FSharp/net10.0/deploy/*.dll ==> tools/net10.0
     ../build/Release/FSharp/net10.0/deploy/**/*.dll ==> tools/net10.0
     ../build/Release/FSharp/net10.0/deploy/wsfsc.cmd ==> tools/net10.0
