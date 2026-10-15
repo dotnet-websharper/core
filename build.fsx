@@ -323,6 +323,7 @@ type RID =
     | LINUX_X64
     | LINUX_MUSL_X64
     | OSX_X64
+    | OSX_ARM64
 
     static member OfString (s: string) =
         match s.ToLower() with
@@ -330,6 +331,7 @@ type RID =
         | "linux-x64" -> LINUX_X64
         | "linux_musl-x64" -> LINUX_MUSL_X64
         | "osx-x64" -> OSX_X64
+        | "osx-arm64" -> OSX_ARM64
         | _ ->
             printfn "Invalid RID, defaulting to win-x64"
             WIN_X64
@@ -340,6 +342,7 @@ type RID =
         | LINUX_X64 -> "linux-x64"
         | LINUX_MUSL_X64 -> "linux-musl-x64"
         | OSX_X64 -> "osx-x64"
+        | OSX_ARM64 -> "osx-arm64"
 
 let RUNTIMEIDPARAM = "--runtimeID:"
 
@@ -391,6 +394,8 @@ let buildPackage (mode: BuildMode) (rid: RID) (version: Paket.SemVerInfo) =
             File.ReadAllLines tp
             |> Array.choose (fun line ->
                 if line.EndsWith $"tools/{targetFramework}" then
+                    None
+                elif line.EndsWith "osx-arm64" && rid <> RID.OSX_ARM64 then
                     None
                 elif line.EndsWith "osx-x64" && rid <> RID.OSX_X64 then
                     None
