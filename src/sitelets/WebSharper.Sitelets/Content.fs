@@ -213,6 +213,7 @@ module Content =
             let activate (url: string) =
                 let imported = Dictionary<AST.Address, string>()
                 let elems = HashSet<string>()
+                let elemLists = HashSet<string>()
 
                 let lookupElement i =
                     let v = "e" + i
@@ -222,13 +223,13 @@ module Content =
                     v
 
                 let lookupElements i =
-                    let v = "e" + i
-                    if not (elems.Contains(i)) then
+                    let v = "es" + i
+                    if not (elemLists.Contains(i)) then
                         scriptsTw.WriteLine($"""let {v} = document.querySelectorAll("[ws-{i}]");""")
-                        elems.Add(i) |> ignore
+                        elemLists.Add(i) |> ignore
                     v
 
-                let rec getCode a =
+                let rec getCode boundElements a =
                     match a with
                     | ClientBundle _ 
                     | ClientRequire _ ->
@@ -236,9 +237,9 @@ module Content =
                     | ClientJsonData d ->
                         J.Stringify d
                     | ClientArrayData a ->
-                        $"""[{ a |> Seq.map getCode |> String.concat "," }]"""    
+                        $"""[{ a |> Seq.map (getCode boundElements) |> String.concat "," }]"""
                     | ClientObjectData a ->
-                        $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode v}" ) |> String.concat "," }}}"""    
+                        $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode boundElements v}" ) |> String.concat "," }}}"""
                     | ClientImport f ->
                         let rec findInPreBundle a =
                             match bundle with
@@ -302,24 +303,26 @@ module Content =
                             | _ ->
                                 f.Address |> List.rev |> String.concat "."
                     | ClientApply (c, args) ->
-                        $"""{getCode c}({ args |> Seq.map getCode |> String.concat "," })"""
+                        $"""{getCode boundElements c}({ args |> Seq.map (getCode boundElements) |> String.concat "," })"""
                     | ClientReplaceInDom (i, c) -> 
-                        $"""{getCode c}.ReplaceInDom({lookupElement i})"""
+                        $"""{getCode boundElements c}.ReplaceInDom({lookupElement i})"""
                     | ClientReplaceInDomWithBody (i, c) -> 
-                        $"""{getCode c}.Body.ReplaceInDom({lookupElement i})"""
+                        $"""{getCode boundElements c}.Body.ReplaceInDom({lookupElement i})"""
                     | ClientAddEventListener (i, ev, c) ->
-                        let el = lookupElements i
+                        let els = lookupElements i
+                        let el = "e" + i
+                        let code = getCode (Set.add i boundElements) c
                         if String.IsNullOrEmpty(ev) then
-                            $"""{el}.forEach(e => e.addEventListener(e.getAttribute('ws-{i}'),{getCode c}))"""
+                            $"""{els}.forEach({el} => {el}.addEventListener({el}.getAttribute('ws-{i}'),{code}))"""
                         else
-                            $"""{el}.forEach(e => e.addEventListener("{ev}",{getCode c}))"""
+                            $"""{els}.forEach({el} => {el}.addEventListener("{ev}",{code}))"""
                     | ClientDOMElement i ->
-                        lookupElement i
+                        if Set.contains i boundElements then "e" + i else lookupElement i
                     | ClientInitialize (_, c) ->
-                        getCode c
+                        getCode boundElements c
                     | ClientLambda (a, c) ->
                         let args = a |> Seq.map (fun i -> "_" + string i)
-                        $"({args}) => {getCode c}"
+                        $"({args}) => {getCode boundElements c}"
                     | ClientParam i -> 
                         "_" + string i
 
@@ -327,7 +330,7 @@ module Content =
                     match a with
                     | ClientInitialize (i, c) ->
                         let v = "o" + string ii
-                        scriptsTw.WriteLine($"""let {v} = {getCode c};""")
+                        scriptsTw.WriteLine($"""let {v} = {getCode Set.empty c};""")
                         scriptsTw.WriteLine($"""{v}.$preinit("{i}");""")
                     | _ -> ()
 
@@ -340,7 +343,7 @@ module Content =
                     | ClientRequire _ ->
                         ()
                     | _ ->
-                        scriptsTw.Write(getCode a)
+                        scriptsTw.Write(getCode Set.empty a)
                         scriptsTw.WriteLine(";")
 
                 for ii, a in toActivate do
