@@ -74,6 +74,43 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass2().Message, "Hi from subclass!");
         }
 
+        private class ReverseIntComparer : IComparer<int>
+        {
+            public int Compare(int x, int y) => y.CompareTo(x);
+        }
+
+        [Test]
+        public void MemoryExtensionsMinMax()
+        {
+            int[] values = [3, 1, 4, 2];
+            Equal(MemoryExtensions.Max<int>(values), 4);
+            Equal(MemoryExtensions.Min<int>(values), 1);
+            Equal(MemoryExtensions.Max<int>(values, new ReverseIntComparer()), 1);
+            Equal(MemoryExtensions.Min<int>(values, new ReverseIntComparer()), 4);
+            Equal(MemoryExtensions.Max<int>(values, null), 4);
+            Equal(MemoryExtensions.Min<int>(values, null), 1);
+            Raises(() => MemoryExtensions.Max<int>(Array.Empty<int>()));
+            Raises(() => MemoryExtensions.Min<int>(Array.Empty<int>()));
+
+            int?[] nullable = [null, 3, null, 1];
+            Equal(MemoryExtensions.Max<int?>(nullable), 3);
+            Equal(MemoryExtensions.Min<int?>(nullable), 1);
+            Equal(MemoryExtensions.Max<int?>(Array.Empty<int?>()), null);
+            Equal(MemoryExtensions.Min<int?>(Array.Empty<int?>()), null);
+            Equal(MemoryExtensions.Max<int?>(new int?[] { null, null }), null);
+            Equal(MemoryExtensions.Min<int?>(new int?[] { null, null }), null);
+
+            string[] strings = [null, "a", "c", "b"];
+            Equal(MemoryExtensions.Max<string>(strings), "c");
+            Equal(MemoryExtensions.Min<string>(strings), "a");
+            Equal(MemoryExtensions.Max<string>(Array.Empty<string>()), null);
+            Equal(MemoryExtensions.Min<string>(Array.Empty<string>()), null);
+
+            double[] doubles = [double.NaN, 3, 1];
+            Equal(MemoryExtensions.Max<double>(doubles), 3);
+            IsTrue(double.IsNaN(MemoryExtensions.Min<double>(doubles)));
+        }
+
         // look in compiled code that `f` is on top level
         public void LocalFunctionStrictMode()
         {

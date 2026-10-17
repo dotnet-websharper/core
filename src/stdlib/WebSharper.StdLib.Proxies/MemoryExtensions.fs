@@ -32,6 +32,45 @@ open System.Runtime.InteropServices
 [<JavaScript>]
 type private MemoryExtensionsProxy =
 
+    static member private MinMax<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>, isMax: bool) : 'T =
+        let values = As<'T[]> span
+        let comparer = if isNull comparer then Comparer<'T>.Default :> IComparer<'T> else comparer
+        let mutable value = Unchecked.defaultof<'T>
+        let mutable i = 0
+        if As<obj> value ===. null then
+            while i < values.Length && As<obj> value ===. null do
+                value <- values.[i]
+                i <- i + 1
+        else
+            if values.Length = 0 then
+                raise (InvalidOperationException("Sequence contains no elements"))
+            value <- values.[0]
+            i <- 1
+        while i < values.Length do
+            let next = values.[i]
+            if As<obj> next !==. null then
+                let comparison = comparer.Compare(next, value)
+                if (if isMax then comparison > 0 else comparison < 0) then
+                    value <- next
+            i <- i + 1
+        value
+
+    [<Inline>]
+    static member Max<'T>(span: ReadOnlySpanProxy<'T>) : 'T =
+        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, true)
+
+    [<Inline>]
+    static member Max<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>) : 'T =
+        MemoryExtensionsProxy.MinMax(span, comparer, true)
+
+    [<Inline>]
+    static member Min<'T>(span: ReadOnlySpanProxy<'T>) : 'T =
+        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, false)
+
+    [<Inline>]
+    static member Min<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>) : 'T =
+        MemoryExtensionsProxy.MinMax(span, comparer, false)
+
     [<Inline>]
     static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T) =
         Enumerable.Contains(As<'T[]>span, value)
