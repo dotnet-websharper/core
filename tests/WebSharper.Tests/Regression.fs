@@ -364,6 +364,28 @@ module TupledArgOpt =
         member this.G f = g2 this f
        
 [<JavaScript>]
+module FunctionTypeAliases =
+    type Concrete = int -> int
+    type Single<'T> = 'T -> 'T
+    type SingleAlias<'T> = Single<'T>
+    type Mapper<'T, 'U> = 'T -> 'U
+    type Pair<'T> = 'T * 'T
+    type ConcretePair = int * int
+    type Triple<'T> = 'T * 'T * 'T
+    type Tupled<'T> = Pair<'T> -> 'T
+    type Curried<'T> = 'T -> Single<'T>
+    type CurriedAlias<'T> = Curried<'T>
+
+    let concrete (f: Concrete) x = f x
+    let single (f: SingleAlias<int>) x = f x
+    let mapper (f: Mapper<int, string>) x = f x
+    let curried (f: CurriedAlias<int>) x y = f x y
+    let returnedAlias (f: int -> Single<int>) x y = f x y
+    let tupled (f: Tupled<int>) pair = f pair
+    let concreteTuple (f: ConcretePair -> int) pair = f pair
+    let triple (f: Triple<int> -> int) values = f values
+
+[<JavaScript>]
 module Bug906 =
     // bug #906, this was throwing a compile-time error 'not a named type'
     type Alias<'T> = 'T
@@ -1205,5 +1227,22 @@ let Tests =
             let a, b = Test ()()
             equal (a()) 2
             equal (b()) 5
+        }
+
+        Test "Function type aliases" {
+            equal (FunctionTypeAliases.concrete (fun x -> x + 1) 41) 42
+            equal (FunctionTypeAliases.single (fun x -> x + 1) 41) 42
+            equal (FunctionTypeAliases.mapper string 42) "42"
+        }
+
+        Test "Curried function type aliases" {
+            equal (FunctionTypeAliases.curried (fun x y -> x + y) 19 23) 42
+            equal (FunctionTypeAliases.returnedAlias (fun x y -> x + y) 19 23) 42
+        }
+
+        Test "Tupled function type aliases" {
+            equal (FunctionTypeAliases.tupled (fun (x, y) -> x + y) (19, 23)) 42
+            equal (FunctionTypeAliases.concreteTuple (fun (x, y) -> x + y) (19, 23)) 42
+            equal (FunctionTypeAliases.triple (fun (x, y, z) -> x + y + z) (10, 11, 21)) 42
         }
     }

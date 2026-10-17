@@ -182,6 +182,7 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
 
 let private getProxyTargetMembers (sr: CodeReader.SymbolReader) (lookupTypeDefinition: TypeDefinition -> FSharpEntity option) (typ: TypeDefinition) =
     let rec getPublicMembers includeConstructors (typ: FSharpEntity) =
+        let typ = CodeReader.getOrigDef typ
         seq {
             for m in typ.TryGetMembersFunctionsAndValues() do
                 if m.Accessibility.IsPublic && (includeConstructors || m.CompiledName <> ".ctor") then
@@ -204,13 +205,17 @@ let private getProxyTargetMembers (sr: CodeReader.SymbolReader) (lookupTypeDefin
     |> Option.map (fun typ ->
         Seq.append (getPublicMembers true typ) (getInterfaceMembers typ)
         |> Seq.choose (fun m ->
-            try Some (sr.ReadMember m)
+            try Some (m, sr.ReadMember m)
             with _ -> None
         )
-        |> Seq.collect (fun m ->
-            match m with
-            | Member.Override (_, me) -> [ Member.Method (true, me); m ]
-            | _ -> [ m ]
+        |> Seq.collect (fun (symbol, mem) ->
+            match mem with
+            | Member.Override (_, me) -> [ Member.Method (true, me); mem ]
+            | Member.Method (true, me) when symbol.IsDispatchSlot ->
+                // FCS exposes virtual .NET members as methods, while F# overrides carry the slot's type.
+                let declaringType = sr.ReadTypeDefinition (CodeReader.getDeclaringEntity symbol)
+                [ mem; Member.Override (declaringType, me) ]
+            | _ -> [ mem ]
         )
         |> HashSet
     )

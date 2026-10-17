@@ -1491,6 +1491,32 @@ type StringInterpolationBase() =
         match c.Arguments with
         | [I.Value (Literal.String fs)] ->
             this.Process([fs], [])
+        | [I.Call (None, ops, toString, [value])] when
+            ops.Entity.Value.FullName = "Microsoft.FSharp.Core.Operators"
+            && toString.Entity.Value.MethodName = "ToString" ->
+                this.Process([""; ""], [value])
+        | [I.Call (None, str, concat, args)] when
+            str.Entity.Value.FullName = "System.String"
+            && concat.Entity.Value.MethodName = "Concat" ->
+                // Newer F# compilers lower simple interpolations to string concatenation.
+                let args =
+                    match args with
+                    | [I.NewArray args] -> args
+                    | _ -> args
+                let parts, holes, lastPart =
+                    (([], [], ""), args) ||> List.fold (fun (parts, holes, part) arg ->
+                        match arg with
+                        | I.Value (Literal.String s) -> parts, holes, part + s
+                        | _ ->
+                            let hole =
+                                match arg with
+                                | I.Call (None, ops, toString, [value]) when
+                                    ops.Entity.Value.FullName = "Microsoft.FSharp.Core.Operators"
+                                    && toString.Entity.Value.MethodName = "ToString" -> value
+                                | _ -> arg
+                            part :: parts, hole :: holes, ""
+                    )
+                this.Process(List.rev (lastPart :: parts), List.rev holes)
         | [I.Call (None, etlo, pfts, [ I.Ctor (pf, _, pfArgs) ])] when 
             etlo.Entity.Value.FullName = "Microsoft.FSharp.Core.ExtraTopLevelOperators"
             && pfts.Entity.Value.MethodName = "PrintFormatToString" 

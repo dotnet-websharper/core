@@ -90,8 +90,10 @@ let isByRef (t: FSharpType) =
 
 let getFuncArg t =
     let rec get acc (t: FSharpType) =
+        // FCS type predicates look through aliases, but GenericArguments belongs to the alias.
+        let t = getOrigType t
         if t.IsFunctionType then
-            let a = t.GenericArguments.[0] 
+            let a = getOrigType t.GenericArguments.[0]
             let r = t.GenericArguments.[1] 
             let i = if a.IsTupleType then a.GenericArguments.Count else 1
             get (i :: acc) r 
@@ -843,9 +845,21 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 //        | _ -> failwith "Extension method call expecting at least one argument"
                 //    else
                 //        this, arguments
+                let preserveStringFill (a: FSharpExpr) =
+                    match a with
+                    | P.Const (:? string, _) when a.Range <> expr.Range ->
+                        // Keep literal fills distinct from interpolation fragments through inlining.
+                        let typ = sr.ReadType env.TParams a.Type
+                        Coerce(tr a, typ, typ)
+                    | _ -> tr a
                 let args = 
                     arguments |> List.map (fun a ->
-                        let ta = tr a
+                        let ta =
+                            if td.Value.FullName = "System.String" && meth.CompiledName = "Concat" then
+                                match a with
+                                | P.NewArray (_, items) -> NewArray (List.map preserveStringFill items)
+                                | _ -> preserveStringFill a
+                            else tr a
                         if isByRef a.Type then
                             match IgnoreExprSourcePos ta with
                             | Application(ItemGet (r, Value (String "get"), _), [], _) -> r

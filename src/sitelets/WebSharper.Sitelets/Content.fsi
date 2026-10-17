@@ -234,7 +234,7 @@ open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 open System.Threading.Tasks
 
-[<CompiledName "Content"; Struct; NoEquality; NoComparison>]
+[<CompiledName "Content"; Struct; NoEquality; NoComparison; Extension>]
 type CSharpContent =
 
     val private c: Content<obj>

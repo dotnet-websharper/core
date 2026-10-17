@@ -763,6 +763,13 @@ let Tests =
             equal (JS.Verbatim $"1 + { 1 + 1 }") 3
             let x = 2
             equal (JS.Verbatim $"{x} * {x}") 4
+            let getValue () = 3
+            equal (JS.Verbatim $"{getValue()} + {getValue()} + {getValue()}") 9
+            equal (JS.Verbatim $"{getValue()}") 3
+            let value = box 4
+            equal (JS.Verbatim $"{value} + 1") 5
+            equal (JS.Verbatim $"{value}") 4
+            equal (JS.Verbatim $"""({ "hello" }).length""") 5
         }
 
         Test "Type and function name escaping" {
