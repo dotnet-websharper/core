@@ -307,6 +307,8 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
     let sysLib x =
         Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), x + ".dll") 
     [|  yield "--simpleresolution" 
+        yield "--targetprofile:netcore"
+        yield "-r:" + typeof<list<int>>.Assembly.Location
 //        yield "--noframework" 
         yield "--debug:full" 
         yield "--define:DEBUG" 
@@ -317,6 +319,7 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
         yield "--fullpaths" 
         yield "--flaterrors" 
         yield "--target:library" 
+        yield "--langversion:preview"
         for x in fileNames do 
             yield x
 //        let references =

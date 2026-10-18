@@ -290,6 +290,24 @@ type OptionalValueArg([<Struct>] ?a) =
     member _.B = b
 
 [<JavaScript>]
+module RecordFeatures =
+    type Values<'T> =
+        { [<Name "value">] Value: 'T
+          mutable Count: int }
+
+    type Label = { Label: string }
+
+    type Combined<'T> =
+        { ...Values<'T>
+          ...Label
+          Enabled: bool }
+
+    type Overridden = { ...Values<int>; Value: string }
+
+    [<Struct>]
+    type StructValues<'T> = { ...Values<'T> }
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 
@@ -663,6 +681,86 @@ let Tests =
             equal {| A = 1; B = None; C = Some 3 |} (New ["A" => 1; "C" => 3])
             let s = struct {| A = 5 |}
             equal s.A 5
+        }
+
+        Test "Record type spreads" {
+            let r: RecordFeatures.Combined<string> =
+                { Value = "hello"; Count = 2; Label = "label"; Enabled = true }
+            equal (r.Value, r.Count, r.Label, r.Enabled) ("hello", 2, "label", true)
+            r.Count <- 3
+            equal r.Count 3
+            equal r?value "hello"
+
+            let overridden: RecordFeatures.Overridden = { Count = 4; Value = "text" }
+            equal (overridden.Count, overridden.Value) (4, "text")
+        }
+
+        Test "Nominal record expression spreads" {
+            let source: RecordFeatures.Values<int> = { Value = 42; Count = 2 }
+            let label: RecordFeatures.Label = { Label = "label" }
+            let combined: RecordFeatures.Combined<int> =
+                { ...source; ...label; Count = 3; Enabled = true }
+            equal (combined.Value, combined.Count, combined.Label, combined.Enabled)
+                (42, 3, "label", true)
+            combined.Count <- 4
+            equal source.Count 2
+
+            let fromAnonymous: RecordFeatures.Values<int> =
+                { ...{| Value = 43; Count = 5 |} }
+            equal (fromAnonymous.Value, fromAnonymous.Count) (43, 5)
+        }
+
+        Test "Anonymous record expression spreads" {
+            let source: RecordFeatures.Values<int> = { Value = 42; Count = 2 }
+            let anonymous = {| ...source; Label = "label" |}
+            equal anonymous {| Value = 42; Count = 2; Label = "label" |}
+            let merged = {| ...anonymous; ...{| Count = 3; Enabled = true |}; Value = "text" |}
+            equal merged {| Value = "text"; Count = 3; Label = "label"; Enabled = true |}
+        }
+
+        Test "Record spreads evaluate sources once in order" {
+            let calls = ref []
+            let source n =
+                calls.Value <- calls.Value @ [n]
+                {| A = n; B = n * 10 |}
+            let r = {| ...source 1; ...source 2; B = 30 |}
+            equal r {| A = 2; B = 30 |}
+            equal calls.Value [1; 2]
+        }
+
+        Test "Record spreads with nested updates" {
+            let source = {| Nested = {| A = 1; B = 2 |}; Other = 3 |}
+            let updated = {| ...source; Nested.A = 4 |}
+            equal updated {| Nested = {| A = 4; B = 2 |}; Other = 3 |}
+            equal source.Nested.A 1
+        }
+
+        Test "Record all-fields constructor" {
+            let positional = RecordFeatures.Values<int>(42, 2)
+            let expected: RecordFeatures.Values<int> = { Value = 42; Count = 2 }
+            equal positional expected
+            positional.Count <- 3
+            equal positional.Count 3
+            equal positional?value 42
+
+            let inferred = RecordFeatures.Values("hello", 4)
+            equal (inferred.Value, inferred.Count) ("hello", 4)
+        }
+
+        Test "Record all-fields constructor with named arguments" {
+            let named = RecordFeatures.Values<int>(Count = 2, Value = 42)
+            let expected: RecordFeatures.Values<int> = { Value = 42; Count = 2 }
+            equal named expected
+            let mixed = new RecordFeatures.Values<string>("hello", Count = 3)
+            equal (mixed.Value, mixed.Count) ("hello", 3)
+        }
+
+        Test "Struct record all-fields constructor" {
+            let positional = RecordFeatures.StructValues<int>(42, 2)
+            let named = RecordFeatures.StructValues<int>(Count = 2, Value = 42)
+            let expected: RecordFeatures.StructValues<int> = { Value = 42; Count = 2 }
+            equal positional expected
+            equal named expected
         }
 
         Test "Implicit yield" {

@@ -321,6 +321,31 @@ let Tests =
                 ([1; 2; 3], [-3; -2; -1; 0])
         }
 
+        Test "List.partitionWith" {
+            let visited = ref []
+            let partitioner x =
+                visited.Value <- visited.Value @ [x]
+                if x % 2 = 0 then Choice1Of2 (x * 10) else Choice2Of2 (string x)
+            equal (List.partitionWith partitioner [3; 2; 3; 4; 1])
+                ([20; 40], ["3"; "3"; "1"])
+            equal visited.Value [3; 2; 3; 4; 1]
+            equal (List.partitionWith partitioner []) ([], [])
+            equal visited.Value [3; 2; 3; 4; 1]
+            equal (List.partitionWith (fun x -> Choice1Of2 (x + 1)) [1; 2])
+                ([2; 3], List.empty<string>)
+            equal (List.partitionWith (fun x -> Choice2Of2 (string x)) [1; 2])
+                (List.empty<int>, ["1"; "2"])
+        }
+
+        Test "List.partitionWith active pattern" {
+            let (|Parsed|Invalid|) (s: string) =
+                match System.Int32.TryParse s with
+                | true, n -> Parsed n
+                | _ -> Invalid s
+            equal (List.partitionWith (|Parsed|Invalid|) ["42"; "hello"; "7"; "oops"; "99"])
+                ([42; 7; 99], ["hello"; "oops"])
+        }
+
         Test "List.permute" {
             equal (List.permute (fun x -> (x + 3) % 5) [1..5]) [3; 4; 5; 1; 2]
         }

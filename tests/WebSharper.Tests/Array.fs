@@ -395,6 +395,42 @@ let Tests =
             })
         }
 
+        Test "Array.partitionWith" {
+            let input = [| 3; 2; 3; 4; 1 |]
+            let visited = ref []
+            let partitioner x =
+                visited.Value <- visited.Value @ [x]
+                if x % 2 = 0 then Choice1Of2 (x * 10) else Choice2Of2 (string x)
+            let numbers, strings = Array.partitionWith partitioner input
+            equal numbers [| 20; 40 |]
+            equal strings [| "3"; "3"; "1" |]
+            equal visited.Value [3; 2; 3; 4; 1]
+            equal input [| 3; 2; 3; 4; 1 |]
+
+            equal (Array.partitionWith partitioner [||]) ([||], [||])
+            equal visited.Value [3; 2; 3; 4; 1]
+            equal (Array.partitionWith (fun x -> Choice1Of2 (x + 1)) [| 1; 2 |])
+                ([| 2; 3 |], Array.empty<string>)
+            equal (Array.partitionWith (fun x -> Choice2Of2 (string x)) [| 1; 2 |])
+                (Array.empty<int>, [| "1"; "2" |])
+            raises (Array.partitionWith partitioner null)
+        }
+
+        Test "Array.Parallel.partitionWith" {
+            let partitioner x =
+                if x % 2 = 0 then Choice1Of2 (x * 10) else Choice2Of2 (string x)
+            let input = [| 3; 2; 3; 4; 1 |]
+            equal (Array.Parallel.partitionWith partitioner input)
+                ([| 20; 40 |], [| "3"; "3"; "1" |])
+            equal input [| 3; 2; 3; 4; 1 |]
+            equal (Array.Parallel.partitionWith partitioner [||]) ([||], [||])
+            equal (Array.Parallel.partitionWith partitioner [| 2; 4 |])
+                ([| 20; 40 |], Array.empty<string>)
+            equal (Array.Parallel.partitionWith partitioner [| 3; 1 |])
+                (Array.empty<int>, [| "3"; "1" |])
+            raises (Array.Parallel.partitionWith partitioner null)
+        }
+
         Test "Array.permute" {
             equal (Array.permute (fun x -> (x + 3) % 5) [| 1 ; 2; 3 ; 4; 5 |])
                 [| 3; 4; 5; 1; 2 |]

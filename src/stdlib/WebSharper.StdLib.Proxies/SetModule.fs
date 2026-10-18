@@ -116,6 +116,10 @@ module internal SetModule =
         let (x, y) = Array.partition f (Seq.toArray a)
         (Set.ofArray x, Set.ofArray y)
 
+    let PartitionWith partitioner (a: Set<_>) =
+        let (x, y) = Array.partitionWith partitioner (Seq.toArray a)
+        (Set.ofArray x, Set.ofArray y)
+
     [<Inline>]
     let Remove v (a: Set<_>) = a.Remove v
 

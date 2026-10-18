@@ -614,6 +614,13 @@ module Bug1455 =
         v.Get()    
 
 [<JavaScript>]
+module ExtensionWitnessRegression =
+    open Operators.ExtensionOperators
+
+    [<Inline>]
+    let repeat n = multiply "ha" n
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1244,5 +1251,20 @@ let Tests =
             equal (FunctionTypeAliases.tupled (fun (x, y) -> x + y) (19, 23)) 42
             equal (FunctionTypeAliases.concreteTuple (fun (x, y) -> x + y) (19, 23)) 42
             equal (FunctionTypeAliases.triple (fun (x, y, z) -> x + y + z) (10, 11, 21)) 42
+        }
+
+        Test "Record spreads from mutable struct records" {
+            let source: Basis.RecordFeatures.Values<int> = { Value = 42; Count = 2 }
+            let structRecord: Basis.RecordFeatures.StructValues<int> = { ...source }
+            equal (structRecord.Value, structRecord.Count) (42, 2)
+            let anonymous = struct {| ...structRecord; Label = "label" |}
+            equal anonymous (struct {| Value = 42; Count = 2; Label = "label" |})
+            let reference = {| ...anonymous |}
+            equal reference {| Value = 42; Count = 2; Label = "label" |}
+        }
+
+        Test "Extension operator witnesses through WebSharper inline calls" {
+            equal (ExtensionWitnessRegression.repeat 3) "hahaha"
+            equal (ExtensionWitnessRegression.repeat 0) ""
         }
     }

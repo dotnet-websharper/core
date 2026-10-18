@@ -366,6 +366,22 @@ let Partition f (arr: 'T []) : 'T [] * 'T [] =
             push ret2 arr.JS.[i]
     (ret1, ret2)
 
+[<Name "partitionWith">]
+let PartitionWith (partitioner: 'T -> Choice<'T1, 'T2>) (arr: 'T []) : 'T1 [] * 'T2 [] =
+    if isNull arr then raise (System.ArgumentNullException "array")
+    let ret1 : 'T1 [] = [||]
+    let ret2 : 'T2 [] = [||]
+    for i = 0 to Array.length arr - 1 do
+        match partitioner arr.JS.[i] with
+        | Choice1Of2 x -> push ret1 x
+        | Choice2Of2 x -> push ret2 x
+    (ret1, ret2)
+
+[<Proxy "Microsoft.FSharp.Collections.ArrayModule+Parallel, FSharp.Core">]
+module private Parallel =
+    [<Inline>]
+    let PartitionWith partitioner array = Array.partitionWith partitioner array
+
 [<Name "permute">]
 let Permute f (arr: 'T []) =
     let ret = JavaScript.Array(Array.length arr)

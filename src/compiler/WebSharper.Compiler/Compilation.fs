@@ -61,6 +61,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let webControls = Dictionary()
     let quotedMethods = Dictionary()
     let bundleExports = HashSet()
+    // Resolved F# extension witnesses belong to the call site, rather than the generic callee.
+    let callWitnesses = Dictionary<SourcePos * TypeDefinition * string, list<Method * Expression>>()
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -1228,6 +1230,14 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.CompilingConstructors = compilingConstructors
 
     member this.CompilingMethods = compilingMethods  
+
+    member this.AddCallWitnesses(pos, typ, meth: Method, witnesses) =
+        callWitnesses.[(pos, typ, meth.Value.MethodName)] <- witnesses
+
+    member this.GetCallWitnesses(pos, typ, meth: Method) =
+        match callWitnesses.TryGetValue((pos, typ, meth.Value.MethodName)) with
+        | true, witnesses -> witnesses
+        | _ -> []
 
     member this.AddCompiledMethod(typ, meth, info, opts, comp) =
         let typ = this.FindProxied typ 

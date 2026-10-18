@@ -428,6 +428,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable currentFuncArgs = None
     let mutable currentJsOpts = JavaScriptOptions.None
     let mutable currentGenerics = [||] : M.GenericParam[]
+    let mutable currentCallWitnesses : list<Method * Expression> = []
     let labelCctors = Dictionary()
     let boundVars = Dictionary()
 
@@ -1177,6 +1178,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
+        let previousWitnesses = currentCallWitnesses
+        let witnesses =
+            this.CurrentSourcePos
+            |> Option.map (fun pos -> comp.GetCallWitnesses(pos, typ.Entity, meth.Entity))
+            |> Option.defaultValue []
+        currentCallWitnesses <- witnesses @ previousWitnesses
+        try
+            this.TransformCallWithWitnesses(thisObj, typ, meth, args)
+        finally
+            currentCallWitnesses <- previousWitnesses
+
+    member private this.TransformCallWithWitnesses (thisObj, typ, meth, args) =
         if typ.Entity = Definitions.Dynamic then
             match meth.Entity.Value.MethodName with
             | BinaryOpName op ->
@@ -1229,6 +1242,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
 
     override this.TransformTraitCall(thisObj, typs, meth, args) =
+        let witness =
+            if thisObj.IsSome then None else
+            currentCallWitnesses |> List.tryPick (fun (signature, witness) ->
+                if signature = meth.Entity then Some witness else None
+            )
+        match witness with
+        | Some witness ->
+            this.TransformExpression(CurriedApplication(witness, args |> List.map (fun arg -> false, arg)))
+        | None ->
         let mutable err = None
         let delay e =
             if currentIsInline then
