@@ -85,6 +85,78 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void Chunk()
+        {
+            Equal(arr.Chunk(2).ToArray(), new[] { new[] { 1, 2 }, new[] { 3, 4 }, new[] { 5, 6 } });
+            Equal(arr.Chunk(4).ToArray(), new[] { new[] { 1, 2, 3, 4 }, new[] { 5, 6 } });
+            Equal(arr.Chunk(int.MaxValue).ToArray(), new[] { arr });
+            Equal(new[] { 7 }.Chunk(1).ToArray(), new[] { new[] { 7 } });
+            Equal(empty.Chunk(3).Count(), 0);
+            var chunks = arr.Chunk(2).ToArray();
+            chunks[0][0] = 99;
+            Equal(chunks[1], new[] { 3, 4 }, "chunks have independent storage");
+            Equal(arr[0], 1, "chunk mutation preserves the source");
+            Raises(() => Enumerable.Chunk((IEnumerable<int>)null, 1), "null source checked immediately");
+            Raises(() => arr.Chunk(0), "zero size checked immediately");
+            Raises(() => empty.Chunk(-1), "negative size checked even on empty source");
+        }
+
+        [Test]
+        public void ChunkEnumeration()
+        {
+            var visited = 0;
+            var disposed = 0;
+            var chunks = new ChunkSequence(() => visited++, () => disposed++).Chunk(2);
+            Equal(visited, 0, "enumeration is deferred");
+            using (var e = chunks.GetEnumerator())
+            {
+                IsTrue(e.MoveNext());
+                Equal(e.Current, new[] { 1, 2 });
+                Equal(visited, 2, "only consume the current chunk");
+            }
+            Equal(disposed, 1, "dispose the source on early exit");
+            Equal(chunks.ToArray(), new[] { new[] { 1, 2 }, new[] { 3, 4 }, new[] { 5 } });
+            Equal(disposed, 2, "each enumeration owns its source enumerator");
+        }
+
+        private class ChunkSequence : IEnumerable<int>
+        {
+            private readonly Action visited;
+            private readonly Action disposed;
+            public ChunkSequence(Action visited, Action disposed)
+            {
+                this.visited = visited;
+                this.disposed = disposed;
+            }
+            public IEnumerator<int> GetEnumerator() => new ChunkEnumerator(visited, disposed);
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private class ChunkEnumerator : IEnumerator<int>
+        {
+            private readonly Action visited;
+            private readonly Action disposed;
+            private int current;
+            public ChunkEnumerator(Action visited, Action disposed)
+            {
+                this.visited = visited;
+                this.disposed = disposed;
+                current = 0;
+            }
+            public int Current => current;
+            object System.Collections.IEnumerator.Current => Current;
+            public bool MoveNext()
+            {
+                if (current == 5) return false;
+                current++;
+                visited();
+                return true;
+            }
+            public void Dispose() => disposed();
+            public void Reset() => throw new NotSupportedException();
+        }
+
+        [Test]
         public void Contains()
         {
             var x = new int[] { 1, 2, 3, 10 };

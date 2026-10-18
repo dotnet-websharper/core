@@ -168,6 +168,12 @@ type private LinqMacro() =
 type private LinqProxy =
 
     [<Inline>]
+    static member Chunk<'T>(source: seq<'T>, size: int) : seq<'T[]> =
+        if isNull source then raise (ArgumentNullException("source"))
+        if size < 1 then raise (ArgumentOutOfRangeException("size"))
+        Seq.chunkBySize size source
+
+    [<Inline>]
     static member Aggregate<'T>(this: seq<'T>, func: Func<'T, 'T, 'T>) : 'T =
         Seq.reduce (fun x y -> func.Invoke(x, y)) this
 

@@ -490,13 +490,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let implicitImplementations = System.Collections.Generic.Dictionary()
     if annot.IsJavaScript then
-        for intf in cls.Interfaces do
+        let interfaces =
+            cls.Interfaces |> Seq.collect (fun intf -> Seq.append (Seq.singleton intf) intf.AllInterfaces) |> Seq.distinct
+        for intf in interfaces do
             for meth in intf.GetMembers().OfType<IMethodSymbol>() do
                 let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
                 if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
                     Dict.addToMulti implicitImplementations impl (intf, meth)
 
     let thisType = Generic def (List.init cls.TypeParameters.Length TypeParameter)
+    let unionDeclaration =
+        cls.DeclaringSyntaxReferences |> Seq.exists (fun r -> r.GetSyntax() :? UnionDeclarationSyntax)
+    let unionBackingField() =
+        members.OfType<IFieldSymbol>() |> Seq.find (fun f ->
+            match f.AssociatedSymbol with
+            | :? IPropertySymbol as p -> p.Name = "Value"
+            | _ -> false)
 
     for mem in members do
         match mem with
@@ -545,6 +554,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     //let data =
                     //    pSyntax |> RoslynHelpers.ParameterData.FromNode
                     () 
+                | :? UnionDeclarationSyntax when p.IsImplicitlyDeclared -> ()
                 | _ -> failwithf "Unexpected property declaration kind: %s" (System.Enum.GetName(typeof<SyntaxKind>, syntax.Kind))
             | _ -> ()
         | :? IFieldSymbol as f -> 
@@ -808,6 +818,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> RoslynHelpers.ConversionOperatorDeclarationData.FromNode 
                             |> (cs thisVar model).TransformConversionOperatorDeclaration
                             |> fixMethod
+                        | :? UnionDeclarationSyntax when meth.IsImplicitlyDeclared && meth.MethodKind = MethodKind.PropertyGet ->
+                            makeInline <- true
+                            {
+                                IsStatic = false
+                                Parameters = []
+                                This = Some thisVar
+                                Body = Return(FieldGet(Some (Var thisVar), thisType, (unionBackingField()).Name))
+                                IsAsync = false
+                                ReturnType = sr.ReadType meth.ReturnType
+                            } : CodeReader.CSharpMethod
                         | :? RecordDeclarationSyntax
                         | :? ClassDeclarationSyntax when Option.isSome recordInfo ->
                             let ri = recordInfo |> Option.get
@@ -1083,6 +1103,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | MethodKind.Constructor
                     | MethodKind.StaticConstructor ->
                         // implicit constructor
+                        if unionDeclaration && meth.MethodKind = MethodKind.Constructor then
+                            let parameters = sr.ReadParameters meth
+                            let value =
+                                match parameters with
+                                | [ p ] -> Var p.ParameterId
+                                | [] -> Value Null
+                                | _ -> failwith "Unexpected generated union constructor"
+                            {
+                                IsStatic = false
+                                Parameters = parameters
+                                This = Some thisVar
+                                Body = ExprStatement(FieldSet(Some (Var thisVar), thisType, (unionBackingField()).Name, value))
+                                IsAsync = false
+                                ReturnType = Unchecked.defaultof<Type>
+                            } : CodeReader.CSharpMethod
+                        else
                         match recordInfo with
                         | Some ri ->
                             let o = CodeReader.CSharpParameter.New ("o", thisTyp)

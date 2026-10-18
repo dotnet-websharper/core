@@ -23,6 +23,7 @@ module internal WebSharper.Compiler.CSharp.CodeReader
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax      
+open Microsoft.CodeAnalysis.Operations
 
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -214,6 +215,19 @@ let setterOf (getter : Concrete<Method>) =
     }        
 
 let dynTyp = ConcreteType (NonGeneric Definitions.Dynamic)     
+
+let tryGetUnionValueProperty (typ: ITypeSymbol) =
+    let typ, nullable =
+        match typ with
+        | :? INamedTypeSymbol as nt when nt.OriginalDefinition.SpecialType = SpecialType.System_Nullable_T ->
+            nt.TypeArguments[0], true
+        | _ -> typ, not (isNull typ) && typ.IsReferenceType
+    match typ with
+    | :? INamedTypeSymbol as nt when
+        nt.DeclaringSyntaxReferences |> Seq.exists (fun r -> r.GetSyntax() :? UnionDeclarationSyntax)
+        || nt.GetAttributes() |> Seq.exists (fun a -> a.AttributeClass.ToDisplayString() = "System.Runtime.CompilerServices.UnionAttribute") ->
+        nt.GetMembers("Value").OfType<IPropertySymbol>() |> Seq.tryHead |> Option.map (fun p -> p, nullable)
+    | _ -> None
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     let getTypeFullName (t: ITypeSymbol) =
@@ -493,6 +507,7 @@ type Environment =
         This : option<Id>
         Parameters : IDictionary<IParameterSymbol, Id * bool>
         Labels : IDictionary<ILabelSymbol, Id>
+        JumpLabels : IDictionary<ILabelSymbol, Id * Id>
         LocalFunctions : IDictionary<IMethodSymbol, Id>
         Caught : option<Id>
         Conditional : option<Id>
@@ -509,6 +524,7 @@ type Environment =
             This = thisVar
             Parameters = Dictionary()
             Labels = Dictionary()
+            JumpLabels = Dictionary()
             LocalFunctions = Dictionary()
             Caught = None
             Conditional = None
@@ -534,6 +550,14 @@ type Environment =
             let id = Id.New(symbol.Name, mut = false)           
             this.LocalFunctions.Add(symbol, id)
             id
+
+    member this.GetJumpLabels(symbol: ILabelSymbol) =
+        match this.JumpLabels.TryGetValue(symbol) with
+        | true, labels -> labels
+        | _ ->
+            let labels = Id.New(symbol.Name + "$break"), Id.New(symbol.Name + "$continue")
+            this.JumpLabels.Add(symbol, labels)
+            labels
 
     member this.WithCaught(c) =
         { this with Caught = Some c }
@@ -793,8 +817,11 @@ type RoslynTransformer(env: Environment) =
             | symbol -> symbol
         let eSymbol = getExtensionOrigSymbol symbol
         let typ = sr.ReadNamedType eSymbol.ContainingType
+        let typeArguments =
+            if isNull symbol.AssociatedExtensionImplementation then symbol.TypeArguments
+            else eSymbol.TypeArguments
         let ma = 
-            (symbol.TypeArguments, eSymbol.TypeParameters) 
+            (typeArguments, eSymbol.TypeParameters)
             ||> Seq.map2 (fun a p -> if a.Equals p then dynTyp else sr.ReadType a) 
             |> List.ofSeq
         let meth = Generic (sr.ReadMethod eSymbol) ma
@@ -802,7 +829,10 @@ type RoslynTransformer(env: Environment) =
 
     let call (symbol: IMethodSymbol) thisOpt args =
         let typ, meth = getTypeAndMethod symbol
-        Call(thisOpt, typ, meth, args)
+        if symbol <> getExtensionOrigSymbol symbol && not symbol.IsStatic then
+            Call(None, typ, meth, Option.toList thisOpt @ args)
+        else
+            Call(thisOpt, typ, meth, args)
 
     let trLocalId (s: ILocalSymbol) = 
         Id.New(s.Name, not s.IsConst, typ = sr.ReadType(s.Type))
@@ -922,6 +952,13 @@ type RoslynTransformer(env: Environment) =
                 let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
                 let meth = Generic (sr.ReadMethod symbol) ma
                 Call(None, typ, meth, [ expr ])
+            elif conversion.IsUnion then
+                let symbol = conversion.MethodSymbol
+                let typ = sr.ReadNamedType symbol.ContainingType
+                if symbol.MethodKind = MethodKind.Constructor then
+                    Ctor(typ, sr.ReadConstructor symbol, [ expr ])
+                else
+                    call symbol None [ expr ]
             elif conversion.IsNumeric then
                 let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
                 let fromTyp = typInfo.Type :?> INamedTypeSymbol |> sr.ReadNamedTypeDefinition
@@ -1008,6 +1045,36 @@ type RoslynTransformer(env: Environment) =
         |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         |> withExprSourcePos x.Node
 
+    member this.TransformBoundArgumentValue (value: IOperation) : Expression =
+        if value.IsImplicit && value.ConstantValue.HasValue then
+            ReadLiteral value.ConstantValue.Value |> Value
+        else
+            match value with
+            | :? IArrayCreationOperation as array when value.IsImplicit ->
+                array.Initializer.ElementValues |> Seq.map this.TransformBoundArgumentValue |> List.ofSeq |> NewArray
+            | :? IConversionOperation as conversion when value.IsImplicit && not (value.Syntax :? ExpressionSyntax) ->
+                this.TransformBoundArgumentValue conversion.Operand
+            | _ ->
+                match value.Syntax with
+                | :? ExpressionSyntax as expression -> this.TransformExpression (ExpressionData.FromNode expression)
+                | _ -> failwithf "Unexpected bound argument: %O" value.Kind
+
+    member this.ReadIndexerTarget (node: ExpressionSyntax, expression) =
+        let operation = env.SemanticModel.GetOperation(node) :?> IPropertyReferenceOperation
+        let bindings = ResizeArray<Id * Expression>()
+        let cache expression =
+            let id = Id.New(mut = false)
+            bindings.Add(id, expression)
+            Var id
+        let target = cache expression
+        let arguments =
+            operation.Arguments |> Seq.map (fun argument ->
+                let expression = this.TransformBoundArgumentValue argument.Value
+                argument.Parameter.Ordinal, cache expression
+            ) |> Map.ofSeq
+        let arguments = operation.Property.Parameters |> Seq.map (fun p -> arguments[p.Ordinal]) |> List.ofSeq
+        List.ofSeq bindings, target, arguments
+
     member this.TransformElementAccess (node: ExpressionSyntax, expr, args) =
         // TODO : static indexer?
         let expression = 
@@ -1017,14 +1084,16 @@ type RoslynTransformer(env: Environment) =
                 match env.Initializing with
                 | Some i -> Var i
                 | None -> Var env.Conditional.Value
-        let argumentList = args |> this.TransformBracketedArgumentList
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IPropertySymbol
         // TODO: investigate that symbol is null only when it is an array
         if symbol = null then
+            let argumentList = args |> this.TransformBracketedArgumentList
             // TODO: make setter possible for 2-dim arrays
             List.fold (fun e a -> ItemGet(e, a, NoSideEffect)) expression argumentList
         else
-            call symbol.GetMethod (Some expression) argumentList
+            let bindings, target, arguments = this.ReadIndexerTarget(node, expression)
+            call symbol.GetMethod (Some target) arguments
+            |> List.foldBack (fun (v, e) body -> Let(v, e, body)) bindings
 
     member this.TransformElementAccessExpression (x: ElementAccessExpressionData) : _ =
         this.TransformElementAccess(x.Node, Some x.Expression, x.ArgumentList)
@@ -1103,7 +1172,23 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
         let label = env.GetLabelId(symbol)
         let statement = x.Statement |> this.TransformStatement
-        Labeled (label, statement)
+        if not (env.JumpLabels.ContainsKey symbol) then Labeled (label, statement) else
+        let breakLabel, continueLabel = env.GetJumpLabels symbol
+        let continueAtEnd body = Block [ body; Labeled(continueLabel, Empty) ]
+        // for and foreach introduce declarations and disposal around the actual loop.
+        let rec addContinueTarget statement =
+            match statement with
+            | StatementSourcePos(pos, s) -> StatementSourcePos(pos, addContinueTarget s)
+            | For(init, cond, incr, body) -> For(init, cond, incr, continueAtEnd body)
+            | While(cond, body) -> While(cond, continueAtEnd body)
+            | DoWhile(body, cond) -> DoWhile(continueAtEnd body, cond)
+            | Block statements ->
+                match List.rev statements with
+                | last :: rest -> Block(List.rev rest @ [ addContinueTarget last ])
+                | [] -> statement
+            | TryFinally(body, final) -> TryFinally(addContinueTarget body, final)
+            | _ -> statement
+        Block [ Labeled(label, addContinueTarget statement); Labeled(breakLabel, Empty) ]
         |> withStatementSourcePos x.Node
 
     member this.TransformEqualsValueClause (x: EqualsValueClauseData) : Expression =
@@ -1343,7 +1428,11 @@ type RoslynTransformer(env: Environment) =
         |> withStatementSourcePos x.Node
 
     member this.TransformBreakStatement (x: BreakStatementData) : Statement  =
-        Break None
+        match x.Name with
+        | Some name ->
+            let symbol = env.SemanticModel.GetSymbolInfo(name.Node).Symbol :?> ILabelSymbol
+            Goto (env.GetJumpLabels symbol |> fst)
+        | None -> Break None
         |> withStatementSourcePos x.Node
 
     member this.TransformIfStatement (x: IfStatementData) =
@@ -1383,7 +1472,32 @@ type RoslynTransformer(env: Environment) =
             else this
         match leftSymbol with
         | :? IPropertySymbol as leftSymbol ->
-            if leftSymbol.IsReadOnly then
+            if leftSymbol.IsIndexer then
+                let expression =
+                    match x.Left.Node with
+                    | :? ElementAccessExpressionSyntax as element ->
+                        this.TransformExpression (ExpressionData.FromNode element.Expression)
+                    | _ ->
+                        match env.Initializing with
+                        | Some i -> Var i
+                        | None -> Var env.Conditional.Value
+                let bindings, target, arguments = this.ReadIndexerTarget(x.Left.Node, expression)
+                let set value = call leftSymbol.SetMethod (Some target) (arguments @ [ value ])
+                let right = x.Right |> trR.TransformExpression
+                let result =
+                    match x.Kind with
+                    | AssignmentExpressionKind.SimpleAssignmentExpression -> withResultValue right set
+                    | AssignmentExpressionKind.CoalesceAssignmentExpression ->
+                        let old = Id.New(mut = false)
+                        Let(old, call leftSymbol.GetMethod (Some target) arguments,
+                            Conditional(Var old ^== Value Null, withResultValue right set, Var old))
+                    | _ ->
+                        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+                        let opTyp, operator = getTypeAndMethod symbol
+                        let left = call leftSymbol.GetMethod (Some target) arguments
+                        withResultValue (Call(None, opTyp, operator, [ left; right ])) set
+                List.foldBack (fun (v, e) body -> Let(v, e, body)) bindings result
+            elif leftSymbol.IsReadOnly then
                 // init property
                 let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
                 let right = x.Right |> trR.TransformExpression
@@ -1403,8 +1517,8 @@ type RoslynTransformer(env: Environment) =
                         let left = x.Left |> this.TransformExpression
                         // eliminate getter
                         match IgnoreExprSourcePos left with
-                        | Call (Some v, _, _, args) ->
-                            withResultValue right <| fun rv -> Call (Some v, typ, setter, args @ [rv])
+                        | Call (thisOpt, _, _, args) ->
+                            withResultValue right <| fun rv -> Call (thisOpt, typ, setter, args @ [rv])
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | AssignmentExpressionKind.CoalesceAssignmentExpression ->
                     let left = x.Left |> this.TransformExpression
@@ -1415,8 +1529,8 @@ type RoslynTransformer(env: Environment) =
                     else
                         // eliminate getter
                         match IgnoreExprSourcePos left with
-                        | Call (Some v, _, _, args) ->
-                            withResultValue coalesced <| fun rv -> Call (Some v, typ, setter, args @ [rv])
+                        | Call (thisOpt, _, _, args) ->
+                            withResultValue coalesced <| fun rv -> Call (thisOpt, typ, setter, args @ [rv])
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | _ ->
                     let left = x.Left |> this.TransformExpression
@@ -1430,11 +1544,19 @@ type RoslynTransformer(env: Environment) =
                         let left = x.Left |> this.TransformExpression
                         // eliminate getter
                         match IgnoreExprSourcePos left with
-                        | Call (Some v, _, getter, []) ->
-                            let m = Id.New ()
-                            let leftWithM = Call (Some (Var m), typ, getter, [])
-                            withResultValue (Call(None, opTyp, operator, [leftWithM; right])) <| fun rv ->
-                                Let (m, v, Call (Some (Var m), typ, setter, [rv])) 
+                        | Call (thisOpt, getterType, getter, args) ->
+                            let bindings = ResizeArray<Id * Expression>()
+                            let cache expression =
+                                let id = Id.New(mut = false)
+                                bindings.Add(id, expression)
+                                Var id
+                            let target = thisOpt |> Option.map cache
+                            let args = args |> List.map cache
+                            let leftWithTemps = Call(target, getterType, getter, args)
+                            let result =
+                                withResultValue (Call(None, opTyp, operator, [leftWithTemps; right])) <| fun rv ->
+                                    Call(target, typ, setter, args @ [rv])
+                            List.foldBack (fun (v, e) body -> Let(v, e, body)) (List.ofSeq bindings) result
                         | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
         | _ ->
         let left = x.Left |> this.TransformExpression
@@ -1827,8 +1949,13 @@ type RoslynTransformer(env: Environment) =
         x.Expression |> this.TransformExpression
 
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
-        let extParam = this.GetExtensionBlockParameter(meth, x.Node, true)
-        let parameterList = Option.toList extParam @ (sr.ReadParameters meth)
+        let symbol =
+            match x.Node.Parent with
+            | :? BasePropertyDeclarationSyntax as property ->
+                (env.SemanticModel.GetDeclaredSymbol(property) :?> IPropertySymbol).GetMethod
+            | _ -> meth
+        let extParam = this.GetExtensionBlockParameter(symbol, x.Node, true)
+        let parameterList = Option.toList extParam @ (sr.ReadParameters symbol)
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
         let body = x.Expression |> this.TransformExpression
@@ -2090,6 +2217,13 @@ type RoslynTransformer(env: Environment) =
         |> withStatementSourcePos x.Node
 
     member this.TransformIncrOrDecr (node : ExpressionSyntax, opNode : ExpressionSyntax, operand, isPostfix) =
+        let rec transform operand =
+            match IgnoreExprSourcePos operand with
+            | Let(v, value, body) -> Let(v, value, transform body)
+            | _ -> this.TransformIncrOrDecrValue(node, opNode, operand, isPostfix)
+        transform operand
+
+    member this.TransformIncrOrDecrValue (node : ExpressionSyntax, opNode : ExpressionSyntax, operand, isPostfix) =
         let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IMethodSymbol
         let typ, meth = getTypeAndMethod symbol
         let e = IgnoreExprSourcePos operand
@@ -2198,8 +2332,18 @@ type RoslynTransformer(env: Environment) =
         | Application(ItemGet (r, Value (String "get"), _), [], _) ->
             withResultValue true operand <| SetRef r
         | Call (thisOpt, typ, getter, args) ->
-            withResultValue true operand <| fun rv ->
-                Call (thisOpt, typ, setterOf getter, args @ [rv])
+            let bindings = ResizeArray<Id * Expression>()
+            let cache expression =
+                let id = Id.New(mut = false)
+                bindings.Add(id, expression)
+                Var id
+            let target = thisOpt |> Option.map cache
+            let args = args |> List.map cache
+            let value = Call(target, typ, getter, args)
+            let result =
+                withResultValue true value <| fun rv ->
+                    Call(target, typ, setterOf getter, args @ [rv])
+            List.foldBack (fun (v, e) body -> Let(v, e, body)) (List.ofSeq bindings) result
         | _ -> failwithf "ref argument has unexpected form: %+A" e     
         |> withExprSourcePos node
                                                    
@@ -2579,7 +2723,11 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos x.Node
 
     member this.TransformContinueStatement (x: ContinueStatementData) : _ =
-        Continue None
+        match x.Name with
+        | Some name ->
+            let symbol = env.SemanticModel.GetSymbolInfo(name.Node).Symbol :?> ILabelSymbol
+            Goto (env.GetJumpLabels symbol |> snd)
+        | None -> Continue None
         |> withStatementSourcePos x.Node
 
     member this.TransformThrowStatement (x: ThrowStatementData) : _ =
@@ -2629,6 +2777,8 @@ type RoslynTransformer(env: Environment) =
                 NumericConversion ft tt expression
             | _ ->
                 Coerce(expression, fromTyp, toTyp)
+        elif symbol.MethodKind = MethodKind.Constructor then
+            Ctor(sr.ReadNamedType symbol.ContainingType, sr.ReadConstructor symbol, [ expression ])
         else
             call symbol None [ expression ]
 
@@ -2856,34 +3006,39 @@ type RoslynTransformer(env: Environment) =
             Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
 
     member this.TransformRecursivePattern (x: RecursivePatternData) : _ =
-        //let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         let positionalPatternClause = x.PositionalPatternClause |> Option.map this.TransformPositionalPatternClause
         let propertyPatternClause = x.PropertyPatternClause |> Option.map this.TransformPropertyPatternClause
         let designation = x.Designation |> Option.map this.TransformVariableDesignation
-        match positionalPatternClause with
-        | Some ppc -> ppc
-        | _ ->
-            match propertyPatternClause with
-            | Some ppc -> ppc
-            | _ ->
-                match designation with
-                | Some d ->
-                    let rTyp = env.SemanticModel.GetTypeInfo(x.Node).Type
-                    fun v ->
-                        Sequential [ this.PatternSet(d, Var v, Some rTyp); Value (Bool true) ]
-                | _ ->
-                    failwithf "Empty pattern unexpected: %s" (x.Node.ToString())
+        let typ = x.Type |> Option.map (fun t -> env.SemanticModel.GetTypeInfo(t.Node).Type |> sr.ReadType)
+        fun v ->
+            let condition =
+                match typ with
+                | Some typ -> TypeCheck(Var v, typ)
+                | None -> Var v ^!= Value Null
+            let matches =
+                [ positionalPatternClause; propertyPatternClause ] |> List.choose id
+                |> List.fold (fun result pattern -> result ^&& pattern v) condition
+            match designation with
+            | Some d ->
+                let operation = env.SemanticModel.GetOperation(x.Node) :?> IRecursivePatternOperation
+                matches ^&& Sequential [ this.PatternSet(d, Var v, Some operation.NarrowedType); Value (Bool true) ]
+            | None -> matches
 
     member this.TransformPositionalPatternClause (x: PositionalPatternClauseData) : _ =
-        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
         let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
         let len = List.length subpatterns
-        let vars = List.init len (fun _ -> Id.New(mut = false))
+        let vars = List.init len (fun _ -> Id.New())
+        let operation = env.SemanticModel.GetOperation(x.Node.Parent) :?> IRecursivePatternOperation
+        let deconstruct = operation.DeconstructSymbol :?> IMethodSymbol
         fun v ->
             Sequential [
-                yield! vars |> List.mapi (fun i tv -> NewVar(tv, ItemGet(Var v, Value (Int i), Pure)))
+                if isNull deconstruct then
+                    yield! vars |> List.mapi (fun i tv -> NewVar(tv, ItemGet(Var v, Value (Int i), Pure)))
+                else
+                    yield! vars |> List.map (fun tv -> NewVar(tv, Undefined))
+                    yield call deconstruct (Some (Var v)) (vars |> List.map (Var >> createRef))
                 yield (
-                    (subpatterns, vars) ||> List.map2 (fun p tv -> p tv) |> List.reduce (^&&)
+                    (subpatterns, vars) ||> List.map2 (fun p tv -> p tv) |> List.fold (^&&) (Value (Bool true))
                 )
             ]
 
@@ -2892,7 +3047,7 @@ type RoslynTransformer(env: Environment) =
         fun v ->
             subpatterns 
             |> List.map (fun p -> p v)
-            |> List.reduce (^&&)
+            |> List.fold (^&&) (Value (Bool true))
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
         let pattern = x.Pattern |> this.TransformPattern
@@ -3024,7 +3179,56 @@ type RoslynTransformer(env: Environment) =
         let pattern = x.Pattern |> Option.map this.TransformPattern
         fun v -> Expression.Undefined
 
-    member this.TransformPattern (x: PatternData) : _ =
+    member this.TransformPatternOnValue (x: PatternData) (next: Id -> Expression) : Id -> Expression =
+        match x with
+        | PatternData.BinaryPattern p when p.Kind = BinaryPatternKind.AndPattern ->
+            this.TransformPatternOnValue p.Left (this.TransformPatternOnValue p.Right next)
+        | PatternData.ParenthesizedPattern p -> this.TransformPatternOnValue p.Pattern next
+        | _ ->
+        let pattern =
+            this.TransformRawPattern x
+        let operation = env.SemanticModel.GetOperation(x.Node) :?> IPatternOperation
+        let unwrap =
+            match x with
+            | PatternData.ConstantPattern _
+            | PatternData.RelationalPattern _ -> true
+            | PatternData.DeclarationPattern _
+            | PatternData.TypePattern _
+            | PatternData.RecursivePattern _ ->
+                not (SymbolEqualityComparer.Default.Equals(operation.InputType, operation.NarrowedType))
+            | _ -> false
+        match if unwrap then tryGetUnionValueProperty operation.InputType else None with
+        | Some (valueProperty, nullable) ->
+            let isNullPattern =
+                match x with
+                | PatternData.ConstantPattern p ->
+                    match getConstantValueOfExpressionOpt p.Expression.Node with
+                    | Some (Value Null) -> true
+                    | _ -> false
+                | _ -> false
+            let pattern =
+                match x with
+                | PatternData.ConstantPattern _
+                | PatternData.RelationalPattern _ when not isNullPattern ->
+                    let typ = sr.ReadType operation.NarrowedType
+                    fun value -> TypeCheck(Var value, typ) ^&& pattern value
+                | _ -> pattern
+            fun v ->
+                let value = Id.New(mut = false)
+                let afterMatch = if isNullPattern then next v else next value
+                let matched =
+                    Let(value, call valueProperty.GetMethod (Some (Var v)) [], pattern value ^&& afterMatch)
+                if nullable then
+                    if isNullPattern then Conditional(Var v ^== Value Null, next v, matched)
+                    else (Var v ^!= Value Null) ^&& matched
+                else matched
+        | None ->
+            fun v -> pattern v ^&& next v
+
+    member this.TransformPattern (x: PatternData) : Id -> Expression =
+        this.TransformPatternOnValue x (fun _ -> Value (Bool true))
+
+    member this.TransformRawPattern (x: PatternData) : Id -> Expression =
         match x with
         | PatternData.DiscardPattern       x -> this.TransformDiscardPattern x
         | PatternData.DeclarationPattern   x -> this.TransformDeclarationPattern x
@@ -3121,13 +3325,48 @@ type RoslynTransformer(env: Environment) =
         match x with
         | CollectionElementData.ExpressionElement x -> this.TransformExpressionElement x
         | CollectionElementData.SpreadElement     x -> this.TransformSpreadElement x
+        | CollectionElementData.WithElement      _ -> failwith "Collection arguments must be read with the collection expression"
 
     member this.TransformCollectionExpression (x: CollectionExpressionData) : _ =
-        let elements = x.Elements |> Seq.map this.TransformCollectionElement |> List.ofSeq
+        let elements =
+            x.Elements |> Seq.choose (function
+                | CollectionElementData.WithElement _ -> None
+                | e -> Some (this.TransformCollectionElement e)) |> List.ofSeq
+        let operation = env.SemanticModel.GetOperation(x.Node) :?> ICollectionExpressionOperation
+        let constructMethod = operation.ConstructMethod
+        let bindings = ResizeArray<Id * Expression>()
+        let arguments =
+            operation.ConstructArguments |> Seq.map (fun argument ->
+                let argument = argument :?> IArgumentOperation
+                let value = argument.Value
+                let expression =
+                    if value.Kind = OperationKind.CollectionExpressionElementsPlaceholder then None else
+                    let id = Id.New(mut = false)
+                    bindings.Add(id, this.TransformBoundArgumentValue value)
+                    Some (Var id)
+                argument.Parameter.Ordinal, expression
+            ) |> Map.ofSeq
+        let getArguments items =
+            constructMethod.Parameters |> Seq.map (fun p ->
+                match arguments[p.Ordinal] with
+                | Some e -> e
+                | None -> items
+            ) |> List.ofSeq
         
         let iocType = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
         let coll = Id.New(mut = false)          
         let c = Id.New(mut = false)
+
+        let arrayItems() =
+            Let(coll, NewArray [], Sequential [
+                for element, isSpread in elements do
+                    if isSpread then
+                        yield Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter,
+                            [ Lambda([c], None, ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ Var c ])); element ])
+                    else
+                        yield ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ element ])
+                yield Var coll
+            ])
 
         let iocTypOpt =
             match iocType with
@@ -3140,33 +3379,11 @@ type RoslynTransformer(env: Environment) =
                 (fun item -> ApplAny(ItemGet(Var coll, Value (String "push"), Pure), [ item ])),
                 None
             else
-                let collBuilderAttr =
-                    iocType.GetAttributes() |> Seq.tryFind (fun a ->
-                        a.AttributeClass.Name = "CollectionBuilderAttribute"
-                    )
-                match collBuilderAttr with 
-                | Some cba ->
-                    let ct = cba.ConstructorArguments[0].Value :?> ITypeSymbol
-                    let creatorType = 
-                        match sr.ReadType ct with
-                        | ConcreteType ct -> ct
-                        | _ -> failwith "CollectionBuilder attribute is expected to specify a named type"
-                    let createMethodName = string cba.ConstructorArguments[1].Value
-                    let createSymbol = 
-                        let createMethods = ct.GetMembers(createMethodName).OfType<IMethodSymbol>() |> Array.ofSeq
-                        match createMethods.Length with
-                        | 1 ->
-                            createMethods[0]
-                        | 0 ->
-                            failwithf $"Create method not found for collection initializer via CollectionBuilder attributes. creatorType={creatorType} createMethodName={createMethodName}"
-                        | _ ->
-                            failwithf $"Collection initializer via CollectionBuilder attribute is only supported with a non-overloaded collection builder method. creatorType={creatorType} createMethodName={createMethodName}"
-                    let createM = createSymbol |> sr.ReadGenericMethod
+                if not (isNull constructMethod) && constructMethod.MethodKind <> MethodKind.Constructor then
                     Undefined,
                     (fun _ -> Undefined),
-                    Some (fun (elements : (Expression  * bool) list) -> Call(None, creatorType, createM, [ elements |> List.map fst |> NewArray ]))
-
-                | None ->
+                    Some (fun () -> call constructMethod None (getArguments (arrayItems())))
+                else
                     let addSymbol = 
                         let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
                         match addMethods.Length with
@@ -3177,25 +3394,26 @@ type RoslynTransformer(env: Environment) =
                         | _ ->
                             failwith $"Collection initializer is only supported with a non-overloaded Add method on type {iocType.ToDisplayString()}"
                     let addM = addSymbol |> sr.ReadGenericMethod
-                    Ctor(iocTypOpt.Value, ConstructorInfo.Default(), []),
+                    Ctor(iocTypOpt.Value, sr.ReadConstructor constructMethod, getArguments Undefined),
                     (fun item -> Call(Some (Var coll), iocTypOpt.Value, addM, [ item ])),
                     None
 
-        match make with 
-        | Some make ->
-            make elements
-        | None ->
-            Let(coll, emptyColl,
-                Sequential [
-                    for (e, isSpread) in elements do 
-                        if isSpread then
-                            Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter, 
-                                [ Lambda([c], None, addItem (Var c)); e ])
-                        else
-                            addItem e
-                    Var coll
-                ]
-            )
+        let result =
+            match make with
+            | Some make -> make()
+            | None ->
+                Let(coll, emptyColl,
+                    Sequential [
+                        for (e, isSpread) in elements do
+                            if isSpread then
+                                Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqIter,
+                                    [ Lambda([c], None, addItem (Var c)); e ])
+                            else
+                                addItem e
+                        Var coll
+                    ]
+                )
+        List.foldBack (fun (v, e) body -> Let(v, e, body)) (List.ofSeq bindings) result
 
     member this.TransformFieldExpression (x: FieldExpressionData) : _ =
         let f = env.BackingField.Value

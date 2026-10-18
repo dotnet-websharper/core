@@ -5,6 +5,8 @@
     <CSharpTool>True</CSharpTool>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!-- Roslyn marks the C# 15 APIs used by this compiler as experimental. -->
+    <NoWarn>$(NoWarn);57</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="RoslynHelpers.g.fs" />
