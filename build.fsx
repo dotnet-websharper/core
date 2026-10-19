@@ -10,6 +10,8 @@
 #r "nuget: Paket.Core, 12.0.0-alpha001"
 #r "nuget: MSBuild.StructuredLogger"
 #r "nuget: NUglify"
+#r "nuget: NuGet.Packaging"
+#r "nuget: NuGet.Protocol"
 
 open System.IO
 open System.Diagnostics
@@ -52,6 +54,11 @@ let publish rids (mode: BuildMode) =
                     SelfContained = false |> Some
                     Runtime = rid
                     Configuration = mode.AsDotNet
+                    MSBuildParams =
+                        { p.MSBuildParams with
+                            NodeReuse = true
+                            DisableInternalBinLog = true
+                        }
                 }) input
     publishExe mode "net11.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
     publishExe mode "net11.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
@@ -305,6 +312,128 @@ Target.create "RunMainTestsNoBuildRelease" <| fun _ ->
 
 Target.create "RunMainTestsRelease" <| fun _ ->
     runMainTestsRelease()
+
+
+//region ** Custom Build Target for compiler packages **
+type RID =
+    | WIN_X64
+    | LINUX_X64
+    | LINUX_MUSL_X64
+    | OSX_X64
+    | OSX_ARM64
+
+    static member OfString (s: string) =
+        match s.ToLower() with
+        | "win-x64" -> WIN_X64
+        | "linux-x64" -> LINUX_X64
+        | "linux_musl-x64" -> LINUX_MUSL_X64
+        | "osx-x64" -> OSX_X64
+        | "osx-arm64" -> OSX_ARM64
+        | _ ->
+            printfn "Invalid RID, defaulting to win-x64"
+            WIN_X64
+
+    override this.ToString() =
+        match this with
+        | WIN_X64 -> "win-x64"
+        | LINUX_X64 -> "linux-x64"
+        | LINUX_MUSL_X64 -> "linux-musl-x64"
+        | OSX_X64 -> "osx-x64"
+        | OSX_ARM64 -> "osx-arm64"
+
+let RUNTIMEIDPARAM = "--runtimeID:"
+
+let obtainRuntimeId () =
+    fsi.CommandLineArgs
+    |> Array.tryPick (fun arg ->
+        if arg.StartsWith RUNTIMEIDPARAM then
+            arg.Substring RUNTIMEIDPARAM.Length |> RID.OfString |> Some
+        else
+            None
+    )
+    |> function
+        | None ->
+            printfn "RID not provided, defaulting to win-x64"
+            RID.WIN_X64
+        | Some x -> x
+
+let buildProjectPrerequisites (mode: BuildMode) =
+    let build =
+        DotNet.build <| fun p ->
+            { p with
+                Configuration = mode.AsDotNet
+                MSBuildParams = 
+                    match Environment.environVarOrNone "OS" with
+                    | Some "Windows_NT" ->
+                        { p.MSBuildParams with
+                            Properties = ["Configuration", string mode]
+                            DisableInternalBinLog = true
+                        }
+                    | _ ->
+                        p.MSBuildParams
+            }
+    build "src/compiler/WebSharper.MSBuild.CSharp/WebSharper.MSBuild.CSharp.csproj"
+    build "src/compiler/WebSharper.MSBuild.FSharp/WebSharper.MSBuild.FSharp.csproj"
+
+
+let buildPackage (mode: BuildMode) (rid: RID) (version: Paket.SemVerInfo) =
+    printfn "%A %A" mode rid
+    publish [Some (rid.ToString())] mode
+    let package (tp: string) =
+        let tempTemplatePath =
+            let basePath = tp.Substring(0, tp.Length - 1 - ("paket.template".Length))
+            basePath + rid.ToString() + ".paket.template"
+        let targetFramework =
+            let projectName = (tp.Split('/')[1]).Replace(".paket.template", "")
+            let projectPath = $"src/compiler/{projectName}/{projectName}.fsproj"
+            System.Xml.XPath.XPathDocument(projectPath).CreateNavigator().Evaluate "string(//Project/PropertyGroup/TargetFramework/text())" |> string
+        let tempTemplate =
+            File.ReadAllLines tp
+            |> Array.choose (fun line ->
+                if line.EndsWith $"tools/{targetFramework}" then
+                    None
+                elif line.EndsWith "osx-arm64" && rid <> RID.OSX_ARM64 then
+                    None
+                elif line.EndsWith "osx-x64" && rid <> RID.OSX_X64 then
+                    None
+                elif line.EndsWith "linux-musl-x64" && rid <> RID.LINUX_MUSL_X64 then
+                    None
+                elif line.EndsWith "linux-x64" && rid <> RID.LINUX_X64 then
+                    None
+                elif line.EndsWith "win-x64" && rid <> RID.WIN_X64 then
+                    None
+                else
+                    line.Replace("Release", mode.ToString()) |> Some
+            )
+        File.WriteAllLines(tempTemplatePath, tempTemplate)
+        Paket.pack <| fun p ->
+            { p with
+                ToolType = ToolType.CreateLocalTool()
+                OutputPath = "build"
+                Version = version.AsString
+                TemplateFile = tempTemplatePath
+            }
+        File.Delete tempTemplatePath
+    [
+        "tools/WebSharper.FSharp.paket.template"
+        "tools/WebSharper.CSharp.paket.template"
+    ]
+    |> List.iter package
+
+
+Target.create "WS-CompileDebugPackage" <| fun args ->
+    let versionToBuild = { computedVersion with Build = bigint 999 }
+    let rid = obtainRuntimeId ()
+    buildProjectPrerequisites Debug
+    buildPackage Debug rid versionToBuild
+
+Target.create "WS-CompileReleasePackage" <| fun args ->
+    let versionToBuild = { computedVersion with Build = bigint 999 }
+    let rid = obtainRuntimeId ()
+    buildProjectPrerequisites Release
+    buildPackage Release rid versionToBuild
+
+//endregion
 
 "WS-BuildRelease"
 //    ?=> "RunSPATestsRelease"
