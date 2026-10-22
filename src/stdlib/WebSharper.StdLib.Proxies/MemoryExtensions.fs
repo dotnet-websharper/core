@@ -32,10 +32,9 @@ open System.Runtime.InteropServices
 [<JavaScript>]
 type private MemoryExtensionsProxy =
 
-    static member private MinMax<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>, isMax: bool) : 'T =
+    static member private MinMax<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>, isMax: bool, defaultValue: 'T) : 'T =
         let values = As<'T[]> span
-        let comparer = if isNull comparer then Comparer<'T>.Default :> IComparer<'T> else comparer
-        let mutable value = Unchecked.defaultof<'T>
+        let mutable value = defaultValue
         let mutable i = 0
         if As<obj> value ===. null then
             while i < values.Length && As<obj> value ===. null do
@@ -57,19 +56,21 @@ type private MemoryExtensionsProxy =
 
     [<Inline>]
     static member Max<'T>(span: ReadOnlySpanProxy<'T>) : 'T =
-        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, true)
+        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, true, Unchecked.defaultof<'T>)
 
     [<Inline>]
     static member Max<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>) : 'T =
-        MemoryExtensionsProxy.MinMax(span, comparer, true)
+        let comparer = if isNull comparer then Comparer<'T>.Default :> IComparer<'T> else comparer
+        MemoryExtensionsProxy.MinMax(span, comparer, true, Unchecked.defaultof<'T>)
 
     [<Inline>]
     static member Min<'T>(span: ReadOnlySpanProxy<'T>) : 'T =
-        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, false)
+        MemoryExtensionsProxy.MinMax(span, Comparer<'T>.Default, false, Unchecked.defaultof<'T>)
 
     [<Inline>]
     static member Min<'T>(span: ReadOnlySpanProxy<'T>, comparer: IComparer<'T>) : 'T =
-        MemoryExtensionsProxy.MinMax(span, comparer, false)
+        let comparer = if isNull comparer then Comparer<'T>.Default :> IComparer<'T> else comparer
+        MemoryExtensionsProxy.MinMax(span, comparer, false, Unchecked.defaultof<'T>)
 
     [<Inline>]
     static member Contains<'T>(span: ReadOnlySpanProxy<'T>, value: 'T) =
