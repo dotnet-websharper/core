@@ -246,6 +246,34 @@ let Tests =
             equal (Set.partition id Set.empty) (Set.empty, Set.empty)
         }
 
+        Test "Set.partitionWith" {
+            let input = Set.ofList [5; 4; 3; 2; 1; 2]
+            let visited = ref []
+            let partitioner x =
+                visited.Value <- x :: visited.Value
+                if x % 2 = 0 then Choice1Of2 (x * 10) else Choice2Of2 (string x)
+            let numbers, strings = Set.partitionWith partitioner input
+            equal (Set.toList numbers) [20; 40]
+            equal (Set.toList strings) ["1"; "3"; "5"]
+            equal (List.sort visited.Value) [1; 2; 3; 4; 5]
+            equal (Set.toList input) [1; 2; 3; 4; 5]
+
+            equal (Set.partitionWith partitioner Set.empty) (Set.empty, Set.empty)
+            equal (List.sort visited.Value) [1; 2; 3; 4; 5]
+            equal (Set.partitionWith (fun x -> Choice1Of2 (x + 1)) (Set.ofList [1; 2]))
+                (Set.ofList [2; 3], Set.empty<string>)
+            equal (Set.partitionWith (fun x -> Choice2Of2 (string x)) (Set.ofList [1; 2]))
+                (Set.empty<int>, Set.ofList ["1"; "2"])
+        }
+
+        Test "Set.partitionWith deduplicates mapped values" {
+            let partitioner x =
+                if x % 2 = 0 then Choice1Of2 (x % 4) else Choice2Of2 (string (x % 4))
+            let numbers, strings = Set.partitionWith partitioner (Set.ofList [1 .. 10])
+            equal (Set.toList numbers) [0; 2]
+            equal (Set.toList strings) ["1"; "3"]
+        }
+
         Test "Set.remove" {
             let emp = Set.remove 1 <| Set.add 1 Set.empty
             isTrue (Set.isEmpty emp)

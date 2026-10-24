@@ -76,7 +76,9 @@ type private ListProxy<'T> =
 [<Proxy "System.ReadOnlySpan`1, netstandard">]
 [<Prototype(false)>]
 [<Type("$0[]")>]
-type private ReadOnlySpanProxy<'T> = class end
+type private ReadOnlySpanProxy<'T> =
+    [<Inline "$this.slice()">]
+    member this.ToArray() = X<'T[]>
 
 [<Proxy "Microsoft.FSharp.Collections.FSharpList, FSharp.Core">]
 type private ListProxy =

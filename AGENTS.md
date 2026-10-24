@@ -115,7 +115,7 @@ The following are not part of the expected baseline and should be cleaned instea
 .\build.cmd RunMainTestsNoBuildRelease
 ```
 
-This target starts `build/Release/Tests/net10.0/Web.dll` from `tests/Web`, waits for `Application started.`, runs `npm install`, then executes `node runtests.js`. `runtests.js` drives `node-qunit-puppeteer` against `https://localhost:44336/tests` with a 120 second timeout.
+This target starts `build/Release/Tests/net11.0/Web.dll` from `tests/Web`, waits for `Application started.`, runs `npm install`, then executes `node runtests.js`. `runtests.js` drives `node-qunit-puppeteer` against `https://localhost:44336/tests` with a 120 second timeout.
 
 If the no-build target says `Release Web test project not found`, build the web tests first. For compiler or proxy changes, prefer:
 
@@ -134,7 +134,7 @@ Manual equivalent for debugging the browser runner:
 
 ```powershell
 Push-Location tests/Web
-dotnet exec ..\..\build\Release\Tests\net10.0\Web.dll --server.urls https://localhost:44336
+dotnet exec ..\..\build\Release\Tests\net11.0\Web.dll --server.urls https://localhost:44336
 Pop-Location
 ```
 

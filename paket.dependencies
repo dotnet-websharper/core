@@ -1,13 +1,13 @@
 references: strict
 redirects: on
 
-framework: net10.0, netstandard2.0
+framework: net11.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp 5.3.0
+nuget Microsoft.CodeAnalysis.CSharp 5.9.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Reflection.Emit.Lightweight 4.7.0
@@ -29,22 +29,22 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net10.0, netstandard2.1
+    framework: net11.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref 2.1.0
 
 group fcs
-    framework: net10.0, netstandard2.0
+    framework: net11.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget System.Runtime.Caching ~> 10.0.0
     nuget System.Configuration.ConfigurationManager ~> 10.0.0
     nuget NLog ~> 6.0.0
-    nuget FSharp.Core
-    nuget FSharp.Compiler.Service 43.12.204
+    nuget FSharp.Core prerelease
+    nuget FSharp.Compiler.Service prerelease
 
 group nunit
-    framework: net10.0, net472
+    framework: net11.0, net472
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2
@@ -53,11 +53,11 @@ group nunit
     nuget FSUnit ~> 4.0.4
     nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing ~> 1.1.0
     nuget Microsoft.VisualStudio.Composition ~> 17.1.20
-    nuget FSharp.Core
+    nuget FSharp.Core prerelease
     nuget System.Runtime.Loader 4.3.0
 
 group giraffe
-    framework: net10.0
+    framework: net11.0
     source https://api.nuget.org/v3/index.json
     storage: none
 

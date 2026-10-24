@@ -124,6 +124,28 @@ type Singletons =
     | Case1
     | Case2
 
+[<JavaScript>]
+module ExtensionOperators =
+    type System.String with
+        static member ( * ) (s: string, n: int) = String.replicate n s
+
+        [<Inline>]
+        static member (/) (s: string, n: int) = s.Substring(0, n)
+
+    [<Inline>]
+    let inline multiply (x: ^T) (n: int) = x * n
+
+    [<Inline>]
+    let inline divide (x: ^T) (n: int) = x / n
+
+    #nowarn "77" // Explicit constraints on standard operator names.
+    [<Inline>]
+    let inline multiplyViaConstraint (x: ^T) (n: int) : ^T =
+        (^T : (static member ( * ) : ^T * int -> ^T) (x, n))
+    #warnon "77"
+
+open ExtensionOperators
+
 (* TODO: the coverage of the Operators module is far from complete. *)
 [<JavaScript>]
 let Tests =
@@ -259,6 +281,17 @@ let Tests =
             equal (1 + b) 13
             equal (a + b) 15
             equal (b + a) 14
+        }
+
+        Test "Operators via type extensions" {
+            equal (ExtensionOperators.multiply "ha" 3) "hahaha"
+            equal (ExtensionOperators.multiply "ha" 0) ""
+            equal (ExtensionOperators.multiply 6 7) 42
+            equal (ExtensionOperators.multiply "ha" (ExtensionOperators.multiply 2 3)) "hahahahahaha"
+            equal (ExtensionOperators.divide "hello" 2) "he"
+            equal (ExtensionOperators.divide 84 2) 42
+            equal (ExtensionOperators.multiplyViaConstraint "ab" 2) "abab"
+            equal (ExtensionOperators.multiplyViaConstraint 6 7) 42
         }
 
         Test "taking unit" {

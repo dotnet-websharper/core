@@ -89,6 +89,11 @@ type private IEquatableProxy<'T> =
     [<Name "EEquals">]
     abstract Equals : 'T -> bool
 
+[<Proxy(typeof<System.Runtime.CompilerServices.IUnion>)>]
+type private IUnionProxy =
+    [<Name "get_UnionValue">]
+    abstract Value : obj
+
 [<Proxy(typeof<System.Collections.IStructuralEquatable>)>]
 type private IStructuralEquatableProxy =
     [<Name "SEquals">]

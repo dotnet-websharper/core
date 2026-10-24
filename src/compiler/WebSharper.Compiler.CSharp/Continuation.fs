@@ -128,7 +128,7 @@ type CountLabels() =
         c.VisitStatement a
         c.Count
 
-type FreeNestedGotos(?loopStart, ?loopEnd, ?increment) =
+type FreeNestedGotos(?loopStart, ?loopEnd) =
     inherit StatementTransformer()
 
     member this.TransformFor(init, cond, incr, body, currentLabel) =
@@ -137,39 +137,37 @@ type FreeNestedGotos(?loopStart, ?loopEnd, ?increment) =
             | Some l -> l
             | _ -> Id.New "$for"
         let forEnd = Id.New "$endfor"
+        let forContinue = Id.New "$continuefor"
         Block [
             match init with Some i -> yield ExprStatement i | _ -> ()
             yield Labeled (forStart, Empty)
             match cond with Some c -> yield If (c, Empty, Goto forEnd) | _ -> ()    
-            yield FreeNestedGotos(forStart, forEnd, ?increment = incr).TransformStatement body
+            yield FreeNestedGotos(forContinue, forEnd).TransformStatement body
+            yield Labeled(forContinue, Empty)
             match incr with Some i -> yield ExprStatement i | _ -> ()
             yield Goto forStart 
             yield Labeled (forEnd, Empty)
         ]
 
     override this.TransformFor(init, cond, incr, body) =
-        let trBody = this.TransformStatement body
-        if HasGotos.Check trBody then
+        if HasGotos.Check body then
             this.TransformFor(init, cond, incr, body, None)
-        else For(init, cond, incr, trBody)
+        else For(init, cond, incr, body)
 
     override this.TransformLabeled(label, body) =
         match IgnoreStatementSourcePos body with
         | For (init, cond, incr, body) -> this.TransformFor(init, cond, incr, body, Some label)
         | _ -> base.TransformLabeled(label, body)  
 
-    override this.TransformContinue _ =
-        match increment with
-        | Some incr ->
-            Block [
-                ExprStatement incr
-                Goto loopStart.Value
-            ]
-        | _ ->
-        Goto loopStart.Value
+    override this.TransformContinue label =
+        match loopStart with
+        | Some target when label.IsNone -> Goto target
+        | _ -> Continue label
 
-    override this.TransformBreak _ =
-        Goto loopEnd.Value
+    override this.TransformBreak label =
+        match loopEnd with
+        | Some target when label.IsNone -> Goto target
+        | _ -> Break label
 
     // TODO : current label check for while, dowhile
     override this.TransformWhile(cond, body) =
@@ -188,26 +186,55 @@ type FreeNestedGotos(?loopStart, ?loopEnd, ?increment) =
     override this.TransformDoWhile(body, cond) =
         if HasGotos.Check body then
             let whileStart = Id.New "$dowhile"
-            let whileEnd = Id.New "$enddowile"
+            let whileEnd = Id.New "$enddowhile"
+            let whileContinue = Id.New "$continuedowhile"
             Block [
                 Labeled (whileStart, Empty)
-                FreeNestedGotos(whileStart, whileEnd).TransformStatement body
+                FreeNestedGotos(whileContinue, whileEnd).TransformStatement body
+                Labeled(whileContinue, Empty)
                 If (cond, Goto whileStart, Empty)
+                Labeled(whileEnd, Empty)
             ] 
         else DoWhile(body, cond)
 
     override this.TransformIf(cond, sThen, sElse) =
+        let sThen = this.TransformStatement sThen
+        let sElse = this.TransformStatement sElse
         if HasGotos.Check sThen || HasGotos.Check sElse then
             let elseStart = Id.New "$else"
             let endIf = Id.New "$endif"
             Block [
                 If (cond, Empty, Goto elseStart)
-                this.TransformStatement sThen
+                sThen
                 Goto endIf
-                Labeled(elseStart, this.TransformStatement sElse)
+                Labeled(elseStart, sElse)
                 Labeled(endIf, Empty)
             ]   
         else If(cond, sThen, sElse)
+
+    override this.TransformSwitch(expression, cases) =
+        if loopStart.IsNone && not (cases |> List.exists (snd >> HasGotos.Check)) then
+            Switch(expression, cases)
+        else
+            let switchEnd = Id.New "$endswitch"
+            let value = Id.New "$switch"
+            let labels = cases |> List.map (fun _ -> Id.New "$case")
+            let defaultLabel =
+                List.zip cases labels |> List.tryPick (fun ((key, _), label) ->
+                    if key.IsNone then Some label else None) |> Option.defaultValue switchEnd
+            let transform = FreeNestedGotos(?loopStart = loopStart, loopEnd = switchEnd)
+            Block [
+                yield VarDeclaration(value, expression)
+                for (key, _), label in List.zip cases labels do
+                    match key with
+                    | Some key -> yield If(Var value ^== key, Goto label, Empty)
+                    | None -> ()
+                yield Goto defaultLabel
+                for (_, body), label in List.zip cases labels do
+                    yield Labeled(label, Empty)
+                    yield transform.TransformStatement body
+                yield Labeled(switchEnd, Empty)
+            ]
 
     override this.TransformYield(expr) =
         match expr with
@@ -220,12 +247,16 @@ type FreeNestedGotos(?loopStart, ?loopEnd, ?increment) =
         | _ -> Yield None
 
     override this.TransformTryWith(body, e, catch) =
+        let body = this.TransformStatement body
+        let catch = this.TransformStatement catch
         if HasGotos.Check body || HasGotos.Check catch then
             let tryStart = Id.New "$try"
-            Labeled(tryStart, TryWith(this.TransformStatement body, e, this.TransformStatement catch))    
+            Labeled(tryStart, TryWith(body, e, catch))
         else TryWith(body, e, catch)
 
     override this.TransformTryFinally(body, final) =
+        let body = this.TransformStatement body
+        let final = this.TransformStatement final
         if HasGotos.Check body || HasGotos.Check final then
             let tryStart = Id.New "$try"
 //            let finallyStart = Id.New "$finally"
@@ -236,7 +267,7 @@ type FreeNestedGotos(?loopStart, ?loopEnd, ?increment) =
 //                TryWith(this.TransformStatement body, Some e, VarSetStatement(caught, e))
 //            ]
             Labeled(tryStart, 
-                TryFinally(this.TransformStatement body, this.TransformStatement final)
+                TryFinally(body, final)
 //                TryFinally(this.TransformStatement body, Labeled(finallyStart, this.TransformStatement final))
             )
         else TryFinally(body, final)
@@ -276,6 +307,7 @@ type ContinuationTransformer(labels) =
 
     let labelLookup = dict (labels |> Seq.mapi (fun i l -> l, i + 1)) 
     let stateVar = Id.New "$state"
+    let jumping = Id.New "$jumping"
     let topLabel = Id.New "$top"
     let localFunctions = ResizeArray()
     let mutable tryScope = 0
@@ -294,6 +326,7 @@ type ContinuationTransformer(labels) =
             ExprStatement <| VarSet(stateVar, Value (Int i))
         Block [
             setState
+            ExprStatement <| VarSet(jumping, Value (Bool true))
             Continue (Some topLabel)
         ]
 
@@ -311,6 +344,7 @@ type ContinuationTransformer(labels) =
     override this.TransformContinuation(a, b) =
         Block [
             ExprStatement <| VarSet(stateVar, Value (Int labelLookup.[a]))
+            ExprStatement <| VarSet(jumping, Value (Bool true))
             this.Yield b
         ]
 
@@ -399,6 +433,9 @@ type ContinuationTransformer(labels) =
                     )
                 | Finally final ->
                     let cases = cases |> List.map getSwitchCase  
+                    let indexes = cases |> List.collect fst
+                    let staysInside =
+                        Var jumping ^&& (Var stateVar ^>= List.head indexes) ^&& (Var stateVar ^<= List.last indexes)
                     (cases |> List.collect fst),
                     TryFinally(
                         match cases with
@@ -410,22 +447,29 @@ type ContinuationTransformer(labels) =
                                     (s |> List.map (fun v -> Some v, Empty)) @ [ Some l, b ]
                                 )
                             )
-                        , final
+                        // Dispatching to another state in this try is not an exit from the try.
+                        , If(staysInside, Empty, final)
                     )
                 | _ -> failwith "impossible"
             | Catch _ -> failwith "unexpected: Catch case at root in continuation transformation" 
             | Finally _ -> failwith "unexpected: Finally case at root in continuation transformation" 
                     
-        Labeled (topLabel,
-            While (Value (Bool true), 
-                Switch (Var stateVar, 
-                    states |> List.ofSeq |> List.map getSwitchCase |> List.collect (fun (a, b) ->
+        Block [
+            VarDeclaration(jumping, Value (Bool false))
+            Labeled (topLabel,
+                While (Value (Bool true),
+                    Block [
+                        ExprStatement <| VarSet(jumping, Value (Bool false))
+                        Switch (Var stateVar,
+                            states |> List.ofSeq |> List.map getSwitchCase |> List.collect (fun (a, b) ->
                                 let s, l = startAndLast a
                                 (s |> List.map (fun v -> Some v, Empty)) @ [ Some l, b ]
                             )
+                        )
+                    ]
                 )
             )
-        )
+        ]
 
 let enumeratorTy =
     TypeDefinition {
@@ -637,6 +681,7 @@ type GotoTransformer(labels) =
             yield VarDeclaration(this.StateVar, Value (Int 0))
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
+            yield! this.LocalFunctions
             yield inner
         ]
 

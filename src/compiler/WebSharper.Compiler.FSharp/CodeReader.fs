@@ -90,8 +90,10 @@ let isByRef (t: FSharpType) =
 
 let getFuncArg t =
     let rec get acc (t: FSharpType) =
+        // FCS type predicates look through aliases, but GenericArguments belongs to the alias.
+        let t = getOrigType t
         if t.IsFunctionType then
-            let a = t.GenericArguments.[0] 
+            let a = getOrigType t.GenericArguments.[0]
             let r = t.GenericArguments.[1] 
             let i = if a.IsTupleType then a.GenericArguments.Count else 1
             get (i :: acc) r 
@@ -790,7 +792,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | CompGenClosure value ->
             tr value
         // a fix around struct record copying
-        | P.Let((id, P.AddressOf value, _), body) when id.IsCompilerGenerated && id.LogicalName = "inputRecord" ->
+        | P.Let((id, P.AddressOf value, _), body) when id.IsCompilerGenerated &&
+                (id.LogicalName = "inputRecord" || id.LogicalName = "spreadSrc") ->
             let i = namedId (Some env) false id
             let trValue = tr value
             let env = env.WithVar(i, id, LocalVar)
@@ -822,8 +825,26 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 |> Seq.map (fun (i, (_, v, _)) -> i, tr v) |> List.ofSeq, 
                 tr body
             )
-        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+        | P.CallWithWitnesses(this, meth, typeGenerics, methodGenerics, witnesses, arguments) ->
             let inline tr x = transformExpression env x
+            let extensionWitnesses =
+                witnesses |> List.choose (fun witness ->
+                    let rec readWitness args body =
+                        match body with
+                        | P.Lambda(arg, body) ->
+                            readWitness (sr.ReadType env.TParams arg.FullType :: args) body
+                        | P.Call(_, memberValue, _, _, _) when memberValue.IsExtensionMember && not memberValue.IsInstanceMember ->
+                            let signature =
+                                Method {
+                                    MethodName = memberValue.LogicalName
+                                    Parameters = List.rev args
+                                    ReturnType = sr.ReadType env.TParams body.Type
+                                    Generics = 0
+                                }
+                            Some (signature, tr witness)
+                        | _ -> None
+                    readWitness [] witness
+                )
             let useInlineTypeArgs (ts: list<Type>) =
                 match env.InlineTypeArgs with
                 | [] ->
@@ -832,6 +853,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     let trTypes = types |> List.map (fun (n, t) -> n, sr.ReadType env.TParams t)
                     ts |> List.map (fun (tp: Type) -> tp.SubstituteLocalGenerics trTypes)
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity meth)
+            if not extensionWitnesses.IsEmpty then
+                match sr.ReadMember meth with
+                | Member.Method (_, m) ->
+                    env.Compilation.AddCallWitnesses(getSourcePos expr, td, m, extensionWitnesses)
+                | _ -> ()
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
@@ -843,9 +869,21 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 //        | _ -> failwith "Extension method call expecting at least one argument"
                 //    else
                 //        this, arguments
+                let preserveStringFill (a: FSharpExpr) =
+                    match a with
+                    | P.Const (:? string, _) when a.Range <> expr.Range ->
+                        // Keep literal fills distinct from interpolation fragments through inlining.
+                        let typ = sr.ReadType env.TParams a.Type
+                        Coerce(tr a, typ, typ)
+                    | _ -> tr a
                 let args = 
                     arguments |> List.map (fun a ->
-                        let ta = tr a
+                        let ta =
+                            if td.Value.FullName = "System.String" && meth.CompiledName = "Concat" then
+                                match a with
+                                | P.NewArray (_, items) -> NewArray (List.map preserveStringFill items)
+                                | _ -> preserveStringFill a
+                            else tr a
                         if isByRef a.Type then
                             match IgnoreExprSourcePos ta with
                             | Application(ItemGet (r, Value (String "get"), _), [], _) -> r

@@ -477,6 +477,11 @@ let Partition p (l: list<_>) =
     let (a, b) = Array.partition p (Array.ofList l)
     (List.ofArray a, List.ofArray b)
 
+[<Name "partitionWith">]
+let PartitionWith partitioner (l: list<_>) =
+    let (a, b) = Array.partitionWith partitioner (Array.ofList l)
+    (List.ofArray a, List.ofArray b)
+
 [<Name "permute">]
 let Permute f (l: list<_>) =
     List.ofArray (Array.permute f (Array.ofList l))

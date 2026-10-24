@@ -918,10 +918,12 @@ and GotoStatementData(node: GotoStatementSyntax) =
 
 and BreakStatementData(node: BreakStatementSyntax) =
     member this.Node = node
+    member this.Name = node.Name |> Option.ofObj |> Option.map IdentifierNameData.FromNode
     static member FromNode(n: BreakStatementSyntax) = BreakStatementData(n)
 
 and ContinueStatementData(node: ContinueStatementSyntax) =
     member this.Node = node
+    member this.Name = node.Name |> Option.ofObj |> Option.map IdentifierNameData.FromNode
     static member FromNode(n: ContinueStatementSyntax) = ContinueStatementData(n)
 
 and ReturnStatementData(node: ReturnStatementSyntax) =
@@ -1643,6 +1645,11 @@ and ImplicitStackAllocArrayCreationExpressionData(node: ImplicitStackAllocArrayC
     member this.Initializer = node.Initializer |> InitializerExpressionData.FromNode
     static member FromNode(n: ImplicitStackAllocArrayCreationExpressionSyntax) = ImplicitStackAllocArrayCreationExpressionData(n)
 
+and WithElementData(node: WithElementSyntax) =
+    member this.Node = node
+    member this.ArgumentList = node.ArgumentList |> ArgumentListData.FromNode
+    static member FromNode(n: WithElementSyntax) = WithElementData(n)
+
 and ExpressionElementData(node: ExpressionElementSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
@@ -1654,16 +1661,19 @@ and SpreadElementData(node: SpreadElementSyntax) =
     static member FromNode(n: SpreadElementSyntax) = SpreadElementData(n)
 
 and [<RequireQualifiedAccess>] CollectionElementData =
+    | WithElement       of WithElementData
     | ExpressionElement of ExpressionElementData
     | SpreadElement     of SpreadElementData
 with
     static member FromNode(n: CollectionElementSyntax) =
         match n with
+        | :? WithElementSyntax as d -> WithElement (WithElementData.FromNode(d))
         | :? ExpressionElementSyntax as d -> ExpressionElement (ExpressionElementData.FromNode(d))
         | :? SpreadElementSyntax as d -> SpreadElement (SpreadElementData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of CollectionElementSyntax"
     member this.Node =
         match this with
+        | WithElement d -> d.Node :> CollectionElementSyntax
         | ExpressionElement d -> d.Node :> CollectionElementSyntax
         | SpreadElement d -> d.Node :> CollectionElementSyntax
 

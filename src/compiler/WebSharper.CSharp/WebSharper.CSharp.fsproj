@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Name>wscsc</Name>
     <AssemblyName>wscsc</AssemblyName>
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <CSharpTool>True</CSharpTool>
-    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'linux-x64'">
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>

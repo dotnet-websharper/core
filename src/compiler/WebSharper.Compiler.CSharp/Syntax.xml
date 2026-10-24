@@ -1828,6 +1828,13 @@
     </Field>
   </Node>
   <AbstractNode Name="CollectionElementSyntax" Base="CSharpSyntaxNode" />
+  <Node Name="WithElementSyntax" Base="CollectionElementSyntax">
+    <Kind Name="WithElement"/>
+    <Field Name="WithKeyword" Type="SyntaxToken">
+      <Kind Name="WithKeyword"/>
+    </Field>
+    <Field Name="ArgumentList" Type="ArgumentListSyntax" />
+  </Node>
   <Node Name="ExpressionElementSyntax" Base="CollectionElementSyntax">
     <Kind Name="ExpressionElement"/>
     <Field Name="Expression" Type="ExpressionSyntax" />
@@ -2461,6 +2468,7 @@
     <Field Name="BreakKeyword" Type="SyntaxToken">
       <Kind Name="BreakKeyword"/>
     </Field>
+    <Field Name="Name" Type="IdentifierNameSyntax" Optional="true" />
     <Field Name="SemicolonToken" Type="SyntaxToken">
       <Kind Name="SemicolonToken"/>
     </Field>
@@ -2471,6 +2479,7 @@
     <Field Name="ContinueKeyword" Type="SyntaxToken">
       <Kind Name="ContinueKeyword"/>
     </Field>
+    <Field Name="Name" Type="IdentifierNameSyntax" Optional="true" />
     <Field Name="SemicolonToken" Type="SyntaxToken">
       <Kind Name="SemicolonToken"/>
     </Field>

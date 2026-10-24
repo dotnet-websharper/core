@@ -19,11 +19,11 @@
 // $end{copyright}
 
 
-#r "../../build/Release/FSharp/net10.0/FSharp.Core.dll"
-#r "../../build/Release/FSharp/net10.0/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net10.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net11.0/FSharp.Core.dll"
+#r "../../build/Release/FSharp/net11.0/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net11.0/Mono.Cecil.Pdb.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
@@ -307,6 +307,8 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
     let sysLib x =
         Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), x + ".dll") 
     [|  yield "--simpleresolution" 
+        yield "--targetprofile:netcore"
+        yield "-r:" + typeof<list<int>>.Assembly.Location
 //        yield "--noframework" 
         yield "--debug:full" 
         yield "--define:DEBUG" 
@@ -317,6 +319,7 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
         yield "--fullpaths" 
         yield "--flaterrors" 
         yield "--target:library" 
+        yield "--langversion:preview"
         for x in fileNames do 
             yield x
 //        let references =
