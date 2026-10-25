@@ -632,7 +632,7 @@ let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files:
             try
                 File.ReadAllBytes (System.IO.Path.Combine (projectDir, file))
             with e ->
-                raise (exn (sprintf "Failed to read resource file %s: %s" file e.Message))
+                raise (exn (sprintf "Failed to read resource file %s: %s" file e.Message, e))
 
         a.MainModule.Resources.Add(Mono.Cecil.EmbeddedResource(file, Mono.Cecil.ManifestResourceAttributes.Public, contents))
 

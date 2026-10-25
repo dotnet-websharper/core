@@ -67,14 +67,8 @@ type WebSharperFSharpCompiler(?checker) =
 
         logger.TimedStage "Checking project"
 
-        try
-            prevMeta.Wait()
-            prevMeta.Result
-        with :? System.AggregateException as exn ->
-            exn.InnerExceptions
-            |> Seq.map (sprintf "%O")
-            |> String.concat "\r\n"
-            |> failwith
+        // GetResult rethrows the task's exception preserving its stack trace
+        prevMeta.GetAwaiter().GetResult()
         |> function
         | None -> None
         | Some refMeta ->

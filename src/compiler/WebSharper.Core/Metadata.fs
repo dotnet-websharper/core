@@ -693,7 +693,7 @@ module IO =
             try
                 Some (Decode s)
             with e ->
-                failwithf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message
+                raise (exn (sprintf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message, e))
 
     /// Load runtime metadata from an in-memory assembly, which must not be loaded as reflection-only.
     let LoadRuntimeMetadata (a: System.Reflection.Assembly) =
@@ -704,4 +704,4 @@ module IO =
             try
                 Some (Decode s)
             with e ->
-                failwithf "Failed to load runtime metadata for: %s. Error: %s" a.FullName e.Message
+                raise (exn (sprintf "Failed to load runtime metadata for: %s. Error: %s" a.FullName e.Message, e))

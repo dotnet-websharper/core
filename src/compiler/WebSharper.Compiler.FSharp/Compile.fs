@@ -741,10 +741,8 @@ let CompileOnWorker config warnSettings logger checkerFactory tryGetMetadata =
             tcs.SetException e
     let workerThread = new Thread(compile, 16 * 1024 * 1024)
     workerThread.Start()
-    try 
-        tcs.Task.Result    
-    with :? AggregateException as e ->
-        raise e.InnerException
+    // GetResult rethrows the worker thread's exception preserving its stack trace
+    tcs.Task.GetAwaiter().GetResult()
 
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
 #if DEBUG
