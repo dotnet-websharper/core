@@ -82,6 +82,7 @@
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
     />
   </Target>
 </Project>

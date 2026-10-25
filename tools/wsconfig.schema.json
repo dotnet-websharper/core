@@ -20,6 +20,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
@@ -35,6 +37,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -51,6 +55,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -72,6 +78,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "dts": { "$ref": "#/$defs/dts" },
         "ts": { "$ref": "#/$defs/ts" },
         "stubinterfaces": { "$ref": "#/$defs/stubinterfaces" },
@@ -88,6 +96,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -104,6 +114,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -125,6 +137,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "sourceMap": { "$ref": "#/$defs/sourceMap" },
         "downloadResources": { "$ref": "#/$defs/downloadResources" },
@@ -148,6 +162,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -166,6 +182,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -187,6 +205,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "debug": {
           "type": "object",
@@ -199,6 +219,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -215,6 +237,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -236,6 +260,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "outputDir": { "$ref": "#/$defs/outputDir" },
         "dts": { "$ref": "#/$defs/dts" },
@@ -254,6 +280,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -271,6 +299,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -293,6 +323,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "outputDir": { "$ref": "#/$defs/outputDir" },
         "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
@@ -315,6 +347,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -333,6 +367,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -355,6 +391,8 @@
         "standAlone": { "$ref": "#/$defs/standAlone" },
         "buildService": { "$ref": "#/$defs/buildService" },
         "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+        "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+        "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
         "$schema": { "$ref": "#/$defs/$schema" },
         "outputDir": { "$ref": "#/$defs/outputDir" },
         "scriptBaseUrl": { "$ref": "#/$defs/scriptBaseUrl" },
@@ -376,6 +414,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }
           },
@@ -394,6 +434,8 @@
             "standAlone": { "$ref": "#/$defs/standAlone" },
             "buildService": { "$ref": "#/$defs/buildService" },
             "buildServiceLogging": { "$ref": "#/$defs/buildServiceLogging" },
+            "transparentCompiler": { "$ref": "#/$defs/transparentCompiler" },
+            "parallelCompilation": { "$ref": "#/$defs/parallelCompilation" },
             "dts": { "$ref": "#/$defs/dts" },
             "ts": { "$ref": "#/$defs/ts" }   
           },
@@ -481,6 +523,16 @@
       "type": "boolean",
       "description": "If false, WebSharper compiler service will not create a log file.",
       "default": false
+    },
+    "transparentCompiler": {
+      "type": "boolean",
+      "description": "F# only. If true, standalone WebSharper compilation (not the compiler service) type checks with the F# compiler service's TransparentCompiler, which checks files in parallel.",
+      "default": true
+    },
+    "parallelCompilation": {
+      "type": "boolean",
+      "description": "F# only. If true, the .NET assembly is emitted in parallel with WebSharper translation. Not used for WIG and bundle-only projects.",
+      "default": true
     },
     "dts": {
       "type": "boolean",

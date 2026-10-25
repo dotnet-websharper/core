@@ -52,6 +52,7 @@ type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
 
     member r.SearchDirectories searchPaths = AssemblyResolver(dom, reso ++ searchDirs searchPaths)
     member r.SearchPaths (searchPaths: seq<string>) = AssemblyResolver(dom, reso ++ Common.searchPaths searchPaths)
+    member r.SearchPathDeferred (path: string, beforeResolve: unit -> unit) = AssemblyResolver(dom, reso ++ Common.deferredPath path beforeResolve)
     member r.ResolvePath name = reso.ResolvePath name
 
     static member Create(?domain) =

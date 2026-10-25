@@ -57,6 +57,15 @@ let createAssemblyResolver (config : WsConfig) includeCurrent =
             .SearchDirectories([compilerDir])
     aR
 
+/// Parallel compilation: the current assembly is still being emitted when the resolver is
+/// created, so it is resolved lazily, after waitForCurrent (blocking until it is complete).
+let createDeferredAssemblyResolver (config : WsConfig) (waitForCurrent: unit -> unit) =
+    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    AssemblyResolver.Create()
+        .SearchPaths([ for r in config.References -> Path.GetFullPath r ])
+        .SearchPathDeferred(Path.GetFullPath config.AssemblyFile, waitForCurrent)
+        .SearchDirectories([compilerDir])
+
 let handleCommandResult logger config warnSettings stageName cmdRes =  
     let res =
         match cmdRes with
@@ -308,7 +317,26 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         else
             Array.append ca [|"--define:JAVASCRIPT"|]
 
-    let exitCode = 
+    // parallelCompilation: emit the assembly (checker.Compile) on a background task while
+    // WebSharper type checks and translates, joining before the assembly is read or written.
+    // Reflection into the current assembly (local macros/generators, ReflectedDefinition,
+    // RequireFeature, RPC verification) blocks until emission is done: the assembly resolver
+    // only resolves the current assembly then (createDeferredAssemblyResolver).
+    // WIG projects execute the assembly and bundle-only projects have none, so they stay serial.
+    let useParallel =
+        config.ParallelCompilation && not isBundleOnly && config.ProjectType <> Some WIG
+
+    // On a background thread, TimedStage would measure from whatever stage the
+    // translation thread logged last, so time IL emission on its own.
+    let ilEmitStopwatch = System.Diagnostics.Stopwatch()
+    let ilEmitStage name =
+        if useParallel then
+            logger.TimedStageElapsed(name, ilEmitStopwatch.Elapsed)
+        else
+            logger.TimedStage name
+
+    let runIlEmit () =
+        ilEmitStopwatch.Start()
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             0
@@ -322,10 +350,24 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
-                logger.TimedStage "F# compilation"
+                ilEmitStage "F# compilation"
                 0
             else
                 1
+
+    // Not parallel: runs IL emission right here, as before.
+    let ilEmitTask : System.Threading.Tasks.Task<int> =
+        if useParallel then
+            System.Threading.Tasks.Task.Run(runIlEmit)
+        else
+            System.Threading.Tasks.Task.FromResult(runIlEmit())
+
+    // Never return with IL emission still running: in the booster it would keep writing the
+    // assembly while the next compilation starts.
+    let joinIlEmit () =
+        try ilEmitTask.Wait() with _ -> ()
+
+    let exitCode = if useParallel then 0 else ilEmitTask.Result
             
     if exitCode <> 0 then 
         fullTime logger
@@ -367,11 +409,24 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             None, 0
 
     if exitCode <> 0 then 
+        joinIlEmit ()
         fullTime logger
         exitCode
     else
     
-    let aR = createAssemblyResolver config true
+    // Blocks translation until IL emission is done; reports the blocked time, which is
+    // overlap lost to reflection into the current assembly.
+    let waitForIlEmit () =
+        if not ilEmitTask.IsCompleted then
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            joinIlEmit ()
+            logger.TimedStageElapsed("Waiting for F# output (reflection)", sw.Elapsed)
+
+    let aR =
+        if useParallel then
+            createDeferredAssemblyResolver config waitForIlEmit
+        else
+            createAssemblyResolver config true
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
@@ -411,16 +466,29 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     compiler.WarnSettings <- warnSettings
 
     let comp =
-        aR.Wrap <| fun () ->
-            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger)
+        try
+            aR.Wrap <| fun () ->
+                compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger)
+        with _ ->
+            joinIlEmit ()
+            reraise ()
 
     let exitCode =
         match comp with
         | None ->        
+            // F# check or reference metadata errors, already reported
+            joinIlEmit ()
             1
         | Some comp ->
 
-        if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        // Join point: translation never needed the assembly up to here.
+        let ilExitCode = ilEmitTask.Result
+        if useParallel then
+            logger.TimedStage "Waiting for F# output (join)"
+
+        if ilExitCode <> 0 then
+            ilExitCode
+        elif not (List.isEmpty comp.Errors || config.WarnOnly) then        
             PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
             1
         else

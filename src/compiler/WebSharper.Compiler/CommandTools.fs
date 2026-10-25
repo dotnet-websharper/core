@@ -106,6 +106,7 @@ type WsConfig =
         Standalone : bool
         BuildServiceLogging : bool
         TransparentCompiler : bool
+        ParallelCompilation : bool
         TimingLog : string option
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
@@ -175,6 +176,8 @@ type WsConfig =
                     | true, v -> v
                     | _ -> true
 
+                    | _ -> true                
+            ParallelCompilation = true
             TimingLog = None
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
@@ -323,6 +326,8 @@ type WsConfig =
                 res <- { res with Standalone = not (getBool k v) }
             | "transparentcompiler" ->
                 res <- { res with TransparentCompiler = getBool k v }
+            | "parallelcompilation" ->
+                res <- { res with ParallelCompilation = getBool k v }
             | "buildservicelogging" ->
                 res <- { res with BuildServiceLogging = not (getBool k v) }
             | "runtimemetadata" ->
@@ -604,7 +609,10 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
   --transparentcompiler[+|-]  Use the F# compiler service's TransparentCompiler
                           (parallel type checking)
                           default: true, unless WebSharperTransparentCompiler
-                          environment variable is false"""
+                          environment variable is false
+  --parallelcompilation[+|-]  F#: emit the assembly in parallel with WebSharper
+                          translation (not for WIG and bundle-only projects)
+                          default: true"""
             |> logger.Out
         | UnpackHelp ->
             sprintf "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
@@ -674,6 +682,7 @@ let RecognizeWebSharperArg a wsArgs =
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
     | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }
     | Flag "--transparentcompiler" v -> Some { wsArgs with TransparentCompiler = v }
+    | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
     | Flag "--prebundle" v -> Some { wsArgs with PreBundle = wsArgs.PreBundle || v }
     | _ -> 
         None
