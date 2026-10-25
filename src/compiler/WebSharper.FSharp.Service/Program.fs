@@ -71,8 +71,12 @@ let startListening() =
                 .GetMethod()
                 .DeclaringType
         NLog.LogManager.GetLogger(callerType.Name)
-    let checker = FSharpChecker.Create(keepAssemblyContents = true)
-    let checkerFactory() = checker
+    // one shared checker per mode, so a project opting out of the TransparentCompiler
+    // still benefits from the IncrementalBuilder's caching across compilations
+    let transparentChecker = lazy FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = true)
+    let incrementalChecker = lazy FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = false)
+    let checkerFactory (wsConfig: WsConfig) () =
+        if wsConfig.TransparentCompiler then transparentChecker.Value else incrementalChecker.Value
 
     let memCache = MemoryCache.Default
     let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
@@ -157,7 +161,7 @@ let startListening() =
                     nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let compilationResultForDebugOrRelease() =
                         try
-                            CompileOnWorker wsConfig warnSettings logger checkerFactory tryGetMetadata
+                            CompileOnWorker wsConfig warnSettings logger (checkerFactory wsConfig) tryGetMetadata
                         with 
                         | ArgumentError msg -> 
                             PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))

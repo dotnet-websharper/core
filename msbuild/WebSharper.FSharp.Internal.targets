@@ -81,6 +81,7 @@
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
     />
   </Target>
 </Project>

@@ -49,6 +49,7 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperTimingLog { get; set; }
         public string WebSharperToolPath { get; set; } = "wsfsc.exe";
         public string WebSharperStandalone { get; set; } = "";
+        public string WebSharperTransparentCompiler { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -81,6 +82,9 @@ namespace WebSharper.MSBuild.FSharp
 
                 if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
                     w.WriteLine("--dce" + (parsed ? "+" : "-"));
+
+                if (bool.TryParse(WebSharperTransparentCompiler, out bool transparentCompiler))
+                    w.WriteLine("--transparentcompiler" + (transparentCompiler ? "+" : "-"));
 
                 if (TryParseBool(WebSharperDownloadResources))
                     w.WriteLine("--dlres");
