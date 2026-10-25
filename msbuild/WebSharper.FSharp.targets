@@ -25,6 +25,8 @@
     <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+    <!-- also for design-time builds, so IDEs reference the output assembly with WebSharper metadata -->
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net10.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net10.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
@@ -38,7 +40,6 @@
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
