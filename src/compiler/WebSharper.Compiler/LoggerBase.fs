@@ -111,6 +111,14 @@ type LoggerBase() =
         writeTimingRecord name elapsed (timeStamps.Length - 1)
         timeStamps <- now :: timeStamps.Tail        
 
+    /// Reports a stage timed by the caller, without touching the sequential stage timestamps.
+    /// Use for work measured on a background thread (parallel compilation), where TimedStage
+    /// would measure from whatever stage the other thread logged last.
+    member x.TimedStageElapsed (name, elapsed: TimeSpan) =
+        sprintf "%s: %O" name elapsed
+        |> x.Out
+        writeTimingRecord name elapsed (timeStamps.Length - 1)
+
     [<System.Diagnostics.Conditional "DEBUG">]
     member x.DebugWrite s =
         System.Diagnostics.Debug.WriteLine (x.Indent s)

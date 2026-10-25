@@ -87,6 +87,21 @@ module internal Common =
                     None
         }
 
+    /// Resolves a single assembly that may still be being written when the resolver is created
+    /// (the current project's output under parallel compilation). Unlike searchPaths, the file is
+    /// not read up front: beforeResolve (e.g. waiting for it to be complete) runs on lookup.
+    let deferredPath (path: string) (beforeResolve: unit -> unit) =
+        let asmName = Path.GetFileNameWithoutExtension path
+        {
+            Cache = ConcurrentDictionary()
+            ResolvePath = fun name ->
+                if String.Equals(name.Name, asmName, StringComparison.OrdinalIgnoreCase) then
+                    beforeResolve()
+                    if isMatchingFile name path then Some path else None
+                else
+                    None
+        }
+
     let searchDirs (dirs: seq<string>) =
         let paths =
             dirs

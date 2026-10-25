@@ -270,3 +270,5 @@ let Run () =
         ps "if (x) if (y) 1; else 2; else 3" =?
             S.If (S.Var "x", S.If (S.Var "y", !one, !two), !three)
     }
+
+    Report ()

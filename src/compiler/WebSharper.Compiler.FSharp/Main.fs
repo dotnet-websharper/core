@@ -20,6 +20,9 @@
 
 namespace WebSharper.Compiler.FSharp
 
+// FSharpChecker.UsesTransparentCompiler is marked experimental in FCS
+#nowarn "57"
+
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open WebSharper.Compiler
@@ -52,6 +55,12 @@ type WebSharperFSharpCompiler(?checker) =
 
         let projectOptionsOpt =
             try
+                if checker.UsesTransparentCompiler then
+                    // Unlike the IncrementalBuilder, the TransparentCompiler only checks
+                    // FSharpProjectOptions.SourceFiles, not source files left in the arguments.
+                    let sources, otherArgs = argv.[1 ..] |> Array.partition (fun a -> not (a.StartsWith "-"))
+                    { checker.GetProjectOptionsFromCommandLineArgs(path, otherArgs) with SourceFiles = sources } |> Some
+                else
                 checker.GetProjectOptionsFromCommandLineArgs(path, argv.[1 ..]) |> Some
             with e ->
                 None
@@ -67,14 +76,8 @@ type WebSharperFSharpCompiler(?checker) =
 
         logger.TimedStage "Checking project"
 
-        try
-            prevMeta.Wait()
-            prevMeta.Result
-        with :? System.AggregateException as exn ->
-            exn.InnerExceptions
-            |> Seq.map (sprintf "%O")
-            |> String.concat "\r\n"
-            |> failwith
+        // GetResult rethrows the task's exception preserving its stack trace
+        prevMeta.GetAwaiter().GetResult()
         |> function
         | None -> None
         | Some refMeta ->

@@ -1427,8 +1427,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             Compilation = comp
                             BoundVars = boundVars
                         }
-                    with e -> MacroError (e.Message + " at " + e.StackTrace)  
-                | _ -> MacroError "Macro type failed to load"
+                    with e -> MacroError (e.Message + " at " + e.StackTrace)
+                | _ ->
+                    if comp.UseLocalMacros then
+                        MacroError "Macro type failed to load"
+                    else
+                        MacroWarning(
+                            "Cannot run macro in code service, consider moving it to another assembly.",
+                            MacroOk Undefined
+                        )
             let rec getExpr mres =
                 match mres with
                 | MacroOk resExpr -> this.TransformExpression resExpr

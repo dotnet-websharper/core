@@ -26,6 +26,8 @@
     <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+    <!-- also for design-time builds, so IDEs reference the output assembly with WebSharper metadata -->
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net11.0/wsfsc.exe</WebSharperToolPath>
@@ -36,7 +38,6 @@
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <NoWarn>$(NoWarn);3366;3370</NoWarn>
     <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
   </PropertyGroup>
@@ -81,6 +82,8 @@
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
+      WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
     />
   </Target>
 </Project>

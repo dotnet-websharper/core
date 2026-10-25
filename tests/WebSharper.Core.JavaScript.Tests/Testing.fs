@@ -22,7 +22,7 @@
 module WebSharper.Core.JavaScript.Test.Testing
 
 let mutable private section = ""
-let mutable private status = 0
+let mutable private failures = []
 let mutable private count = 0
 
 exception private Fail of string
@@ -33,10 +33,10 @@ let private run (name: string) test =
         count <- count + 1
     with
     | Fail reason ->
-        status <- 1
+        failures <- sprintf "%s.%s" section name :: failures
         stderr.WriteLine("FAIL: {0}.{1} -- {2}", section, name, reason)
     | e ->
-        status <- 1
+        failures <- sprintf "%s.%s" section name :: failures
         stderr.WriteLine("FAIL: {0}.{1}", section, name)
         stderr.WriteLine(e)
 
@@ -63,7 +63,14 @@ let ( <>? ) a b =
     if a = b then
         raise (Fail (sprintf "Unexpected %A." a))
 
+/// Call at the end of each NUnit test: fails it if any Test since the previous call failed.
+/// All Tests still run; each failure is printed to stderr as it happens.
 let Report () =
-    if status = 0 then
-        stdout.WriteLine("OK, {0} tests passed.", count)
-    status
+    let failed = List.rev failures
+    failures <- []
+    let passed = count
+    count <- 0
+    if List.isEmpty failed then
+        stdout.WriteLine("OK, {0} tests passed.", passed)
+    else
+        NUnit.Framework.Assert.Fail(sprintf "%d test(s) failed: %s" failed.Length (String.concat ", " failed))

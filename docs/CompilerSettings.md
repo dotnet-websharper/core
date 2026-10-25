@@ -53,6 +53,15 @@ If the value is `false`, the WebSharper F# compiler will not use a backend proce
 
 If the value is `false`, the WebSharper F# compiler service will not create a `websharper.log` file. If set to `true`, it will use logging even if `WebSharperBuildServiceLogging` environment variable is `false`.
 
+<a name="transparentCompiler"></a>
+## "transparentCompiler"
+
+**Type**: bool (default is `true` except if `WebSharperTransparentCompiler` environment variable is set to `false`)
+
+If the value is `false`, the F# type check needed for WebSharper translation uses the F# compiler service's IncrementalBuilder instead of its TransparentCompiler, which type checks files in parallel. Applies both to standalone compilation and to the `wsfscservice` booster. If set to `true`, it will use the TransparentCompiler even if `WebSharperTransparentCompiler` environment variable is `false`.
+
+Can also be set with the `WebSharperTransparentCompiler` MSBuild property or the `--transparentcompiler[+|-]` compiler flag. The `wsfscservice` booster inherits the environment of the build that started it, so after changing the environment variable, stop it with `dotnet ws stop` for the change to apply.
+
 <a name="configurationName"></a>
 ## Configuration name (usually `"Debug"` or `"Release"`)
 

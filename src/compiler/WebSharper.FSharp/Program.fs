@@ -73,7 +73,7 @@ let main(argv) =
                     "WebSharperBuildService environment variable is set to false"
                 else
                     "--standalone compile flag is set or WebSharperStandalone targets variable set"
-            let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+            let createChecker() = FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = wsConfig.TransparentCompiler)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
 #if DEBUG
             StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata  
@@ -95,7 +95,7 @@ let main(argv) =
                 res
             with
             | PipeException () ->
-                let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+                let createChecker() = FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = wsConfig.TransparentCompiler)
                 let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
                 try StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata
                 with 

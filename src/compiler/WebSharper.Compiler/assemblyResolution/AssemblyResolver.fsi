@@ -45,5 +45,9 @@ type AssemblyResolver =
     /// Adds search paths.
     member SearchPaths : searchPaths: seq<string> -> AssemblyResolver
 
+    /// Adds a search path for an assembly that may not be complete yet: the file is only
+    /// inspected when that assembly is looked up, after running `beforeResolve`.
+    member SearchPathDeferred : path: string * beforeResolve: (unit -> unit) -> AssemblyResolver
+
     /// Creates a new resovler for a given domain or the current domain.
     static member Create : ?domain: AppDomain -> AssemblyResolver

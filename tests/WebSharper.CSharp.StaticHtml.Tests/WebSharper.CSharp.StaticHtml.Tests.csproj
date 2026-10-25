@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="package.json" />
+    <!-- source copies written by WebSharper into outputDir (build/), not part of this project -->
+    <Compile Remove="**\Source\**" />
   </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />

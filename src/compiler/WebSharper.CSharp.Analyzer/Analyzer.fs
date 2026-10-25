@@ -46,11 +46,58 @@ type WebSharperCSharpAnalyzer () =
 
     static let mutable testing = false
 
-    let mutable compiling = false;
-    let mutable lastRefPaths = [ "" ]
+    // command line builds run the WebSharper compiler itself, analyzing only needed in IDEs
+    // (csc.exe, VBCSCompiler.exe or csc.dll/VBCSCompiler.dll on .NET)
+    static let isCommandLineCompiler =
+        match System.Reflection.Assembly.GetEntryAssembly() with
+        | null -> false
+        | a ->
+            match a.GetName().Name with
+            | "csc" | "VBCSCompiler" -> true
+            | _ -> false
+
+    // assemblies loaded with the analyzer, references to these must not be loaded again,
+    // so that for example macros from referenced assemblies inherit the same WebSharper.Core.Macro
+    static let analyzerAssemblies =
+        [
+            typeof<option<_>>.Assembly
+            typeof<WebSharper.WebResourceAttribute>.Assembly
+            typeof<WebSharper.Core.Macro>.Assembly
+            typeof<WebSharper.Compiler.Compilation>.Assembly
+            typeof<WebSharper.Compiler.CSharp.WebSharperCSharpCompiler>.Assembly
+        ]
+        |> List.map (fun a -> a.GetName().Name, a)
+        |> Map.ofList
+
+    let mutable lastRefKey = [ box "" ]
     let mutable cachedRefErrorsAndMeta = None
 
-    let cachedRefMeta = Dictionary() 
+    let cachedRefMeta = Dictionary()
+    let compilationRefMeta = System.Runtime.CompilerServices.ConditionalWeakTable<CSharpCompilation, WebSharper.Core.Metadata.Info option ref>()
+
+    let mutable referencedAsmPaths = Map.empty
+    let loadedRefAsms = Dictionary<string, System.Reflection.Assembly>()
+
+    let resolveHandler =
+        ResolveEventHandler(fun _ e ->
+            let assemblyName = AssemblyName(e.Name).Name
+            match Map.tryFind assemblyName analyzerAssemblies with
+            | Some a -> a
+            | None ->
+            match Map.tryFind assemblyName referencedAsmPaths with
+            | None -> null
+            | Some p ->
+                lock loadedRefAsms <| fun () ->
+                match loadedRefAsms.TryGetValue p with
+                | true, a -> a
+                | _ ->
+                    // loading from bytes to not lock build outputs inside the IDE
+                    let a = System.Reflection.Assembly.Load(File.ReadAllBytes p)
+                    loadedRefAsms.Add(p, a)
+                    a
+        )
+
+    do AppDomain.CurrentDomain.add_AssemblyResolve resolveHandler
 
     static member IsTest
         with get() = testing
@@ -68,25 +115,32 @@ type WebSharperCSharpAnalyzer () =
                     err <- Some e.Message
                     None
 
-            let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
-            let onChange (_: FileSystemEventArgs) =
-                lock cachedRefMeta <| fun () ->
-                    lastRefPaths <- [ "" ]
-                    cachedRefMeta.Remove(path) |> ignore
-                    watcher.Dispose() 
+            let watcher =
+                try
+                    let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
+                    let onChange (_: FileSystemEventArgs) =
+                        lock cachedRefMeta <| fun () ->
+                            lastRefKey <- [ box "" ]
+                            cachedRefMeta.Remove(path) |> ignore
+                            watcher.Dispose()
 
-            watcher.Changed |> Event.add onChange
-            watcher.Renamed |> Event.add onChange
-            watcher.Deleted |> Event.add onChange
+                    watcher.Changed |> Event.add onChange
+                    watcher.Created |> Event.add onChange
+                    watcher.Renamed |> Event.add onChange
+                    watcher.Deleted |> Event.add onChange
+                    watcher.EnableRaisingEvents <- true
+                    Some watcher
+                with _ -> None // directory does not exist
 
-            cachedRefMeta.Add(path, (m, err, watcher))    
-            m, err        
+            cachedRefMeta.Add(path, (m, err, watcher))
+            m, err
 
     interface IDisposable with
         member this.Dispose() =
+            AppDomain.CurrentDomain.remove_AssemblyResolve resolveHandler
             lock cachedRefMeta <| fun () ->
                 for _, _, watcher in cachedRefMeta.Values do
-                    watcher.Dispose()
+                    watcher |> Option.iter (fun w -> w.Dispose())
                 cachedRefMeta.Clear()
 
     override this.SupportedDiagnostics =
@@ -94,61 +148,78 @@ type WebSharperCSharpAnalyzer () =
 
     override this.Initialize(initCtx) =
         initCtx.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        if not testing then
-            // tun off for whole compilations
-            initCtx.RegisterCompilationAction(fun startCtx ->
-                compiling <- true
-            )
-        initCtx.RegisterSemanticModelAction(fun ctx ->
-            if compiling then () else
+        // A compilation action can't be used to detect full builds, Roslyn runs them
+        // at compilation start, also when IDE analyzes a single document.
+        if testing || not isCommandLineCompiler then
+            initCtx.RegisterSemanticModelAction(fun ctx ->
                 this.Analyze(ctx.SemanticModel.Compilation :?> CSharpCompilation, ctx)
-        )
+            )
 
-    member this.Analyze(compilation: CSharpCompilation, ctx: SemanticModelAnalysisContext) =
-        let refPaths =
-            compilation.ExternalReferences |> Seq.choose (fun r -> 
+    // IDEs pass referenced C# projects as in-memory compilations, not as files
+    member this.GetCompilationRefMeta(compilation: CSharpCompilation) =
+        lock compilationRefMeta <| fun () ->
+        match compilationRefMeta.TryGetValue compilation with
+        | true, m -> m.Value
+        | _ ->
+            let m =
+                try
+                    let refErrors, refMeta = this.GetReferencesMeta(compilation)
+                    if not (List.isEmpty refErrors) then None else
+                    let comp = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler.Compile(refMeta, compilation, false)
+                    Some (comp.ToCurrentMetadata(true))
+                with _ -> None
+            compilationRefMeta.Add(compilation, ref m)
+            m
+
+    member this.GetReferencesMeta(compilation: CSharpCompilation) =
+        let metas =
+            compilation.ExternalReferences |> Seq.choose (fun r ->
                 match r with
-                | :? PortableExecutableReference as cr -> Some cr.FilePath
+                | :? PortableExecutableReference as r -> Some (this.GetRefMeta r.FilePath)
+                | :? CompilationReference as r ->
+                    match r.Compilation with
+                    | :? CSharpCompilation as c -> Some (this.GetCompilationRefMeta c, None)
+                    | _ -> None
                 | _ -> None
             )
             |> List.ofSeq
-            
+        let refErrors = metas |> List.choose snd
+        let refMeta =
+            if List.isEmpty metas || not (List.isEmpty refErrors) then None
+            else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
+        refErrors, refMeta
+
+    member this.Analyze(compilation: CSharpCompilation, ctx: SemanticModelAnalysisContext) =
+        let refKey =
+            compilation.ExternalReferences |> Seq.choose (fun r ->
+                match r with
+                | :? PortableExecutableReference as r -> Some (box r.FilePath)
+                | :? CompilationReference as r -> Some (box r.Compilation)
+                | _ -> None
+            )
+            |> List.ofSeq
+
         let refErrors, refMeta =
-            if refPaths = lastRefPaths then
+            if refKey = lastRefKey then
                 cachedRefErrorsAndMeta.Value
             else
-                
-                let referencedAsmNames =
-                    refPaths
-                    |> Seq.map (fun i -> 
-                        let n = Path.GetFileNameWithoutExtension(i)
-                        n, i
+                referencedAsmPaths <-
+                    refKey
+                    |> Seq.choose (function
+                        | :? string as p -> Some (Path.GetFileNameWithoutExtension(p), p)
+                        | _ -> None
                     )
                     |> Map.ofSeq
 
-                System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
-                    let assemblyName = AssemblyName(e.Name).Name
-                    if assemblyName = "FSharp.Core" then
-                        typeof<option<_>>.Assembly
-                    else
-                    match Map.tryFind assemblyName referencedAsmNames with
-                    | None -> null
-                    | Some p -> Assembly.LoadFrom(p)
-                )
-
-                let metas = refPaths |> List.map this.GetRefMeta
-                let refErrors = metas |> List.choose snd
-
-                let refMeta =
-                    if List.isEmpty metas || not (List.isEmpty refErrors) then None 
-                    else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
-
-                cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
+                cachedRefErrorsAndMeta <- Some (this.GetReferencesMeta(compilation))
+                lastRefKey <- refKey
                 cachedRefErrorsAndMeta.Value
 
         if not (List.isEmpty refErrors) then
-            for err in refErrors do    
-                ctx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+            // IDEs do not show diagnostics without location from semantic model actions
+            let docStart = Location.Create(ctx.SemanticModel.SyntaxTree, Text.TextSpan(0, 0))
+            for err in refErrors do
+                ctx.ReportDiagnostic(Diagnostic.Create(wsError, docStart, "WebSharper analysis skipped, failed to read reference: " + err))
         else
             try
                 if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
@@ -178,4 +249,4 @@ type WebSharperCSharpAnalyzer () =
                     ctx.ReportDiagnostic(Diagnostic.Create(wsError, loc pos, string err))
 
             with e ->
-                ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))            
+                ctx.ReportDiagnostic(Diagnostic.Create(wsWarning, Location.None, sprintf "WebSharper analyzer failed: %s at %s" e.Message e.StackTrace))

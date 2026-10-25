@@ -147,6 +147,17 @@ let getSourcePos (x: FSharpExpr) =
 let withSourcePos (x: FSharpExpr) (expr: Expression) =
     ExprSourcePos (getSourcePos x, IgnoreExprSourcePos expr)
 
+/// FCS 43.12 gives interpolation fragments their own ranges, starting at `$` or `}`,
+/// while a literal fill's range starts with its opening quote.
+let isStringLiteralSource (range: FSharp.Compiler.Text.Range) =
+    try
+        let line = System.IO.File.ReadLines range.FileName |> Seq.item (range.StartLine - 1)
+        match line.[range.StartColumn] with
+        | '"' -> true
+        | '@' -> line.[range.StartColumn + 1] = '"'
+        | _ -> false
+    with _ -> true
+
 let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
     match x.DeclaringEntity with
     | Some e -> e
@@ -871,7 +882,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 //        this, arguments
                 let preserveStringFill (a: FSharpExpr) =
                     match a with
-                    | P.Const (:? string, _) when a.Range <> expr.Range ->
+                    | P.Const (:? string, _) when a.Range <> expr.Range && isStringLiteralSource a.Range ->
                         // Keep literal fills distinct from interpolation fragments through inlining.
                         let typ = sr.ReadType env.TParams a.Type
                         Coerce(tr a, typ, typ)
