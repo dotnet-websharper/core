@@ -40,8 +40,8 @@ group fcs
     nuget System.Runtime.Caching ~> 10.0.0
     nuget System.Configuration.ConfigurationManager ~> 10.0.0
     nuget NLog ~> 6.0.0
-    nuget FSharp.Core
-    nuget FSharp.Compiler.Service 43.12.204
+    nuget FSharp.Core ~> 10.1.0
+    nuget FSharp.Compiler.Service 43.12.402
 
 group nunit
     framework: net10.0, net472
@@ -53,7 +53,7 @@ group nunit
     nuget FSUnit ~> 4.0.4
     nuget Microsoft.CodeAnalysis.CSharp.Analyzer.Testing ~> 1.1.0
     nuget Microsoft.VisualStudio.Composition ~> 17.1.20
-    nuget FSharp.Core
+    nuget FSharp.Core ~> 10.1.0
     nuget System.Runtime.Loader 4.3.0
 
 group giraffe
@@ -61,6 +61,7 @@ group giraffe
     source https://api.nuget.org/v3/index.json
     storage: none
 
+    nuget FSharp.Core ~> 10.1.0
     nuget Giraffe
     nuget Giraffe.ViewEngine
     nuget Ply
