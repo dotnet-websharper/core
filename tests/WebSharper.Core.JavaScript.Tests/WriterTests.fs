@@ -35,3 +35,5 @@ let Run () =
         let s = W.ExpressionToString P.Compact e
         s.Trim() =? "(0).toString()"
     }
+
+    Report ()
