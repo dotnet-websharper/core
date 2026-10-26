@@ -345,8 +345,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
     
             PrintFSharpErrors warnSettings logger errors
-    
-            if Option.isNone exnOpt then 
+
+            match exnOpt with
+            | Some exn when not (errors |> Array.exists (fun e -> e.Severity = FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error)) ->
+                PrintGlobalError logger (sprintf "F# compilation failed: %O" exn)
+            | _ -> ()
+
+            if Option.isNone exnOpt then
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
@@ -467,17 +472,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let comp =
         try
-            aR.Wrap <| fun () ->
-                compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger)
+            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, fun translate -> aR.Wrap translate)
         with _ ->
             joinIlEmit ()
             reraise ()
 
     let exitCode =
         match comp with
-        | None ->        
-            // F# check or reference metadata errors, already reported
+        | None ->
+            // F# check or reference metadata errors, normally already reported by F# compilation
             joinIlEmit ()
+            if ilEmitTask.Status = System.Threading.Tasks.TaskStatus.RanToCompletion && ilEmitTask.Result = 0 then
+                PrintFSharpErrors warnSettings logger compiler.CheckDiagnostics
             1
         | Some comp ->
 

@@ -212,8 +212,22 @@ module internal NetCoreImplemetnation =
                         entered <- meth.Invoke(alc, [||]) :?> IDisposable
                 | _ -> ()
 
+            let isInLoadContext (asm: Assembly) =
+                match loadContext with
+                | Some alc -> obj.ReferenceEquals(AssemblyLoadContext.GetLoadContext(asm), alc)
+                | None -> false
+
+            // An assembly outside the collectible load context cannot reference one loaded into it
+            // (FileLoadException "Operation is not supported"). This happens when the F# compiler loads
+            // a type provider design-time assembly with Assembly.LoadFrom while this resolver is installed
+            // (parallelCompilation), leave those dependencies to the other handlers.
             let domResolve (x: obj) (a: ResolveEventArgs) =
-                resolveAssembly(loadContext, a.Name)
+                let asm = resolveAssembly(loadContext, a.Name)
+                if not (isNull asm || isNull a.RequestingAssembly)
+                    && isInLoadContext asm && not (isInLoadContext a.RequestingAssembly) then
+                    null
+                else
+                    asm
 
             domHandler <- ResolveEventHandler(domResolve)
 

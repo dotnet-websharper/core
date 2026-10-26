@@ -175,8 +175,6 @@ type WsConfig =
                     match bool.TryParse(envVar) with
                     | true, v -> v
                     | _ -> true
-
-                    | _ -> true                
             ParallelCompilation = true
             TimingLog = None
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
