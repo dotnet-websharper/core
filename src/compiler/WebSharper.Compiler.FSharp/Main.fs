@@ -43,7 +43,13 @@ type WebSharperFSharpCompiler(?checker) =
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase) = 
+    /// Diagnostics of the last type check, when it had errors not printed by Compile, which returned None.
+    member val CheckDiagnostics : FSharpDiagnostic[] = [||] with get, set
+
+    /// wrapTranslation runs around the WebSharper translation only, not the F# type check:
+    /// type providers must not be loaded while an AssemblyResolver is installed, otherwise
+    /// their dependencies can be loaded a second time into its collectible context.
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase, ?wrapTranslation: (unit -> WebSharper.Compiler.Compilation) -> WebSharper.Compiler.Compilation) =
         let path = config.ProjectFile
         let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         
@@ -87,25 +93,32 @@ type WebSharperFSharpCompiler(?checker) =
         if checkProjectResults.Diagnostics |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
             if assemblyName = "WebSharper.StdLib" || config.ProjectType = Some BundleOnly || config.ProjectType = Some Proxy then
                 PrintFSharpErrors this.WarnSettings logger checkProjectResults.Diagnostics
+            else
+                this.CheckDiagnostics <- checkProjectResults.Diagnostics
             None
         else
-        
-        let comp = 
-            WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
-                logger
-                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
-                assemblyName
-                config
-                checkProjectResults
 
-        WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
-        
-        if this.UseVerifier then
-            comp.VerifyRPCs()
-            
-        logger.TimedStage "WebSharper translation"
+        let translate () =
+            let comp =
+                WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                    logger
+                    (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
+                    assemblyName
+                    config
+                    checkProjectResults
 
-        Some comp
+            WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+
+            if this.UseVerifier then
+                comp.VerifyRPCs()
+
+            logger.TimedStage "WebSharper translation"
+
+            comp
+
+        match wrapTranslation with
+        | Some wrap -> Some (wrap translate)
+        | None -> Some (translate ())
 
     static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig, ?logger: LoggerBase) =
         let useGraphs = defaultArg useGraphs true
