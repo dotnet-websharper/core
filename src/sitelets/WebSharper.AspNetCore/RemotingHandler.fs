@@ -56,15 +56,7 @@ module Remoting =
 
         if server.IsRemotingRequest ctx.Request.Path then
             let uri = Context.RequestUri ctx.Request
-            let getCookie name =
-                match ctx.Request.Cookies.TryGetValue(name) with
-                | true, x -> Some x
-                | false, _ -> None
-            let setInfiniteCookie name value =
-                ctx.Response.Cookies.Append(name, value,
-                    CookieOptions(Expires = Nullable(DateTimeOffset.UtcNow.AddYears(1000)))
-                )
-            match RpcHandler.CorsAndCsrfCheck ctx.Request.Method uri getCookie getReqHeader setInfiniteCookie with
+            match RpcHandler.CorsAndCsrfCheck ctx.Request.Method uri getReqHeader with
             | CorsAndCsrfCheckResult.Error (code, msg, text) ->
                 ctx.Response.StatusCode <- code
                 let bytes = Encoding.UTF8.GetBytes(text)

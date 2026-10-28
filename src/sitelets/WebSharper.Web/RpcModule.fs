@@ -22,14 +22,8 @@ namespace WebSharper.Web
 
 open System
 open System.IO
-open System.Security.Cryptography
 open System.Security.Principal
 module R = WebSharper.Core.Remoting
-
-module private RpcUtil =
-    let [<Literal>] HttpContextKey = "HttpContext"
-    let [<Literal>] CsrfTokenKey = "csrftoken"
-    let [<Literal>] CsrfTokenHeader = "x-" + CsrfTokenKey
 
 type CorsAndCsrfCheckResult =
     | Ok of headers : list<string * string>
@@ -39,34 +33,41 @@ type CorsAndCsrfCheckResult =
 [<Sealed>]
 type RpcHandler() =
 
-    static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getCookie: string -> option<string>) (getHeader: string -> option<string>) (setInfiniteCookie: string -> string -> unit) =
-        let checkCsrf() =
-            match getCookie RpcUtil.CsrfTokenKey with
-            | None ->
-                setInfiniteCookie RpcHandler.CsrfTokenKey (RpcHandler.MakeCsrfCookie())
-                false
-            | Some c ->
-                match getHeader RpcUtil.CsrfTokenHeader with
-                | None -> false
-                | Some h ->
-                    // The CSRF token is a Base64 string,
-                    // so potential double percent-decoding is not an issue.
-                    System.Uri.UnescapeDataString h = System.Uri.UnescapeDataString c
+    // CSRF protection relies on the Sec-Fetch-Site and Origin headers, which are set by the browser
+    // and cannot be forged by scripts (same approach as Go's net/http CrossOriginProtection).
+    static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getHeader: string -> option<string>) =
         let isSameAuthority origin =
             match Uri.TryCreate(origin, System.UriKind.Absolute) with
             | true, origin -> origin.Authority = reqUrl.Authority
             | false, _ -> false
         let origin = getHeader "Origin"
+        // Sent by browsers to HTTPS and localhost targets. Unlike comparing Origin to Host, it is scheme-aware
+        // and reliable behind proxies rewriting Host or with Referrer-Policy: no-referrer, which makes Origin "null".
+        let fetchSite = getHeader "Sec-Fetch-Site"
+        let isSameOriginFetch =
+            match fetchSite with
+            | Some ("same-origin" | "none") -> true
+            | _ -> false
         let explicitlyAcceptedOrigin =
             match origin with
-            | Some origin when isSameAuthority origin || Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()) -> Some origin
+            | Some origin when Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()) -> Some origin
+            // If the browser says it's cross-origin, a matching host is not enough: an http page calling https is not trusted.
+            | Some origin when (fetchSite.IsNone || isSameOriginFetch) && isSameAuthority origin -> Some origin
             | _ -> None
+        let isCsrfSafe() =
+            if isSameOriginFetch then true
+            else
+                match origin with
+                | Some _ -> explicitlyAcceptedOrigin.IsSome
+                // Browsers send Origin on all requests except GET and HEAD, so this is not a browser.
+                // A cross-site GET (for example an image) to plain HTTP has neither header, so it is not trusted.
+                | None -> fetchSite.IsNone && reqMethod <> "GET" && reqMethod <> "HEAD"
         let acceptedOrigin =
             if Remoting.allowedOrigins.Contains "*" then Some "*" else explicitlyAcceptedOrigin
         let headers =
             match acceptedOrigin with
             | Some origin ->
-                (if origin = "*" then [] else ["Vary", "Origin"])
+                (if origin = "*" then [] else [("Vary", "Origin")])
                 @ [
                     "Access-Control-Allow-Origin", origin
                     "Access-Control-Allow-Credentials", "true"
@@ -74,24 +75,14 @@ type RpcHandler() =
             | _ -> []
         match reqMethod with
         | "OPTIONS" ->
+            // x-csrftoken is no longer sent, but is still accepted for clients built with earlier WebSharper versions
             ("Access-Control-Allow-Headers", "content-type, x-csrftoken")
             :: headers
             |> Preflight
-        | _ when Remoting.csrfProtect && not (explicitlyAcceptedOrigin.IsSome || checkCsrf()) ->
+        | _ when Remoting.csrfProtect && not (isCsrfSafe()) ->
             Error (403, "Forbidden", "CSRF")
         | _ ->
             Ok headers
 
-    static member CsrfTokenKey = RpcUtil.CsrfTokenKey
-
-    static member MakeCsrfCookie() =
-        use rng = new RNGCryptoServiceProvider()
-        let bytes = Array.zeroCreate 32
-        rng.GetBytes(bytes)
-        Convert.ToBase64String(bytes)
-            // Avoid issues with HTTP special characters; see https://tools.ietf.org/html/rfc4648#section-5
-            .Replace('+', '-')
-            .Replace('/', '_')
-
-    static member CorsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie =
-        corsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie
+    static member CorsAndCsrfCheck reqMethod reqUrl getHeader =
+        corsAndCsrfCheck reqMethod reqUrl getHeader
