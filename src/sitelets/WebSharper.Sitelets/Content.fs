@@ -675,7 +675,7 @@ module Content =
         request.Headers
         |> Seq.tryFind (fun h -> h.Name.ToLowerInvariant() = "origin")
         |> Option.bind (fun origin ->
-            if allows.Origins |> Seq.contains origin.Value then Some origin.Value
+            if allows.Origins |> Seq.exists (fun o -> String.Equals(o, origin.Value, StringComparison.OrdinalIgnoreCase)) then Some origin.Value
             elif allows.Origins |> Seq.contains "*" then Some "*"
             else None
         )
@@ -701,6 +701,8 @@ module Content =
             match getOkOrigin allows ctx.Request with
             | Some origin ->
                 [
+                    if origin <> "*" then
+                        yield Http.Header.Custom "Vary" "Origin"
                     yield Http.Header.Custom "Access-Control-Allow-Origin" origin
                     match List.ofSeq allows.Methods with
                     | [] -> ()

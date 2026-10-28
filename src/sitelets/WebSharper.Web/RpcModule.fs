@@ -74,21 +74,27 @@ type RpcHandler() =
     static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getHeader: string -> option<string>) =
         let explicitlyAcceptedOrigin, isCsrfSafe =
             CsrfCheck.Check(reqMethod, reqUrl, getHeader, fun origin -> Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()))
-        let acceptedOrigin =
-            if Remoting.allowedOrigins.Contains "*" then Some "*" else explicitlyAcceptedOrigin
         let headers =
-            match acceptedOrigin with
+            match explicitlyAcceptedOrigin with
             | Some origin ->
-                (if origin = "*" then [] else [("Vary", "Origin")])
-                @ [
+                [
+                    "Vary", "Origin"
                     "Access-Control-Allow-Origin", origin
                     "Access-Control-Allow-Credentials", "true"
                 ]
-            | _ -> []
+            | None when Remoting.allowedOrigins.Contains "*" ->
+                // Browsers reject credentials with "*", and it does not pass the CSRF check either
+                [ "Access-Control-Allow-Origin", "*" ]
+            | None -> []
         match reqMethod with
         | "OPTIONS" ->
-            // x-csrftoken is no longer sent, but is still accepted for clients built with earlier WebSharper versions
-            ("Access-Control-Allow-Headers", "content-type, x-csrftoken")
+            // Allow custom headers set by the client, for example an Authorization header in AjaxRemotingProvider.Headers.
+            // x-csrftoken is no longer sent, but is still accepted for clients built with earlier WebSharper versions.
+            let allowHeaders =
+                match getHeader "Access-Control-Request-Headers" with
+                | Some h when not (String.IsNullOrWhiteSpace h) -> h
+                | _ -> "content-type, x-csrftoken"
+            ("Access-Control-Allow-Headers", allowHeaders)
             :: headers
             |> Preflight
         | _ when Remoting.csrfProtect && not isCsrfSafe ->
