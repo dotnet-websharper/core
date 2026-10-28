@@ -211,7 +211,8 @@ module PerformanceTests =
                 Content.Cors cors (fun allows ->
                     { allows with
                         Origins = ["*"]
-                        Headers = ["Content-Type"] }
+                        Headers = ["Content-Type"]
+                        CsrfProtection = true }
                 ) (fun _ -> ok())
             | _ -> ok()
         )

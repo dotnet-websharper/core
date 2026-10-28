@@ -680,6 +680,21 @@ module Content =
             else None
         )
 
+    let private csrfErrorBody = System.Text.Encoding.UTF8.GetBytes "CSRF"
+
+    // Same check as for RPCs, with only explicitly listed origins trusted for cross-origin calls.
+    let private isCsrfSafe (allows: CorsAllows) (request: Http.Request) =
+        match request.Method with
+        | Http.Method.Get | Http.Method.Head | Http.Method.Options -> true
+        | m ->
+            let getHeader (name: string) =
+                request.Headers
+                |> Seq.tryFind (fun h -> String.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase))
+                |> Option.map (fun h -> h.Value)
+            let isAllowedOrigin (origin: string) =
+                allows.Origins |> Seq.exists (fun o -> String.Equals(o, origin, StringComparison.OrdinalIgnoreCase))
+            snd (Web.CsrfCheck.Check(m.ToString(), request.Uri, getHeader, isAllowedOrigin))
+
     let Cors (cors: Cors<'T>) (allows: CorsAllows -> CorsAllows) (content: 'T -> Async<Content<'U>>) : Async<Content<'U>> =
         let allows = allows (defaultArg cors.DefaultAllows CorsAllows.Empty)
         let headers (ctx: Context<'U>) =
@@ -714,12 +729,19 @@ module Content =
             |> async.Return
         | Some ep ->
             CustomContentAsync <| fun ctx -> async {
-                let! content = content ep
-                let! resp =
-                    match content with
-                    | CustomContent f -> async.Return (f ctx)
-                    | CustomContentAsync f -> f ctx
-                return { resp with Headers = Seq.append (headers ctx) resp.Headers }
+                if allows.CsrfProtection && not (isCsrfSafe allows ctx.Request) then
+                    return {
+                        Status = Http.Status.Forbidden
+                        Headers = headers ctx
+                        WriteBody = Http.WriteBody (fun s -> s.Write(csrfErrorBody, 0, csrfErrorBody.Length))
+                    }
+                else
+                    let! content = content ep
+                    let! resp =
+                        match content with
+                        | CustomContent f -> async.Return (f ctx)
+                        | CustomContentAsync f -> f ctx
+                    return { resp with Headers = Seq.append (headers ctx) resp.Headers }
             }
             |> async.Return
 

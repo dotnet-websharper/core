@@ -30,15 +30,19 @@ type CorsAndCsrfCheckResult =
     | Preflight of headers : list<string * string>
     | Error of httpStatusCode: int * httpStatusMessage: string * responseText: string
 
+/// Cross-site request forgery (CSRF) protection based on the Sec-Fetch-Site and Origin headers,
+/// which are set by the browser and cannot be forged by scripts
+/// (same approach as Go's net/http CrossOriginProtection).
 [<Sealed>]
-type RpcHandler() =
+type CsrfCheck =
 
-    // CSRF protection relies on the Sec-Fetch-Site and Origin headers, which are set by the browser
-    // and cannot be forged by scripts (same approach as Go's net/http CrossOriginProtection).
-    static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getHeader: string -> option<string>) =
+    /// Checks a request for cross-site request forgery.
+    /// Returns the Origin header if it is trusted (accepted by isAllowedOrigin, or the same origin as the request),
+    /// and whether the request is safe to execute: it is same-origin, from a trusted origin, or not from a browser.
+    static member Check (reqMethod: string, reqUrl: Uri, getHeader: string -> option<string>, isAllowedOrigin: string -> bool) =
         let isSameAuthority origin =
             match Uri.TryCreate(origin, System.UriKind.Absolute) with
-            | true, origin -> origin.Authority = reqUrl.Authority
+            | true, origin -> reqUrl.IsAbsoluteUri && origin.Authority = reqUrl.Authority
             | false, _ -> false
         let origin = getHeader "Origin"
         // Sent by browsers to HTTPS and localhost targets. Unlike comparing Origin to Host, it is scheme-aware
@@ -50,11 +54,11 @@ type RpcHandler() =
             | _ -> false
         let explicitlyAcceptedOrigin =
             match origin with
-            | Some origin when Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()) -> Some origin
+            | Some origin when isAllowedOrigin origin -> Some origin
             // If the browser says it's cross-origin, a matching host is not enough: an http page calling https is not trusted.
             | Some origin when (fetchSite.IsNone || isSameOriginFetch) && isSameAuthority origin -> Some origin
             | _ -> None
-        let isCsrfSafe() =
+        let isCsrfSafe =
             if isSameOriginFetch then true
             else
                 match origin with
@@ -62,6 +66,14 @@ type RpcHandler() =
                 // Browsers send Origin on all requests except GET and HEAD, so this is not a browser.
                 // A cross-site GET (for example an image) to plain HTTP has neither header, so it is not trusted.
                 | None -> fetchSite.IsNone && reqMethod <> "GET" && reqMethod <> "HEAD"
+        explicitlyAcceptedOrigin, isCsrfSafe
+
+[<Sealed>]
+type RpcHandler() =
+
+    static let corsAndCsrfCheck (reqMethod: string) (reqUrl: Uri) (getHeader: string -> option<string>) =
+        let explicitlyAcceptedOrigin, isCsrfSafe =
+            CsrfCheck.Check(reqMethod, reqUrl, getHeader, fun origin -> Remoting.allowedOrigins.Contains (origin.ToLowerInvariant()))
         let acceptedOrigin =
             if Remoting.allowedOrigins.Contains "*" then Some "*" else explicitlyAcceptedOrigin
         let headers =
@@ -79,7 +91,7 @@ type RpcHandler() =
             ("Access-Control-Allow-Headers", "content-type, x-csrftoken")
             :: headers
             |> Preflight
-        | _ when Remoting.csrfProtect && not (isCsrfSafe()) ->
+        | _ when Remoting.csrfProtect && not isCsrfSafe ->
             Error (403, "Forbidden", "CSRF")
         | _ ->
             Ok headers

@@ -49,6 +49,10 @@ type CorsAllows =
         ExposeHeaders : string list
         MaxAge : int option
         Credentials : bool
+        /// Reject non-GET requests that may be cross-site request forgeries: calls from a browser on
+        /// another origin are accepted only if the origin is listed explicitly in Origins ("*" does not count).
+        /// Uses the browser-set Sec-Fetch-Site and Origin headers, clients do not need to send a token.
+        CsrfProtection : bool
     }
 
     [<Inline>]
@@ -60,6 +64,7 @@ type CorsAllows =
             ExposeHeaders = []
             MaxAge = None
             Credentials = false
+            CsrfProtection = false
         }
 
 /// Use as an endpoint to indicate that it must check for Cross-Origin Resource Sharing headers.

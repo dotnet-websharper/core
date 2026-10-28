@@ -423,6 +423,7 @@ module internal ServerInferredOperators =
                 ExposeHeaders = []
                 MaxAge = None
                 Credentials = false
+                CsrfProtection = false
             }
         let epOptionTyp = typedefof<option<_>>.MakeGenericType(typ)
         let epOptionCases = FSharpType.GetUnionCases epOptionTyp
