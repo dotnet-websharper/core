@@ -29,6 +29,13 @@ open WebSharper.Testing
 type SystemNetWebUtilityProxy =
     static member UrlDecode(s: string) = JS.DecodeURIComponent(s)
 
+// Used by WebSharper.Tests, which is a friend assembly (#1604)
+[<assembly: System.Runtime.CompilerServices.InternalsVisibleTo("WebSharper.Tests")>]
+do ()
+
+[<JavaScript>]
+type FriendUnion = internal FriendCase of int
+
 [<JavaScript>]
 let Tests =
 

@@ -1245,4 +1245,9 @@ let Tests =
             equal (FunctionTypeAliases.concreteTuple (fun (x, y) -> x + y) (19, 23)) 42
             equal (FunctionTypeAliases.triple (fun (x, y, z) -> x + y + z) (10, 11, 21)) 42
         }
+
+        Test "#1604 Internal union case of a friend assembly" {
+            let (WebSharper.Collections.Tests.InternalProxy.FriendCase x) = WebSharper.Collections.Tests.InternalProxy.FriendCase 42
+            equal x 42
+        }
     }
