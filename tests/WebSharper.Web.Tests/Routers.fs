@@ -66,6 +66,13 @@ module PerformanceTests =
         | [<EndPoint "POST /c"; Json "body">] CorsC of body: RecTest
         | [<EndPoint "GET /d">] CorsD
 
+    type FetchEcho =
+        {
+            ContentType : string
+            Accept : string
+            Body : RecTest
+        }
+
     type Action =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/">] USubAction of SubAction
@@ -108,6 +115,8 @@ module PerformanceTests =
         | [<EndPoint "/type-tests">] TypeTests of 
             Guid * single * double * sbyte * byte * int16 * uint16 * uint32 * int64 * uint64  
         | [<EndPoint "/cors">] UCors of Cors<CorsApi>
+        | [<EndPoint "POST /fetch-echo"; Json "body">] UFetchEcho of body: RecTest
+        | [<EndPoint "GET /fetch-status">] UFetchStatus of int
 
     let TestValues =
         [
@@ -214,6 +223,16 @@ module PerformanceTests =
                         Headers = ["Content-Type"]
                         CsrfProtection = true }
                 ) (fun _ -> ok())
+            | UFetchEcho body ->
+                let header name =
+                    ctx.Request.Headers
+                    |> Seq.tryFind (fun h -> h.Name.ToLowerInvariant() = name)
+                    |> Option.map (fun h -> h.Value)
+                    |> Option.defaultValue ""
+                Content.Json { ContentType = header "content-type"; Accept = header "accept"; Body = body }
+            | UFetchStatus code ->
+                Content.Text "fetch-status-body"
+                |> Content.SetStatus (Http.Status.Custom code None)
             | _ -> ok()
         )
 

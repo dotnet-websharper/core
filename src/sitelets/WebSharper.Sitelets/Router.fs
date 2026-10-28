@@ -574,6 +574,16 @@ and [<JavaScript>] Router<'T when 'T: equality> =
         member this.Link ep =
             this.Write ep |> Option.map (fun p -> System.Uri((Route.Combine p).ToLink(), System.UriKind.Relative))
         
+/// Raised by the Router.FetchText and FetchJson helpers when the response status is not successful (2xx).
+[<JavaScript>]
+type FetchException(response: Response) =
+    inherit exn("Response status is not successful: " + string response.Status + " " + response.StatusText)
+
+    /// The response, its body can still be read.
+    member this.Response = response
+
+    member this.Status = response.Status
+
 [<JavaScript>]
 module Router =
     [<Inline>]
@@ -801,30 +811,87 @@ module Router =
             }
         XHRWith defaultXHRConfig router endpoint
 
+    let internal FetchRoute (baseUrl: option<string>) (options: RequestOptions) (path: Route) : Promise<Response> =
+        options.Method <-defaultArg path.Method "POST"
+        match path.Body.Value with
+        | null ->
+            if not (Map.isEmpty path.FormData) then
+                let fd = JavaScript.FormData()
+                path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
+                options.Body <- fd
+        | b ->
+            options.Body <- b
+        let url = path.ToLink()
+        let url =
+            match baseUrl with
+            | Some baseUrl -> baseUrl.TrimEnd('/') + url
+            | None -> url
+        JS.Fetch(url, options)
+
     let FetchWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Promise<Response> =
         let options = if As options then options else RequestOptions()
         match Write router endpoint with
-        | Some path ->
-            options.Method <-defaultArg path.Method "POST"
-            match path.Body.Value with
-            | null ->
-                if not (Map.isEmpty path.FormData) then
-                    let fd = JavaScript.FormData()
-                    path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
-                    options.Body <- fd
-            | b ->
-                options.Body <- b
-            let url = path.ToLink()
-            let url =
-                match baseUrl with
-                | Some baseUrl -> baseUrl.TrimEnd('/') + url
-                | None -> url
-            JS.Fetch(url, options)
-        | _ -> 
-            failwith "Failed to map endpoint to request" 
+        | Some path -> FetchRoute baseUrl options path
+        | _ ->
+            failwith "Failed to map endpoint to request"
 
     let Fetch router endpoint =
         FetchWith None (RequestOptions()) router endpoint
+
+    /// Fetch with request headers set on a copy of options, unless already set there:
+    /// Content-Type for a request body (from Router.Json or a [<Json>] field), and Accept if given.
+    /// Raises FetchException if the response status is not successful.
+    let internal FetchChecked (accept: string) (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Async<Response> =
+        match Write router endpoint with
+        | Some path ->
+            let options : RequestOptions = JS.Inline("Object.assign({}, $0)", options)
+            let headers = if As options.Headers then Headers(options.Headers) else Headers()
+            match path.Body with
+            | Some b when not (isNull b) && not (headers.Has "Content-Type") ->
+                headers.Set("Content-Type", "application/json")
+            | _ -> ()
+            if not (isNull accept) && not (headers.Has "Accept") then
+                headers.Set("Accept", accept)
+            options.Headers <- headers
+            async {
+                let! resp = FetchRoute baseUrl options path |> Promise.AsAsync
+                return if resp.Ok then resp else raise (FetchException resp)
+            }
+        | _ ->
+            failwith "Failed to map endpoint to request"
+
+    /// Calls an endpoint with fetch and returns the response text.
+    /// A request body is sent with Content-Type: application/json, unless set in options.
+    /// Raises FetchException if the response status is not successful.
+    let FetchTextWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Async<string> =
+        async {
+            let! resp = FetchChecked null baseUrl options router endpoint
+            return! resp.Text() |> Promise.AsAsync
+        }
+
+    /// Calls an endpoint with fetch and returns the response text.
+    /// A request body is sent with Content-Type: application/json.
+    /// Raises FetchException if the response status is not successful.
+    let FetchText (router: Router<'A>) endpoint : Async<string> =
+        FetchTextWith None (RequestOptions()) router endpoint
+
+    /// Calls an endpoint with fetch and deserializes the JSON response, as written by Content.Json on the server.
+    /// Sends Accept: application/json, and a request body with Content-Type: application/json, unless set in options.
+    /// Raises FetchException if the response status is not successful.
+    [<Inline>]
+    let FetchJsonWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Async<'R> =
+        async {
+            let! resp = FetchChecked "application/json" baseUrl options router endpoint
+            let! text = resp.Text() |> Promise.AsAsync
+            return Json.Deserialize<'R> text
+        }
+
+    /// Calls an endpoint with fetch and deserializes the JSON response, as written by Content.Json on the server.
+    /// Sends Accept: application/json, and a request body with Content-Type: application/json.
+    /// Raises FetchException if the response status is not successful.
+    [<Inline>]
+    let FetchJson (router: Router<'A>) endpoint : Async<'R> =
+        FetchJsonWith None (RequestOptions()) router endpoint
 
     let HashLink (router: Router<'A>)  endpoint =
         "#" + Link router endpoint
@@ -1130,6 +1197,20 @@ type Router<'T when 'T: equality> with
     [<Inline>]
     member this.Fetch(endpoint, [<Optional>] baseUrl, [<Optional>] settings) =
         Router.FetchWith (Option.ofObj baseUrl) settings this endpoint
+
+    /// Calls an endpoint with fetch and returns the response text.
+    /// A request body is sent with Content-Type: application/json, unless set in settings.
+    /// Throws FetchException if the response status is not successful.
+    [<Inline>]
+    member this.FetchText(endpoint, [<Optional>] baseUrl, [<Optional>] settings) =
+        Router.FetchTextWith (Option.ofObj baseUrl) settings this endpoint |> Async.StartAsTask
+
+    /// Calls an endpoint with fetch and deserializes the JSON response, as written by Content.Json on the server.
+    /// Sends Accept: application/json, and a request body with Content-Type: application/json, unless set in settings.
+    /// Throws FetchException if the response status is not successful.
+    [<Inline>]
+    member this.FetchJson<'R>(endpoint, [<Optional>] baseUrl, [<Optional>] settings) : System.Threading.Tasks.Task<'R> =
+        Router.FetchJsonWith (Option.ofObj baseUrl) settings this endpoint |> Async.StartAsTask
 
     [<Inline>]
     member this.Box() =
