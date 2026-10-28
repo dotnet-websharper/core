@@ -1542,6 +1542,13 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                         for t in argTypes do
                             if t.CanHaveDeserializer then
                                 env.Compilation.AddTypeNeedingDeserialization(t, pos, bundleScope)
+                        // captured values are passed from the server as JSON, which can't contain functions (#1208)
+                        for (v, _, _) in env.FreeVars do
+                            let t = getOrigType v.FullType
+                            if t.IsFunctionType || (t.HasTypeDefinition && t.TypeDefinition.IsDelegate) then
+                                let msg =
+                                    sprintf "Client-side code uses '%s', a function defined in server-side code, which cannot be passed to the client. Define it inside the client-side code, or as a top-level function with the JavaScript attribute." v.DisplayName
+                                env.Compilation.AddError(Some pos, SourceError msg)
                         let retTy = env.SymbolReader.ReadType Map.empty e.Type
                         let qm =
                             Method {
