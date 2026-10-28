@@ -28,7 +28,41 @@ open System.Reflection
 open WebSharper.Constants
 
 module CT = ContentTypes
-    
+
+let private scriptVersions = System.Collections.Concurrent.ConcurrentDictionary<string, string>()
+
+let private versionQuery (h: int) = "?h=" + string h
+
+let ScriptVersion (webRootFolder: string) (fileName: string) =
+    if String.IsNullOrEmpty webRootFolder then "" else
+    let path = Path.Combine(webRootFolder, "Scripts", "WebSharper", fileName)
+    scriptVersions.GetOrAdd(path, fun path ->
+        if File.Exists path then
+            versionQuery (AST.StableHash.data (File.ReadAllBytes path))
+        else ""
+    )
+
+let WorkersVersion (webRootFolder: string) =
+    if String.IsNullOrEmpty webRootFolder then "" else
+    let dir = Path.Combine(webRootFolder, "Scripts", "WebSharper", "workers")
+    scriptVersions.GetOrAdd(dir, fun dir ->
+        if Directory.Exists dir then
+            match Directory.GetFiles(dir, "*.js") |> Array.sort with
+            | [||] -> ""
+            | files ->
+                files
+                |> Seq.collect (fun f ->
+                    [
+                        AST.StableHash.data (Text.Encoding.UTF8.GetBytes(Path.GetFileName f))
+                        AST.StableHash.data (File.ReadAllBytes f)
+                    ]
+                )
+                |> List.ofSeq
+                |> AST.StableHash.list
+                |> versionQuery
+        else ""
+    )
+
 type HtmlTextWriter(w: TextWriter, indent: string) =
     inherit System.IO.TextWriter(w.FormatProvider)
 
@@ -124,20 +158,26 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
         ]
 
     member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit, ?bundleNames: string[]) =
+        this.WriteStartCode(scriptBaseUrl, (null: string), ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?activation = activation, ?bundleNames = bundleNames)
+
+    member this.WriteStartCode(scriptBaseUrl: option<string>, webRootFolder: string, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit, ?bundleNames: string[]) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
+        let workersVersion = WorkersVersion webRootFolder
         match bundleNames with
         | Some bundles ->
             match scriptBaseUrl with
-            | Some url -> 
+            | Some url ->
                 if includeScriptTag then
                     for b in bundles do
-                        this.WriteLine("""<script src="{0}{1}.js"></script>""", url, b)
+                        this.WriteLine("""<script src="{0}{1}.js{2}"></script>""", url, b, ScriptVersion webRootFolder (b + ".js"))
                     this.WriteLine("""<script>""")
                 this.WriteLine("""document.addEventListener("DOMContentLoaded", () => {""")
                 this.WriteLine("""wsbundle.Runtime.ScriptBasePath = '{0}';""", url)
                 if skipAssemblyDir then
                     this.WriteLine("""wsbundle.Runtime.ScriptSkipAssemblyDir = true;""")
+                if workersVersion <> "" then
+                    this.WriteLine("""wsbundle.Runtime.ScriptVersion = '{0}';""", workersVersion)
                 match activation with
                 | None -> ()
                 | Some a -> a url
@@ -152,6 +192,8 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
                 this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
                 if skipAssemblyDir then
                     this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
+                if workersVersion <> "" then
+                    this.WriteLine("""Runtime.ScriptVersion = '{0}';""", workersVersion)
                 match activation with
                 | None -> ()
                 | Some a -> a url
@@ -459,12 +501,11 @@ type BundleCss =
     }
     interface IResource with
         member this.Render ctx =
-            fun writer -> 
-                match ctx.ScriptBaseUrl with
-                | None ->
-                    link ctx.DefaultToHttp (writer Styles) ("/Scripts/WebSharper/" + this.BundleName + ".css")
-                | Some scriptBaseUrl ->
-                    link ctx.DefaultToHttp (writer Styles) (scriptBaseUrl + this.BundleName + ".css")
+            let fileName = this.BundleName + ".css"
+            let scriptBaseUrl = ctx.ScriptBaseUrl |> Option.defaultValue "/Scripts/WebSharper/"
+            let url = scriptBaseUrl + fileName + ScriptVersion this.WebRootFolder fileName
+            fun writer ->
+                link ctx.DefaultToHttp (writer Styles) url
 
 [<Sealed>]
 type Runtime() =

@@ -8,6 +8,7 @@
     <Compile Include="Remoting.fs" />
     <Compile Include="ClientSideJson.fs" />
     <Compile Include="HelloWorld.fs" />
+    <Compile Include="CacheBusting.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="SplitProxy.fs" />
     <Compile Include="Routers.fs" />

@@ -23,6 +23,18 @@ module WebSharper.Core.Resources
 
 open System
 
+/// Gets a cache-busting query string ("?h=<hash>") for a file in the Scripts/WebSharper
+/// folder under the given web root, like a bundle produced by esbuild after compilation.
+/// Returns "" if the web root is null or the file does not exist.
+/// Results are cached for the lifetime of the process.
+val ScriptVersion : webRootFolder: string -> fileName: string -> string
+
+/// Gets a cache-busting query string ("?h=<hash>") for the contents of the
+/// Scripts/WebSharper/workers folder under the given web root.
+/// Returns "" if the web root is null or there are no worker scripts.
+/// Results are cached for the lifetime of the process.
+val WorkersVersion : webRootFolder: string -> string
+
 type HtmlTextWriter =
     inherit System.IO.TextWriter
     member RenderBeginTag : string -> unit
@@ -41,6 +53,9 @@ type HtmlTextWriter =
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
     static member IsSelfClosingTag : string -> bool
     member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool * ?activation: (string -> unit) * ?bundleNames: string[] -> unit
+    /// Writes start code, appending content hashes to bundle links and worker paths
+    /// for cache busting, based on the files found under webRootFolder.
+    member WriteStartCode : scriptBaseUrl: option<string> * webRootFolder: string * ?includeScriptTag: bool * ?skipAssemblyDir: bool * ?activation: (string -> unit) * ?bundleNames: string[] -> unit
     static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool * ?activation: (string -> unit) * ?bundleNames: string[] -> unit
 
 type MediaType =

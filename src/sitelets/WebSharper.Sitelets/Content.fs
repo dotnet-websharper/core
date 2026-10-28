@@ -450,7 +450,7 @@ module Content =
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
         if Option.isSome activation then
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -462,7 +462,7 @@ module Content =
         use tw = new HtmlTextWriter(w, " ")
         let activation, bundleNames = writeResources ctx controls (fun _ -> tw)
         if Option.isSome activation then
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
 
     let getResourcesAndScriptsOfRequires ctx requires =
@@ -470,7 +470,7 @@ module Content =
         use tw = new HtmlTextWriter(w, " ")
         let activation, bundleNames = writeRequires ctx requires (fun _ -> tw)
         if Option.isSome activation then
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -483,7 +483,7 @@ module Content =
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
                     if Option.isSome activation then
-                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, context.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)
@@ -900,7 +900,7 @@ type Content<'Endpoint> with
                             let body = [ Web.BundleNode(bundleName, reqs = reqs) ]
                             let activation, bundleNames = Content.writeResources ctx body (fun _ -> tw)
                             if Option.isSome activation then
-                                tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+                                tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
                             let resp = contents.Replace("""<script ws-replace="scripts"></script>""", scriptsW.ToString())
                             let w = new StreamWriter(out, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                             do! w.WriteAsync(resp)
