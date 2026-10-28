@@ -34,6 +34,31 @@ let fileExists (file: string) =
 let dirExists (path: string) =
     DirectoryInfo(path).Exists
 
+module OutputFiles =
+
+    // AsyncLocal keeps concurrent compilations in the booster service apart
+    let private current = System.Threading.AsyncLocal<System.Collections.Concurrent.ConcurrentDictionary<string, unit>>()
+
+    let Start () =
+        current.Value <- System.Collections.Concurrent.ConcurrentDictionary()
+
+    let Add (path: string) =
+        match current.Value with
+        | null -> ()
+        | files -> files.TryAdd(Path.GetFullPath path, ()) |> ignore
+
+    // Read by the WebSharperCheckOutputFiles MSBuild target
+    let Finish (assemblyFile: string) =
+        match current.Value with
+        | null -> ()
+        | files ->
+            current.Value <- null
+            let listFile = Path.ChangeExtension(assemblyFile, ".websharper.files")
+            if files.IsEmpty then
+                if File.Exists listFile then File.Delete listFile
+            else
+                File.WriteAllLines(listFile, Seq.sort files.Keys)
+
 let PrepareFileForWriting (fullPath: string) : unit =
     let fullPath = Path.GetFullPath fullPath
     let d = Path.GetDirectoryName fullPath
@@ -42,6 +67,7 @@ let PrepareFileForWriting (fullPath: string) : unit =
 
 let EnsureBinaryFile (fullPath: string) (contents: byte []) : bool =
     PrepareFileForWriting fullPath
+    OutputFiles.Add fullPath
     let inline def () =
         File.WriteAllBytes(fullPath, contents)
         true
@@ -51,6 +77,7 @@ let EnsureBinaryFile (fullPath: string) (contents: byte []) : bool =
 
 let EnsureTextFile (fullPath: string) (contents: string) : bool =
     PrepareFileForWriting fullPath
+    OutputFiles.Add fullPath
     let inline def () =
         File.WriteAllText(fullPath, contents, DefaultEncoding)
         true

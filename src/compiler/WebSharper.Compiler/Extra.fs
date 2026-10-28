@@ -123,6 +123,7 @@ let copyFile (source: string) (dest: string) =
         stdout.WriteLine("Copied {0} to {1}", source, dest)
     let getLastWriteTime p =
         File.GetLastWriteTimeUtc(p)
+    FileSystem.OutputFiles.Add dest
     if File.Exists(dest) then
         if getLastWriteTime dest < getLastWriteTime source then
             doCopy ()

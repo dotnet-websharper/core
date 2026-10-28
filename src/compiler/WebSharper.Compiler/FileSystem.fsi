@@ -27,6 +27,18 @@ open System.Text
 /// The default encoding is UTF-8 without BOM.
 val DefaultEncoding : Encoding
 
+/// Tracks the files written by a compilation, so that MSBuild can recompile when some of them are missing.
+module OutputFiles =
+
+    /// Starts tracking for the current compilation, including its asynchronous work.
+    val Start : unit -> unit
+
+    /// Records a written file.
+    val Add : path: string -> unit
+
+    /// Writes the list of recorded files next to the compiled assembly, or deletes it if there are none.
+    val Finish : assemblyFile: string -> unit
+
 /// Represents binary content.
 [<Sealed>]
 type Binary =

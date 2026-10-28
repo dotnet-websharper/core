@@ -39,6 +39,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
+    FileSystem.OutputFiles.Start()
 
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -258,7 +259,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         Directory.CreateDirectory(asmPath) |> ignore
         for (fname, js) in jss do
             let jsPath = Path.Combine(asmPath, fname)
-            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+            let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath)
+            File.WriteAllText(fullPath, js)
+            FileSystem.OutputFiles.Add fullPath
         logger.TimedStage ("Writing code files to " + asmPath)
     | _ -> ()
 
@@ -320,6 +323,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         logger.TimedStage "Merging output with previously existing changes"
     | None -> ()
 
+    FileSystem.OutputFiles.Finish config.AssemblyFile
     fullTime logger
 
 let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =

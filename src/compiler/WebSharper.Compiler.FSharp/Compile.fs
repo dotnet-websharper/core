@@ -261,7 +261,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
-    
+    FileSystem.OutputFiles.Start()
+
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
     
@@ -632,7 +633,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             if textOutputs |> Array.isEmpty || config.ProjectType <> None then
                 for (fname, js) in jss do
                     let jsPath = Path.Combine(asmPath, fname)
-                    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+                    let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath)
+                    File.WriteAllText(fullPath, js)
+                    FileSystem.OutputFiles.Add fullPath
             else
                 for (name, content) in textOutputs do
                     if not <| name.ToLower().EndsWith ".meta" then
@@ -640,6 +643,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath)
                         Directory.CreateDirectory(Path.GetDirectoryName fullPath) |> ignore
                         File.WriteAllText(fullPath, content)
+                        FileSystem.OutputFiles.Add fullPath
             logger.TimedStage ("Writing code files to " + asmPath)
         | _ -> ()
 
@@ -696,6 +700,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 exitCode
             | None -> 0
 
+    if exitCode = 0 then
+        FileSystem.OutputFiles.Finish config.AssemblyFile
     fullTime logger
     exitCode
 

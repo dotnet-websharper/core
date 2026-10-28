@@ -554,6 +554,7 @@ let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: 
             if not (Directory.Exists outputDir) then
                 Directory.CreateDirectory outputDir |> ignore
             File.WriteAllText(path, js)
+            FileSystem.OutputFiles.Add path
 
         let jspkg = 
             JavaScriptPackager.packageAssembly O.JavaScript refMeta currentL "" true (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.LibraryBundle

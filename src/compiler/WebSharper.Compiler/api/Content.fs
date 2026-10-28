@@ -36,6 +36,7 @@ type Content(t: Lazy<string>) =
         if not dir.Exists then
             dir.Create()
         File.WriteAllText(name, t.Value, enc)
+        FileSystem.OutputFiles.Add name
 
     member c.Text = t.Value
 

@@ -407,7 +407,8 @@ module Bundling =
             for (f, s) in bundle.Sources.Value do
                 let loc = Path.Combine(outputDir, "Source", f)
                 System.IO.Directory.CreateDirectory(Path.GetDirectoryName(loc)) |> ignore 
-                File.WriteAllText(loc, s)    
+                File.WriteAllText(loc, s)
+                FileSystem.OutputFiles.Add loc
 
         | None -> ()
 
@@ -487,5 +488,6 @@ module Bundling =
                     let path = Path.Combine(baseDir, filename)
                     System.IO.Directory.CreateDirectory (Path.GetDirectoryName path) |> ignore
                     System.IO.File.WriteAllText(path, content)
+                    FileSystem.OutputFiles.Add path
         | None -> ()
 

@@ -23,7 +23,8 @@
 
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
 
-  <Target Name="CleanBuildDir" BeforeTargets="CoreCompile">
+  <!-- only when WebSharper compiles, so that an up-to-date build keeps the output -->
+  <Target Name="CleanBuildDir" BeforeTargets="WebSharperCompile" Condition=" '@(FscCommandLineArgs)' != '' ">
     <RemoveDir Directories="build" />
   </Target>
 
