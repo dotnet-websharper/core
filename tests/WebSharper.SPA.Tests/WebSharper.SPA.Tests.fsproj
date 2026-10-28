@@ -12,6 +12,7 @@
   <ItemGroup>
     <None Include="extra.files" />
     <None Include="sayHi.mjs" />
+    <None Include="spa.module.css" />
     <None Include="esbuild.config.mjs" />
     <Content Include="package.json" />
     <Compile Include="File1.fs" />

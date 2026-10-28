@@ -353,7 +353,7 @@ module Bundling =
                     CurrentMeta = currentMeta
                     GetAllDeps = FrontEnd.GetDepsFromJSExports jsExports bundle.Node
                     EntryPoint = Some bundle.EntryPoint
-                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.WorkerBundle
+                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.WorkerBundle (config.ProjectType = Some Bundle || config.ProjectType = Some BundleOnly)
                     Sources = []
                     RefAssemblies = refAssemblies
                     IsExtraBundle = true

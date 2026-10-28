@@ -31,3 +31,11 @@ let sayHi name = X<string>
 
 let testThatThisIsIncluded2 () =
     Console.Log (sayHi "from copied script")
+
+// #1596 CSS module from this project's extra.files
+[<Import("default", "./spa.module.css")>]
+[<Inline "$import.spaCard">]
+let spaCardClass = X<string>
+
+let testCssModule () =
+    Console.Log ("CSS module class: " + spaCardClass)
