@@ -229,6 +229,16 @@ module ClientServerTests =
                 let! errOpt = Bug940.Test()
                 equal errOpt None
             }
+
+            TestIf runServerTests "#960 Encoded slash in a path segment" {
+                // the server responds with the link of the parsed endpoint
+                let! text =
+                    async {
+                        let! resp = JS.Fetch("/perf-tests/priority/a%2Fb/c") |> Promise.AsAsync
+                        return! resp.Text() |> Promise.AsAsync
+                    }
+                equal text "/perf-tests/priority/a~2fb/c"
+            }
         }
 
     let RunTests apiBaseUri corsBaseUri runServerTests =

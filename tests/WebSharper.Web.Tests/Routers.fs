@@ -183,6 +183,9 @@ module PerformanceTests =
             UPriority3 "xx", "/priority/xx"
             UPriority4 (123, "xx"), "/priority/123/xx"
             UPriority5 ("xx", "yy"), "/priority/xx/yy"
+            UString "a/b", "/string/a%2Fb"
+            UString "a/b", "/string/a%2fb"
+            UPriority5 ("a/b", "c"), "/priority/a%2Fb/c"
         ]
 
     let mutable expecting = None

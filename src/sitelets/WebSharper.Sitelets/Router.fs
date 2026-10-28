@@ -237,6 +237,8 @@ module StringEncoding =
 
     [<JavaScript>]
     let read (s: string) = 
+        // ASP.NET Core and browsers keep %2F encoded in a path segment, read it as an escaped slash
+        let s = s.Replace("%2F", "~2f").Replace("%2f", "~2f")
         if IsClient then
             let buf = ResizeArray()
             let rec loop chars =
