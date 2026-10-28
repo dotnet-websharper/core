@@ -587,6 +587,20 @@ type FetchException(response: Response) =
     member this.Status = response.Status
 
 [<JavaScript>]
+module internal QueryValue =
+    // A query argument value has the path segments of the value separated by '/' (#1256)
+    let Parse (item: Router<'A>) (q: string) =
+        item.Parse { Route.Empty with Segments = q.Split([| '/' |], System.StringSplitOptions.None) |> List.ofArray }
+        |> Seq.filter (fun (p, _) -> p.Segments |> List.forall System.String.IsNullOrEmpty)
+        |> Seq.map snd
+
+    let Write key (item: Router<'A>) (value: 'A) =
+        item.Write value |> Option.map (fun p ->
+            let p = Route.Combine p
+            Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ (key, String.concat "/" p.Segments) ] }
+        )
+
+[<JavaScript>]
 module Router =
     [<Inline>]
     let Combine (a: Router<'A>) (b: Router<'B>) = a / b
@@ -643,17 +657,12 @@ module Router =
                 | None -> Seq.empty
                 | Some q -> 
                     let newQa = path.QueryArgs |> Map.remove key
-                    item.Parse { Route.Empty with Segments = [ q ] }
-                    |> Seq.map (fun (p, v) ->
+                    QueryValue.Parse item q
+                    |> Seq.map (fun v ->
                         { path with QueryArgs = newQa }, v
                     )
             Write = fun value ->
-                item.Write value |> Option.map (fun p -> 
-                    let p = Route.Combine p
-                    match p.Segments with
-                    | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
-                    | _ -> Seq.empty
-                )
+                QueryValue.Write key item value
         }
 
     /// Parses/writes a single option value from an optional query argument with the given key instead of url path.
@@ -664,20 +673,15 @@ module Router =
                 | None -> Seq.singleton (path, None)
                 | Some q -> 
                     let newQa = path.QueryArgs |> Map.remove key
-                    item.Parse { Route.Empty with Segments = [ q ] }
-                    |> Seq.map (fun (_, v) ->
+                    QueryValue.Parse item q
+                    |> Seq.map (fun v ->
                         { path with QueryArgs = newQa }, Some v
                     )
             Write = fun value ->
                 match value with
                 | None -> Some Seq.empty
                 | Some v ->
-                    item.Write v |> Option.map (fun p -> 
-                        let p = Route.Combine p
-                        match p.Segments with
-                        | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
-                        | _ -> Seq.empty
-                    )
+                    QueryValue.Write key item v
         }
 
     /// Parses/writes a single nullable value from an optional query argument with the given key instead of url path.
@@ -688,18 +692,13 @@ module Router =
                 | None -> Seq.singleton (path, System.Nullable())
                 | Some q -> 
                     let newQa = path.QueryArgs |> Map.remove key
-                    item.Parse { Route.Empty with Segments = [ q ] }
-                    |> Seq.map (fun (_, v) ->
+                    QueryValue.Parse item q
+                    |> Seq.map (fun v ->
                         { path with QueryArgs = newQa }, System.Nullable v
                     )
             Write = fun value ->
                 if value.HasValue then
-                    item.Write value.Value |> Option.map (fun p -> 
-                        let p = Route.Combine p
-                        match p.Segments with
-                        | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
-                        | _ -> Seq.empty
-                    )
+                    QueryValue.Write key item value.Value
                 else
                     Some Seq.empty
         }

@@ -448,13 +448,20 @@ module internal ServerInferredOperators =
             IExplicitMethods = Set.add "OPTIONS" item.IExplicitMethods
         }
 
+    // A query argument value has the path segments of the value separated by '/' (#1256)
+    let private parseQueryValue (item: InferredRouter) (q: string) =
+        let path = { MRoute.Empty with Segments = q.Split('/') |> List.ofArray }
+        match item.IParse path with
+        | Some _ as res when path.Segments |> List.forall System.String.IsNullOrEmpty -> res
+        | _ -> None
+
     let IQuery key (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
                 match path.QueryArgs.[key] with
                 | None -> error (MissingQueryParameter key) path 
                 | Some q ->
-                    item.IParse { MRoute.Empty with Segments = [ q ] }
+                    parseQueryValue item q
             IWrite = fun (w, value) ->
                 let q = 
                     match w.QueryWriter with
@@ -488,7 +495,7 @@ module internal ServerInferredOperators =
                 match path.QueryArgs.[key] with
                 | None -> Some null
                 | Some q ->
-                    item.IParse { MRoute.Empty with Segments = [ q ] }
+                    parseQueryValue item q
                     |> Option.map (fun v ->
                         converter.Some v
                     )
@@ -515,7 +522,7 @@ module internal ServerInferredOperators =
                 match path.QueryArgs.[key] with
                 | None -> Some null
                 | Some q ->
-                    item.IParse { MRoute.Empty with Segments = [ q ] }
+                    parseQueryValue item q
             IWrite = fun (w, value) ->
                 match value with
                 | null -> ()

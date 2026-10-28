@@ -85,6 +85,9 @@ module PerformanceTests =
         | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
         | [<EndPoint "/option-query"; Query "q">] UOptionQuery of q : option<int>
         | [<EndPoint "/nullable-query"; Query "q">] UNullableQuery of q : System.Nullable<int>
+        | [<EndPoint "/union-query"; Query "q">] UUnionQuery of q : SubAction
+        | [<EndPoint "/union-option-query"; Query "q">] UUnionOptionQuery of q : option<SubAction>
+        | [<EndPoint "/record-query"; Query "q">] URecordQuery of q : RecTest
         | [<EndPoint "/recursive">] URecursive of option<Action>
         | [<EndPoint "/record">] URecord of RecTest
         | [<EndPoint "/record-with-queries">] URecordQ of RecQTest
@@ -138,6 +141,12 @@ module PerformanceTests =
             UOptionQuery (Some 5)
             UNullableQuery (System.Nullable())
             UNullableQuery (System.Nullable 6)
+            UUnionQuery Sub1
+            UUnionQuery (Sub2 "x")
+            UUnionQuery (Sub2 "a/b")
+            UUnionOptionQuery None
+            UUnionOptionQuery (Some (Sub2 "x"))
+            URecordQuery { A = "hello"; B = 123; C = false }
             URecursive (Some (URecursive (Some (UTuple (1, "hi", true)))))
             URecord { A = "hello"; B = 123; C = false }
             URecordQ { A = "hello"; BQ = 123; CQ = false }

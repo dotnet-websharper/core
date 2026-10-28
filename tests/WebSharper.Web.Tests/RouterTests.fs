@@ -216,6 +216,14 @@ module ClientServerTests =
                 equal (parseHash rInt "#/2") (Some 2)     
             }
 
+            Test "#1256 Query value with multiple segments" {
+                let r = Router.Query "q" (rString / rInt)
+                equal (Router.Link r ("a/b", 1)) "/?q=a~2fb/1"
+                equal (parse r "/?q=a~2fb/1") (Some ("a/b", 1))
+                equal (parse r "/?q=a~2fb/1/2") None
+                equal (parse r "/?q=a~2fb") None
+            }
+
             TestIf runServerTests "Router combinator" {
                 let! testValuesAndServerLinks = CombinatorTests.GetTestValues()
                 let testValuesAndClientLinks =
