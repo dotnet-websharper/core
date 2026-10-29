@@ -144,6 +144,62 @@ module ClientServerTests =
                 })
             }
 
+            TestIf runServerTests "Router.FetchText" {
+                let baseUri ep =
+                    match ep with
+                    | UCors _ -> corsBaseUri
+                    | _ -> None
+                let! serverResults = GetTestValues()
+                let! fetchResults =
+                    async {
+                        let arr = ResizeArray()
+                        for testValue, _, _ in serverResults do
+                            try
+                                do! Expect testValue
+                                let! text = Router.FetchTextWith (baseUri testValue) (RequestOptions()) ShiftedRouter testValue
+                                arr.Add text
+                            with e ->
+                                arr.Add (e.StackTrace)
+                        return arr.ToArray()
+                    }
+                let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+                forEach (Array.zip fetchResults expectedResults) (fun (r, v) -> Do {
+                    equalMsg r v (sprintf "FetchText call for: " + string v)
+                })
+            }
+
+            TestIf runServerTests "Router.FetchJson" {
+                let body = { A = "fetch"; B = 42; C = true }
+                let! (res: FetchEcho) = Router.FetchJson ShiftedRouter (UFetchEcho body)
+                equal res.Body body
+                isTrue (res.ContentType.StartsWith "application/json")
+                equal res.Accept "application/json"
+                let! (inferred: FetchEcho) = Router.InferFetchJsonWith (Some "/perf-tests") (RequestOptions()) (UFetchEcho body)
+                equal inferred res
+                let! fromTask = ShiftedRouter.FetchJson<FetchEcho>(UFetchEcho body) |> Async.AwaitTask
+                equal fromTask res
+                let headers = Headers()
+                headers.Set("Accept", "application/json, text/plain")
+                let options = RequestOptions(Headers = headers)
+                let! (custom: FetchEcho) = Router.FetchJsonWith None options ShiftedRouter (UFetchEcho body)
+                equalMsg custom.Accept "application/json, text/plain" "Accept from options is kept"
+                isTrueMsg (isNull (As<obj> options.Body)) "Options are not modified"
+            }
+
+            TestIf runServerTests "Router.FetchText error status" {
+                let! res =
+                    async {
+                        try
+                            let! _ = Router.FetchText ShiftedRouter (UFetchStatus 418)
+                            return 0, ""
+                        with
+                        | :? FetchException as e ->
+                            let! text = e.Response.Text() |> JavaScript.Promise.AsAsync
+                            return e.Status, text
+                    }
+                equal res (418, "fetch-status-body")
+            }
+
             Test "Router primitives" {
                 equal (Router.Link rUnit ()) "/"
                 equal (parse rUnit "/") (Some ())
@@ -160,6 +216,14 @@ module ClientServerTests =
                 equal (parseHash rInt "#/2") (Some 2)     
             }
 
+            Test "#1256 Query value with multiple segments" {
+                let r = Router.Query "q" (rString / rInt)
+                equal (Router.Link r ("a/b", 1)) "/?q=a~2fb/1"
+                equal (parse r "/?q=a~2fb/1") (Some ("a/b", 1))
+                equal (parse r "/?q=a~2fb/1/2") None
+                equal (parse r "/?q=a~2fb") None
+            }
+
             TestIf runServerTests "Router combinator" {
                 let! testValuesAndServerLinks = CombinatorTests.GetTestValues()
                 let testValuesAndClientLinks =
@@ -172,6 +236,16 @@ module ClientServerTests =
             TestIf runServerTests "#940 'GET /' union case" {
                 let! errOpt = Bug940.Test()
                 equal errOpt None
+            }
+
+            TestIf runServerTests "#960 Encoded slash in a path segment" {
+                // the server responds with the link of the parsed endpoint
+                let! text =
+                    async {
+                        let! resp = JS.Fetch("/perf-tests/priority/a%2Fb/c") |> Promise.AsAsync
+                        return! resp.Text() |> Promise.AsAsync
+                    }
+                equal text "/perf-tests/priority/a~2fb/c"
             }
         }
 

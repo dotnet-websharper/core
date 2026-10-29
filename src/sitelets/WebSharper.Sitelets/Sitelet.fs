@@ -371,6 +371,10 @@ type CorsBuilder(corsAllows: CorsAllows) =
         corsAllows <- { corsAllows with Credentials = true }
         this
 
+    member this.WithCsrfProtection() =
+        corsAllows <- { corsAllows with CsrfProtection = true }
+        this
+
     member internal this.CorsAllows = corsAllows
 
     static member internal FuncOf(cors: Action<CorsBuilder>) =

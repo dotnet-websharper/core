@@ -33,6 +33,8 @@ val mutable EndPoint : string
 /// server via HTTP.
 /// Return true if the endpoint needed to be changed, false if
 /// the current page is already HTTPS.
+/// The server must allow the HTTP origin of the page as a cross-origin caller,
+/// see WebSharper.Web.Remoting.AddAllowedOrigin.
 val UseHttps : unit -> bool
 
 /// Represents URLs.

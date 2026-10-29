@@ -46,6 +46,25 @@
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
+  <!-- Recompile when files written by the last WebSharper compilation are missing, for example after deleting an output folder -->
+  <Target Name="WebSharperCheckOutputFiles" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <PropertyGroup>
+      <WebSharperOutputFilesList>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.files')</WebSharperOutputFilesList>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(WebSharperOutputFilesList)" Condition="Exists('$(WebSharperOutputFilesList)')">
+      <Output TaskParameter="Lines" ItemName="_WebSharperOutputFile" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <_WebSharperMissingOutputFile Include="@(_WebSharperOutputFile)" Condition="!Exists('%(_WebSharperOutputFile.Identity)')" />
+      <FileWrites Include="$(WebSharperOutputFilesList)" />
+    </ItemGroup>
+    <Message Importance="high" Text="$(MSBuildProjectName): recompiling, @(_WebSharperMissingOutputFile->Count()) WebSharper output file(s) are missing" Condition=" '@(_WebSharperMissingOutputFile)' != '' " />
+    <Message Importance="normal" Text="Missing: %(_WebSharperMissingOutputFile.Identity)" Condition=" '@(_WebSharperMissingOutputFile)' != '' " />
+    <Touch Files="$(WebSharperOutputFilesList)" Condition=" '@(_WebSharperMissingOutputFile)' != '' " />
+    <ItemGroup Condition=" '@(_WebSharperMissingOutputFile)' != '' ">
+      <CustomAdditionalCompileInputs Include="$(WebSharperOutputFilesList)" />
+    </ItemGroup>
+  </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.ReorderCompileItemsTask" Condition=" '$(DesignTimeBuild)' == 'true' " />
   <Target Name="ReorderWebSharperGeneratedFiles" Condition=" '$(DesignTimeBuild)' == 'true' " BeforeTargets="CoreCompile">
     <ItemGroup>

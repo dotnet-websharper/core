@@ -33,4 +33,5 @@ let RunTests jsonBaseUri includeRemoting =
         if includeRemoting then
             Remoting.Tests
             ClientSideJson.SiteletRoundTripTests jsonBaseUri
+            CacheBusting.Tests
     |]

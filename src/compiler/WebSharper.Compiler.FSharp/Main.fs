@@ -56,18 +56,18 @@ type WebSharperFSharpCompiler(?checker) =
         logger.DebugWrite "WebSharper compilation arguments:"
         argv |> Array.iter (sprintf "    %s" >> logger.DebugWrite)
 
-        let argv =
-            if argv.Length > 0 && argv.[0] = "fsc.exe" then argv.[1 ..] else argv
+        // argv.[0] is the compiler path or "fsc.exe", skip only that, the first argument is usually -o:
+        let args = if argv.Length > 0 then argv.[1 ..] else argv
 
         let projectOptionsOpt =
             try
                 if checker.UsesTransparentCompiler then
                     // Unlike the IncrementalBuilder, the TransparentCompiler only checks
                     // FSharpProjectOptions.SourceFiles, not source files left in the arguments.
-                    let sources, otherArgs = argv.[1 ..] |> Array.partition (fun a -> not (a.StartsWith "-"))
+                    let sources, otherArgs = args |> Array.partition (fun a -> not (a.StartsWith "-"))
                     { checker.GetProjectOptionsFromCommandLineArgs(path, otherArgs) with SourceFiles = sources } |> Some
                 else
-                checker.GetProjectOptionsFromCommandLineArgs(path, argv.[1 ..]) |> Some
+                checker.GetProjectOptionsFromCommandLineArgs(path, args) |> Some
             with e ->
                 None
 

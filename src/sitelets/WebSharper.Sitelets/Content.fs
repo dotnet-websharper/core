@@ -450,7 +450,7 @@ module Content =
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
         if Option.isSome activation then
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -462,7 +462,7 @@ module Content =
         use tw = new HtmlTextWriter(w, " ")
         let activation, bundleNames = writeResources ctx controls (fun _ -> tw)
         if Option.isSome activation then
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
 
     let getResourcesAndScriptsOfRequires ctx requires =
@@ -470,7 +470,7 @@ module Content =
         use tw = new HtmlTextWriter(w, " ")
         let activation, bundleNames = writeRequires ctx requires (fun _ -> tw)
         if Option.isSome activation then
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -483,7 +483,7 @@ module Content =
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
                     if Option.isSome activation then
-                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, context.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)
@@ -675,10 +675,25 @@ module Content =
         request.Headers
         |> Seq.tryFind (fun h -> h.Name.ToLowerInvariant() = "origin")
         |> Option.bind (fun origin ->
-            if allows.Origins |> Seq.contains origin.Value then Some origin.Value
+            if allows.Origins |> Seq.exists (fun o -> String.Equals(o, origin.Value, StringComparison.OrdinalIgnoreCase)) then Some origin.Value
             elif allows.Origins |> Seq.contains "*" then Some "*"
             else None
         )
+
+    let private csrfErrorBody = System.Text.Encoding.UTF8.GetBytes "CSRF"
+
+    // Same check as for RPCs, with only explicitly listed origins trusted for cross-origin calls.
+    let private isCsrfSafe (allows: CorsAllows) (request: Http.Request) =
+        match request.Method with
+        | Http.Method.Get | Http.Method.Head | Http.Method.Options -> true
+        | m ->
+            let getHeader (name: string) =
+                request.Headers
+                |> Seq.tryFind (fun h -> String.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase))
+                |> Option.map (fun h -> h.Value)
+            let isAllowedOrigin (origin: string) =
+                allows.Origins |> Seq.exists (fun o -> String.Equals(o, origin, StringComparison.OrdinalIgnoreCase))
+            snd (Web.CsrfCheck.Check(m.ToString(), request.Uri, getHeader, isAllowedOrigin))
 
     let Cors (cors: Cors<'T>) (allows: CorsAllows -> CorsAllows) (content: 'T -> Async<Content<'U>>) : Async<Content<'U>> =
         let allows = allows (defaultArg cors.DefaultAllows CorsAllows.Empty)
@@ -686,6 +701,8 @@ module Content =
             match getOkOrigin allows ctx.Request with
             | Some origin ->
                 [
+                    if origin <> "*" then
+                        yield Http.Header.Custom "Vary" "Origin"
                     yield Http.Header.Custom "Access-Control-Allow-Origin" origin
                     match List.ofSeq allows.Methods with
                     | [] -> ()
@@ -714,12 +731,19 @@ module Content =
             |> async.Return
         | Some ep ->
             CustomContentAsync <| fun ctx -> async {
-                let! content = content ep
-                let! resp =
-                    match content with
-                    | CustomContent f -> async.Return (f ctx)
-                    | CustomContentAsync f -> f ctx
-                return { resp with Headers = Seq.append (headers ctx) resp.Headers }
+                if allows.CsrfProtection && not (isCsrfSafe allows ctx.Request) then
+                    return {
+                        Status = Http.Status.Forbidden
+                        Headers = headers ctx
+                        WriteBody = Http.WriteBody (fun s -> s.Write(csrfErrorBody, 0, csrfErrorBody.Length))
+                    }
+                else
+                    let! content = content ep
+                    let! resp =
+                        match content with
+                        | CustomContent f -> async.Return (f ctx)
+                        | CustomContentAsync f -> f ctx
+                    return { resp with Headers = Seq.append (headers ctx) resp.Headers }
             }
             |> async.Return
 
@@ -900,7 +924,7 @@ type Content<'Endpoint> with
                             let body = [ Web.BundleNode(bundleName, reqs = reqs) ]
                             let activation, bundleNames = Content.writeResources ctx body (fun _ -> tw)
                             if Option.isSome activation then
-                                tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation, ?bundleNames = bundleNames)
+                                tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ctx.WebRootFolder, ?activation = activation, ?bundleNames = bundleNames)
                             let resp = contents.Replace("""<script ws-replace="scripts"></script>""", scriptsW.ToString())
                             let w = new StreamWriter(out, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                             do! w.WriteAsync(resp)

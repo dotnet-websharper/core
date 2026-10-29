@@ -187,6 +187,10 @@ type CorsBuilder =
 
     member WithCredentials : unit -> CorsBuilder
 
+    /// Reject non-GET requests that may be cross-site request forgeries: calls from a browser on
+    /// another origin are accepted only if the origin is added explicitly with WithOrigins ("*" does not count).
+    member WithCsrfProtection : unit -> CorsBuilder
+
 [<CompiledName "Sitelet"; Class; Sealed>]
 type CSharpSitelet =
 

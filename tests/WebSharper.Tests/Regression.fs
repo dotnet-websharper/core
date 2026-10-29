@@ -1253,6 +1253,11 @@ let Tests =
             equal (FunctionTypeAliases.triple (fun (x, y, z) -> x + y + z) (10, 11, 21)) 42
         }
 
+        Test "#1604 Internal union case of a friend assembly" {
+            let (WebSharper.Collections.Tests.InternalProxy.FriendCase x) = WebSharper.Collections.Tests.InternalProxy.FriendCase 42
+            equal x 42
+        }
+
         Test "Record spreads from mutable struct records" {
             let source: Basis.RecordFeatures.Values<int> = { Value = 42; Count = 2 }
             let structRecord: Basis.RecordFeatures.StructValues<int> = { ...source }

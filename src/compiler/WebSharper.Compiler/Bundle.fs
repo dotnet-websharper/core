@@ -353,7 +353,7 @@ module Bundling =
                     CurrentMeta = currentMeta
                     GetAllDeps = FrontEnd.GetDepsFromJSExports jsExports bundle.Node
                     EntryPoint = Some bundle.EntryPoint
-                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.WorkerBundle
+                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.WorkerBundle (config.ProjectType = Some Bundle || config.ProjectType = Some BundleOnly)
                     Sources = []
                     RefAssemblies = refAssemblies
                     IsExtraBundle = true
@@ -407,7 +407,8 @@ module Bundling =
             for (f, s) in bundle.Sources.Value do
                 let loc = Path.Combine(outputDir, "Source", f)
                 System.IO.Directory.CreateDirectory(Path.GetDirectoryName(loc)) |> ignore 
-                File.WriteAllText(loc, s)    
+                File.WriteAllText(loc, s)
+                FileSystem.OutputFiles.Add loc
 
         | None -> ()
 
@@ -487,5 +488,6 @@ module Bundling =
                     let path = Path.Combine(baseDir, filename)
                     System.IO.Directory.CreateDirectory (Path.GetDirectoryName path) |> ignore
                     System.IO.File.WriteAllText(path, content)
+                    FileSystem.OutputFiles.Add path
         | None -> ()
 

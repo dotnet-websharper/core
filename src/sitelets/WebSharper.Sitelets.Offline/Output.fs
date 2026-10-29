@@ -140,6 +140,7 @@ let createFile (cfg: Config) (targetPath: P.Path) =
     if not (Directory.Exists(d)) then
         Directory.CreateDirectory(d)
         |> ignore
+    FileSystem.OutputFiles.Add targetPath
     File.Open(targetPath, FileMode.Create) :> Stream
 
 /// Writes an embedded resource to the target path.

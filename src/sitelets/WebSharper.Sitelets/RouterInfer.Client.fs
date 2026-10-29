@@ -517,3 +517,33 @@ module InferRouter =
             S.getRouter typeof<'T> 
             |> ServerInferredOperators.IWithCustomErrors typeof<ParseRequestResult<'T>>
             |> ServerInferredOperators.IUnbox<ParseRequestResult<'T>>
+
+        /// Calls an endpoint with fetch, using the router inferred from its type, and returns the response text.
+        /// A request body is sent with Content-Type: application/json, unless set in options.
+        /// Raises FetchException if the response status is not successful.
+        [<Inline>]
+        let InferFetchTextWith (baseUrl: option<string>) (options: WebSharper.JavaScript.RequestOptions) (endpoint: 'T) : Async<string> =
+            WebSharper.Sitelets.Router.FetchTextWith baseUrl options (Infer<'T>()) endpoint
+
+        /// Calls an endpoint with fetch, using the router inferred from its type, and returns the response text.
+        /// A request body is sent with Content-Type: application/json.
+        /// Raises FetchException if the response status is not successful.
+        [<Inline>]
+        let InferFetchText (endpoint: 'T) : Async<string> =
+            WebSharper.Sitelets.Router.FetchTextWith None (WebSharper.JavaScript.RequestOptions()) (Infer<'T>()) endpoint
+
+        /// Calls an endpoint with fetch, using the router inferred from its type, and deserializes the JSON response,
+        /// as written by Content.Json on the server.
+        /// Sends Accept: application/json, and a request body with Content-Type: application/json, unless set in options.
+        /// Raises FetchException if the response status is not successful.
+        [<Inline>]
+        let InferFetchJsonWith (baseUrl: option<string>) (options: WebSharper.JavaScript.RequestOptions) (endpoint: 'T) : Async<'R> =
+            WebSharper.Sitelets.Router.FetchJsonWith baseUrl options (Infer<'T>()) endpoint
+
+        /// Calls an endpoint with fetch, using the router inferred from its type, and deserializes the JSON response,
+        /// as written by Content.Json on the server.
+        /// Sends Accept: application/json, and a request body with Content-Type: application/json.
+        /// Raises FetchException if the response status is not successful.
+        [<Inline>]
+        let InferFetchJson (endpoint: 'T) : Async<'R> =
+            WebSharper.Sitelets.Router.FetchJsonWith None (WebSharper.JavaScript.RequestOptions()) (Infer<'T>()) endpoint

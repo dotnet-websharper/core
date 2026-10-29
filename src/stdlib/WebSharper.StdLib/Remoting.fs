@@ -54,7 +54,6 @@ type IAjaxProvider =
 
 [<Direct @"
     var xhr = new XMLHttpRequest();
-    var csrf = document.cookie.replace(new RegExp('(?:(?:^|.*;)\\s*csrftoken\\s*\\=\\s*([^;]*).*$)|^.*$'), '$1');
     xhr.open('POST', $url, $async);
     if ($async == true) {
         xhr.withCredentials = true;
@@ -62,14 +61,9 @@ type IAjaxProvider =
     for (var h in $headers) {
         xhr.setRequestHeader(h, $headers[h]);
     }
-    if (csrf) {
-        xhr.setRequestHeader('x-csrftoken', csrf);
-    }
     function k() {
         if (xhr.status == 200) {
             $ok(xhr.responseText)
-        } else if ($csrf && xhr.status == 403 && xhr.responseText == 'CSRF') {
-            $csrf();
         } else {
             var msg = 'Response status is not 200: ';
             $err(new Error(msg + xhr.status));
@@ -87,7 +81,7 @@ type IAjaxProvider =
     xhr.send($data);
 ">]
 let private ajax (async: bool) (url: Url) (headers: Headers) (data: Data)
-    (ok: Data -> unit) (err: exn -> unit) (csrf: unit -> unit) = ()
+    (ok: Data -> unit) (err: exn -> unit) = ()
 
 type XhrProvider [<JavaScript>] () =
     interface IAjaxProvider with
@@ -95,7 +89,6 @@ type XhrProvider [<JavaScript>] () =
         [<JavaScript>]
         member this.Async url headers data ok err =
             ajax true url headers data ok err
-                (fun () -> ajax true url headers data ok err JS.Undefined)
 
         [<JavaScript>]
         member this.Sync url headers data =
@@ -103,11 +96,6 @@ type XhrProvider [<JavaScript>] () =
             ajax false url headers data
                 (fun x -> res := x)
                 (fun e -> raise e)
-                (fun () ->
-                    ajax false url headers data
-                        (fun x -> res := x)
-                        (fun e -> raise e)
-                        JS.Undefined)
             !res
 
 [<JavaScript>]

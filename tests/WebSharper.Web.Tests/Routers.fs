@@ -66,6 +66,13 @@ module PerformanceTests =
         | [<EndPoint "POST /c"; Json "body">] CorsC of body: RecTest
         | [<EndPoint "GET /d">] CorsD
 
+    type FetchEcho =
+        {
+            ContentType : string
+            Accept : string
+            Body : RecTest
+        }
+
     type Action =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/">] USubAction of SubAction
@@ -78,6 +85,9 @@ module PerformanceTests =
         | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
         | [<EndPoint "/option-query"; Query "q">] UOptionQuery of q : option<int>
         | [<EndPoint "/nullable-query"; Query "q">] UNullableQuery of q : System.Nullable<int>
+        | [<EndPoint "/union-query"; Query "q">] UUnionQuery of q : SubAction
+        | [<EndPoint "/union-option-query"; Query "q">] UUnionOptionQuery of q : option<SubAction>
+        | [<EndPoint "/record-query"; Query "q">] URecordQuery of q : RecTest
         | [<EndPoint "/recursive">] URecursive of option<Action>
         | [<EndPoint "/record">] URecord of RecTest
         | [<EndPoint "/record-with-queries">] URecordQ of RecQTest
@@ -108,6 +118,8 @@ module PerformanceTests =
         | [<EndPoint "/type-tests">] TypeTests of 
             Guid * single * double * sbyte * byte * int16 * uint16 * uint32 * int64 * uint64  
         | [<EndPoint "/cors">] UCors of Cors<CorsApi>
+        | [<EndPoint "POST /fetch-echo"; Json "body">] UFetchEcho of body: RecTest
+        | [<EndPoint "GET /fetch-status">] UFetchStatus of int
 
     let TestValues =
         [
@@ -129,6 +141,12 @@ module PerformanceTests =
             UOptionQuery (Some 5)
             UNullableQuery (System.Nullable())
             UNullableQuery (System.Nullable 6)
+            UUnionQuery Sub1
+            UUnionQuery (Sub2 "x")
+            UUnionQuery (Sub2 "a/b")
+            UUnionOptionQuery None
+            UUnionOptionQuery (Some (Sub2 "x"))
+            URecordQuery { A = "hello"; B = 123; C = false }
             URecursive (Some (URecursive (Some (UTuple (1, "hi", true)))))
             URecord { A = "hello"; B = 123; C = false }
             URecordQ { A = "hello"; BQ = 123; CQ = false }
@@ -174,6 +192,9 @@ module PerformanceTests =
             UPriority3 "xx", "/priority/xx"
             UPriority4 (123, "xx"), "/priority/123/xx"
             UPriority5 ("xx", "yy"), "/priority/xx/yy"
+            UString "a/b", "/string/a%2Fb"
+            UString "a/b", "/string/a%2fb"
+            UPriority5 ("a/b", "c"), "/priority/a%2Fb/c"
         ]
 
     let mutable expecting = None
@@ -211,8 +232,19 @@ module PerformanceTests =
                 Content.Cors cors (fun allows ->
                     { allows with
                         Origins = ["*"]
-                        Headers = ["Content-Type"] }
+                        Headers = ["Content-Type"]
+                        CsrfProtection = true }
                 ) (fun _ -> ok())
+            | UFetchEcho body ->
+                let header name =
+                    ctx.Request.Headers
+                    |> Seq.tryFind (fun h -> h.Name.ToLowerInvariant() = name)
+                    |> Option.map (fun h -> h.Value)
+                    |> Option.defaultValue ""
+                Content.Json { ContentType = header "content-type"; Accept = header "accept"; Body = body }
+            | UFetchStatus code ->
+                Content.Text "fetch-status-body"
+                |> Content.SetStatus (Http.Status.Custom code None)
             | _ -> ok()
         )
 

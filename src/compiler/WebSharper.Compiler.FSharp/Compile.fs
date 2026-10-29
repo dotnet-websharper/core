@@ -261,7 +261,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
-    
+    FileSystem.OutputFiles.Start()
+
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
     
@@ -326,53 +327,64 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     let useParallel =
         config.ParallelCompilation && not isBundleOnly && config.ProjectType <> Some WIG
 
-    // On a background thread, TimedStage would measure from whatever stage the
-    // translation thread logged last, so time IL emission on its own.
-    let ilEmitStopwatch = System.Diagnostics.Stopwatch()
-    let ilEmitStage name =
-        if useParallel then
-            logger.TimedStageElapsed(name, ilEmitStopwatch.Elapsed)
-        else
-            logger.TimedStage name
-
+    // Returns the exit code and a report printing the F# compilation output. IL emission does not
+    // log itself: in parallel mode its output would interleave with translation output, so the
+    // report is printed by joinIlEmit, on the translation thread at a fixed place in the log.
     let runIlEmit () =
-        ilEmitStopwatch.Start()
+        let ilEmitStopwatch = System.Diagnostics.Stopwatch.StartNew()
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
-            0
+            0, ignore
         else
             let errors, exnOpt = 
                 checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
-    
-            PrintFSharpErrors warnSettings logger errors
+            let elapsed = ilEmitStopwatch.Elapsed
 
-            match exnOpt with
-            | Some exn when not (errors |> Array.exists (fun e -> e.Severity = FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error)) ->
-                PrintGlobalError logger (sprintf "F# compilation failed: %O" exn)
-            | _ -> ()
+            let report () =
+                PrintFSharpErrors warnSettings logger errors
 
-            if Option.isNone exnOpt then
-                if not (File.Exists config.AssemblyFile) then
-                    argError "Output assembly not found"
+                match exnOpt with
+                | Some exn when not (errors |> Array.exists (fun e -> e.Severity = FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error)) ->
+                    PrintGlobalError logger (sprintf "F# compilation failed: %O" exn)
+                | _ -> ()
 
-                ilEmitStage "F# compilation"
-                0
-            else
-                1
+                if Option.isNone exnOpt then
+                    if not (File.Exists config.AssemblyFile) then
+                        argError "Output assembly not found"
+
+                    // When reported at the join, TimedStage would measure from the last translation stage
+                    if useParallel then
+                        logger.TimedStageElapsed("F# compilation", elapsed)
+                    else
+                        logger.TimedStage "F# compilation"
+
+            (if Option.isNone exnOpt then 0 else 1), report
 
     // Not parallel: runs IL emission right here, as before.
-    let ilEmitTask : System.Threading.Tasks.Task<int> =
+    let ilEmitTask : System.Threading.Tasks.Task<int * (unit -> unit)> =
         if useParallel then
             System.Threading.Tasks.Task.Run(runIlEmit)
         else
             System.Threading.Tasks.Task.FromResult(runIlEmit())
 
-    // Never return with IL emission still running: in the booster it would keep writing the
-    // assembly while the next compilation starts.
-    let joinIlEmit () =
+    let waitIlEmit () =
         try ilEmitTask.Wait() with _ -> ()
 
-    let exitCode = if useParallel then 0 else ilEmitTask.Result
+    // Never return with IL emission still running: in the booster it would keep writing the
+    // assembly while the next compilation starts. Also prints the F# compilation output, once.
+    let ilEmitReported = ref false
+    let joinIlEmit () =
+        waitIlEmit ()
+        if not ilEmitReported.Value && ilEmitTask.Status = System.Threading.Tasks.TaskStatus.RanToCompletion then
+            ilEmitReported.Value <- true
+            snd ilEmitTask.Result ()
+
+    let exitCode =
+        if useParallel then
+            0
+        else
+            joinIlEmit ()
+            fst ilEmitTask.Result
             
     if exitCode <> 0 then 
         fullTime logger
@@ -420,11 +432,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     else
     
     // Blocks translation until IL emission is done; reports the blocked time, which is
-    // overlap lost to reflection into the current assembly.
+    // overlap lost to reflection into the current assembly. The F# output is still printed
+    // at the join, keeping its place in the log.
     let waitForIlEmit () =
         if not ilEmitTask.IsCompleted then
             let sw = System.Diagnostics.Stopwatch.StartNew()
-            joinIlEmit ()
+            waitIlEmit ()
             logger.TimedStageElapsed("Waiting for F# output (reflection)", sw.Elapsed)
 
     let aR =
@@ -474,7 +487,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         try
             compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, fun translate -> aR.Wrap translate)
         with _ ->
-            joinIlEmit ()
+            // F# output may explain the failure, but must not replace its exception
+            try joinIlEmit () with _ -> ()
             reraise ()
 
     let exitCode =
@@ -482,13 +496,15 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | None ->
             // F# check or reference metadata errors, normally already reported by F# compilation
             joinIlEmit ()
-            if ilEmitTask.Status = System.Threading.Tasks.TaskStatus.RanToCompletion && ilEmitTask.Result = 0 then
+            if ilEmitTask.Status = System.Threading.Tasks.TaskStatus.RanToCompletion && fst ilEmitTask.Result = 0 then
                 PrintFSharpErrors warnSettings logger compiler.CheckDiagnostics
             1
         | Some comp ->
 
         // Join point: translation never needed the assembly up to here.
-        let ilExitCode = ilEmitTask.Result
+        // GetResult rethrows the IL emission exception preserving its stack trace
+        let ilExitCode = fst (ilEmitTask.GetAwaiter().GetResult())
+        joinIlEmit ()
         if useParallel then
             logger.TimedStage "Waiting for F# output (join)"
 
@@ -632,7 +648,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             if textOutputs |> Array.isEmpty || config.ProjectType <> None then
                 for (fname, js) in jss do
                     let jsPath = Path.Combine(asmPath, fname)
-                    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+                    let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath)
+                    File.WriteAllText(fullPath, js)
+                    FileSystem.OutputFiles.Add fullPath
             else
                 for (name, content) in textOutputs do
                     if not <| name.ToLower().EndsWith ".meta" then
@@ -640,6 +658,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath)
                         Directory.CreateDirectory(Path.GetDirectoryName fullPath) |> ignore
                         File.WriteAllText(fullPath, content)
+                        FileSystem.OutputFiles.Add fullPath
             logger.TimedStage ("Writing code files to " + asmPath)
         | _ -> ()
 
@@ -696,6 +715,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 exitCode
             | None -> 0
 
+    if exitCode = 0 then
+        FileSystem.OutputFiles.Finish config.AssemblyFile
     fullTime logger
     exitCode
 

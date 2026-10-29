@@ -130,7 +130,8 @@ type LazyClassTransformer(needsLazy) =
 type EntryPointStyle =
     | OptionalEntryPoint
     | RequiredEntryPoint
-    | WorkerBundle
+    /// inBundleOutput: written to the workers folder of a Bundle or BundleOnly project's output
+    | WorkerBundle of inBundleOutput: bool
     | LibraryBundle
     | SiteletBundle of IDictionary<TypeDefinition, ISet<Method>>
 
@@ -1449,9 +1450,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
 
     if output <> O.TypeScriptDeclaration then
         match content with
-        | Bundle(_, (OptionalEntryPoint | RequiredEntryPoint | WorkerBundle | LibraryBundle), Some ep) ->
+        | Bundle(_, (OptionalEntryPoint | RequiredEntryPoint | WorkerBundle _ | LibraryBundle), Some ep) ->
             statements.Add (bodyTransformer([||]).TransformStatement(ep))
-        | Bundle(_, (RequiredEntryPoint | WorkerBundle), None) ->
+        | Bundle(_, (RequiredEntryPoint | WorkerBundle _), None) ->
             failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
         | _ -> ()
         
@@ -1474,10 +1475,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
             | Bundle (_, (OptionalEntryPoint | RequiredEntryPoint), _) -> true
             | _ -> false
 
-        let isWorkerBundle =
+        let isWorkerBundle, isWorkerInBundleOutput =
             match content with
-            | Bundle (_, WorkerBundle, _) -> true
-            | _ -> false
+            | Bundle (_, WorkerBundle inBundleOutput, _) -> true, inBundleOutput
+            | _ -> false, false
 
         for KeyValue(m, i) in imports do
             if not (currentScope.Contains(m)) then
@@ -1519,11 +1520,22 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             else
                                 "../" + asm + "/" + file  
                     else
+                        // In a bundle output folder, extra.files of the current project are at the root,
+                        // and resources of referenced assemblies are in a folder named after the assembly
                         if isWorkerBundle then
-                            "../../../Content/WebSharper/" + asm + "/" + file  
+                            if isWorkerInBundleOutput then
+                                if asm = asmName then
+                                    "../" + file
+                                else
+                                    "../" + asm + "/" + file
+                            else
+                                "../../../Content/WebSharper/" + asm + "/" + file
                         else
                             if isSPABundleType then
-                                "./" + asm + "/" + file  
+                                if asm = asmName then
+                                    "./" + file
+                                else
+                                    "./" + asm + "/" + file
                             elif flattened then
                                 "../../Content/WebSharper/" + asm + "/" + file  
                             else
