@@ -107,9 +107,13 @@ let startListening() =
         options.Encoder <-System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         let res = System.Text.Json.JsonSerializer.Serialize(newMessage, options)
         let bytes = System.Text.Encoding.UTF8.GetBytes res
-        serverPipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
-        serverPipe.Write(bytes, 0, bytes.Length)
-        serverPipe.Flush()
+        let frame = Array.zeroCreate<byte> (4 + bytes.Length)
+        System.BitConverter.GetBytes(bytes.Length).CopyTo(frame, 0) // prepend with message length
+        bytes.CopyTo(frame, 4)
+        lock serverPipe (fun () ->
+            serverPipe.Write(frame, 0, frame.Length)
+            serverPipe.Flush()
+        )
     }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
