@@ -54,6 +54,65 @@ let (|Finish|_|) (str: string) =
 
 let retryErrorCode = -12212
 
+/// Starts the booster on Windows without inheriting any of this process's handles.
+/// Process.Start with UseShellExecute=false always passes inheritable handles to the child,
+/// so a booster started that way keeps the stdout/stderr pipes of this client open. When the
+/// client runs inside an MSBuild ToolTask, MSBuild waits for those pipes to close: forever
+/// before MSBuild 18.6 (the build hangs), 30 seconds after that.
+module private DetachedProcess =
+
+    [<Struct; StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)>]
+    type StartupInfo =
+        val mutable cb: int
+        val mutable lpReserved: nativeint
+        val mutable lpDesktop: nativeint
+        val mutable lpTitle: nativeint
+        val mutable dwX: int
+        val mutable dwY: int
+        val mutable dwXSize: int
+        val mutable dwYSize: int
+        val mutable dwXCountChars: int
+        val mutable dwYCountChars: int
+        val mutable dwFillAttribute: int
+        val mutable dwFlags: int
+        val mutable wShowWindow: int16
+        val mutable cbReserved2: int16
+        val mutable lpReserved2: nativeint
+        val mutable hStdInput: nativeint
+        val mutable hStdOutput: nativeint
+        val mutable hStdError: nativeint
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type ProcessInformation =
+        val mutable hProcess: nativeint
+        val mutable hThread: nativeint
+        val mutable dwProcessId: int
+        val mutable dwThreadId: int
+
+    [<DllImport("kernel32.dll", EntryPoint = "CreateProcessW", CharSet = CharSet.Unicode, SetLastError = true)>]
+    extern bool CreateProcess(
+        string lpApplicationName, StringBuilder lpCommandLine,
+        nativeint lpProcessAttributes, nativeint lpThreadAttributes,
+        bool bInheritHandles, uint32 dwCreationFlags, nativeint lpEnvironment,
+        string lpCurrentDirectory, StartupInfo& lpStartupInfo, ProcessInformation& lpProcessInformation)
+
+    [<DllImport("kernel32.dll", SetLastError = true)>]
+    extern bool CloseHandle(nativeint hObject)
+
+    let CREATE_NO_WINDOW = 0x08000000u
+
+    let start (exePath: string) (args: string list) =
+        let quote (s: string) = "\"" + s + "\""
+        let commandLine = StringBuilder(exePath :: args |> List.map quote |> String.concat " ")
+        let mutable startupInfo = StartupInfo()
+        startupInfo.cb <- Marshal.SizeOf<StartupInfo>()
+        let mutable processInfo = ProcessInformation()
+        let workingDir = Path.GetDirectoryName exePath
+        if not (CreateProcess(exePath, commandLine, 0n, 0n, false, CREATE_NO_WINDOW, 0n, workingDir, &startupInfo, &processInfo)) then
+            raise (System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()))
+        CloseHandle processInfo.hThread |> ignore
+        CloseHandle processInfo.hProcess |> ignore
+
 let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
@@ -82,19 +141,18 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
-    let mutable proc: Process = null
     if isServerNeeded then
         // start a detached wsfscservice.exe. Platform specific.
-        let cmdName = if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
-                        "wsfscservice_start.cmd" else "wsfscservice_start.sh"
-        let cmdFullPath = (location, cmdName) |> System.IO.Path.Combine
-        let startInfo = ProcessStartInfo(cmdFullPath)
-        if useLogs then
-            startInfo.Arguments <- Path.Combine(projectDir, "websharper.log")
-        startInfo.CreateNoWindow <- true
-        startInfo.UseShellExecute <- false
-        startInfo.WindowStyle <- ProcessWindowStyle.Hidden
-        proc <- Process.Start(startInfo)
+        let logArgs = if useLogs then [ Path.Combine(projectDir, "websharper.log") ] else []
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            DetachedProcess.start fileNameOfService logArgs
+        else
+            // the script redirects the booster's output to /dev/null, so it doesn't keep our pipes open
+            let startInfo = ProcessStartInfo(Path.Combine(location, "wsfscservice_start.sh"))
+            startInfo.Arguments <- String.concat " " logArgs
+            startInfo.CreateNoWindow <- true
+            startInfo.UseShellExecute <- false
+            Process.Start(startInfo) |> ignore
 
     // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
     // Call that with the compilation args for compilation.
