@@ -42,6 +42,36 @@ type Comments = Dictionary<MemberReference,string>
 type Types = Dictionary<Ty.Id,TypeDefinition>
 type GenericTypes = Dictionary<Ty.Id, int>
 
+/// Resolves references of the assembly WIG builds with Mono.Cecil.
+[<Sealed>]
+type CecilResolver(aR: WebSharper.Compiler.AssemblyResolver) =
+    let def = new DefaultAssemblyResolver()
+
+    let resolve (ref: string) (par: option<ReaderParameters>) =
+        let n = AssemblyName(ref)
+        match aR.ResolvePath n with
+        | Some x ->
+            try
+                if x = null || not (FileInfo(x).Exists) then
+                    failwithf "Invalid file resolution: %s" (string x)
+            with :? System.ArgumentException ->
+                failwithf "Invalid file resolution: [%s]" (string x)
+            match par with
+            | None -> AssemblyDefinition.ReadAssembly(x)
+            | Some par -> AssemblyDefinition.ReadAssembly(x, par)
+        | None -> def.Resolve(AssemblyNameReference.Parse ref)
+
+    member x.Resolve(ref: string) =
+        resolve ref None
+
+    interface IAssemblyResolver with
+        member x.Resolve(ref: AssemblyNameReference, par: ReaderParameters) =
+            resolve ref.FullName (Some par)
+        member x.Resolve(ref: AssemblyNameReference) =
+            resolve ref.FullName None
+        member x.Dispose() =
+            def.Dispose()
+
 [<Sealed>]
 type InlineGenerator() =
 
@@ -247,7 +277,7 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, referencePaths: string seq) =
+type TypeBuilder(aR: CecilResolver, out: AssemblyDefinition, referencePaths: string seq) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
@@ -1356,7 +1386,8 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         generate fileName
 
 [<Sealed>]
-type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder) =
+type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder,
+                      prototypes: IDictionary<string, string>, mB: MemberBuilder, logger: WebSharper.Compiler.LoggerBase) =
 
     let writerParams =
         match options.StrongNameKeyPath with
@@ -1369,31 +1400,38 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
         a.Write(out)
         out.ToArray()
 
-    /// WebSharper metadata, written to the sidecar file by Save.
-    member val WebSharperMetadata : option<byte[]> = None with get, set
+    /// WebSharper metadata of the assembly image: read from the image, with the hashes
+    /// of its web resources.
+    member a.GetWebSharperMetadata(image: WebSharper.Compiler.PEMetadata.PEAssembly) =
+        let meta = WebSharper.Compiler.Reflector.TransformAssembly prototypes image
+        let bytes = WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta image
+        logger.TimedStage "Creating WebSharper metadata"
+        bytes
 
+    /// Adds web resources (extra.files) as embedded resources with WebResource attributes.
+    member a.AddWebResources(resources: seq<string * string * byte[]>) =
+        for file, mime, contents in resources do
+            def.CustomAttributes.Add(mB.BuildWebResourceAttribute(file, mime))
+            def.MainModule.Resources.Add(EmbeddedResource(file, ManifestResourceAttributes.Public, contents))
+
+    /// Writes the assembly and its sidecar file with the WebSharper metadata.
     member a.Save(path: string) =
-        let mm = def.MainModule
         let d = Path.GetDirectoryName path
         let dir = DirectoryInfo d
         if not dir.Exists then
             dir.Create()
-        (
-            use out = File.Open(path, FileMode.Create)
-            a.Write(out)
-        )
-        match a.WebSharperMetadata with
-        | Some meta ->
-            WebSharper.Compiler.FrontEnd.WriteSidecar path (WebSharper.Compiler.FrontEnd.ReadModuleId path) [ WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA, meta ]
-        | None -> ()
+        let bytes = a.GetBytes()
+        logger.TimedStage "Writing assembly"
+        File.WriteAllBytes(path, bytes)
+        let image = WebSharper.Compiler.PEMetadata.PEAssembly.Read bytes
+        let meta = a.GetWebSharperMetadata image
+        WebSharper.Compiler.FrontEnd.WriteSidecar path image.ModuleId [ WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA, meta ]
 
     member a.Write(out: Stream) =
         def.Write(out, writerParams)
 
     member a.FileName =
         def.Name.Name + ".dll"
-
-    member a.Assembly = WebSharper.Compiler.Assembly.Create(def)
 
     member a.SetAssemblyAttributes(orig: Assembly) =
         let attrTypes =
@@ -1449,7 +1487,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, new WebSharper.Compiler.LoaderUtility.Resolver(aR))
+        (aR, new CecilResolver(aR))
 
     let getId (d: Code.NamespaceEntity) =
         d.Id
@@ -1603,14 +1641,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
 
-        // Add WebSharper metadata
-        let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
-        let metaBytes = WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def
-        logger.TimedStage "Creating WebSharper metadata"
-
         let doc = XmlDocGenerator(def, comments)
-        let r = CompiledAssembly(def, doc, options, tB)
-        r.WebSharperMetadata <- Some metaBytes
+        // WebSharper metadata is created from the written assembly
+        let r = CompiledAssembly(def, doc, options, tB, assemblyPrototypes, mB, logger)
         match originalAssembly with
         | None -> ()
         | Some assem -> r.SetAssemblyAttributes(assem)

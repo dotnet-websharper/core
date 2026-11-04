@@ -33,6 +33,30 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
 
+/// Compiles a WIG project: the interface generator assembly fsc wrote is replaced by the
+/// generated one, which WebSharper.Compiler.WIG writes with Mono.Cecil.
+let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
+    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
+    let cfg =
+        {
+            WebSharper.InterfaceGenerator.CompilerOptions.Default(name.Name) with
+                AssemblyResolver = Some aR
+                AssemblyVersion = name.Version
+                DocPath = config.Documentation
+                EmbeddedResources = config.Resources |> Seq.map fst
+                ProjectDir = config.ProjectDir
+                ReferencePaths = config.References
+                StrongNameKeyPath = snk
+        }
+    let cmp = WebSharper.InterfaceGenerator.Compiler.Create(logger)
+    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
+    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
+    // extra.files of WIG projects are embedded (until WIG emit moves off Mono.Cecil)
+    FrontEnd.HandleExtraFiles logger true name.Name config.ProjectFile config.OutputDir false
+    |> out.AddWebResources
+    out.Save config.AssemblyFile
+    logger.TimedStage "Writing sidecar"
+
 let clearOutput config logger =
     try
         let intermediaryOutput = config.AssemblyFile
@@ -144,11 +168,13 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                             | _ ->
                                 let genInfo =
                                     config.References |> Array.tryPick (fun r ->
-                                        let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(r)
+                                        let asm = PEMetadata.PEAssembly.ReadFileMetadata r
                                         
-                                        asm.CustomAttributes |> Seq.tryPick (fun a -> 
-                                            if a.AttributeType.FullName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.ConstructorArguments[0].Value = ext then
-                                                Some (asm.FullName, a.ConstructorArguments[1].Value :?> Mono.Cecil.TypeReference)
+                                        asm.Attributes |> Seq.tryPick (fun a -> 
+                                            if a.TypeName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.Arguments[0] = ext then
+                                                match a.Arguments[1] with
+                                                | :? PEMetadata.AttributeType as t -> Some (asm.FullName, t)
+                                                | _ -> None
                                             else
                                                 None
                                         )                                        
@@ -160,7 +186,11 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                     | Some (asmName, gen) ->
                                         // load generator type with Reflection
                                         let genInstance = 
-                                            let fqn = gen.FullName.Replace('/', '+') + ", " + asmName
+                                            let fqn =
+                                                match gen with
+                                                | PEMetadata.Named (Some genAsm, fullName) -> fullName + ", " + genAsm
+                                                | PEMetadata.Named (None, fullName) -> fullName + ", " + asmName
+                                                | t -> failwithf "Unexpected generator type: %A" t
                                             try
                                                 let genType = 
                                                     Type.GetType(fqn, true)

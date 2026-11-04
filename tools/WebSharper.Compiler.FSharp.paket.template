@@ -13,7 +13,10 @@ tags
 dependencies
     framework: netstandard2.0
         WebSharper.Compiler.Common == CURRENTVERSION
+        Mono.Cecil >= LOCKEDVERSION
         FSharp.Compiler.Service >= LOCKEDVERSION-fcs
 files
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.xml ==> lib/netstandard2.0
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.WIG.dll ==> lib/netstandard2.0
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.WIG.xml ==> lib/netstandard2.0

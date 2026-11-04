@@ -507,28 +507,6 @@ let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
     | None ->
         failwith "No ExtensionAttribute set on the input assembly"
 
-let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
-    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
-    let cfg =
-        {
-            InterfaceGenerator.CompilerOptions.Default(name.Name) with
-                AssemblyResolver = Some aR
-                AssemblyVersion = name.Version
-                DocPath = config.Documentation
-                EmbeddedResources = config.Resources |> Seq.map fst
-                ProjectDir = config.ProjectDir
-                ReferencePaths = config.References
-                StrongNameKeyPath = snk
-        }
-    let cmp = InterfaceGenerator.Compiler.Create(logger)
-    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
-    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
-    // WIG assemblies are written by Cecil (until WIG emit moves off it), extra.files are embedded
-    FrontEnd.HandleExtraFiles logger true name.Name config.ProjectFile config.OutputDir false
-    |> FrontEnd.AddWebResourceAnnotations out.Assembly
-    out.Save config.AssemblyFile
-    logger.TimedStage "Writing final dll"
-
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then
         Some input.[start.Length ..]

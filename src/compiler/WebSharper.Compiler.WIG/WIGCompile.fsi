@@ -51,12 +51,15 @@ type CompilerOptions =
 [<Sealed>]
 type CompiledAssembly =
     member GetBytes : unit -> byte []
+    /// Writes the assembly and its sidecar file with the WebSharper metadata.
     member Save : path: string -> unit
     member Write : Stream -> unit
     member FileName : string
-    member Assembly : WebSharper.Compiler.Assembly
-    /// WebSharper metadata, written to the sidecar file by Save.
-    member WebSharperMetadata : option<byte[]> with get, set
+    /// Adds web resources (name, content type, contents) as embedded resources with
+    /// WebResource attributes.
+    member AddWebResources : seq<string * string * byte[]> -> unit
+    /// WebSharper metadata of the written assembly image, with the hashes of its web resources.
+    member GetWebSharperMetadata : WebSharper.Compiler.PEMetadata.PEAssembly -> byte[]
 
 [<Sealed>]
 type Compiler =

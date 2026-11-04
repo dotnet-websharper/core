@@ -28,7 +28,6 @@ open System.Text
 open System.Threading.Tasks
 open System.Text.RegularExpressions
 open System.Web
-open Mono.Cecil
 open WebSharper.Compiler
 open WebSharper.Sitelets
 open WebSharper.Web
@@ -145,15 +144,13 @@ let createFile (cfg: Config) (targetPath: P.Path) =
 
 /// Writes an embedded resource to the target path.
 let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targetPath: P.Path) =
-    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
-    let fn = aD.Name.Name + "." + n
+    let aD = PEMetadata.PEAssembly.ReadFile(assemblyPath)
+    let fn = aD.Name + "." + n
     let stream =
-        aD.MainModule.Resources
-        |> Seq.tryPick (fun r ->
-            match r with
-            | :? Mono.Cecil.EmbeddedResource as r ->
-                if r.Name = n || r.Name = fn then Some (r.GetResourceStream()) else None
-            | _ -> None)
+        match aD.TryGetResource n with
+        | Some b -> Some b
+        | None -> aD.TryGetResource fn
+        |> Option.map (fun b -> new MemoryStream(b) :> Stream)
     // extra.files and web worker bundles of libraries are in their sidecar files
     let stream =
         match stream with
@@ -180,14 +177,11 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
 
 /// Writes embedded resources with given extension to the target folder.
 let writeEmbeddedResources (cfg: Config) (assemblyPath: string) (ext: string) (targetPath: P.Path) =
-    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let aD = PEMetadata.PEAssembly.ReadFile(assemblyPath)
     let streams =
-        aD.MainModule.Resources
-        |> Seq.choose (fun r ->
-            match r with
-            | :? Mono.Cecil.EmbeddedResource as r ->
-                if r.Name.EndsWith(ext) then Some (r.Name, r.GetResourceStream()) else None
-            | _ -> None)
+        aD.ResourceNames
+        |> Seq.filter (fun n -> n.EndsWith(ext))
+        |> Seq.map (fun n -> n, new MemoryStream((aD.TryGetResource n).Value) :> Stream)
     for n, s in streams do
         use s = s
         use s2 = createFile cfg (P.SubPath targetPath n)

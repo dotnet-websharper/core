@@ -124,15 +124,10 @@ let TryReadFromAssembly options (a: Assembly) =
     |> Option.map (Result.map (M.ApplyMetadataOptions options))
 
 let TryReadRuntimeFromAssembly options (a: Assembly) =
-    a.Raw.MainModule.Resources
-    |> Seq.tryPick (function
-        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_RUNTIME_METADATA -> Some r 
-        | _ -> None
-    )
-    |> Option.map (fun r ->
+    a.TryGetResource EMBEDDED_RUNTIME_METADATA
+    |> Option.map (fun data ->
         let m =
             try
-                let data = r.GetResourceData()
                 Ok (MIO.DecodeBytesWith (MIO.ReadOptions.Of options) data 0 data.Length)
             with e -> Error (sprintf "Failed to deserialize runtime metadata for %s. Error: %s" a.FullName e.Message)
         m |> Result.map (M.ApplyMetadataOptions options)
@@ -171,8 +166,8 @@ let ReadRuntimeFromFile (path: string) =
 
 /// Adds resource hashes to the metadata of a WIG or TypeScript-generated assembly
 /// and serializes it for its sidecar file.
-let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
-    let assemblyName = a.Name.Name
+let ModifyWIGAssembly (current: M.Info) (a: PEMetadata.PEAssembly) =
+    let assemblyName = a.Name
     for r in Assembly.GetAllResources a do
         let p = assemblyName + "/" + r.FileName
         let d = r.GetContentData()
@@ -180,12 +175,11 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
     MIO.EncodeToBytes current
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
-    ModifyWIGAssembly current a.Raw
+    ModifyWIGAssembly current a.Image
 
 /// The module version id of an assembly file, written to its sidecar.
 let ReadModuleId (assemblyPath: string) =
-    use m = Mono.Cecil.ModuleDefinition.ReadModule(assemblyPath)
-    m.Mvid
+    PEMetadata.ReadModuleId assemblyPath
     
 let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     if sourceMap then
@@ -259,7 +253,7 @@ type CreateResourcesArgs =
 
 [<RequireQualifiedAccess>]
 type CreateResourcesFor =
-    | Assembly of Mono.Cecil.AssemblyDefinition
+    | Assembly of PEMetadata.PEAssembly
     | AssemblyName of string
 
 type GeneratedResources =
@@ -285,7 +279,6 @@ type GeneratedResources =
             this.SourceFiles
         |]
 
-//let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts dce closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) (refAssemblies: Assembly list) isLibrary prebundle isSitelet =
 let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
     let logger = args.Logger
     let comp = args.Compilation
@@ -303,7 +296,7 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
     let closures = args.AnalyzeClosures
     let assemblyName = 
         match resFor with 
-        | CreateResourcesFor.Assembly a -> a.Name.Name
+        | CreateResourcesFor.Assembly a -> a.Name
         | CreateResourcesFor.AssemblyName n -> n 
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -639,7 +632,7 @@ let CreateOutput (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
 
 /// Creates the WebSharper output of a loaded assembly, see CreateOutput.
 let CreateOutputFor (args: CreateResourcesArgs) (assembly: Assembly option) (assemblyName: string) =
-    CreateOutput args (match assembly with Some a -> CreateResourcesFor.Assembly a.Raw | None -> CreateResourcesFor.AssemblyName assemblyName)
+    CreateOutput args (match assembly with Some a -> CreateResourcesFor.Assembly a.Image | None -> CreateResourcesFor.AssemblyName assemblyName)
 
 let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) dts ts (runtimeMeta: option<M.MetadataOptions * M.Info list>) outputDir =
     match comp, runtimeMeta with
@@ -703,29 +696,6 @@ let WebResourceContentType (file: string) =
         "text/css"
     else
         ""
-
-/// Adds WebResource attributes and embedded resources to a WIG assembly.
-let AddWebResourceAnnotations (assembly : Assembly) (resources: (string * string * byte[])[]) =
-
-    let a = assembly.Raw
-
-    let webResourceCtor =
-        lazy
-            let t = typeof<WebSharper.WebResourceAttribute>
-            let asmName = t.Assembly.GetName()
-            let wsRef = Mono.Cecil.AssemblyNameReference(asmName.Name, asmName.Version)
-            let declType = Mono.Cecil.TypeReference(t.Namespace, t.Name, a.MainModule, wsRef)
-            let m = Mono.Cecil.MethodReference(".ctor", a.MainModule.TypeSystem.Void, declType)
-            m.Parameters.Add(Mono.Cecil.ParameterDefinition(a.MainModule.TypeSystem.String))
-            m.Parameters.Add(Mono.Cecil.ParameterDefinition(a.MainModule.TypeSystem.String))
-            m
-
-    for file, mime, contents in resources do
-        let attr = Mono.Cecil.CustomAttribute(webResourceCtor.Value)
-        attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, file))
-        attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, mime))
-        a.CustomAttributes.Add(attr)
-        a.MainModule.Resources.Add(Mono.Cecil.EmbeddedResource(file, Mono.Cecil.ManifestResourceAttributes.Public, contents))
 
 /// Processes extra.files: copies files to output folders, and returns the files
 /// to embed as web resources (name, content type, contents) if `embed` is set.

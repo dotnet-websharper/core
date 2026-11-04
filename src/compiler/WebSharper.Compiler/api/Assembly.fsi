@@ -50,7 +50,8 @@ type Assembly =
     member FullName : string
 
     member LoadPath : option<string>
-    member internal Raw : Mono.Cecil.AssemblyDefinition
+    /// The assembly image, read with System.Reflection.Metadata.
+    member Image : PEMetadata.PEAssembly
 
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
@@ -70,15 +71,18 @@ type Assembly =
     /// True if the assembly contains embedded runtime metadata (website, bundle, offline and service projects).
     member HasRuntimeMetadata : bool
 
+    /// The contents of an embedded resource.
+    member TryGetResource : name: string -> option<byte[]>
+
     /// The source files embedded for source mapping, in path-contents pairs
     member EmbeddedSourceFiles : (string * string)[]
 
     static member internal Create :
-        def: Mono.Cecil.AssemblyDefinition
+        def: PEMetadata.PEAssembly
         * ?loadPath: string
         * ?symbols: Symbols ->
         Assembly
 
     static member internal GetAllResources :
-        def: Mono.Cecil.AssemblyDefinition ->
+        def: PEMetadata.PEAssembly ->
         seq<EmbeddedFile>
