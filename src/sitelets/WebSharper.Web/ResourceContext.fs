@@ -36,6 +36,12 @@ module ResourceContext =
     let ResourceContext (appPath: string) (meta: M.Info) getSetting : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
             let pu = P.PathUtility.VirtualPaths(appPath)
+            // web resources of libraries are in their sidecar files, not in their assemblies:
+            // runtime metadata has their hashes
+            let prev = Re.IsExternalWebResource
+            Re.IsExternalWebResource <- fun ty resource ->
+                let r = P.EmbeddedResource.Create(P.ResourceKind.Content, P.AssemblyId.Create(ty), resource)
+                meta.ResourceHashes.ContainsKey(pu.EmbeddedResourceKey r) || prev ty resource
             {
                 DefaultToHttp = false
                 ScriptBaseUrl = Some (pu.ScriptBasePath + "/")

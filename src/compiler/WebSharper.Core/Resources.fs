@@ -317,6 +317,12 @@ type Kind =
     | Basic of string
     | Complex of string * list<string>
 
+/// Checks if the assembly of a type has a web resource that is not a manifest resource.
+/// WebSharper stores extra.files and web worker bundles of libraries in their sidecar files:
+/// the compiler looks them up there, website runtimes in the resource hashes of their
+/// runtime metadata.
+let mutable IsExternalWebResource : Type -> string -> bool = fun _ _ -> false
+
 let tryFindWebResource (t: Type) (asmName: string) (spec: string) =
     t.Assembly.GetManifestResourceNames()
     |> Seq.tryPick (fun name ->
@@ -325,6 +331,9 @@ let tryFindWebResource (t: Type) (asmName: string) (spec: string) =
         else
             None
     )
+    |> function
+        | None when IsExternalWebResource t spec -> Some spec
+        | r -> r
 
 let tryGetUriFileName (u: string) =
     if u.StartsWith "http:" || u.StartsWith "https:" || u.StartsWith "//" then

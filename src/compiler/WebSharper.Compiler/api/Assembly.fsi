@@ -30,6 +30,10 @@ type Assembly =
     /// Loads embedded script resources with a WebResource attribute.
     member GetResScripts : unit -> seq<EmbeddedFile>
 
+    /// Loads web resources: embedded resources with a WebResource attribute and
+    /// web resources of the sidecar (extra.files and web worker bundles).
+    member GetWebResources : unit -> seq<EmbeddedFile>
+
     /// Loads all embedded JavaScript resources.
     member GetScripts : WebSharper.Core.JavaScript.Output -> seq<EmbeddedFile>
 

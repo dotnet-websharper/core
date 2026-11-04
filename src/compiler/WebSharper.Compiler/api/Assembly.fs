@@ -137,10 +137,21 @@ module AssemblyUtility =
         match sc with
         | None -> [||]
         | Some sc ->
+            let webResources = sc.WebResources |> Seq.map fst |> System.Collections.Generic.HashSet
             sc.Names |> Array.choose (fun n ->
-                if n <> Sidecar.MetadataEntry && filter n then
+                if n <> Sidecar.MetadataEntry && n <> Sidecar.WebResourcesEntry && not (webResources.Contains n) && filter n then
                     Some (EmbeddedFile.Create(string def.FullName, n, (sc.TryGet n).Value, contentType))
                 else None)
+
+    /// Web resources (extra.files and web worker bundles) in a sidecar, like WebResource
+    /// attributes with embedded resources in an assembly.
+    let SidecarWebResourceFiles (def: Mono.Cecil.AssemblyDefinition) (sc: option<Sidecar>) =
+        match sc with
+        | None -> [||]
+        | Some sc ->
+            sc.WebResources |> Array.choose (fun (n, contentType) ->
+                sc.TryGet n |> Option.map (fun c ->
+                    EmbeddedFile.Create(string def.FullName, n, c, CT.Parse contentType)))
 
     /// The marker attribute WebSharper adds to assemblies that have a sidecar file.
     let SidecarMarker = "WebSharper.Sidecar"
@@ -182,12 +193,18 @@ type Assembly =
         |> Seq.exists (fun r -> r.Name = EMBEDDED_RUNTIME_METADATA)
 
     member this.GetScripts (t: O) =
-        Seq.append
-            (ParseAllScriptResources this.Definition t)
-            (SidecarFiles this.Definition this.Sidecar (IsScriptFile t) CT.Text.JavaScript)
+        Seq.concat [
+            ParseAllScriptResources this.Definition t
+            SidecarFiles this.Definition this.Sidecar (IsScriptFile t) CT.Text.JavaScript
+            SidecarWebResourceFiles this.Definition this.Sidecar
+        ]
+
+    /// Web resources: WebResource attributes and embedded resources, or sidecar entries.
+    member this.GetWebResources() =
+        Seq.append (ParseWebResources this.Definition) (SidecarWebResourceFiles this.Definition this.Sidecar)
 
     member this.GetResScripts() =
-        ParseWebResources this.Definition
+        this.GetWebResources()
         |> Seq.filter (fun r -> r.IsScript)
 
     member this.GetMapFiles (t: O) =
@@ -201,7 +218,7 @@ type Assembly =
             (SidecarFiles this.Definition this.Sidecar (fun n -> n.StartsWith EMBEDDED_SOURCES) CT.Text.JavaScript)
 
     member this.GetContents() =
-        ParseWebResources this.Definition
+        this.GetWebResources()
         |> Seq.filter (fun r -> not r.IsScript)
 
     member this.OutputParameters(keyPair) =

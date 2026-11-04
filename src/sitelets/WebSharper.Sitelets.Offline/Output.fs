@@ -154,6 +154,16 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
             | :? Mono.Cecil.EmbeddedResource as r ->
                 if r.Name = n || r.Name = fn then Some (r.GetResourceStream()) else None
             | _ -> None)
+    // extra.files and web worker bundles of libraries are in their sidecar files
+    let stream =
+        match stream with
+        | Some _ -> stream
+        | None ->
+            WebSharper.Compiler.Sidecar.TryReadFor assemblyPath
+            |> Option.bind (fun sc ->
+                if sc.WebResources |> Array.exists (fun (r, _) -> r = n) then
+                    sc.TryGet n |> Option.map (fun b -> new MemoryStream(b) :> Stream)
+                else None)
     match stream with
     | None -> failwithf "No resource %s in %s at %s" n aD.FullName assemblyPath
     | Some s ->

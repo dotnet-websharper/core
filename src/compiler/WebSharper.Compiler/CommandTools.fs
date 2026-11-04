@@ -512,7 +512,9 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
     let cmp = InterfaceGenerator.Compiler.Create(logger)
     // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
     let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
-    FrontEnd.HandleExtraFiles logger (Some out.Assembly) name.Name config.ProjectFile config.OutputDir false
+    // WIG assemblies are written by Cecil (until WIG emit moves off it), extra.files are embedded
+    FrontEnd.HandleExtraFiles logger true name.Name config.ProjectFile config.OutputDir false
+    |> FrontEnd.AddWebResourceAnnotations out.Assembly
     out.Save config.AssemblyFile
     logger.TimedStage "Writing final dll"
 

@@ -183,7 +183,7 @@ module Bundling =
                                     //writer.WriteLine("import {0};", s.Trim())  
                                     jsImports.Add(i)
                             else
-                                let (c, cT) = Utility.ReadWebResource ty name
+                                let (c, cT) = SidecarWebResources.ReadWebResource ty name
                                 renderWebResource cT c
                             Res.Skip
                         WebRoot = "/"
@@ -314,33 +314,15 @@ module Bundling =
     let private (==) s1 s2 =
         System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
 
-    let AddExtraBundles config (logger: LoggerBase) refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
+    /// Creates web worker bundles. Returns the files: written to the output folder of bundle
+    /// projects, and stored as web resources in the sidecar file otherwise.
+    let AddExtraBundles config (logger: LoggerBase) refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assemName: string) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
                 DeadCodeElimination = Some true
                 ScriptBaseUrl = None
             }
-        let pub = Mono.Cecil.ManifestResourceAttributes.Public
-        let addWebResourceAttribute =
-            match assem with
-            | Choice1Of2 _ -> ignore
-            | Choice2Of2 assem ->
-            let strTy =
-                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard")
-                Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
-            let webResourceTy =
-                let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")
-                Mono.Cecil.TypeReference("WebSharper", "WebResourceAttribute", wsCoreJs.Raw.MainModule, wsCoreJs.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
-            let ctor = Mono.Cecil.MethodReference(".ctor", webResourceTy, webResourceTy) |> assem.Raw.MainModule.ImportReference
-            ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
-            ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
-            fun name ->
-                let attr = Mono.Cecil.CustomAttribute(ctor)
-                attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, name))
-                attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, "application/javascript"))
-                assem.Raw.CustomAttributes.Add(attr)
-        let assemName = match assem with Choice1Of2 n -> n | Choice2Of2 a -> a.Name
         [
             for KeyValue(bname, bundle) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
@@ -366,17 +348,14 @@ module Bundling =
                             yield "../workers/" + bname + ".map", bundle.JsMap.Value
                     ]
                 yield! bundleFiles
-                match assem with
-                | Choice1Of2 _ -> ()
-                | Choice2Of2 assem ->
-                    bundleFiles
-                    |> List.iter (fun (name, contents) ->
-                        let bytes = System.Text.Encoding.UTF8.GetBytes contents.Text
-                        Mono.Cecil.EmbeddedResource(name, pub, bytes)
-                        |> assem.Raw.MainModule.Resources.Add
-                        addWebResourceAttribute name
-                    )
         ]
+
+    /// Web worker bundle files as web resources for the sidecar file.
+    let ExtraBundleWebResources (files: list<string * Content>) =
+        files
+        |> List.map (fun (name, contents) ->
+            name, "application/javascript", System.Text.Encoding.UTF8.GetBytes contents.Text)
+        |> Array.ofList
 
     let WriteBundle (config: WsConfig) (bundle: Bundle) =
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile

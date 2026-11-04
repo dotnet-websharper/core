@@ -250,6 +250,9 @@ type CreateResourcesArgs =
         DeadCodeElimination : bool 
         AnalyzeClosures : bool option
         Mode : CreateResourcesMode
+        /// Web resources (extra.files and web worker bundles) going into the sidecar:
+        /// name, content type and contents.
+        WebResources : (string * string * byte[])[]
     }
 
 [<RequireQualifiedAccess>]
@@ -557,12 +560,15 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
     match resFor with
     | CreateResourcesFor.Assembly a ->
         let mutable neededHashing = false
-        for r in Assembly.GetAllResources a do
-            let p = assemblyName + "/" + r.FileName
-            let d = r.GetContentData()
-            currentPosFixed.ResourceHashes.Add(p, AST.StableHash.data d)
-            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
+        let addHash name (d: byte[]) =
+            let p = assemblyName + "/" + name
+            currentPosFixed.ResourceHashes.[p] <- AST.StableHash.data d
+            rMeta |> Option.iter (fun (rm, _) -> rm.ResourceHashes.[p] <- AST.StableHash.data d)
             neededHashing <- true
+        for r in Assembly.GetAllResources a do
+            addHash r.FileName (r.GetContentData())
+        for name, _, d in args.WebResources do
+            addHash name d
         if neededHashing then
             logger.TimedStage "Hashing resources"
     | _ -> ()
@@ -603,6 +609,14 @@ let private convertResourcesToBinary (logger: LoggerBase option) (res: Generated
 
     binaries.ToArray()
 
+/// Sidecar entries for web resources: the list of names and content types, and their contents.
+let WebResourceSidecarEntries (webResources: (string * string * byte[])[]) =
+    if Array.isEmpty webResources then [||] else
+    [|
+        yield Sidecar.WebResourcesEntry, Sidecar.EncodeWebResources (webResources |> Seq.map (fun (n, cT, _) -> n, cT))
+        for n, _, c in webResources -> n, c
+    |]
+
 let ConvertResourcesToBinary (res: GeneratedResources) =
     convertResourcesToBinary None res
 
@@ -621,6 +635,7 @@ let ModifyCecilAssembly (args: CreateResourcesArgs) (assemblyDef: Mono.Cecil.Ass
             |> assemblyDef.MainModule.Resources.Add
         else
             sidecarEntries.Add(name, contents)
+    sidecarEntries.AddRange(WebResourceSidecarEntries args.WebResources)
     res, sidecarEntries.ToArray()
 
 let ModifyAssembly (args: CreateResourcesArgs) (assembly : Assembly) =
@@ -685,19 +700,17 @@ let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: 
 
     | _ -> ()
 
-let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
-    let a = assembly.Raw
-    let currentRefs =
-        a.MainModule.AssemblyReferences |> Seq.map (fun r -> r.Name)   
-        |> System.Collections.Generic.HashSet
-    wsrefs 
-    |> Seq.iter (fun r -> 
-        let n = r.Raw.Name
-        if not (currentRefs.Contains n.Name) then
-            a.MainModule.AssemblyReferences.Add n
-    )
+/// The content type of a web resource file.
+let WebResourceContentType (file: string) =
+    if file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".cjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
+        "application/javascript"
+    elif file.EndsWith(".css") then
+        "text/css"
+    else
+        ""
 
-let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files: string[]) =
+/// Adds WebResource attributes and embedded resources to a WIG assembly.
+let AddWebResourceAnnotations (assembly : Assembly) (resources: (string * string * byte[])[]) =
 
     let a = assembly.Raw
 
@@ -712,28 +725,16 @@ let AddWebResourceAnnotations (assembly : Assembly) (projectDir: string) (files:
             m.Parameters.Add(Mono.Cecil.ParameterDefinition(a.MainModule.TypeSystem.String))
             m
 
-    for file in files do
+    for file, mime, contents in resources do
         let attr = Mono.Cecil.CustomAttribute(webResourceCtor.Value)
         attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, file))
-        let mime =
-            if file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".cjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
-                "application/javascript"
-            elif file.EndsWith(".css") then
-                "text/css"
-            else
-                ""
         attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(a.MainModule.TypeSystem.String, mime))
         a.CustomAttributes.Add(attr)
-        
-        let contents =             
-            try
-                File.ReadAllBytes (System.IO.Path.Combine (projectDir, file))
-            with e ->
-                raise (exn (sprintf "Failed to read resource file %s: %s" file e.Message, e))
-
         a.MainModule.Resources.Add(Mono.Cecil.EmbeddedResource(file, Mono.Cecil.ManifestResourceAttributes.Public, contents))
 
-let HandleExtraFiles (logger: LoggerBase) (assembly : Assembly option) (assemblyName: string) (projectFile: string) (outputDir: string option) (isBundle: bool) = 
+/// Processes extra.files: copies files to output folders, and returns the files
+/// to embed as web resources (name, content type, contents) if `embed` is set.
+let HandleExtraFiles (logger: LoggerBase) (embed: bool) (assemblyName: string) (projectFile: string) (outputDir: string option) (isBundle: bool) = 
     let projectDir = Path.GetDirectoryName projectFile
     
     let asmOutputDir =
@@ -744,20 +745,26 @@ let HandleExtraFiles (logger: LoggerBase) (assembly : Assembly option) (assembly
                 Path.Combine(d, "Scripts", "WebSharper", assemblyName)
         )
 
-    match assembly, outputDir with
-    | None, None -> ()
+    if not embed && Option.isNone outputDir then [||] else
+    match Extra.ProcessFiles projectDir outputDir asmOutputDir with
+    | Some embeds ->
+        logger.TimedStage "Processing extra.files"
+        if embed && embeds.Length > 0 then
+            let res =
+                embeds |> Array.map (fun file ->
+                    let contents =             
+                        try
+                            File.ReadAllBytes (System.IO.Path.Combine (projectDir, file))
+                        with e ->
+                            raise (exn (sprintf "Failed to read resource file %s: %s" file e.Message, e))
+                    file, WebResourceContentType file, contents
+                )
+            logger.TimedStage "Reading web resources from extra.files"
+            res
+        else [||]
     | _ ->
-        match Extra.ProcessFiles projectDir outputDir asmOutputDir with
-        | Some embeds ->
-            logger.TimedStage "Processing extra.files"
-            if embeds.Length > 0 then
-                match assembly with
-                | Some asm ->
-                    AddWebResourceAnnotations asm projectDir embeds
-                    logger.TimedStage "Adding WebResource annotations from extra.files"
-                | _ -> ()
-        | _ ->
-            logger.TimedStage "Checking for extra.files"
+        logger.TimedStage "Checking for extra.files"
+        [||]
 
 /// Represents a resource content file.
 type ResourceContent =
@@ -812,7 +819,7 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
             ScriptBaseUrl = ctx.ScriptBaseUrl
             GetSetting = ctx.GetSetting
             GetWebResourceRendering = fun ty name ->
-                let (c, cT) = Utility.ReadWebResource ty name
+                let (c, cT) = SidecarWebResources.ReadWebResource ty name
                 getRendering {
                     Content = c
                     ContentType = cT

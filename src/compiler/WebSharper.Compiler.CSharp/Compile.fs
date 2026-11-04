@@ -40,6 +40,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
     FileSystem.OutputFiles.Start()
+    SidecarWebResources.Install()
 
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -177,9 +178,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
             try
-                HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
+                HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
             WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full
@@ -194,7 +195,20 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp (Choice2Of2 assem)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
+
+            // extra.files of libraries and web worker bundles go into the sidecar file
+            let extraFiles =
+                let embed =
+                    match config.ProjectType with
+                    | Some (Bundle | Website | Html) -> false
+                    | _ -> true
+                try
+                    HandleExtraFiles logger embed comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                with e ->
+                    PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                    [||]
+            let webResources = Array.append extraFiles (Bundling.ExtraBundleWebResources extraBundles)
 
             let runtimeMeta =
                 match config.ProjectType with
@@ -252,26 +266,12 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     DeadCodeElimination = dce
                     AnalyzeClosures = config.AnalyzeClosures
                     Mode = mode
+                    WebResources = webResources
                 }
-
-            let extraFilesEmbedAssem =
-                match config.ProjectType with
-                | Some (Bundle | Website | Html) -> None
-                | _ -> Some assem
-            try
-                HandleExtraFiles logger extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
-            with e ->
-                PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
 
             match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
             | None, Some true, Some outputDir ->
                 UnpackLibraryCode logger (Some comp) refMeta currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir
-            | _ -> ()
-
-            match config.ProjectType with
-            | Some (Bundle | Website | Html) ->
-                AddExtraAssemblyReferences wsRefs assem
-                logger.TimedStage "Adding extra assembly references"
             | _ -> ()
 
             PrintWebSharperErrors logger config.WarnOnly comp
@@ -283,8 +283,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             logger.TimedStage "Printing WebSharper errors and warnings"
 
-            // the assembly is left as csc wrote it, unless runtime metadata, extra.files,
-            // web worker bundles or extra references were added, or it is a Proxy project
+            // the assembly is left as csc wrote it, unless runtime metadata was added,
+            // or it is a Proxy project
             let moduleId =
                 if config.ProjectType = Some Proxy || AssemblyChangeStamp assem <> unchangedStamp then
                     assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile

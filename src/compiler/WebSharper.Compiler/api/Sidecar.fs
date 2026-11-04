@@ -104,6 +104,29 @@ type Sidecar private (path: string, moduleId: Guid, data: byte[], entries: (stri
     /// The uncompressed sizes of the entries.
     member this.Sizes = entries |> Array.map (fun (n, _, raw, _, _) -> n, raw)
 
+    /// The name of the entry listing web resources (extra.files and web worker bundles),
+    /// replacing WebResource attributes and embedded resources of the assembly.
+    static member WebResourcesEntry = "WebSharper.webresources"
+
+    /// Encodes the web resource list: a line with name and content type for each.
+    static member EncodeWebResources(resources: seq<string * string>) =
+        resources
+        |> Seq.map (fun (name, contentType) -> name + "\t" + contentType + "\n")
+        |> String.concat ""
+        |> Encoding.UTF8.GetBytes
+
+    /// Names and content types of the web resources, each stored as an entry by its name.
+    member this.WebResources =
+        match this.TryGet Sidecar.WebResourcesEntry with
+        | None -> [||]
+        | Some bytes ->
+            Encoding.UTF8.GetString(bytes).Split([| '\n' |], StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map (fun l ->
+                match l.IndexOf '\t' with
+                | -1 -> l, ""
+                | i -> l.Substring(0, i), l.Substring(i + 1)
+            )
+
     /// Reads a sidecar file. Only the header is decoded, entries are decompressed on access.
     static member Read(path: string) =
         let data = File.ReadAllBytes path
@@ -189,3 +212,54 @@ type Sidecar private (path: string, moduleId: Guid, data: byte[], entries: (stri
             File.Exists path && FileInfo(path).Length = int64 res.Length && File.ReadAllBytes path = res
         if not same then
             File.WriteAllBytes(path, res)
+
+/// Web resources of loaded assemblies from their sidecar files, for reflection-based
+/// resource rendering at compile time (bundles, offline sitelets).
+module SidecarWebResources =
+
+    let private cache = Collections.Concurrent.ConcurrentDictionary<string, DateTime * option<Sidecar>>()
+
+    let private sidecarOf (asm: Reflection.Assembly) =
+        let loc = try asm.Location with _ -> ""
+        if String.IsNullOrEmpty loc then None else
+        let p = Sidecar.PathFor loc
+        let time = if File.Exists p then File.GetLastWriteTimeUtc p else DateTime.MinValue
+        match cache.TryGetValue loc with
+        | true, (t, sc) when t = time -> sc
+        | _ ->
+            let sc = if time = DateTime.MinValue then None else (try Some (Sidecar.Read p) with _ -> None)
+            cache.[loc] <- (time, sc)
+            sc
+
+    /// Content type of a web resource in the sidecar of an assembly, if it has it.
+    let TryFind (asm: Reflection.Assembly) (name: string) =
+        sidecarOf asm |> Option.bind (fun sc ->
+            sc.WebResources |> Array.tryFind (fun (n, _) -> n = name) |> Option.map snd)
+
+    /// Contents of a web resource in the sidecar of an assembly, if it has it.
+    let TryRead (asm: Reflection.Assembly) (name: string) =
+        sidecarOf asm |> Option.bind (fun sc ->
+            match sc.WebResources |> Array.tryFind (fun (n, _) -> n = name) with
+            | Some (n, cT) -> sc.TryGet n |> Option.map (fun c -> c, cT)
+            | None -> None)
+
+    /// Reads a web resource of the assembly defining a type: from its sidecar file,
+    /// or a manifest resource of the assembly.
+    let ReadWebResource (ty: Type) (name: string) =
+        match TryRead ty.Assembly name with
+        | Some (c, cT) ->
+            let contentType =
+                if cT <> "" then WebSharper.Core.ContentTypes.Parse cT else
+                match WebSharper.Core.ContentTypes.TryGuessByFileName name with
+                | Some cT -> cT
+                | None -> WebSharper.Core.ContentTypes.Text.Plain
+            Encoding.UTF8.GetString c, contentType
+        | None -> Utility.ReadWebResource ty name
+
+    /// Checks if the assembly defining a type has a web resource in its sidecar file.
+    let Has (ty: Type) (name: string) =
+        (TryFind ty.Assembly name).IsSome
+
+    /// Makes resource rendering find web resources in sidecar files, for compilation.
+    let Install () =
+        WebSharper.Core.Resources.IsExternalWebResource <- Has
