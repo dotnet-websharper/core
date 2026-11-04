@@ -109,6 +109,8 @@
   <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
   <PropertyGroup>
     <!-- copied with references, like .pdb and .xml files -->
+    <!-- the defaults of Microsoft.Common.CurrentVersion.targets, it only sets them when empty -->
+    <AllowedReferenceRelatedFileExtensions Condition=" '$(AllowedReferenceRelatedFileExtensions)' == '' ">.pdb;.xml;.pri;.dll.config;.exe.config</AllowedReferenceRelatedFileExtensions>
     <AllowedReferenceRelatedFileExtensions>$(AllowedReferenceRelatedFileExtensions);.websharper</AllowedReferenceRelatedFileExtensions>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
