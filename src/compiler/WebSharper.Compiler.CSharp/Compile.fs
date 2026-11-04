@@ -88,6 +88,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    logger.TimedStage "Loading referenced assemblies"
     let mutable refError = false
     let wsRefs, metas = 
         refs |> List.choose (fun r -> 
@@ -99,6 +100,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 PrintGlobalError logger e
                 None
         ) |> List.unzip
+    logger.TimedStage "Reading referenced metadata"
     let refMeta =
         if refError then None
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
@@ -110,7 +112,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 PrintGlobalError logger (sprintf "Error merging WebSharper metadata: %A" e)
                 None
 
-    logger.TimedStage "Loading referenced metadata"
+    logger.TimedStage "Merging referenced metadata"
 
     match refMeta with
     | None ->
@@ -123,6 +125,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         argError "You must provide project file path."
     
     let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
+    logger.TimedStage "Loading output assembly"
 
 #if !DEBUG
     if assem.IsSome && assem.Value.HasWebSharperMetadata then
@@ -239,6 +242,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             match config.ProjectType with
             | Some (Bundle | Website | Html) ->
                 AddExtraAssemblyReferences wsRefs assem
+                logger.TimedStage "Adding extra assembly references"
             | _ -> ()
 
             PrintWebSharperErrors logger config.WarnOnly comp
@@ -248,6 +252,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     logger.Out("// " + fname)
                     logger.Out(js)
 
+            logger.TimedStage "Printing WebSharper errors and warnings"
+
+            // only the Cecil write of the assembly and its symbols
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             logger.TimedStage "Writing resources into assembly"

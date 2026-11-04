@@ -504,27 +504,38 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
         RuntimeMetadata = rMeta |> Option.map fst
     }
 
-let ConvertResourcesToBinary (res: GeneratedResources) =
+let private convertResourcesToBinary (logger: LoggerBase option) (res: GeneratedResources) =
 
     let binaries = ResizeArray()
 
     for name, content in res.AllTextFiles do
         binaries.Add(name, System.Text.Encoding.UTF8.GetBytes content)
 
-    let endodeMeta meta =
+    logger |> Option.iter (fun l -> l.TimedStage "Encoding text resources")
+
+    let endodeMeta label meta =
         use s = new MemoryStream(8 * 1024)
-        M.IO.Encode s meta
-        s.ToArray()
+        let encodeTime, compressTime = M.IO.EncodeTimed s meta
+        let bytes = s.ToArray()
+        logger |> Option.iter (fun l ->
+            l.TimedStageElapsed(sprintf "Encoding %s" label, encodeTime)
+            l.TimedStageElapsed(sprintf "Compressing %s" label, compressTime)
+            l.Out(sprintf "Size of %s: %d bytes" label bytes.Length)
+        )
+        bytes
 
-    binaries.Add(EMBEDDED_METADATA, endodeMeta res.Metadata)
+    binaries.Add(EMBEDDED_METADATA, endodeMeta "metadata" res.Metadata)
 
-    res.RuntimeMetadata |> Option.iter (fun rm -> binaries.Add(EMBEDDED_RUNTIME_METADATA, endodeMeta rm))
+    res.RuntimeMetadata |> Option.iter (fun rm -> binaries.Add(EMBEDDED_RUNTIME_METADATA, endodeMeta "runtime metadata" rm))
 
     binaries.ToArray()
 
+let ConvertResourcesToBinary (res: GeneratedResources) =
+    convertResourcesToBinary None res
+
 let ModifyCecilAssembly (args: CreateResourcesArgs) (assemblyDef: Mono.Cecil.AssemblyDefinition) =
     let res = CreateResources args (CreateResourcesFor.Assembly assemblyDef)
-    let binaries = ConvertResourcesToBinary res
+    let binaries = convertResourcesToBinary (Some args.Logger) res
     args.Logger.TimedStage "Serializing metadata"
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in binaries do
@@ -660,7 +671,8 @@ let HandleExtraFiles (logger: LoggerBase) (assembly : Assembly option) (assembly
                     AddWebResourceAnnotations asm projectDir embeds
                     logger.TimedStage "Adding WebResource annotations from extra.files"
                 | _ -> ()
-        | _ -> ()
+        | _ ->
+            logger.TimedStage "Checking for extra.files"
 
 /// Represents a resource content file.
 type ResourceContent =

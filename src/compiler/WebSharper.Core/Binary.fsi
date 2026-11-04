@@ -43,6 +43,9 @@ type Encoding =
     /// Encodes an object to a stream.
     member Encode : System.IO.Stream * obj * ?version: string -> unit
 
+    /// Encodes an object to a stream, returning the time spent encoding and the time spent compressing.
+    member EncodeTimed : System.IO.Stream * obj * ?version: string -> System.TimeSpan * System.TimeSpan
+
     /// The type for which operations are supported.
     member Type : System.Type
 

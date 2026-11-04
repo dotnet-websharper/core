@@ -649,22 +649,32 @@ type Encoding(enc: Encoder) =
             let msg = System.String.Format("Failed to decode type: {0}", enc.Type)
             raise (EncodingException(msg, e))        
 
-    member this.Encode(stream: System.IO.Stream, value: obj, ?version: string) =
+    /// Returns the time spent encoding the value and the time spent writing it through compression.
+    member this.EncodeTimed(stream: System.IO.Stream, value: obj, ?version: string) =
         let mode = System.IO.Compression.CompressionMode.Compress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
         use memory = new System.IO.MemoryStream(8192)
         use writer = new System.IO.BinaryWriter(stream)
         try
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            use w = new InterningWriter(memory)
+            enc.Encode(w, value)
+            let encodeTime = sw.Elapsed
+            sw.Restart()
             match version with
             | Some version -> writer.Write version
             | _ -> ()
             writer.Write enc.Type.AssemblyQualifiedName
-            use w = new InterningWriter(memory)
-            enc.Encode(w, value)
             w.WriteTo stream writer
+            writer.Flush()
+            stream.Flush()
+            encodeTime, sw.Elapsed
         with e ->
             let msg = "Failed to encode: " + string value
             raise (EncodingException(msg, e))
+
+    member this.Encode(stream: System.IO.Stream, value: obj, ?version: string) =
+        this.EncodeTimed(stream, value, ?version = version) |> ignore
 
     member this.Type = enc.Type
 

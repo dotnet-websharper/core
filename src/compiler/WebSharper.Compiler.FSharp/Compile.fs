@@ -447,11 +447,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             createAssemblyResolver config true
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    logger.TimedStage "Loading referenced assemblies"
+    // measured on the background task, reported on this thread after translation
+    let refDecodeTime = ref TimeSpan.Zero
+    let refUnionTime = ref TimeSpan.Zero
     let wsRefsMeta =
         System.Threading.Tasks.Task.Run(fun () ->
             let mutable refError = false
-            let wsRefs, metas = 
-                refs |> List.choose (fun r -> 
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let wsRefs, metas =
+                refs |> List.choose (fun r ->
                     match tryGetMetadata r with
                     | None -> None
                     | Some (Ok m) -> Some (r, m)
@@ -460,18 +465,26 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         PrintGlobalError logger e
                         None
                 ) |> List.unzip
+            refDecodeTime.Value <- sw.Elapsed
+            sw.Restart()
             if refError then None
-            elif List.isEmpty metas then Some ([], [], WebSharper.Core.Metadata.Info.Empty) 
+            elif List.isEmpty metas then Some ([], [], WebSharper.Core.Metadata.Info.Empty)
             else
                 try
+                    let union = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+                    refUnionTime.Value <- sw.Elapsed
                     Some (
-                        wsRefs, metas, WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+                        wsRefs, metas, union
                     )
                 with e ->
                     refError <- true
                     PrintGlobalError logger (sprintf "Error merging WebSharper metadata: %A" e)
                     None
         )
+    let reportRefMetaTimes () =
+        if wsRefsMeta.IsCompleted then
+            logger.TimedStageElapsed("Reading referenced metadata (background)", refDecodeTime.Value)
+            logger.TimedStageElapsed("Merging referenced metadata (background)", refUnionTime.Value)
     
     let refMeta = 
         wsRefsMeta.ContinueWith(fun (t: System.Threading.Tasks.Task<_>) -> 
@@ -490,6 +503,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             // F# output may explain the failure, but must not replace its exception
             try joinIlEmit () with _ -> ()
             reraise ()
+
+    reportRefMetaTimes ()
 
     let exitCode =
         match comp with
@@ -539,6 +554,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 let assem = loader.LoadFile config.AssemblyFile
+                logger.TimedStage "Loading output assembly"
 
                 if config.ProjectType = Some Proxy then
                     EraseAssemblyContents assem
@@ -627,17 +643,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         | Some (r, _, m) -> r 
                         | _ -> []
                     AddExtraAssemblyReferences wsRefs assem
+                    logger.TimedStage "Adding extra assembly references"
                 | _ -> ()
 
                 PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-            
+
                 if config.PrintJS then
                     for (fname, js) in res.JSFiles do
                         logger.Out("// " + fname)
                         logger.Out(js)
 
+                logger.TimedStage "Printing WebSharper errors and warnings"
+
                 assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
+                // only the Cecil write of the assembly and its symbols
                 logger.TimedStage "Writing resources into assembly"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 

@@ -684,6 +684,9 @@ module IO =
     /// Serialize metadata into a stream
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
 
+    /// Serialize metadata into a stream, returning the time spent encoding and compressing
+    let EncodeTimed stream (comp: Info) = MetadataEncoding.EncodeTimed(stream, comp, CurrentVersion)
+
     /// Load metadata from an in-memory assembly, which must not be loaded as reflection-only.
     let LoadMetadata (a: System.Reflection.Assembly) =
         use s = a.GetManifestResourceStream EMBEDDED_METADATA
