@@ -25,7 +25,7 @@ namespace WebSharper.DllBrowser
     public partial class MainWindow : Window
     {
         public ObservableCollection<TreeNodeModel> DllModels { get; } = new();
-        public string TitleText => $"WebSharper {Metadata.IO.CurrentVersion} Dll Browser";
+        public string TitleText => $"WebSharper {MetadataIO.CurrentVersion} Dll Browser";
         public MainWindow()
         {
             InitializeComponent();

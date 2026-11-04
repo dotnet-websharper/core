@@ -143,7 +143,7 @@ type WebSharperInitializationService(
             timedInfo "Initialized WebSharper" <| fun () ->
                 let runtimeMeta =
                     wsOptions.DefaultAssembly
-                    |> M.IO.LoadRuntimeMetadata
+                    |> WebSharper.Core.MetadataIO.LoadRuntimeMetadata
                 match runtimeMeta with
                 | None ->
                     logger.LogWarning("Runtime WebSharper metadata not found.")

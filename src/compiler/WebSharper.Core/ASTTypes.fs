@@ -68,6 +68,21 @@ type Id =
 
     static member NewThis() = Id.New("_this", mut = false)
 
+    /// The unique number identifying this Id, used by the metadata serializer.
+    member internal this.SerialNumber = this.Id
+
+    /// Recreates a deserialized Id, used by the metadata serializer.
+    static member internal Deserialize(name, id, mut, rest, str, opt, typ) =
+        {
+            IdName = name
+            Id = id
+            Mutable = mut
+            Rest = rest
+            StrongName = str
+            Optional = opt
+            Type = typ
+        }
+
     member this.Clone() =
         { this with
             Id = if this.Id < 0L then this.Id else Ids.New()

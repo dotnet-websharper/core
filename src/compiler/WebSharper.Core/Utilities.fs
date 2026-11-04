@@ -48,6 +48,15 @@ type Hashed<'T when 'T : equality and 'T : comparison> =
             )
         | _ -> failwith "invalid equality check"
 
+    // lets Dictionary and HashSet compare keys without boxing
+    interface System.IEquatable<Hashed<'T>> with
+        member this.Equals(o: Hashed<'T>) =
+            this.Hash = o.Hash && (
+                let v1 = this.Value
+                let v2 = o.Value
+                obj.ReferenceEquals(v1, v2) || v1 = v2
+            )
+
     interface System.IComparable with
         member this.CompareTo (other: obj) =
             match other with

@@ -26,7 +26,7 @@ open System.IO
 open System.Collections.Generic
 
 module M = WebSharper.Core.Metadata
-module B = WebSharper.Core.Binary
+module MIO = WebSharper.Core.MetadataIO
 module P = WebSharper.PathConventions
 
 type Assembly = WebSharper.Compiler.Assembly
@@ -43,9 +43,8 @@ let TryReadFromAssembly options (a: Assembly) =
         | _ -> None
     )
     |> Option.map (fun r ->
-        use s = r.GetResourceStream()
-        let m = 
-            try Ok (M.IO.Decode s)
+        let m =
+            try Ok (MIO.DecodeBytes (r.GetResourceData()))
             with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
         m |> Result.map (M.ApplyMetadataOptions options)
     )
@@ -57,9 +56,8 @@ let TryReadRuntimeFromAssembly options (a: Assembly) =
         | _ -> None
     )
     |> Option.map (fun r ->
-        use s = r.GetResourceStream()
-        let m = 
-            try Ok (M.IO.Decode s)
+        let m =
+            try Ok (MIO.DecodeBytes (r.GetResourceData()))
             with e -> Error (sprintf "Failed to deserialize runtime metadata for %s. Error: %s" a.FullName e.Message)
         m |> Result.map (M.ApplyMetadataOptions options)
     )
@@ -101,10 +99,7 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
         let p = assemblyName + "/" + r.FileName
         let d = r.GetContentData()
         current.ResourceHashes.Add(p, AST.StableHash.data d)
-    let meta =
-        use s = new MemoryStream(8 * 1024)
-        M.IO.Encode s current
-        s.ToArray()
+    let meta = MIO.EncodeToBytes current
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
@@ -515,7 +510,7 @@ let private convertResourcesToBinary (logger: LoggerBase option) (res: Generated
 
     let endodeMeta label meta =
         use s = new MemoryStream(8 * 1024)
-        let encodeTime, compressTime = M.IO.EncodeTimed s meta
+        let encodeTime, compressTime = MIO.EncodeTimed s meta
         let bytes = s.ToArray()
         logger |> Option.iter (fun l ->
             l.TimedStageElapsed(sprintf "Encoding %s" label, encodeTime)
