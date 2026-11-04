@@ -65,17 +65,17 @@ type private T_ExtraBundle = WebSharper.Core.Metadata.ExtraBundle
 
 let rec w_Info (w: MetaWriter) (x: WebSharper.Core.Metadata.Info) =
     writeOption w (fun w x1 -> w_Hashed_TypeDefinitionInfo_ w x1) x.SiteletDefinition
-    w_GraphData w x.Dependencies
-    writeDict w (fun w k2 -> w_Hashed_TypeDefinitionInfo_ w k2) (fun w x3 -> w_InterfaceInfo w x3) x.Interfaces
-    writeDict w (fun w k4 -> w_Hashed_TypeDefinitionInfo_ w k4) (fun w x5 -> (let (t6, t7, t8) = x5 in w_Address w t6; w_CustomTypeInfo w t7; writeOption w (fun w x9 -> w_ClassInfo w x9) t8)) x.Classes
-    writeDict w (fun w k10 -> w_MetadataEntry w k10) (fun w x11 -> writeList w (fun w x12 -> w_MetadataEntry w x12) x11) x.MacroEntries
-    writeDict w (fun w k13 -> w_SourcePos w k13) (fun w x14 -> w_QuotationInfo w x14) x.Quotations
-    writeDict w (fun w k15 -> w.String(k15)) (fun w x16 -> w.Int(x16)) x.ResourceHashes
-    writeSet w (fun w x17 -> w_ExtraBundle w x17) x.ExtraBundles
-    writeDict w (fun w k18 -> w.String(k18)) (fun w x19 -> writeDict w (fun w k20 -> w_Address w k20) (fun w x21 -> w.String(x21)) x19) x.PreBundle
-    writeDict w (fun w k22 -> (let (t24, t25) = k22 in w_Hashed_TypeDefinitionInfo_ w t24; w_Hashed_MethodInfo_ w t25)) (fun w x23 -> writeList w (fun w x26 -> w.String(x26)) x23) x.QuotedMethods
-    writeDict w (fun w k27 -> w_Type w k27) (fun w x28 -> writeList w (fun w x29 -> w.String(x29)) x28) x.WebControls
-    writeDict w (fun w k30 -> w.String(k30)) (fun w x31 -> (let (t32, t33) = x31 in w_Hashed_TypeDefinitionInfo_ w t32; w_Hashed_MethodInfo_ w t33)) x.RemoteMethods
+    writeBlock w (SectionKind.Graph) (fun w x2 -> w_GraphData w x2) x.Dependencies
+    writeDict w (fun w k3 -> w_Hashed_TypeDefinitionInfo_ w k3) (fun w x4 -> w_InterfaceInfo w x4) x.Interfaces
+    writeDict w (fun w k5 -> w_Hashed_TypeDefinitionInfo_ w k5) (fun w x6 -> (let (t7, t8, t9) = x6 in w_Address w t7; w_CustomTypeInfo w t8; writeOption w (fun w x10 -> w_ClassInfo w x10) t9)) x.Classes
+    writeDict w (fun w k11 -> w_MetadataEntry w k11) (fun w x12 -> writeList w (fun w x13 -> w_MetadataEntry w x13) x12) x.MacroEntries
+    writeDict w (fun w k14 -> w_SourcePos w k14) (fun w x15 -> w_QuotationInfo w x15) x.Quotations
+    writeDict w (fun w k16 -> w.String(k16)) (fun w x17 -> w.Int(x17)) x.ResourceHashes
+    writeSet w (fun w x18 -> w_ExtraBundle w x18) x.ExtraBundles
+    writeDict w (fun w k19 -> w.String(k19)) (fun w x20 -> writeDict w (fun w k21 -> w_Address w k21) (fun w x22 -> w.String(x22)) x20) x.PreBundle
+    writeDict w (fun w k23 -> (let (t25, t26) = k23 in w_Hashed_TypeDefinitionInfo_ w t25; w_Hashed_MethodInfo_ w t26)) (fun w x24 -> writeList w (fun w x27 -> w.String(x27)) x24) x.QuotedMethods
+    writeDict w (fun w k28 -> w_Type w k28) (fun w x29 -> writeList w (fun w x30 -> w.String(x30)) x29) x.WebControls
+    writeDict w (fun w k31 -> w.String(k31)) (fun w x32 -> (let (t33, t34) = x32 in w_Hashed_TypeDefinitionInfo_ w t33; w_Hashed_MethodInfo_ w t34)) x.RemoteMethods
 
 and w_Hashed_TypeDefinitionInfo_ (w: MetaWriter) (x: WebSharper.Core.Hashed<WebSharper.Core.AST.TypeDefinitionInfo>) =
     if w.BeginHashed(0, x) then
@@ -480,19 +480,19 @@ and w_ClassInfo (w: MetaWriter) (x: WebSharper.Core.Metadata.ClassInfo) =
     writeList w (fun w x3 -> w_GenericParam w x3) x.Generics
     writeDict w (fun w k4 -> w_Hashed_ConstructorInfo_ w k4) (fun w x5 -> w_CompiledConstructorInfo w x5) x.Constructors
     writeDict w (fun w k6 -> w.String(k6)) (fun w x7 -> w_CompiledFieldInfo w x7) x.Fields
-    writeOption w (fun w x8 -> w_Statement w x8) x.StaticConstructor
-    writeDict w (fun w k9 -> w_Hashed_MethodInfo_ w k9) (fun w x10 -> w_CompiledMethodInfo w x10) x.Methods
-    writeDict w (fun w k11 -> w_Hashed_MethodInfo_ w k11) (fun w x12 -> writeArray w (fun w x13 -> w.Int(x13)) x12) x.QuotedArgMethods
-    writeDict w (fun w k14 -> (let (t16, t17) = k14 in w_Hashed_TypeDefinitionInfo_ w t16; w_Hashed_MethodInfo_ w t17)) (fun w x15 -> w_CompiledImplementationInfo w x15) x.Implementations
+    writeOption w (fun w x8 -> writeBlock w (SectionKind.Other) (fun w x9 -> w_Statement w x9) x8) x.StaticConstructor
+    writeDict w (fun w k10 -> w_Hashed_MethodInfo_ w k10) (fun w x11 -> w_CompiledMethodInfo w x11) x.Methods
+    writeDict w (fun w k12 -> w_Hashed_MethodInfo_ w k12) (fun w x13 -> writeArray w (fun w x14 -> w.Int(x14)) x13) x.QuotedArgMethods
+    writeDict w (fun w k15 -> (let (t17, t18) = k15 in w_Hashed_TypeDefinitionInfo_ w t17; w_Hashed_MethodInfo_ w t18)) (fun w x16 -> w_CompiledImplementationInfo w x16) x.Implementations
     w.Bool(x.HasWSPrototype)
     w.Bool(x.IsStub)
-    writeList w (fun w x18 -> (let (t19, t20) = x18 in w_Hashed_TypeDefinitionInfo_ w t19; writeOption w (fun w x21 -> w_ParameterObject w x21) t20)) x.Macros
-    writeOption w (fun w x22 -> w_TSType w x22) x.Type
+    writeList w (fun w x19 -> (let (t20, t21) = x19 in w_Hashed_TypeDefinitionInfo_ w t20; writeOption w (fun w x22 -> w_ParameterObject w x22) t21)) x.Macros
+    writeOption w (fun w x23 -> w_TSType w x23) x.Type
 
 and w_CompiledConstructorInfo (w: MetaWriter) (x: WebSharper.Core.Metadata.CompiledConstructorInfo) =
     w_CompiledMember w x.CompiledForm
     w_Optimizations w x.Optimizations
-    writeBlock w (fun w x1 -> w_Expression w x1) x.Expression
+    writeBlock w (SectionHooks.memberSection x.CompiledForm) (fun w x1 -> w_Expression w x1) x.Expression
 
 and w_CompiledMember (w: MetaWriter) (x: WebSharper.Core.Metadata.CompiledMember) =
     match x with
@@ -1037,11 +1037,11 @@ and w_CompiledMethodInfo (w: MetaWriter) (x: WebSharper.Core.Metadata.CompiledMe
     w_CompiledMember w x.CompiledForm
     w_Optimizations w x.Optimizations
     writeList w (fun w x1 -> w_GenericParam w x1) x.Generics
-    writeBlock w (fun w x2 -> w_Expression w x2) x.Expression
+    writeBlock w (SectionHooks.memberSection x.CompiledForm) (fun w x2 -> w_Expression w x2) x.Expression
 
 and w_CompiledImplementationInfo (w: MetaWriter) (x: WebSharper.Core.Metadata.CompiledImplementationInfo) =
     w_CompiledMember w x.CompiledForm
-    writeBlock w (fun w x1 -> w_Expression w x1) x.Expression
+    writeBlock w (SectionKind.Other) (fun w x1 -> w_Expression w x1) x.Expression
 
 and w_MetadataEntry (w: MetaWriter) (x: WebSharper.Core.Metadata.MetadataEntry) =
     match x with
@@ -1076,7 +1076,7 @@ and w_ExtraBundle (w: MetaWriter) (x: WebSharper.Core.Metadata.ExtraBundle) =
 
 and r_Info (r: MetaReader) : WebSharper.Core.Metadata.Info =
     let f1 = readOption r (fun r -> r_Hashed_TypeDefinitionInfo_ r)
-    let f2 = r_GraphData r
+    let f2 = readBlock r (fun r -> r_GraphData r) T_GraphData.Empty
     let f3 = readDict r (fun r -> r_Hashed_TypeDefinitionInfo_ r) (fun r -> r_InterfaceInfo r)
     let f4 = readDict r (fun r -> r_Hashed_TypeDefinitionInfo_ r) (fun r -> (let t13 = r_Address r in let t14 = r_CustomTypeInfo r in let t15 = readOption r (fun r -> r_ClassInfo r) in (t13, t14, t15)))
     let f5 = readDict r (fun r -> r_MetadataEntry r) (fun r -> readList r (fun r -> r_MetadataEntry r))
@@ -1500,7 +1500,7 @@ and r_ClassInfo (r: MetaReader) : WebSharper.Core.Metadata.ClassInfo =
     let f3 = readList r (fun r -> r_GenericParam r)
     let f4 = readDict r (fun r -> r_Hashed_ConstructorInfo_ r) (fun r -> r_CompiledConstructorInfo r)
     let f5 = readDict r (fun r -> r.String()) (fun r -> r_CompiledFieldInfo r)
-    let f6 = readOption r (fun r -> r_Statement r)
+    let f6 = readOption r (fun r -> readBlock r (fun r -> r_Statement r) T_Statement.Empty)
     let f7 = readDict r (fun r -> r_Hashed_MethodInfo_ r) (fun r -> r_CompiledMethodInfo r)
     let f8 = readDict r (fun r -> r_Hashed_MethodInfo_ r) (fun r -> readArray r (fun r -> r.Int()))
     let f9 = readDict r (fun r -> (let t14 = r_Hashed_TypeDefinitionInfo_ r in let t15 = r_Hashed_MethodInfo_ r in (t14, t15))) (fun r -> r_CompiledImplementationInfo r)
@@ -1513,7 +1513,7 @@ and r_ClassInfo (r: MetaReader) : WebSharper.Core.Metadata.ClassInfo =
 and r_CompiledConstructorInfo (r: MetaReader) : WebSharper.Core.Metadata.CompiledConstructorInfo =
     let f1 = r_CompiledMember r
     let f2 = r_Optimizations r
-    let f3 = readBlock r (fun r -> r_Expression r)
+    let f3 = readBlock r (fun r -> r_Expression r) T_Expression.Undefined
     ({ T_CompiledConstructorInfo.CompiledForm = f1; Optimizations = f2; Expression = f3 } : WebSharper.Core.Metadata.CompiledConstructorInfo)
 
 and r_CompiledMember (r: MetaReader) : WebSharper.Core.Metadata.CompiledMember =
@@ -2059,12 +2059,12 @@ and r_CompiledMethodInfo (r: MetaReader) : WebSharper.Core.Metadata.CompiledMeth
     let f1 = r_CompiledMember r
     let f2 = r_Optimizations r
     let f3 = readList r (fun r -> r_GenericParam r)
-    let f4 = readBlock r (fun r -> r_Expression r)
+    let f4 = readBlock r (fun r -> r_Expression r) T_Expression.Undefined
     ({ T_CompiledMethodInfo.CompiledForm = f1; Optimizations = f2; Generics = f3; Expression = f4 } : WebSharper.Core.Metadata.CompiledMethodInfo)
 
 and r_CompiledImplementationInfo (r: MetaReader) : WebSharper.Core.Metadata.CompiledImplementationInfo =
     let f1 = r_CompiledMember r
-    let f2 = readBlock r (fun r -> r_Expression r)
+    let f2 = readBlock r (fun r -> r_Expression r) T_Expression.Undefined
     ({ T_CompiledImplementationInfo.CompiledForm = f1; Expression = f2 } : WebSharper.Core.Metadata.CompiledImplementationInfo)
 
 and r_MetadataEntry (r: MetaReader) : WebSharper.Core.Metadata.MetadataEntry =
@@ -2101,14 +2101,17 @@ and r_ExtraBundle (r: MetaReader) : WebSharper.Core.Metadata.ExtraBundle =
     let f2 = r.String()
     ({ T_ExtraBundle.AssemblyName = f1; BundleName = f2 } : WebSharper.Core.Metadata.ExtraBundle)
 
-/// Reads the Hashed tables: entries in the order they were first written.
+/// Reads the Hashed tables: entries in the order they were first written, each in its own Id scope.
 let readTables (r: MetaReader) =
     for _ in 1 .. r.Count() do
-        match r.Tag() with
+        let kind = r.Tag()
+        r.BeginScope()
+        match kind with
         | 0 -> r.AddHashed<WebSharper.Core.AST.TypeDefinitionInfo>(0, r_TypeDefinitionInfo r)
         | 1 -> r.AddHashed<WebSharper.Core.AST.MethodInfo>(1, r_MethodInfo r)
         | 2 -> r.AddHashed<WebSharper.Core.AST.ConstructorInfo>(2, r_ConstructorInfo r)
         | i -> failTag "Hashed table" i
+        r.EndScope()
 
 let writeInfo (w: MetaWriter) (x: WebSharper.Core.Metadata.Info) = w_Info w x
 

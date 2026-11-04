@@ -79,25 +79,31 @@ let startListening() =
         if wsConfig.TransparentCompiler then transparentChecker.Value else incrementalChecker.Value
 
     let memCache = MemoryCache.Default
-    let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
+    let tryGetMetadata (readOptions: WebSharper.Core.MetadataIO.ReadOptions) (r: WebSharper.Compiler.FrontEnd.Assembly) =
         match r.LoadPath with
-        // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
-        | Some x when memCache.[x] = null -> 
-            match WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata r with
-            | None ->
-                None
-            | result ->
-                let policy = CacheItemPolicy()
-                let monitor = new HostFileChangeMonitor([| x |])
-                policy.ChangeMonitors.Add monitor
-                memCache.Set(x, result, policy)
-                memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
-        | Some x ->
-            memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
+        | Some path ->
+            // library and full reads are cached separately
+            let key =
+                if readOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then path
+                else sprintf "%s|%b|%b|%b" path readOptions.InlineExpressions readOptions.OtherExpressions readOptions.Graph
+            // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
+            match memCache.[key] with
+            | null ->
+                match WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith readOptions r with
+                | None ->
+                    None
+                | result ->
+                    let policy = CacheItemPolicy()
+                    let monitor = new HostFileChangeMonitor([| path |])
+                    policy.ChangeMonitors.Add monitor
+                    memCache.Set(key, result, policy)
+                    result
+            | cached ->
+                cached :?> Result<WebSharper.Core.Metadata.Info, string> option
         | None ->
-            // in-memory assembly may have no path. nLogger. 
+            // in-memory assembly may have no path. nLogger.
             // nLogger.Trace "Reading assembly: %s" x makes this compilation fail. No Tracing here.
-            WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata r
+            WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith readOptions r
 
     // possible sends for pipeStream
     let send (serverPipe: NamedPipeServerStream) paramPrint str = async {

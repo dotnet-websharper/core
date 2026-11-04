@@ -120,6 +120,16 @@ type WsConfig =
         | "" -> Directory.GetCurrentDirectory()
         | p -> p
 
+    /// The parts of reference metadata this project needs. Libraries (and proxies) without
+    /// dead code elimination or an output folder only need what translation uses: no
+    /// non-inline code and no dependency graph. Web worker bundles read the rest on demand.
+    member this.ReferenceReadOptions =
+        match this.ProjectType with
+        | (None | Some Proxy) when this.DeadCodeElimination <> Some true && Option.isNone this.OutputDir ->
+            WebSharper.Core.MetadataIO.ReadOptions.Library
+        | _ ->
+            WebSharper.Core.MetadataIO.ReadOptions.Full
+
     static member Empty =
         {                 
             SourceMap = false

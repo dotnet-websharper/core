@@ -37,6 +37,30 @@ open System.Text
 
 exception SerializationException of string
 
+/// The sections of serialized metadata. Blocks (member expressions, the dependency graph)
+/// are written into their own sections, so a reader can skip what it does not need.
+module SectionKind =
+    let [<Literal>] Strings = 0
+    let [<Literal>] Tables = 1
+    let [<Literal>] Main = 2
+    /// Expressions of inline members, needed by every compilation using the library.
+    let [<Literal>] Inline = 3
+    /// Other member expressions and static constructors, needed for bundling and websites.
+    let [<Literal>] Other = 4
+    /// The dependency graph, needed for dead code elimination, bundling and websites.
+    let [<Literal>] Graph = 5
+    let [<Literal>] Count = 6
+
+    let Name k =
+        match k with
+        | Strings -> "strings"
+        | Tables -> "tables"
+        | Main -> "main"
+        | Inline -> "inline expressions"
+        | Other -> "other expressions"
+        | Graph -> "graph"
+        | _ -> string k
+
 /// A growable byte buffer.
 [<Sealed; AllowNullLiteral>]
 type ByteBuffer(capacity: int) =
@@ -127,7 +151,6 @@ type MetaWriter(tableKinds: int) =
     let mutable out = ByteBuffer(64 * 1024)
     let tables = ByteBuffer(16 * 1024)
     let mutable tableEntries = 0
-    let entryBuffers = Stack<ByteBuffer>()
     let strings = Dictionary<string, int>()
     let stringList = ResizeArray<string>()
     let hashedTables : obj[] = Array.zeroCreate tableKinds
@@ -135,8 +158,21 @@ type MetaWriter(tableKinds: int) =
     let freeBuffers = Stack<ByteBuffer>()
     let mutable ids = Dictionary<int64, int>()
     let mutable idCount = 0
-    let idScopes = Stack<struct (Dictionary<int64, int> * int)>()
-    let blockStarts = Stack<int>()
+    // saved output and Id scope while writing a table entry or a block
+    let scopes = Stack<struct (ByteBuffer * Dictionary<int64, int> * int)>()
+    let sections : ByteBuffer[] = Array.init SectionKind.Count (fun k -> if k >= SectionKind.Inline then ByteBuffer(16 * 1024) else null)
+
+    let pushScope (newOut: ByteBuffer) =
+        scopes.Push(struct (out, ids, idCount))
+        out <- newOut
+        ids <- Dictionary()
+        idCount <- 0
+
+    let popScope () =
+        let struct (o, i, c) = scopes.Pop()
+        out <- o
+        ids <- i
+        idCount <- c
 
     member this.Output = out
 
@@ -186,14 +222,14 @@ type MetaWriter(tableKinds: int) =
             false
         | _ ->
             // the value goes to its own buffer: first-seen values nested in it
-            // are added to the tables while it is written, so before it
-            entryBuffers.Push out
-            out <- if freeBuffers.Count > 0 then freeBuffers.Pop() else ByteBuffer(64)
+            // are added to the tables while it is written, so before it.
+            // Tables are read up front, so an entry has its own Id scope.
+            pushScope (if freeBuffers.Count > 0 then freeBuffers.Pop() else ByteBuffer(64))
             true
 
     member this.EndHashed<'T when 'T : equality and 'T : comparison>(kind: int, x: Hashed<'T>) =
         let entry = out
-        out <- entryBuffers.Pop()
+        popScope ()
         tables.Byte(byte kind)
         tables.Append entry
         entry.Clear()
@@ -220,57 +256,68 @@ type MetaWriter(tableKinds: int) =
         ids.[key] <- idCount
         idCount <- idCount + 1
 
-    /// Starts a length-prefixed block with its own Id scope.
-    member this.BeginBlock() =
-        blockStarts.Push out.Length
-        out.Fixed32 0
-        idScopes.Push(struct (ids, idCount))
-        ids <- Dictionary()
-        idCount <- 0
+    /// Starts a block: a value written into another section, with its own Id scope.
+    /// Writes the reference (section and offset) where the value would be.
+    member this.BeginBlock(section: int) =
+        let target = sections.[section]
+        out.Byte(byte section)
+        out.VarUInt(uint32 target.Length)
+        pushScope target
 
     member this.EndBlock() =
-        let start = blockStarts.Pop()
-        out.PatchFixed32(start, out.Length - start - 4)
-        let struct (i, c) = idScopes.Pop()
-        ids <- i
-        idCount <- c
+        popScope ()
 
-    /// Writes string table, Hashed tables and body into one buffer.
-    member this.Finish() =
-        let res = ByteBuffer(out.Length + tables.Length + stringList.Count * 16 + 16)
-        res.VarUInt(uint32 stringList.Count)
+    /// The sections, indexed by SectionKind: string table, Hashed tables, main body, blocks.
+    member this.Finish() : ByteBuffer[] =
+        if scopes.Count > 0 then raise (SerializationException "Unfinished block or table entry")
+        let str = ByteBuffer(stringList.Count * 16 + 16)
+        str.VarUInt(uint32 stringList.Count)
         let enc = UTF8Encoding(false)
         let mutable bytes : byte[] = Array.zeroCreate 256
         for s in stringList do
             let n = enc.GetByteCount s
             if n > bytes.Length then bytes <- Array.zeroCreate (max n (bytes.Length * 2))
             enc.GetBytes(s, 0, s.Length, bytes, 0) |> ignore
-            res.VarUInt(uint32 n)
-            res.Bytes(bytes, 0, n)
-        res.VarUInt(uint32 tableEntries)
-        res.Append tables
-        res.Append out
-        res
+            str.VarUInt(uint32 n)
+            str.Bytes(bytes, 0, n)
+        let tbl = ByteBuffer(tables.Length + 8)
+        tbl.VarUInt(uint32 tableEntries)
+        tbl.Append tables
+        sections.[SectionKind.Strings] <- str
+        sections.[SectionKind.Tables] <- tbl
+        sections.[SectionKind.Main] <- out
+        sections
 
 /// Reads metadata written by MetaWriter. Generated code calls these members.
 [<Sealed>]
-type MetaReader(data: byte[], start: int, length: int, tableKinds: int) =
-    let mutable pos = start
-    let limit = start + length
+type MetaReader(sections: ArraySegment<byte>[], tableKinds: int) =
+    let mutable data : byte[] = null
+    let mutable pos = 0
+    let mutable limit = 0
     let mutable strings : string[] = [||]
     let hashedTables : obj[] = Array.zeroCreate tableKinds
     // Ids of all open scopes, the current scope starts at idBase
     let ids = ResizeArray<AST.Id>()
     let mutable idBase = 0
-    let idScopes = Stack<int>()
+    let scopes = Stack<struct (byte[] * int * int * int)>()
 
     let fail () = raise (SerializationException "Unexpected end of WebSharper metadata")
 
-    member this.Position
-        with get () = pos
-        and set p = pos <- p
-    member this.Data = data
-    member this.Limit = limit
+    let select (k: int) (offset: int) =
+        let s = sections.[k]
+        if isNull s.Array then raise (SerializationException (sprintf "Metadata section not loaded: %s" (SectionKind.Name k)))
+        if offset > s.Count then fail ()
+        data <- s.Array
+        pos <- s.Offset + offset
+        limit <- s.Offset + s.Count
+
+    /// Continues reading in another section (used for reading the sections in order).
+    member this.Select(section: int) = select section 0
+
+    /// Whether a section is available for reading blocks.
+    member this.HasSection(section: int) = not (isNull sections.[section].Array)
+
+    member this.Position = pos
 
     member this.Byte() =
         if pos >= limit then fail ()
@@ -358,21 +405,37 @@ type MetaReader(data: byte[], start: int, length: int, tableKinds: int) =
     member this.AddId(id: AST.Id) =
         ids.Add id
 
-    /// Reads the length of a block and starts its Id scope.
-    member this.BeginBlock() =
-        let len = this.Fixed32()
-        idScopes.Push idBase
+    /// Starts a new Id scope in the current section (for each Hashed table entry).
+    member this.BeginScope() =
+        scopes.Push(struct (data, pos, limit, idBase))
         idBase <- ids.Count
-        len
+
+    member this.EndScope() =
+        ids.RemoveRange(idBase, ids.Count - idBase)
+        let struct (_, _, _, b) = scopes.Pop()
+        idBase <- b
+
+    /// Reads a block reference. If its section is loaded, continues reading the block
+    /// there with its own Id scope, returns true and the caller calls EndBlock after.
+    /// Otherwise returns false: the block is skipped.
+    member this.BeginBlock() =
+        let section = int (this.Byte())
+        let offset = int (this.VarUInt())
+        if isNull sections.[section].Array then
+            false
+        else
+            scopes.Push(struct (data, pos, limit, idBase))
+            idBase <- ids.Count
+            select section offset
+            true
 
     member this.EndBlock() =
         ids.RemoveRange(idBase, ids.Count - idBase)
-        idBase <- idScopes.Pop()
-
-    /// Skips a block without decoding it.
-    member this.SkipBlock() =
-        let len = this.Fixed32()
-        pos <- pos + len
+        let struct (d, p, l, b) = scopes.Pop()
+        data <- d
+        pos <- p
+        limit <- l
+        idBase <- b
 
     /// Reads the string table and the entry count of the Hashed tables.
     member this.ReadStrings() =
@@ -472,14 +535,28 @@ module Helpers =
             d.[k] <- v
         d :> _
 
-    /// Writes a value as a length-prefixed block with its own Id scope.
-    let inline writeBlock (w: MetaWriter) ([<InlineIfLambda>] f: MetaWriter -> 'T -> unit) (x: 'T) =
-        w.BeginBlock()
+    /// Writes a value as a block in the given section, with its own Id scope.
+    let inline writeBlock (w: MetaWriter) (section: int) ([<InlineIfLambda>] f: MetaWriter -> 'T -> unit) (x: 'T) =
+        w.BeginBlock section
         f w x
         w.EndBlock()
 
-    let inline readBlock (r: MetaReader) ([<InlineIfLambda>] f: MetaReader -> 'T) : 'T =
-        r.BeginBlock() |> ignore
-        let res = f r
-        r.EndBlock()
-        res
+    /// Reads a block, or returns the default value if its section is not loaded.
+    let inline readBlock (r: MetaReader) ([<InlineIfLambda>] f: MetaReader -> 'T) (skipped: 'T) : 'T =
+        if r.BeginBlock() then
+            let res = f r
+            r.EndBlock()
+            res
+        else
+            skipped
+
+/// Decides which section a block goes to.
+module SectionHooks =
+    open WebSharper.Core.Metadata
+
+    /// Inline members (also as macro fallbacks) are needed by every compilation using the library.
+    let rec memberSection (cf: CompiledMember) =
+        match cf with
+        | Inline _ -> SectionKind.Inline
+        | Macro (_, _, Some f) -> memberSection f
+        | _ -> SectionKind.Other

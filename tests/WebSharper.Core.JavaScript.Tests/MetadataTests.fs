@@ -146,3 +146,53 @@ let ``Metadata rejects other formats`` () =
     Assert.Throws<MetadataIO.MetadataFormatException>(fun () ->
         MetadataIO.DecodeBytes [| 0x1fuy; 0x8buy; 8uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy |] |> ignore)
     |> ignore
+
+let private sectionsTestMeta () =
+    let tId = Id.New("t")
+    // a type with an Id inside: the Hashed method entry must not depend on the Id scope of the block it is first seen in
+    let idType = TSType (TSType.Typeof tId)
+    let mInline = Method { MethodName = "I"; Parameters = [ idType ]; ReturnType = VoidType; Generics = 0 }
+    let mOther = Method { MethodName = "O"; Parameters = []; ReturnType = idType; Generics = 0 }
+    let inlineBody = Sequential [ Var tId; Value (Int 1) ]
+    // N is first seen inside the block, after t is already written there
+    let mNew = Method { MethodName = "N"; Parameters = [ idType ]; ReturnType = VoidType; Generics = 0 }
+    let otherBody = Function([ tId ], None, None, Return (Call(None, NonGeneric (td "C"), NonGeneric mNew, [ Var tId ])))
+    let cls =
+        { M.ClassInfo.None with
+            Methods =
+                dict [
+                    mInline, { CompiledForm = M.Inline (true, false); Optimizations = M.Optimizations.None; Generics = []; Expression = inlineBody }
+                    mOther, { CompiledForm = M.Static ("O", false, MemberKind.Simple); Optimizations = M.Optimizations.None; Generics = []; Expression = otherBody }
+                ]
+            StaticConstructor = Some (ExprStatement (Value (Int 2)))
+            IsStub = false
+        }
+    let meta =
+        { M.Info.Empty with
+            Classes = dict [ td "C", (Address.Global(), M.NotCustomType, Some cls) ]
+            Dependencies = { M.GraphData.Empty with Nodes = [| M.TypeNode (td "C") |]; Edges = [| [||] |] }
+        }
+    meta, mInline, mOther, inlineBody, otherBody
+
+[<Test>]
+let ``Metadata sections can be skipped`` () =
+    let meta, mInline, mOther, inlineBody, otherBody = sectionsTestMeta ()
+    let bytes = MetadataIO.EncodeToBytes meta
+    let classOf (m: M.Info) = let _, _, c = m.Classes.[td "C"] in c.Value
+    // full read
+    let full = MetadataIO.DecodeBytesWith MetadataIO.ReadOptions.Full bytes 0 bytes.Length
+    Assert.AreEqual(string inlineBody, string (classOf full).Methods.[mInline].Expression)
+    Assert.AreEqual(string otherBody, string (classOf full).Methods.[mOther].Expression)
+    Assert.AreEqual(Some (ExprStatement (Value (Int 2))), (classOf full).StaticConstructor)
+    Assert.AreEqual(1, full.Dependencies.Nodes.Length)
+    // library read: no non-inline code, no graph, static constructor kept as Empty
+    let lib = MetadataIO.DecodeBytesWith MetadataIO.ReadOptions.Library bytes 0 bytes.Length
+    Assert.AreEqual(string inlineBody, string (classOf lib).Methods.[mInline].Expression)
+    Assert.AreEqual(Undefined, (classOf lib).Methods.[mOther].Expression)
+    Assert.AreEqual(Some Empty, (classOf lib).StaticConstructor)
+    Assert.AreEqual(0, lib.Dependencies.Nodes.Length)
+    Assert.AreEqual(2, (classOf lib).Methods.Count)
+    // methods with Ids in their types are read the same way in both
+    Assert.AreEqual(string mOther, string ((classOf lib).Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "O")))
+    let sizes = MetadataIO.SectionSizes bytes |> Array.map (fun (n, _, _) -> n)
+    Assert.Contains("inline expressions", sizes)

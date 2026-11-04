@@ -36,18 +36,23 @@ type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
 type O = WebSharper.Core.JavaScript.Output
 
-let TryReadFromAssembly options (a: Assembly) =
+/// Reads the selected sections of the WebSharper metadata of an assembly.
+let TryReadFromAssemblyWith (readOptions: MIO.ReadOptions) (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
-        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA -> Some r 
+        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA -> Some r
         | _ -> None
     )
     |> Option.map (fun r ->
-        let m =
-            try Ok (MIO.DecodeBytes (r.GetResourceData()))
-            with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
-        m |> Result.map (M.ApplyMetadataOptions options)
+        try
+            let data = r.GetResourceData()
+            Ok (MIO.DecodeBytesWith readOptions data 0 data.Length)
+        with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
     )
+
+let TryReadFromAssembly options (a: Assembly) =
+    TryReadFromAssemblyWith (MIO.ReadOptions.Of options) a
+    |> Option.map (Result.map (M.ApplyMetadataOptions options))
 
 let TryReadRuntimeFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
@@ -57,7 +62,9 @@ let TryReadRuntimeFromAssembly options (a: Assembly) =
     )
     |> Option.map (fun r ->
         let m =
-            try Ok (MIO.DecodeBytes (r.GetResourceData()))
+            try
+                let data = r.GetResourceData()
+                Ok (MIO.DecodeBytesWith (MIO.ReadOptions.Of options) data 0 data.Length)
             with e -> Error (sprintf "Failed to deserialize runtime metadata for %s. Error: %s" a.FullName e.Message)
         m |> Result.map (M.ApplyMetadataOptions options)
     )

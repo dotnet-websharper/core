@@ -59,13 +59,22 @@ let infoType = core.GetType("WebSharper.Core.Metadata+Info", true)
 let idType = core.GetType("WebSharper.Core.AST.Id", true)
 let hashedDef = core.GetType("WebSharper.Core.Hashed`1", true)
 
-/// Record fields written as length-prefixed blocks (each with its own Id scope),
-/// so a reader can skip them or decode them later.
+/// Record fields written as blocks into another section (each with its own Id scope),
+/// so a reader can skip them: the section, computed from the record value `x`,
+/// and the value read when the section is skipped. For an option field, the block
+/// is the value inside the option, so skipping keeps whether there is one.
 let blockFields =
-    set [
-        "WebSharper.Core.Metadata+CompiledConstructorInfo", "Expression"
-        "WebSharper.Core.Metadata+CompiledMethodInfo", "Expression"
-        "WebSharper.Core.Metadata+CompiledImplementationInfo", "Expression"
+    dict [
+        ("WebSharper.Core.Metadata+CompiledConstructorInfo", "Expression"),
+            ("SectionHooks.memberSection x.CompiledForm", "T_Expression.Undefined")
+        ("WebSharper.Core.Metadata+CompiledMethodInfo", "Expression"),
+            ("SectionHooks.memberSection x.CompiledForm", "T_Expression.Undefined")
+        ("WebSharper.Core.Metadata+CompiledImplementationInfo", "Expression"),
+            ("SectionKind.Other", "T_Expression.Undefined")
+        ("WebSharper.Core.Metadata+ClassInfo", "StaticConstructor"),
+            ("SectionKind.Other", "T_Statement.Empty")
+        ("WebSharper.Core.Metadata+Info", "Dependencies"),
+            ("SectionKind.Graph", "T_GraphData.Empty")
     ]
 
 let isGen (t: Type) (d: Type) = t.IsGenericType && t.GetGenericTypeDefinition() = d
@@ -275,17 +284,27 @@ let rec readExpr (t: Type) : string =
     else
         sprintf "r_%s r" (mangle t)
 
-let isBlock (t: Type) (f: PropertyInfo) = blockFields.Contains (t.FullName, f.Name)
-
 let writeField (t: Type) (f: PropertyInfo) v =
-    if isBlock t f then
+    match blockFields.TryGetValue((t.FullName, f.Name)) with
+    | true, (section, _) ->
+        let ft = f.PropertyType
         let x = fresh "x"
-        sprintf "writeBlock w (fun w %s -> %s) %s" x (writeExpr f.PropertyType x) v
-    else writeExpr f.PropertyType v
+        if isOption ft then
+            let y = fresh "x"
+            sprintf "writeOption w (fun w %s -> writeBlock w (%s) (fun w %s -> %s) %s) %s" x section y (writeExpr (arg ft 0) y) x v
+        else
+            sprintf "writeBlock w (%s) (fun w %s -> %s) %s" section x (writeExpr ft x) v
+    | _ -> writeExpr f.PropertyType v
 
 let readField (t: Type) (f: PropertyInfo) =
-    if isBlock t f then sprintf "readBlock r (fun r -> %s)" (readExpr f.PropertyType)
-    else readExpr f.PropertyType
+    match blockFields.TryGetValue((t.FullName, f.Name)) with
+    | true, (_, skipped) ->
+        let ft = f.PropertyType
+        if isOption ft then
+            sprintf "readOption r (fun r -> readBlock r (fun r -> %s) %s)" (readExpr (arg ft 0)) skipped
+        else
+            sprintf "readBlock r (fun r -> %s) %s" (readExpr ft) skipped
+    | _ -> readExpr f.PropertyType
 
 let sb = Text.StringBuilder()
 let line (s: string) = sb.AppendLine(s) |> ignore
@@ -414,14 +433,17 @@ for t in order do
         line (sprintf "    | i -> failTag \"%s\" i" tn)
         line ""
 
-line "/// Reads the Hashed tables: entries in the order they were first written."
+line "/// Reads the Hashed tables: entries in the order they were first written, each in its own Id scope."
 line "let readTables (r: MetaReader) ="
 line "    for _ in 1 .. r.Count() do"
-line "        match r.Tag() with"
+line "        let kind = r.Tag()"
+line "        r.BeginScope()"
+line "        match kind with"
 for t in hashedKinds do
     let vt = arg t 0
     line (sprintf "        | %d -> r.AddHashed<%s>(%d, %s)" (hashedKind t) (fsName vt) (hashedKind t) (readExpr vt))
 line "        | i -> failTag \"Hashed table\" i"
+line "        r.EndScope()"
 line ""
 line (sprintf "let writeInfo (w: MetaWriter) (x: %s) = w_%s w x" (fsName infoType) (mangle infoType))
 line ""

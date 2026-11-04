@@ -90,9 +90,10 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     logger.TimedStage "Loading referenced assemblies"
     let mutable refError = false
-    let wsRefs, metas = 
+    let refReadOptions = config.ReferenceReadOptions
+    let wsRefs, metas =
         refs |> List.choose (fun r -> 
-            match tryGetMetadata r with
+            match tryGetMetadata refReadOptions r with
             | None -> None
             | Some (Ok m) -> Some (r, m)
             | Some (Error e) ->
@@ -144,13 +145,29 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         argError "" // exits without printing more errors
     else
 
+    // web worker bundles need the code of references, read again if only the library parts were read
+    let getExtraBundleRefMetas() =
+        if comp.CompiledExtraBundles.Count = 0 then []
+        elif refReadOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then metas
+        else
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let full =
+                wsRefs |> List.choose (fun r ->
+                    match tryGetMetadata WebSharper.Core.MetadataIO.ReadOptions.Full r with
+                    | Some (Ok m) -> Some m
+                    | Some (Error e) -> failwith e
+                    | None -> None
+                )
+            logger.TimedStageElapsed("Reading full referenced metadata for extra bundles", sw.Elapsed)
+            full
+
     let js, currentMeta, runtimeMeta, sources, extraBundles =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             try
                 HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
             with e ->
@@ -165,7 +182,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp (Choice2Of2 assem)
 
             let runtimeMeta =
                 match config.ProjectType with
