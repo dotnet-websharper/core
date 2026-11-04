@@ -15,6 +15,7 @@
     <Compile Include="CodeReader.fs" />
     <Compile Include="ProjectReader.fs" />
     <Compile Include="ErrorPrinting.fs" />
+    <Compile Include="Emit.fs" />
     <Compile Include="Main.fs" />
     <None Include="Syntax.xml" />
     <None Include="genHelpers.fsx" />

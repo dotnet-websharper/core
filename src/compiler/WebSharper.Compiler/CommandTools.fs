@@ -86,6 +86,8 @@ type WsConfig =
         Resources : (string * string option)[]
         KeyFile : string option
         CompilerArgs : string[]  
+        /// The response file with csc's own command line (C# projects).
+        CompilerResponseFile : string option
         Configuration : string
         ProjectFile : string
         Documentation : string option
@@ -114,6 +116,14 @@ type WsConfig =
         ChangeTracking : bool
         RemotingProvider: string option
     }
+
+    /// Website, offline and service projects (and other projects with an output folder) embed
+    /// runtime metadata into their assembly.
+    member this.EmbedsRuntimeMetadata =
+        match this.ProjectType with
+        | Some (WIG | Proxy | BundleOnly) -> false
+        | Some (Service | Html) -> true
+        | _ -> Option.isSome this.OutputDir
 
     member this.ProjectDir =
         match Path.GetDirectoryName this.ProjectFile with
@@ -144,6 +154,7 @@ type WsConfig =
             Resources = [||]
             KeyFile = None
             CompilerArgs = [||]
+            CompilerResponseFile = None
             Configuration = null
             ProjectFile = null
             Documentation = None

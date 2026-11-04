@@ -21,6 +21,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -56,6 +57,8 @@ namespace WebSharper.MSBuild.CSharp
         public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
         public string DefineConstants { get; set; } = "";
+        /// The command line of csc (ProvideCommandLineArgs), empty if csc was skipped.
+        public ITaskItem[] CscCommandLineArgs { get; set; } = new ITaskItem[] { };
         public string NoStandardLib { get; set; } = "";
         public ITaskItem[] Sources { get; set; } = new ITaskItem[] { };
         public string TargetType { get; set; } = "";
@@ -134,6 +137,20 @@ namespace WebSharper.MSBuild.CSharp
                     w.WriteLine("--site");
 
                 WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
+
+                // csc's own command line, used to emit the assembly again with runtime metadata;
+                // kept from the last csc run when csc is skipped as up to date
+                if (OutputAssembly != null)
+                {
+                    var rsp = Path.ChangeExtension(OutputAssembly.ItemSpec, ".websharper.rsp");
+                    if (CscCommandLineArgs.Length > 0)
+                    {
+                        // the arguments are quoted as on the command line
+                        File.WriteAllLines(rsp, CscCommandLineArgs.Select(a => a.ItemSpec));
+                    }
+                    if (File.Exists(rsp))
+                        w.WriteLine("--cscrsp:" + rsp);
+                }
 
                 WriteIfSet(w, "/define:", DefineConstants);
 

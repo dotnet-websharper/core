@@ -106,7 +106,9 @@ let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOp
 let ReplaceReferenceAssembly (logger: LoggerBase) (projectDir: string) (compilerArgs: string[]) (assemblyPath: string) =
     compilerArgs |> Array.tryPick (fun a ->
         let a = a.Trim()
-        if a.StartsWith "--refout:" then Some (a.Substring 9) else None
+        if a.StartsWith "--refout:" || a.StartsWith "/refout:" || a.StartsWith "-refout:" then
+            Some (a.Substring(a.IndexOf ':' + 1).Trim('"'))
+        else None
     )
     |> function
     | Some refOut ->
@@ -620,31 +622,24 @@ let WebResourceSidecarEntries (webResources: (string * string * byte[])[]) =
 let ConvertResourcesToBinary (res: GeneratedResources) =
     convertResourcesToBinary None res
 
-/// Creates the WebSharper output of an assembly. Runtime metadata (website, bundle,
-/// offline and service projects) is embedded into the assembly, the rest is returned
-/// as sidecar entries.
-let ModifyCecilAssembly (args: CreateResourcesArgs) (assemblyDef: Mono.Cecil.AssemblyDefinition) =
-    let res = CreateResources args (CreateResourcesFor.Assembly assemblyDef)
+/// Creates the WebSharper output of an assembly: the generated resources, runtime metadata
+/// for website, bundle, offline and service projects (embedded when the assembly is emitted),
+/// and the sidecar entries.
+let CreateOutput (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
+    let res = CreateResources args resFor
     let binaries = convertResourcesToBinary (Some args.Logger) res
     args.Logger.TimedStage "Serializing metadata"
-    let pub = Mono.Cecil.ManifestResourceAttributes.Public
-    let sidecarEntries = ResizeArray()
-    for name, contents in binaries do
-        if name = EMBEDDED_RUNTIME_METADATA then
-            Mono.Cecil.EmbeddedResource(name, pub, contents)
-            |> assemblyDef.MainModule.Resources.Add
-        else
-            sidecarEntries.Add(name, contents)
-    sidecarEntries.AddRange(WebResourceSidecarEntries args.WebResources)
-    res, sidecarEntries.ToArray()
+    let runtimeMeta =
+        binaries |> Array.tryPick (fun (name, contents) -> if name = EMBEDDED_RUNTIME_METADATA then Some contents else None)
+    let sidecarEntries =
+        Array.append
+            (binaries |> Array.filter (fun (name, _) -> name <> EMBEDDED_RUNTIME_METADATA))
+            (WebResourceSidecarEntries args.WebResources)
+    res, runtimeMeta, sidecarEntries
 
-let ModifyAssembly (args: CreateResourcesArgs) (assembly : Assembly) =
-    ModifyCecilAssembly args assembly.Raw
-
-/// Counts of what WebSharper can add to an assembly, to tell if it needs writing.
-let AssemblyChangeStamp (assembly: Assembly) =
-    let a = assembly.Raw
-    a.MainModule.Resources.Count, a.CustomAttributes.Count, a.MainModule.AssemblyReferences.Count
+/// Creates the WebSharper output of a loaded assembly, see CreateOutput.
+let CreateOutputFor (args: CreateResourcesArgs) (assembly: Assembly option) (assemblyName: string) =
+    CreateOutput args (match assembly with Some a -> CreateResourcesFor.Assembly a.Raw | None -> CreateResourcesFor.AssemblyName assemblyName)
 
 let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) dts ts (runtimeMeta: option<M.MetadataOptions * M.Info list>) outputDir =
     match comp, runtimeMeta with
@@ -835,22 +830,9 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
 
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
 let MakeDummyDll (path: string) (assemblyName: string) =
-    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, System.Version())
-    let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
-    asm.Write(path)
+    StubAssembly.WriteEmpty path assemblyName
 
-/// For Proxy project type, erase all IL assembly contents except System.Reflection attributes
-let EraseAssemblyContents (assembly : Assembly) =
-    let asm = assembly.Raw
-    let attrs = asm.CustomAttributes.ToArray()
-    asm.CustomAttributes.Clear()
-    asm.EntryPoint <- null
-    asm.Modules.Clear()
-    asm.MainModule.Types.Clear()
-    for a in attrs do
-        match a.AttributeType.Namespace with
-        | "System.Reflection"
-        | "System.Runtime.Versioning" ->
-            asm.CustomAttributes.Add(a)
-        | _ ->
-            ()
+/// For Proxy project type, replaces the assembly with one having only its System.Reflection
+/// and System.Runtime.Versioning assembly attributes and its embedded resources.
+let WriteProxyAssembly (path: string) (keyFile: string option) =
+    StubAssembly.WriteAttributesOnly path (fun ns -> ns = "System.Reflection" || ns = "System.Runtime.Versioning") keyFile

@@ -31,7 +31,7 @@
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wscsc.cmd</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wscsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wscsc.sh</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wscsc.sh</WebSharperToolPath>
-    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
+    <!-- WebSharperCompile runs after CoreCompile (not in TargetsTriggeredByCompilation, called from inside it): it needs @(CscCommandLineArgs) -->
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile;</CompileTypeScriptDependsOn>
@@ -102,6 +102,7 @@
       DebugType="$(DebugType)"
       SubsystemVersion="$(SubsystemVersion)"
       LangVersion="$(LangVersion)"
+      CscCommandLineArgs="@(CscCommandLineArgs)"
     />
   </Target>
   <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
@@ -113,6 +114,8 @@
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
     <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
     <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
+    <!-- csc's command line for WebSharper, to emit website assemblies again with runtime metadata -->
+    <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
   </PropertyGroup>
   <!-- marks the assembly as having a sidecar, so a copy without it is reported -->
   <ItemGroup Condition=" '$(WebSharperSidecarMarker)' != 'False' ">

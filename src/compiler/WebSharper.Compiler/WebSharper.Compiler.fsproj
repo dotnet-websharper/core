@@ -44,6 +44,7 @@
     <Compile Include="api/EmbeddedFile.fsi" />
     <Compile Include="api/EmbeddedFile.fs" />
     <Compile Include="api/Sidecar.fs" />
+    <Compile Include="StubAssembly.fs" />
     <Compile Include="api/Assembly.fsi" />
     <Compile Include="api/Assembly.fs" />
     <Compile Include="api/Content.fsi" />

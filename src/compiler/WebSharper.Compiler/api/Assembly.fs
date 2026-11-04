@@ -221,31 +221,7 @@ type Assembly =
         this.GetWebResources()
         |> Seq.filter (fun r -> not r.IsScript)
 
-    member this.OutputParameters(keyPair) =
-        let par = Mono.Cecil.WriterParameters()
-        match keyPair with
-        | Some kp -> par.StrongNameKeyBlob <- kp
-        | None -> ()
-        par
-
-    member this.RawBytes(kP: option<byte[]>) =
-        use s = new System.IO.MemoryStream(16 * 1024)
-        this.Definition.Write(s, this.OutputParameters kP)
-        s.ToArray()
-
     member this.Symbols = this.Debug
-
-    member this.Write(kP: option<byte[]>)(path: string) =
-        let par = this.OutputParameters kP
-        match this.Debug with
-        | Some (Mdb _) ->
-            par.WriteSymbols <- true
-            par.SymbolWriterProvider <- Mono.Cecil.Mdb.MdbWriterProvider()
-        | Some (Pdb _) ->
-            par.WriteSymbols <- true
-            par.SymbolWriterProvider <- Mono.Cecil.Pdb.PdbWriterProvider()
-        | None -> ()
-        this.Definition.Write(path, par)
 
     member this.HasWebSharperMetadata =
         HasWebSharperMetadata this.Definition

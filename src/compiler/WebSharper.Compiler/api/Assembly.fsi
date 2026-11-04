@@ -43,12 +43,6 @@ type Assembly =
     /// Loads all source files.
     member GetSources : unit -> seq<EmbeddedFile> 
 
-    /// Returns the raw assembly data.
-    member RawBytes : option<byte[]> -> byte[]
-
-    /// Writes the assembly to the given path.
-    member Write : option<byte[]> -> path: string -> unit
-
     /// The short name of the assembly.
     member Name : string
 

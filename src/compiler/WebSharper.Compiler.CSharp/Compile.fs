@@ -187,11 +187,19 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
-            let unchangedStamp = AssemblyChangeStamp assem
 
-            if config.ProjectType = Some Proxy then
-                EraseAssemblyContents assem
-                logger.TimedStage "Erasing assembly content for Proxy project"
+            // website, offline and service projects: the assembly is emitted again with runtime
+            // metadata, compiling the code in parallel with creating the output, the runtime
+            // metadata is only needed for writing it
+            let runtimeMetaReady = System.Threading.Tasks.TaskCompletionSource<byte[]>()
+            let emitTask =
+                if config.EmbedsRuntimeMetadata then
+                    Some (System.Threading.Tasks.Task.Run(fun () ->
+                        WebSharper.Compiler.CSharp.Emit.EmitWithResources
+                            compiler.CommandLineArguments compiler.RoslynCompilation config.AssemblyFile
+                            [ WebSharper.Constants.EmbeddedResources.EMBEDDED_RUNTIME_METADATA, fun () -> runtimeMetaReady.Task.Result ]
+                    ))
+                else None
 
             let extraBundles = 
                 aR.Wrap <| fun () ->
@@ -254,9 +262,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 else
                     CreateResourcesMode.Other(refMeta)
 
-            let res, sidecarEntries =
-                assem
-                |> ModifyAssembly {
+            let res, runtimeMetaBytes, sidecarEntries =
+                CreateOutputFor {
                     Logger = logger
                     Compilation = Some comp
                     CurrentMetadata = currentMeta
@@ -267,7 +274,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     AnalyzeClosures = config.AnalyzeClosures
                     Mode = mode
                     WebResources = webResources
-                }
+                } (Some assem) comp.AssemblyName
 
             match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
             | None, Some true, Some outputDir ->
@@ -283,15 +290,26 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             logger.TimedStage "Printing WebSharper errors and warnings"
 
-            // the assembly is left as csc wrote it, unless runtime metadata was added,
-            // or it is a Proxy project
+            // the assembly is left as csc wrote it, except for website, bundle, offline and
+            // service projects, emitted again with runtime metadata, and Proxy projects
             let moduleId =
-                if config.ProjectType = Some Proxy || AssemblyChangeStamp assem <> unchangedStamp then
-                    assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
-                    // only the Cecil write of the assembly and its symbols
-                    logger.TimedStage "Writing resources into assembly"
+                match runtimeMetaBytes with
+                | Some bytes when emitTask.IsSome ->
+                    runtimeMetaReady.SetResult bytes
+                    let ranGenerators = emitTask.Value.GetAwaiter().GetResult()
+                    logger.TimedStage (if ranGenerators then "Emitting assembly with runtime metadata (with source generators)" else "Emitting assembly with runtime metadata (join)")
                     ReadModuleId config.AssemblyFile
-                else
+                | Some _ ->
+                    failwith "Unexpected runtime metadata"
+                | None when emitTask.IsSome ->
+                    runtimeMetaReady.SetException(exn "No runtime metadata")
+                    failwith "Expected runtime metadata to embed into the assembly"
+                | None when config.ProjectType = Some Proxy ->
+                    WriteProxyAssembly config.AssemblyFile config.KeyFile
+                    ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
+                    logger.TimedStage "Writing attributes-only assembly for Proxy project"
+                    ReadModuleId config.AssemblyFile
+                | None ->
                     assem.ModuleId
 
             WriteSidecar config.AssemblyFile moduleId sidecarEntries
@@ -425,6 +443,8 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
             cscArgs.Add a
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
+        | StartsWith "--cscrsp:" r ->
+            wsArgs := { !wsArgs with CompilerResponseFile = Some r }
         | _ -> 
             cscArgs.Add a
     wsArgs := 

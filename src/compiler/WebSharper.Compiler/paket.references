@@ -4,3 +4,4 @@ Mono.Cecil
 System.Runtime.Loader
 FSharp.Core
 System.Text.Json
+System.Reflection.Metadata
