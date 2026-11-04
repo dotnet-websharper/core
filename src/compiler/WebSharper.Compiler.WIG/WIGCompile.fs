@@ -1679,3 +1679,36 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
     static member Create(logger) =
         Compiler(logger)
+
+module ExtensionAssembly =
+
+    let Load (file: string) (logger: WebSharper.Compiler.LoggerBase) =
+        let asm = R.LoadAssembly(file)
+        let genFile = Path.ChangeExtension(file, ".Generator.dll")
+        if File.Exists genFile then File.Delete genFile
+        // Instead of removing the original dll, we are going to keep the original F# dll as is,
+        // so we can properly carry over the win32 resources, so that the file properties are populated
+        File.Copy(file, genFile)
+        let name = asm.GetName()
+        let typedArg =
+            asm.CustomAttributes |> Seq.tryPick (fun a ->
+                if a.AttributeType.FullName = "WebSharper.InterfaceGenerator.Pervasives+ExtensionAttribute" then
+                    Some a.ConstructorArguments.[0]
+                else
+                    None
+            )
+        match typedArg with 
+        | Some a ->
+            let typeName = (a.Value :?> System.Type).FullName
+            let t = asm.GetType(typeName)
+            let e = Activator.CreateInstance(t)
+            logger.TimedStage "Loading IExtension implementation"
+            let assemblyGetter =
+                let intfMap = t.GetInterfaceMap(typeof<Pervasives.IExtension>)
+                intfMap.InterfaceMethods.[0]
+            let asmDefObj = assemblyGetter.Invoke(e, [||])
+            let asmDef = asmDefObj :?> Code.Assembly
+            logger.TimedStage "Getting Assembly definition"
+            name, asmDef, asm
+        | None ->
+            failwith "No ExtensionAttribute set on the input assembly"

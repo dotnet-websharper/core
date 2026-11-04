@@ -36,7 +36,7 @@ open FSharp.Compiler.CodeAnalysis
 /// Compiles a WIG project: the interface generator assembly fsc wrote is replaced by the
 /// generated one, which WebSharper.Compiler.WIG writes with Mono.Cecil.
 let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
-    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
+    let (name, asmDef, asm) = WebSharper.InterfaceGenerator.ExtensionAssembly.Load config.AssemblyFile logger        
     let cfg =
         {
             WebSharper.InterfaceGenerator.CompilerOptions.Default(name.Name) with

@@ -67,3 +67,10 @@ type Compiler =
     member Start : args: seq<string> * assembly: CodeModel.Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
     member Start : args: seq<string> * assembly: CodeModel.Assembly * original: Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
     static member Create : WebSharper.Compiler.LoggerBase -> Compiler
+
+/// Loads the interface generator assembly of a WIG project.
+module ExtensionAssembly =
+
+    /// Loads the assembly fsc wrote (keeping a copy as .Generator.dll) and gets the
+    /// assembly definition from the IExtension named by its ExtensionAttribute.
+    val Load : file: string -> logger: WebSharper.Compiler.LoggerBase -> AssemblyName * CodeModel.Assembly * Assembly

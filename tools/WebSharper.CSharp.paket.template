@@ -67,7 +67,6 @@ files
     ../build/Release/CSharp/Analyzer/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Core.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs
