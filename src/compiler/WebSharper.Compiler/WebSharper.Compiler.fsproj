@@ -66,7 +66,6 @@
     <Compile Include="CommandTools.fs" />
     <Compile Include="WsFscServiceCommon.fs" />
     <Compile Include="Bundle.fs" />
-    <Compile Include="Merging.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

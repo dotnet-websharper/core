@@ -84,6 +84,8 @@ module internal Utility =
             "WebSharper.Compiler"
             "WebSharper.Compiler.CSharp"
             "WebSharper.Compiler.FSharp"
+            "WebSharper.Compiler.Merging"
+            "WebSharper.Compiler.WIG"
             "WebSharper.Core"
             "WebSharper.InterfaceGenerator"
             "WindowsBase"
