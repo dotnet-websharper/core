@@ -57,9 +57,21 @@ type WebSharperCSharpCompiler() =
             | None ->
                 CSharpCommandLineParser.Default.Parse(config.CompilerArgs, projectDir, null)
 
+        // sources MSBuild passes to WebSharper but not to csc: files written by source
+        // generators (EmitCompilerGeneratedFiles), csc generates their contents itself
+        let extraSources =
+            match fullArgs with
+            | None -> [||]
+            | Some a ->
+                let cscSources = a.SourceFiles |> Seq.map (fun s -> s.Path) |> System.Collections.Generic.HashSet
+                CSharpCommandLineParser.Default.Parse(config.CompilerArgs, projectDir, null).SourceFiles
+                |> Seq.map (fun s -> s.Path)
+                |> Seq.filter (cscSources.Contains >> not)
+                |> Array.ofSeq
+
         let syntaxTrees =
-            parsedArgs.SourceFiles 
-            |> Seq.map (fun s -> WebSharper.Compiler.CSharp.Emit.ParseSourceFile parsedArgs s.Path)
+            Seq.append (parsedArgs.SourceFiles |> Seq.map (fun s -> s.Path)) extraSources
+            |> Seq.map (fun s -> WebSharper.Compiler.CSharp.Emit.ParseSourceFile parsedArgs s)
         
         let references = 
             match fullArgs with
