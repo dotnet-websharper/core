@@ -69,6 +69,9 @@ type Assembly =
     /// The module version id (MVID) of the assembly.
     member ModuleId : System.Guid
 
+    /// True if the assembly contains embedded runtime metadata (website, bundle, offline and service projects).
+    member HasRuntimeMetadata : bool
+
     /// The source files embedded for source mapping, in path-contents pairs
     member EmbeddedSourceFiles : (string * string)[]
 

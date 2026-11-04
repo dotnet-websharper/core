@@ -1,4 +1,4 @@
-﻿// $begin{copyright}
+// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -271,6 +271,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
 
+    // reference assemblies (ref/refint folders) are used by fsc only: WebSharper reads sidecars
+    // and executes macros and generators, for that it needs the implementation assemblies
+    let config = { config with References = config.References |> Array.map Sidecar.ImplementationPath }
+
     let mainProxiesFile() =
         "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
 
@@ -293,6 +297,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
         MakeDummyDll config.AssemblyFile thisName
+        ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
         logger.Out "Written Proxies.args"
         0 
     else
@@ -334,6 +339,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let ilEmitStopwatch = System.Diagnostics.Stopwatch.StartNew()
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
+            ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
             0, ignore
         else
             let errors, exnOpt = 
@@ -394,6 +400,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config logger
+                ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
                 fullTime logger
                 0
             with e ->
@@ -542,6 +549,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             | _ -> []
 
         // all of reference metadata, read again if only the library parts were read
+        let getWsRefs() =
+            match wsRefsMeta.Result with
+            | Some (r, _, _) -> r
+            | _ -> []
+
         let fullRefMetas =
             lazy
             if refReadOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then
@@ -565,6 +577,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let getExtraBundleRefMetas() =
             if comp.CompiledExtraBundles.Count = 0 then [] else fullRefMetas.Value
 
+        // what this compilation read from references, for its dependency list
+        let depsReadOptions() =
+            if fullRefMetas.IsValueCreated then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions
+
         let js, currentMeta, runtimeMeta, sources, extraBundles, textOutputs =
             let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
             if isBundleOnly then
@@ -576,6 +592,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 let assem = loader.LoadFile config.AssemblyFile
@@ -688,11 +705,14 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
                         // only the Cecil write of the assembly and its symbols
                         logger.TimedStage "Writing resources into assembly"
+                        if config.ProjectType = Some Proxy then
+                            ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
                         ReadModuleId config.AssemblyFile
                     else
                         assem.ModuleId
 
                 WriteSidecar config.AssemblyFile moduleId sidecarEntries
+                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions())
                 logger.TimedStage "Writing sidecar file"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 

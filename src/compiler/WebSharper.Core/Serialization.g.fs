@@ -239,7 +239,7 @@ and w_Id (w: MetaWriter) (x: WebSharper.Core.AST.Id) =
     let key = x.SerialNumber
     if w.BeginId key then
         w.String(Option.toObj x.Name)
-        w.Int64(key)
+        w.IdNumber(key)
         w.Byte((if x.IsMutable then 1uy else 0uy) ||| (if x.IsRest then 2uy else 0uy) ||| (if x.HasStrongName then 4uy else 0uy) ||| (if x.IsOptional then 8uy else 0uy))
         writeOption w (fun w x1 -> w_Type w x1) x.VarType
         w.EndId key

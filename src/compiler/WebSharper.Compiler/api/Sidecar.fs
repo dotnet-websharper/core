@@ -71,6 +71,21 @@ type Sidecar private (path: string, moduleId: Guid, data: byte[], entries: (stri
     static member PathFor(assemblyPath: string) =
         Path.ChangeExtension(assemblyPath, ".websharper")
 
+    /// The stamp file path for an assembly path: `<AssemblyName>.websharper.stamp`, a hash of what
+    /// compiling a library against it uses, rewritten only when that changes.
+    static member StampPathFor(assemblyPath: string) =
+        Path.ChangeExtension(assemblyPath, ".websharper.stamp")
+
+    /// The implementation assembly for a reference assembly path (in a `ref` or `refint`
+    /// folder next to it, as the .NET SDK writes them), otherwise the path itself.
+    static member ImplementationPath(assemblyPath: string) =
+        let dir = Path.GetDirectoryName assemblyPath
+        match Path.GetFileName dir with
+        | "ref" | "refint" ->
+            let impl = Path.Combine(Path.GetDirectoryName dir, Path.GetFileName assemblyPath)
+            if File.Exists impl then impl else assemblyPath
+        | _ -> assemblyPath
+
     /// The path of this sidecar.
     member this.Path = path
 

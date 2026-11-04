@@ -21,6 +21,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -51,6 +52,8 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperStandalone { get; set; } = "";
         public string WebSharperTransparentCompiler { get; set; } = "";
         public string WebSharperParallelCompilation { get; set; } = "";
+        /// The reference assembly to write (@(IntermediateRefAssembly)), the Fsc task does not pass it in FscCommandLineArgs.
+        public string RefAssembly { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -71,6 +74,9 @@ namespace WebSharper.MSBuild.FSharp
 
                 foreach (var a in FscCommandLineArgs)
                     WriteIfSet(w, "", a);
+
+                if (!string.IsNullOrEmpty(RefAssembly) && !FscCommandLineArgs.Any(a => a.ItemSpec.StartsWith("--refout:")))
+                    w.WriteLine("--refout:" + RefAssembly);
 
                 WriteIfSet(w, "--ws:", WebSharperProject);
 

@@ -177,6 +177,10 @@ type Assembly =
 
     member this.ModuleId = this.Definition.MainModule.Mvid
 
+    member this.HasRuntimeMetadata =
+        this.Definition.MainModule.Resources
+        |> Seq.exists (fun r -> r.Name = EMBEDDED_RUNTIME_METADATA)
+
     member this.GetScripts (t: O) =
         Seq.append
             (ParseAllScriptResources this.Definition t)

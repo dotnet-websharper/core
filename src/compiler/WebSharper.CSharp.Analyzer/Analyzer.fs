@@ -110,14 +110,16 @@ type WebSharperCSharpAnalyzer () =
         | _ ->
             let mutable err = None
             let m = 
-                try path |> FE.ReadFromFile WebSharper.Core.Metadata.MetadataOptions.DiscardNotInlineExpressions
+                // metadata is in the sidecar of the implementation assembly, also for reference assemblies
+                try WebSharper.Compiler.Sidecar.ImplementationPath path |> FE.ReadFromFile WebSharper.Core.Metadata.MetadataOptions.DiscardNotInlineExpressions
                 with e ->
                     err <- Some e.Message
                     None
 
             let watcher =
                 try
-                    let watcher = new FileSystemWatcher(Path.GetDirectoryName path, Path.GetFileName path)
+                    let implPath = WebSharper.Compiler.Sidecar.ImplementationPath path
+                    let watcher = new FileSystemWatcher(Path.GetDirectoryName implPath, Path.GetFileName (WebSharper.Compiler.Sidecar.PathFor implPath))
                     let onChange (_: FileSystemEventArgs) =
                         lock cachedRefMeta <| fun () ->
                             lastRefKey <- [ box "" ]

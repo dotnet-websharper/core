@@ -65,9 +65,57 @@ let TryReadFromAssemblyWith (readOptions: MIO.ReadOptions) (a: Assembly) =
 /// Writes the sidecar file of an assembly.
 let WriteSidecar (assemblyPath: string) (moduleId: System.Guid) (entries: seq<string * byte[]>) =
     let path = Sidecar.PathFor assemblyPath
+    let entries = Array.ofSeq entries
     // metadata sections are compressed already
     Sidecar.Write(path, moduleId, entries, compress = fun n -> n <> EMBEDDED_METADATA)
     FileSystem.OutputFiles.Add path
+    // the stamp changes only when what compiling a library against this one reads changes,
+    // dependent library projects use it as compilation input instead of the sidecar
+    match entries |> Array.tryFind (fun (n, _) -> n = EMBEDDED_METADATA) with
+    | Some (_, meta) ->
+        let stampPath = Sidecar.StampPathFor assemblyPath
+        let stamp = MIO.InterfaceHash meta
+        if not (File.Exists stampPath && File.ReadAllText stampPath = stamp) then
+            File.WriteAllText(stampPath, stamp)
+        FileSystem.OutputFiles.Add stampPath
+    | None -> ()
+
+/// Lists the files of references a compilation depended on, in `<AssemblyName>.websharper.deps`
+/// next to the assembly. MSBuild adds them to the compilation inputs: a reference assembly
+/// does not change when only WebSharper-relevant parts of a library do.
+let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOptions: MIO.ReadOptions) =
+    let lines =
+        references |> Seq.choose (fun r ->
+            match r.LoadPath with
+            | Some p ->
+                let sidecar = Sidecar.PathFor p
+                let stamp = Sidecar.StampPathFor p
+                if readOptions = MIO.ReadOptions.Library && File.Exists stamp then Some stamp
+                elif File.Exists sidecar then Some sidecar
+                else None
+            | None -> None
+        )
+        |> Seq.distinct
+        |> Array.ofSeq
+    let path = Path.ChangeExtension(assemblyPath, ".websharper.deps")
+    if not (File.Exists path && File.ReadAllLines path = lines) then
+        File.WriteAllLines(path, lines)
+
+/// When the final assembly differs from what fsc emitted (WIG, Proxy and BundleOnly projects),
+/// the reference assembly written by fsc (--refout) is replaced by the final assembly.
+let ReplaceReferenceAssembly (logger: LoggerBase) (projectDir: string) (compilerArgs: string[]) (assemblyPath: string) =
+    compilerArgs |> Array.tryPick (fun a ->
+        let a = a.Trim()
+        if a.StartsWith "--refout:" then Some (a.Substring 9) else None
+    )
+    |> function
+    | Some refOut ->
+        let refOut = if Path.IsPathRooted refOut then refOut else Path.Combine(projectDir, refOut)
+        Directory.CreateDirectory(Path.GetDirectoryName refOut) |> ignore
+        File.Copy(assemblyPath, refOut, true)
+        logger.Out (sprintf "Replaced reference assembly %s" refOut)
+    | None ->
+        ()
 
 let TryReadFromAssembly options (a: Assembly) =
     TryReadFromAssemblyWith (MIO.ReadOptions.Of options) a

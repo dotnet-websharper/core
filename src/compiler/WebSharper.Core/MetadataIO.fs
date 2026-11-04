@@ -89,17 +89,16 @@ let private writeInt32 (s: Stream) (v: int) =
     s.WriteByte(byte (v >>> 16))
     s.WriteByte(byte (v >>> 24))
 
-/// Serializes metadata into a stream, returns the time spent encoding and compressing.
-let EncodeTimed (stream: Stream) (meta: Info) =
+let private encodeWith (compression: Compression) (normalizeIds: bool) (stream: Stream) (meta: Info) =
     let sw = Diagnostics.Stopwatch.StartNew()
-    let w = MetaWriter(SerializationGenerated.HashedKinds)
+    let w = MetaWriter(SerializationGenerated.HashedKinds, NormalizeIds = normalizeIds)
     SerializationGenerated.writeInfo w meta
     let sections = w.Finish()
     let encodeTime = sw.Elapsed
     sw.Restart()
     let stored =
         sections |> Array.map (fun (s: ByteBuffer) ->
-            if DefaultCompression = Compression.Deflate && s.Length >= minCompressedLength then
+            if compression = Compression.Deflate && s.Length >= minCompressedLength then
                 use m = new MemoryStream(s.Length / 2 + 64)
                 (
                     use d = new Compression.DeflateStream(m, Compression.CompressionLevel.Fastest, true)
@@ -123,6 +122,10 @@ let EncodeTimed (stream: Stream) (meta: Info) =
     for _, bytes in stored do
         stream.Write(bytes, 0, bytes.Length)
     encodeTime, sw.Elapsed
+
+/// Serializes metadata into a stream, returns the time spent encoding and compressing.
+let EncodeTimed (stream: Stream) (meta: Info) =
+    encodeWith DefaultCompression false stream meta
 
 /// Serializes metadata into a stream.
 let Encode (stream: Stream) (meta: Info) =
@@ -217,6 +220,16 @@ let DecodeBytesAt (data: byte[]) (offset: int) (length: int) : Info =
 /// Deserializes metadata from a byte array.
 let DecodeBytes (data: byte[]) : Info =
     DecodeBytesAt data 0 data.Length
+
+/// A hash of what compiling a library against this metadata reads (ReadOptions.Library),
+/// independent of changes elsewhere: the library view is encoded again on its own.
+let InterfaceHash (data: byte[]) =
+    let lib = DecodeBytesWith ReadOptions.Library data 0 data.Length
+    use m = new MemoryStream(data.Length)
+    encodeWith Compression.NoCompression true m lib |> ignore
+    use sha = Security.Cryptography.SHA256.Create()
+    let h = sha.ComputeHash(m.GetBuffer(), 0, int m.Length)
+    BitConverter.ToString(h).Replace("-", "")
 
 /// Section names with their stored and uncompressed sizes.
 let SectionSizes (data: byte[]) =

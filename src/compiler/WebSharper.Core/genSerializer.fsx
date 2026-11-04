@@ -353,7 +353,7 @@ for t in order do
         line "    let key = x.SerialNumber"
         line "    if w.BeginId key then"
         line "        w.String(Option.toObj x.Name)"
-        line "        w.Int64(key)"
+        line "        w.IdNumber(key)"
         line "        w.Byte((if x.IsMutable then 1uy else 0uy) ||| (if x.IsRest then 2uy else 0uy) ||| (if x.HasStrongName then 4uy else 0uy) ||| (if x.IsOptional then 8uy else 0uy))"
         line (sprintf "        %s" (writeExpr (idType.GetProperty("VarType").PropertyType) "x.VarType"))
         line "        w.EndId key"

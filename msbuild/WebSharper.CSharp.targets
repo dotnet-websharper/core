@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 // $begin{copyright}
 // 
 // This file is part of WebSharper
@@ -109,6 +109,8 @@
     <!-- copied with references, like .pdb and .xml files -->
     <AllowedReferenceRelatedFileExtensions>$(AllowedReferenceRelatedFileExtensions);.websharper</AllowedReferenceRelatedFileExtensions>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
+    <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
+    <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
   </PropertyGroup>
   <!-- marks the assembly as having a sidecar, so a copy without it is reported -->
   <ItemGroup Condition=" '$(WebSharperSidecarMarker)' != 'False' ">
@@ -120,10 +122,28 @@
   <Target Name="WebSharperCopySidecar" AfterTargets="CopyFilesToOutputDirectory" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <PropertyGroup>
       <_WebSharperSidecar>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper')</_WebSharperSidecar>
+      <_WebSharperStamp>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.stamp')</_WebSharperStamp>
     </PropertyGroup>
+    <!-- unchanged files keep their timestamps, so an unchanged stamp does not trigger dependent compilations -->
+    <Copy SourceFiles="$(_WebSharperStamp)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" Condition="Exists('$(_WebSharperStamp)')">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
     <Copy SourceFiles="$(_WebSharperSidecar)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="$(SkipCopyUnchangedFiles)" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" Condition="Exists('$(_WebSharperSidecar)')">
       <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
     </Copy>
+  </Target>
+  <!-- files of references the last WebSharper compilation depended on: stamps of libraries, or their sidecars when all of their metadata was read -->
+  <Target Name="WebSharperDependencyInputs" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <PropertyGroup>
+      <_WebSharperDepsFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.deps')</_WebSharperDepsFile>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(_WebSharperDepsFile)" Condition="Exists('$(_WebSharperDepsFile)')">
+      <Output TaskParameter="Lines" ItemName="_WebSharperDependency" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="@(_WebSharperDependency)" Condition="Exists('%(_WebSharperDependency.Identity)')" />
+      <FileWrites Include="$(_WebSharperDepsFile)" />
+    </ItemGroup>
   </Target>
   <Target Name="WebSharperPackSidecar">
     <ItemGroup>

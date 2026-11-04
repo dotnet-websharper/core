@@ -156,6 +156,7 @@ type MetaWriter(tableKinds: int) =
     let hashedTables : obj[] = Array.zeroCreate tableKinds
     let hashedCounts : int[] = Array.zeroCreate tableKinds
     let freeBuffers = Stack<ByteBuffer>()
+    let normalizedIds = Dictionary<int64, int64>()
     let mutable ids = Dictionary<int64, int>()
     let mutable idCount = 0
     // saved output and Id scope while writing a table entry or a block
@@ -250,6 +251,22 @@ type MetaWriter(tableKinds: int) =
         | _ ->
             out.VarUInt 0u
             true
+
+    /// When set, Id numbers are written as their order of appearance, so the output does not
+    /// depend on Ids created elsewhere in the compilation (used for hashing, not for reading).
+    member val NormalizeIds = false with get, set
+
+    /// Writes the number of an Id.
+    member this.IdNumber(key: int64) =
+        if this.NormalizeIds then
+            match normalizedIds.TryGetValue key with
+            | true, i -> this.Int64 i
+            | _ ->
+                let i = int64 normalizedIds.Count
+                normalizedIds.Add(key, i)
+                this.Int64 i
+        else
+            this.Int64 key
 
     /// Registers an Id after its fields, matching the reader.
     member this.EndId(key: int64) =

@@ -1,4 +1,4 @@
-﻿// $begin{copyright}
+// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -129,9 +129,16 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     logger.TimedStage "Loading output assembly"
 
 #if !DEBUG
-    // already compiled: the sidecar was written for this build of the assembly
+    // WebSharperCompile also runs when csc did not: skip if the assembly was not written since
+    // the last WebSharper compilation finished (its output list is written last), and the
+    // sidecar belongs to it. A csc run rewrites the assembly, also when only reference stamps
+    // changed and the deterministic output has the same module id.
     let alreadyCompiled (a: Assembly) =
-        a.Sidecar |> Option.exists (fun sc -> sc.ModuleId = a.ModuleId)
+        let listFile = Path.ChangeExtension(config.AssemblyFile, ".websharper.files")
+        a.HasRuntimeMetadata
+        || (a.Sidecar |> Option.exists (fun sc -> sc.ModuleId = a.ModuleId)
+            && File.Exists listFile
+            && File.GetLastWriteTimeUtc listFile >= File.GetLastWriteTimeUtc config.AssemblyFile)
     if assem.IsSome && alreadyCompiled assem.Value then
         logger.TimedStage "WebSharper resources already exist, skipping"
         fullTime logger
@@ -175,6 +182,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -287,6 +295,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     assem.ModuleId
 
             WriteSidecar config.AssemblyFile moduleId sidecarEntries
+            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions)
             logger.TimedStage "Writing sidecar file"
             Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles
 
