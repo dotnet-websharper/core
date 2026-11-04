@@ -36,19 +36,38 @@ type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
 type O = WebSharper.Core.JavaScript.Output
 
-/// Reads the selected sections of the WebSharper metadata of an assembly.
+/// Reads the selected sections of the WebSharper metadata of an assembly from its sidecar file.
+/// An assembly marked by WebSharper but without a sidecar, or with a sidecar written for
+/// another build of it, is an error.
 let TryReadFromAssemblyWith (readOptions: MIO.ReadOptions) (a: Assembly) =
-    a.Raw.MainModule.Resources
-    |> Seq.tryPick (function
-        | :? Mono.Cecil.EmbeddedResource as r when r.Name = EMBEDDED_METADATA -> Some r
-        | _ -> None
-    )
-    |> Option.map (fun r ->
-        try
-            let data = r.GetResourceData()
-            Ok (MIO.DecodeBytesWith readOptions data 0 data.Length)
-        with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
-    )
+    let sidecarPath () =
+        match a.LoadPath with
+        | Some p -> Sidecar.PathFor p
+        | None -> a.Name + ".websharper"
+    match (try Ok a.Sidecar with e -> Error e.Message) with
+    | Error e -> Some (Error e)
+    | Ok None ->
+        if a.HasSidecarMarker then
+            Some (Error (sprintf "WebSharper library %s has no sidecar file at %s. Copy the .websharper file together with the .dll." a.FullName (sidecarPath ())))
+        else None
+    | Ok (Some sc) ->
+        if sc.ModuleId <> a.ModuleId then
+            Some (Error (sprintf "The WebSharper sidecar file %s was written for another build of %s. Rebuild the library, or copy its matching .websharper file." sc.Path a.FullName))
+        else
+        match sc.TryGet Sidecar.MetadataEntry with
+        | None -> None
+        | Some data ->
+            try
+                Ok (MIO.DecodeBytesWith readOptions data 0 data.Length)
+            with e -> Error (sprintf "Failed to deserialize metadata for %s from %s. Error: %s" a.FullName sc.Path e.Message)
+            |> Some
+
+/// Writes the sidecar file of an assembly.
+let WriteSidecar (assemblyPath: string) (moduleId: System.Guid) (entries: seq<string * byte[]>) =
+    let path = Sidecar.PathFor assemblyPath
+    // metadata sections are compressed already
+    Sidecar.Write(path, moduleId, entries, compress = fun n -> n <> EMBEDDED_METADATA)
+    FileSystem.OutputFiles.Add path
 
 let TryReadFromAssembly options (a: Assembly) =
     TryReadFromAssemblyWith (MIO.ReadOptions.Of options) a
@@ -100,19 +119,23 @@ let ReadRuntimeFromFile (path: string) =
     let meta = ReadRuntimeFromAssembly M.FullMetadata asm
     asm, meta
 
+/// Adds resource hashes to the metadata of a WIG or TypeScript-generated assembly
+/// and serializes it for its sidecar file.
 let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     for r in Assembly.GetAllResources a do
         let p = assemblyName + "/" + r.FileName
         let d = r.GetContentData()
         current.ResourceHashes.Add(p, AST.StableHash.data d)
-    let meta = MIO.EncodeToBytes current
-    let pub = Mono.Cecil.ManifestResourceAttributes.Public
-    Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
-    |> a.MainModule.Resources.Add
+    MIO.EncodeToBytes current
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw
+
+/// The module version id of an assembly file, written to its sidecar.
+let ReadModuleId (assemblyPath: string) =
+    use m = Mono.Cecil.ModuleDefinition.ReadModule(assemblyPath)
+    m.Mvid
     
 let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     if sourceMap then
@@ -535,18 +558,30 @@ let private convertResourcesToBinary (logger: LoggerBase option) (res: Generated
 let ConvertResourcesToBinary (res: GeneratedResources) =
     convertResourcesToBinary None res
 
+/// Creates the WebSharper output of an assembly. Runtime metadata (website, bundle,
+/// offline and service projects) is embedded into the assembly, the rest is returned
+/// as sidecar entries.
 let ModifyCecilAssembly (args: CreateResourcesArgs) (assemblyDef: Mono.Cecil.AssemblyDefinition) =
     let res = CreateResources args (CreateResourcesFor.Assembly assemblyDef)
     let binaries = convertResourcesToBinary (Some args.Logger) res
     args.Logger.TimedStage "Serializing metadata"
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
+    let sidecarEntries = ResizeArray()
     for name, contents in binaries do
-        Mono.Cecil.EmbeddedResource(name, pub, contents)
-        |> assemblyDef.MainModule.Resources.Add
-    res
+        if name = EMBEDDED_RUNTIME_METADATA then
+            Mono.Cecil.EmbeddedResource(name, pub, contents)
+            |> assemblyDef.MainModule.Resources.Add
+        else
+            sidecarEntries.Add(name, contents)
+    res, sidecarEntries.ToArray()
 
 let ModifyAssembly (args: CreateResourcesArgs) (assembly : Assembly) =
     ModifyCecilAssembly args assembly.Raw
+
+/// Counts of what WebSharper can add to an assembly, to tell if it needs writing.
+let AssemblyChangeStamp (assembly: Assembly) =
+    let a = assembly.Raw
+    a.MainModule.Resources.Count, a.CustomAttributes.Count, a.MainModule.AssemblyReferences.Count
 
 let UnpackLibraryCode (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) dts ts (runtimeMeta: option<M.MetadataOptions * M.Info list>) outputDir =
     match comp, runtimeMeta with

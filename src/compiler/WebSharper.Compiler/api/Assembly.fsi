@@ -57,8 +57,17 @@ type Assembly =
     /// Returns the associated symbols, if any.
     member Symbols : option<Symbols>
 
-    /// True if the assembly contains the `WebSharper.meta` embedded resource.
+    /// True if the assembly contains the `WebSharper.meta` embedded resource, or its sidecar has metadata.
     member HasWebSharperMetadata : bool
+
+    /// The `<AssemblyName>.websharper` file next to the assembly, if any.
+    member Sidecar : option<Sidecar>
+
+    /// True if the assembly is marked as having a sidecar file by WebSharper.
+    member HasSidecarMarker : bool
+
+    /// The module version id (MVID) of the assembly.
+    member ModuleId : System.Guid
 
     /// The source files embedded for source mapping, in path-contents pairs
     member EmbeddedSourceFiles : (string * string)[]

@@ -75,7 +75,11 @@ let ``Metadata round trip of built WebSharper assemblies`` () =
     let mutable checkedCount = 0
     for path in builtAssemblies () do
         for res in [ WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA; WebSharper.Constants.EmbeddedResources.EMBEDDED_RUNTIME_METADATA ] do
-            match readResource path res with
+            let stored =
+                if res = WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA then
+                    WebSharper.Compiler.Sidecar.TryReadFor path |> Option.bind (fun sc -> sc.TryGet res)
+                else readResource path res
+            match stored with
             | Some bytes ->
                 let meta = MetadataIO.DecodeBytes bytes
                 for c in [ MetadataIO.Compression.NoCompression; MetadataIO.Compression.Deflate ] do
@@ -196,3 +200,33 @@ let ``Metadata sections can be skipped`` () =
     Assert.AreEqual(string mOther, string ((classOf lib).Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "O")))
     let sizes = MetadataIO.SectionSizes bytes |> Array.map (fun (n, _, _) -> n)
     Assert.Contains("inline expressions", sizes)
+
+[<Test>]
+let ``Sidecar files round trip and are not rewritten when unchanged`` () =
+    let dir = Path.Combine(Path.GetTempPath(), "ws-sidecar-test-" + string (System.Guid.NewGuid()))
+    Directory.CreateDirectory dir |> ignore
+    try
+        let dll = Path.Combine(dir, "Lib.dll")
+        let path = WebSharper.Compiler.Sidecar.PathFor dll
+        Assert.AreEqual(Path.Combine(dir, "Lib.websharper"), path)
+        let mvid = System.Guid.NewGuid()
+        let js = System.Text.Encoding.UTF8.GetBytes(String.replicate 1000 "export function f() {}\n")
+        let meta = MetadataIO.EncodeToBytes M.Info.Empty
+        let entries = [ WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA, meta; "Lib.js", js; "empty.txt", [||] ]
+        WebSharper.Compiler.Sidecar.Write(path, mvid, entries)
+        let sc = WebSharper.Compiler.Sidecar.Read path
+        Assert.AreEqual(mvid, sc.ModuleId)
+        Assert.AreEqual([| WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA; "Lib.js"; "empty.txt" |], sc.Names)
+        Assert.AreEqual(Some js, sc.TryGet "Lib.js")
+        Assert.AreEqual(Some meta, sc.TryGet WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA)
+        Assert.AreEqual(Some ([||] : byte[]), sc.TryGet "empty.txt")
+        Assert.AreEqual(None, sc.TryGet "missing.js")
+        Assert.Less(FileInfo(path).Length, int64 js.Length)
+        let old = System.DateTime(2020, 1, 1)
+        File.SetLastWriteTimeUtc(path, old)
+        WebSharper.Compiler.Sidecar.Write(path, mvid, entries)
+        Assert.AreEqual(old, File.GetLastWriteTimeUtc path)
+        WebSharper.Compiler.Sidecar.Write(path, System.Guid.NewGuid(), entries)
+        Assert.AreNotEqual(old, File.GetLastWriteTimeUtc path)
+    finally
+        Directory.Delete(dir, true)

@@ -579,6 +579,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 let assem = loader.LoadFile config.AssemblyFile
+                let unchangedStamp = AssemblyChangeStamp assem
                 logger.TimedStage "Loading output assembly"
 
                 if config.ProjectType = Some Proxy then
@@ -633,7 +634,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     else
                         CreateResourcesMode.Other(getRefMeta())
 
-                let res =
+                let res, sidecarEntries =
                     assem
                     |> ModifyAssembly {
                         Logger = logger
@@ -680,10 +681,19 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
                 logger.TimedStage "Printing WebSharper errors and warnings"
 
-                assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+                // the assembly is left as fsc wrote it, unless runtime metadata, extra.files,
+                // web worker bundles or extra references were added, or it is a Proxy project
+                let moduleId =
+                    if config.ProjectType = Some Proxy || AssemblyChangeStamp assem <> unchangedStamp then
+                        assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+                        // only the Cecil write of the assembly and its symbols
+                        logger.TimedStage "Writing resources into assembly"
+                        ReadModuleId config.AssemblyFile
+                    else
+                        assem.ModuleId
 
-                // only the Cecil write of the assembly and its symbols
-                logger.TimedStage "Writing resources into assembly"
+                WriteSidecar config.AssemblyFile moduleId sidecarEntries
+                logger.TimedStage "Writing sidecar file"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 
         match config.JSOutputPath, js with

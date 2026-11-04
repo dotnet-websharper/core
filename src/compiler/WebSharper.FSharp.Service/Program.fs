@@ -94,7 +94,9 @@ let startListening() =
                     None
                 | result ->
                     let policy = CacheItemPolicy()
-                    let monitor = new HostFileChangeMonitor([| path |])
+                    // metadata comes from the sidecar, its module id is checked against the dll
+                    let watched = [| path; WebSharper.Compiler.Sidecar.PathFor path |] |> Array.filter System.IO.File.Exists
+                    let monitor = new HostFileChangeMonitor(watched)
                     policy.ChangeMonitors.Add monitor
                     memCache.Set(key, result, policy)
                     result

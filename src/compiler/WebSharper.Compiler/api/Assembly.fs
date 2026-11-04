@@ -120,11 +120,43 @@ module AssemblyUtility =
             ReadAllScriptResources def (fun n -> n.StartsWith(EMBEDDED_SOURCES))
         else Array.empty
 
+    let IsScriptFile (t: O) (n: string) =
+        match t with
+        | O.JavaScript -> n.EndsWith(".js") || n.EndsWith(".mjs") || n.EndsWith(".cjs") || n.EndsWith(".jsx")
+        | O.TypeScript -> (n.EndsWith(".ts") && not (n.EndsWith(".d.ts"))) || n.EndsWith(".tsx")
+        | O.TypeScriptDeclaration -> n.EndsWith(".d.ts")
+
+    let IsMapFile (t: O) (n: string) =
+        match t with
+        | O.JavaScript -> n.EndsWith(".js.map") || n.EndsWith(".mjs.map") || n.EndsWith(".cjs.map") || n.EndsWith(".jsx.map")
+        | O.TypeScript -> (n.EndsWith(".ts.map") && not (n.EndsWith(".d.ts.map"))) || n.EndsWith(".tsx.map")
+        | O.TypeScriptDeclaration -> false
+
+    /// Sidecar entries holding generated text files with a name filter.
+    let SidecarFiles (def: Mono.Cecil.AssemblyDefinition) (sc: option<Sidecar>) (filter: string -> bool) contentType =
+        match sc with
+        | None -> [||]
+        | Some sc ->
+            sc.Names |> Array.choose (fun n ->
+                if n <> Sidecar.MetadataEntry && filter n then
+                    Some (EmbeddedFile.Create(string def.FullName, n, (sc.TryGet n).Value, contentType))
+                else None)
+
+    /// The marker attribute WebSharper adds to assemblies that have a sidecar file.
+    let SidecarMarker = "WebSharper.Sidecar"
+
+    let HasSidecarMarker (def: Mono.Cecil.AssemblyDefinition) =
+        def.CustomAttributes |> Seq.exists (fun a ->
+            a.AttributeType.FullName = "System.Reflection.AssemblyMetadataAttribute"
+            && a.ConstructorArguments.Count = 2
+            && (match a.ConstructorArguments.[0] with StringArg k -> k = SidecarMarker | _ -> false))
+
 type Assembly =
     {
         Debug : option<Symbols>
         Definition : Mono.Cecil.AssemblyDefinition
         FullLoadPath : option<string>
+        SidecarFile : Lazy<option<Sidecar>>
     }
 
     member this.LoadPath =
@@ -139,21 +171,30 @@ type Assembly =
     member this.Name =
         this.Definition.Name.Name
 
+    member this.Sidecar = this.SidecarFile.Value
+
+    member this.HasSidecarMarker = HasSidecarMarker this.Definition
+
+    member this.ModuleId = this.Definition.MainModule.Mvid
+
     member this.GetScripts (t: O) =
-        ParseAllScriptResources this.Definition t
-        |> Seq.ofArray
+        Seq.append
+            (ParseAllScriptResources this.Definition t)
+            (SidecarFiles this.Definition this.Sidecar (IsScriptFile t) CT.Text.JavaScript)
 
     member this.GetResScripts() =
         ParseWebResources this.Definition
         |> Seq.filter (fun r -> r.IsScript)
 
     member this.GetMapFiles (t: O) =
-        ParseAllMapResources this.Definition t
-        |> Seq.ofArray
+        Seq.append
+            (ParseAllMapResources this.Definition t)
+            (SidecarFiles this.Definition this.Sidecar (IsMapFile t) CT.Text.JavaScript)
 
     member this.GetSources() =
-        ParseAllSources this.Definition
-        |> Seq.ofArray
+        Seq.append
+            (ParseAllSources this.Definition)
+            (SidecarFiles this.Definition this.Sidecar (fun n -> n.StartsWith EMBEDDED_SOURCES) CT.Text.JavaScript)
 
     member this.GetContents() =
         ParseWebResources this.Definition
@@ -187,21 +228,19 @@ type Assembly =
 
     member this.HasWebSharperMetadata =
         HasWebSharperMetadata this.Definition
+        || (this.Sidecar |> Option.exists (fun sc -> (sc.TryGet Sidecar.MetadataEntry).IsSome))
 
     member this.EmbeddedSourceFiles =
-        this.Definition.MainModule.Resources
-        |> Seq.choose (function
-            | :? Mono.Cecil.EmbeddedResource as r when r.Name.StartsWith EMBEDDED_SOURCES ->
-                use reader = new StreamReader(r.GetResourceStream())
-                Some (r.Name, reader.ReadToEnd())
-            | _ -> None)
-        |> Seq.toArray 
+        this.GetSources()
+        |> Seq.map (fun s -> s.EmbeddedFileName, s.Content)
+        |> Seq.toArray
 
     static member Create(def, ?loadPath, ?symbols) =
         {
             Debug = symbols
             Definition = def
             FullLoadPath = loadPath
+            SidecarFile = lazy (loadPath |> Option.bind Sidecar.TryReadFor)
         }
 
     static member GetAllResources(def) =

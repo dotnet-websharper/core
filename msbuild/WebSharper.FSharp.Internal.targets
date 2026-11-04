@@ -105,4 +105,30 @@
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
     />
   </Target>
+  <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
+  <PropertyGroup>
+    <!-- copied with references, like .pdb and .xml files -->
+    <AllowedReferenceRelatedFileExtensions>$(AllowedReferenceRelatedFileExtensions);.websharper</AllowedReferenceRelatedFileExtensions>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+  <!-- marks the assembly as having a sidecar, so a copy without it is reported -->
+  <ItemGroup Condition=" '$(WebSharperSidecarMarker)' != 'False' ">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>WebSharper.Sidecar</_Parameter1>
+      <_Parameter2>1</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <Target Name="WebSharperCopySidecar" AfterTargets="CopyFilesToOutputDirectory" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <PropertyGroup>
+      <_WebSharperSidecar>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper')</_WebSharperSidecar>
+    </PropertyGroup>
+    <Copy SourceFiles="$(_WebSharperSidecar)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="$(SkipCopyUnchangedFiles)" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" Condition="Exists('$(_WebSharperSidecar)')">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+  <Target Name="WebSharperPackSidecar">
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(OutDir)$(TargetName).websharper" Condition="Exists('$(OutDir)$(TargetName).websharper')" />
+    </ItemGroup>
+  </Target>
 </Project>

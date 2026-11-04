@@ -182,6 +182,15 @@ let writeEmbeddedResources (cfg: Config) (assemblyPath: string) (ext: string) (t
         use s = s
         use s2 = createFile cfg (P.SubPath targetPath n)
         streamCopy s s2
+    // generated code is in the sidecar file
+    match WebSharper.Compiler.Sidecar.TryReadFor assemblyPath with
+    | Some sc ->
+        for n in sc.Names do
+            if n.EndsWith(ext) then
+                use s2 = createFile cfg (P.SubPath targetPath n)
+                let bytes = (sc.TryGet n).Value
+                s2.Write(bytes, 0, bytes.Length)
+    | None -> ()
 
 /// Outputs all required resources. This is the last step of processing.
 let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScript: bool) =

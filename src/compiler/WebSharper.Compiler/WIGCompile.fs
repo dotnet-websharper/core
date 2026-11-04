@@ -1369,14 +1369,23 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
         a.Write(out)
         out.ToArray()
 
+    /// WebSharper metadata, written to the sidecar file by Save.
+    member val WebSharperMetadata : option<byte[]> = None with get, set
+
     member a.Save(path: string) =
         let mm = def.MainModule
         let d = Path.GetDirectoryName path
         let dir = DirectoryInfo d
         if not dir.Exists then
             dir.Create()
-        use out = File.Open(path, FileMode.Create)
-        a.Write(out)
+        (
+            use out = File.Open(path, FileMode.Create)
+            a.Write(out)
+        )
+        match a.WebSharperMetadata with
+        | Some meta ->
+            WebSharper.Compiler.FrontEnd.WriteSidecar path (WebSharper.Compiler.FrontEnd.ReadModuleId path) [ WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA, meta ]
+        | None -> ()
 
     member a.Write(out: Stream) =
         def.Write(out, writerParams)
@@ -1596,11 +1605,12 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
-        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
+        let metaBytes = WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def
         logger.TimedStage "Creating WebSharper metadata"
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options, tB)
+        r.WebSharperMetadata <- Some metaBytes
         match originalAssembly with
         | None -> ()
         | Some assem -> r.SetAssemblyAttributes(assem)

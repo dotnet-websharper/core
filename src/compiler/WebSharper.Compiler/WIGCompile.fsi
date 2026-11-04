@@ -55,6 +55,8 @@ type CompiledAssembly =
     member Write : Stream -> unit
     member FileName : string
     member Assembly : WebSharper.Compiler.Assembly
+    /// WebSharper metadata, written to the sidecar file by Save.
+    member WebSharperMetadata : option<byte[]> with get, set
 
 [<Sealed>]
 type Compiler =
