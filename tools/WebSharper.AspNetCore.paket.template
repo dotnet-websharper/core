@@ -16,4 +16,5 @@ dependencies
         System.Text.Json >= LOCKEDVERSION
 files
     ../build/Release/net5.0/WebSharper.AspNetCore.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.AspNetCore.websharper ==> lib/netstandard2.0
     ../build/Release/net5.0/WebSharper.AspNetCore.xml ==> lib/netstandard2.0
