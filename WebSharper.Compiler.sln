@@ -57,7 +57,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp.Service",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.FSharp", "src\compiler\WebSharper.MSBuild.FSharp\WebSharper.MSBuild.FSharp.csproj", "{C433885A-0345-4045-BA8F-C42779C93972}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.WIG", "src\compiler\WebSharper.Compiler.WIG\WebSharper.Compiler.WIG.fsproj", "{1FF04874-F07B-4C7F-A1A4-C8A454425B44}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.InterfaceGenerator", "src\compiler\WebSharper.Compiler.InterfaceGenerator\WebSharper.Compiler.InterfaceGenerator.fsproj", "{1FF04874-F07B-4C7F-A1A4-C8A454425B44}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.Merging", "src\compiler\WebSharper.Compiler.Merging\WebSharper.Compiler.Merging.fsproj", "{7C3A1E52-8D4B-4F6A-9E21-B5D0C8A3F147}"
 EndProject
