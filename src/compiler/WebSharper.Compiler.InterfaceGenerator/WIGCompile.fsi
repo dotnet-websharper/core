@@ -25,12 +25,6 @@ open System
 open System.IO
 open System.Reflection
 
-[<Sealed>]
-type CompilationKind =
-    static member Console : CompilationKind
-    static member Library : CompilationKind
-    static member Windows : CompilationKind
-
 type CompilerOptions =
     {
         AssemblyName : string
@@ -38,9 +32,7 @@ type CompilerOptions =
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>
-        Kind : CompilationKind
         OutputPath : option<string>
-        ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
     }
@@ -51,12 +43,12 @@ type CompilerOptions =
 [<Sealed>]
 type CompiledAssembly =
     member GetBytes : unit -> byte []
-    /// Writes the assembly and its sidecar file with the WebSharper metadata.
+    /// Writes the assembly and its sidecar file with the WebSharper metadata and web resources.
     member Save : path: string -> unit
     member Write : Stream -> unit
     member FileName : string
-    /// Adds web resources (name, content type, contents) as embedded resources with
-    /// WebResource attributes.
+    /// Adds web resources (name, content type, contents), written to the sidecar file.
+    /// The first one with a name is kept.
     member AddWebResources : seq<string * string * byte[]> -> unit
     /// WebSharper metadata of the written assembly image, with the hashes of its web resources.
     member GetWebSharperMetadata : WebSharper.Compiler.PEMetadata.PEAssembly -> byte[]

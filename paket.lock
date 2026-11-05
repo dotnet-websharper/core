@@ -52,7 +52,6 @@ NUGET
       System.Runtime.Handles (>= 4.3)
       System.Runtime.InteropServices (>= 4.3)
     Microsoft.Win32.SystemEvents (6.0) - restriction: || (== net11.0) (&& (== netstandard2.0) (>= netcoreapp3.0))
-    Mono.Cecil (0.11.6)
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3)
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3)
     runtime.fedora.24-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3)

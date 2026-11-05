@@ -13,7 +13,6 @@ tags
 dependencies
     framework: netstandard2.0
         WebSharper.Compiler.Common == CURRENTVERSION
-        Mono.Cecil >= LOCKEDVERSION
         DiffPlex >= LOCKEDVERSION
         FSharp.Compiler.Service >= LOCKEDVERSION-fcs
 files

@@ -33,36 +33,6 @@ open System.Reflection.Metadata.Ecma335
 open System.Reflection.PortableExecutable
 open System.Security.Cryptography
 
-/// An RSA key pair from a .snk file (a CAPI PRIVATEKEYBLOB), None for a public key only file.
-let private readKeyPair (snk: byte[]) =
-    // BLOBHEADER: type 0x07 is PRIVATEKEYBLOB, 0x06 PUBLICKEYBLOB
-    if snk.Length < 20 || snk.[0] <> 0x07uy then None else
-    let bitLen = BitConverter.ToInt32(snk, 12)
-    let pubExp = BitConverter.ToUInt32(snk, 16)
-    let mutable p = 20
-    let take n =
-        let a = Array.sub snk p n
-        Array.Reverse a
-        p <- p + n
-        a
-    let mod8, mod16 = bitLen / 8, bitLen / 16
-    let modulus = take mod8
-    let prime1 = take mod16
-    let prime2 = take mod16
-    let exponent1 = take mod16
-    let exponent2 = take mod16
-    let coefficient = take mod16
-    let privateExponent = take mod8
-    let exponent =
-        BitConverter.GetBytes pubExp |> Array.rev |> Array.skipWhile (fun b -> b = 0uy)
-    Some (
-        RSAParameters(
-            Modulus = modulus, Exponent = exponent, P = prime1, Q = prime2,
-            DP = exponent1, DQ = exponent2, InverseQ = coefficient, D = privateExponent
-        ),
-        mod8
-    )
-
 /// Copies a method signature blob, mapping type references with `mapType`. Only the
 /// types that can occur in custom attribute constructors are supported.
 let private copySignature (reader: BlobReader) (mapType: EntityHandle -> EntityHandle option) =
@@ -89,44 +59,12 @@ let private copySignature (reader: BlobReader) (mapType: EntityHandle -> EntityH
         if ok then copyType ()
     if ok then Some b else None
 
-let private hashBlobs (h: HashAlgorithm) (blobs: seq<Blob>) =
-    for b in blobs do
-        let s = b.GetBytes()
-        h.TransformBlock(s.Array, s.Offset, s.Count, null, 0) |> ignore
-    h.TransformFinalBlock([||], 0, 0) |> ignore
-    h.Hash
-
-let private write (path: string) (build: MetadataBuilder -> BlobBuilder -> unit) (keyPair: option<RSAParameters * int>) =
+let private write (path: string) (build: MetadataBuilder -> BlobBuilder -> unit) (keyPair: option<PEWriter.KeyPair>) =
     let metadata = MetadataBuilder()
     let resources = BlobBuilder()
     build metadata resources
-    let peBuilder =
-        ManagedPEBuilder(
-            PEHeaderBuilder.CreateLibraryHeader(),
-            MetadataRootBuilder(metadata),
-            BlobBuilder(),
-            managedResources = (if resources.Count > 0 then resources else null),
-            flags = (if keyPair.IsSome then CorFlags.ILOnly ||| CorFlags.StrongNameSigned else CorFlags.ILOnly),
-            strongNameSignatureSize = (match keyPair with Some (_, size) -> size | None -> 0),
-            deterministicIdProvider = (fun content ->
-                use sha = SHA256.Create()
-                BlobContentId.FromHash(ImmutableArray.Create<byte>(hashBlobs sha content, 0, 20)))
-        )
-    let pe = BlobBuilder()
-    peBuilder.Serialize(pe) |> ignore
-    match keyPair with
-    | Some (key, _) ->
-        peBuilder.Sign(pe, fun blobs ->
-            use sha1 = SHA1.Create()
-            let hash = hashBlobs sha1 blobs
-            use rsa = RSA.Create()
-            rsa.ImportParameters key
-            let signature = rsa.SignHash(hash, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1)
-            Array.Reverse signature
-            signature)
-    | None -> ()
-    use f = File.Create path
-    pe.WriteContentTo f
+    let pe = PEWriter.Serialize (PEHeaderBuilder.CreateLibraryHeader()) metadata (BlobBuilder()) resources null keyPair None
+    File.WriteAllBytes(path, pe)
 
 let private addModule (metadata: MetadataBuilder) (moduleName: string) =
     let mvid = metadata.ReserveGuid()
@@ -158,7 +96,7 @@ let WriteAttributesOnly (path: string) (keepAttribute: string -> bool) (keyFile:
     let orig = File.ReadAllBytes path
     use pe = new PEReader(ImmutableArray.Create<byte>(orig))
     let md = pe.GetMetadataReader()
-    let keyPair = keyFile |> Option.bind (fun k -> readKeyPair (File.ReadAllBytes k))
+    let keyPair = keyFile |> Option.bind (fun k -> PEWriter.ReadKeyPair (File.ReadAllBytes k))
     let mutable mvid = Unchecked.defaultof<ReservedBlob<GuidHandle>>
     write path (fun metadata resources ->
         let str (h: StringHandle) = if h.IsNil then StringHandle() else metadata.GetOrAddString(md.GetString h)

@@ -165,17 +165,20 @@ let ReadRuntimeFromFile (path: string) =
     asm, meta
 
 /// Adds resource hashes to the metadata of a WIG or TypeScript-generated assembly
-/// and serializes it for its sidecar file.
-let ModifyWIGAssembly (current: M.Info) (a: PEMetadata.PEAssembly) =
+/// and serializes it for its sidecar file: embedded web resources and the given ones,
+/// written to the sidecar file.
+let ModifyWIGAssembly (current: M.Info) (a: PEMetadata.PEAssembly) (webResources: (string * string * byte[])[]) =
     let assemblyName = a.Name
     for r in Assembly.GetAllResources a do
         let p = assemblyName + "/" + r.FileName
         let d = r.GetContentData()
         current.ResourceHashes.Add(p, AST.StableHash.data d)
+    for name, _, d in webResources do
+        current.ResourceHashes.[assemblyName + "/" + name] <- AST.StableHash.data d
     MIO.EncodeToBytes current
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
-    ModifyWIGAssembly current a.Image
+    ModifyWIGAssembly current a.Image [||]
 
 /// The module version id of an assembly file, written to its sidecar.
 let ReadModuleId (assemblyPath: string) =

@@ -4,7 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="WIGCompile.fsi" />
+    <Compile Include="WIGAssembly.fs" />
     <Compile Include="WIGCompile.fs" />
     <None Include="paket.references" />
   </ItemGroup>

@@ -34,7 +34,7 @@ open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
 
 /// Compiles a WIG project: the interface generator assembly fsc wrote is replaced by the
-/// generated one, which WebSharper.Compiler.InterfaceGenerator writes with Mono.Cecil.
+/// generated one, which WebSharper.Compiler.InterfaceGenerator writes.
 let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
     let (name, asmDef, asm) = WebSharper.InterfaceGenerator.ExtensionAssembly.Load config.AssemblyFile logger        
     let cfg =
@@ -44,14 +44,13 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
                 AssemblyVersion = name.Version
                 DocPath = config.Documentation
                 EmbeddedResources = config.Resources |> Seq.map fst
-                ProjectDir = config.ProjectDir
                 ReferencePaths = config.References
                 StrongNameKeyPath = snk
         }
     let cmp = WebSharper.InterfaceGenerator.Compiler.Create(logger)
-    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
+    // the assembly fsc wrote gives the identity, assembly attributes and Win32 resources (file properties)
     let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
-    // extra.files of WIG projects are embedded (until WIG emit moves off Mono.Cecil)
+    // extra.files of WIG projects go into the sidecar file
     FrontEnd.HandleExtraFiles logger true name.Name config.ProjectFile config.OutputDir false
     |> out.AddWebResources
     out.Save config.AssemblyFile
