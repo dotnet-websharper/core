@@ -19,7 +19,7 @@
 // $end{copyright}
 
 // Uses reflection to get inline and macro information.
-// Used by WebSharper Interface Generator and WebSharper.TypeScript
+// Used by WebSharper Interface Generator
 module WebSharper.Compiler.Reflector
 
 open System.Collections.Generic
@@ -236,7 +236,7 @@ let private getImport (attrs: seq<CustomAttr>) asmName =
         | _ -> failwith "invalid constructor arguments for ImportAttribute"
     )
 
-let private trAsm (prototypes: IDictionary<string, string>) (assembly : PE) isTSasm =
+let private trAsm (prototypes: IDictionary<string, string>) (assembly : PE) =
     let md = assembly.Reader
     let asmName = assembly.Name
     let sigs = SigProvider(md, asmName)
@@ -545,7 +545,6 @@ let private trAsm (prototypes: IDictionary<string, string>) (assembly : PE) isTS
         if not (typ.Attributes.HasFlag TypeAttributes.Interface) then () else
         let methodsWithAttrs = methodsOf typ
         let intfAsClass =
-            isTSasm ||
             methodsWithAttrs
             |> Seq.exists (fun (_, _, customAttributes, _, _) ->
                 Option.isSome (getInline customAttributes)
@@ -630,8 +629,4 @@ let private trAsm (prototypes: IDictionary<string, string>) (assembly : PE) isTS
 
 /// Metadata of a WIG-generated assembly image.
 let TransformAssembly prototypes (assembly: WebSharper.Compiler.PEMetadata.PEAssembly) =
-    trAsm prototypes assembly false
-
-/// Metadata of a TypeScript-generated assembly.
-let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
-    trAsm prototypes assembly.Image true
+    trAsm prototypes assembly

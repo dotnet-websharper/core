@@ -167,7 +167,7 @@ let ReadRuntimeFromFile (path: string) =
     let meta = ReadRuntimeFromAssembly M.FullMetadata asm
     asm, meta
 
-/// Adds resource hashes to the metadata of a WIG or TypeScript-generated assembly
+/// Adds resource hashes to the metadata of a WIG-generated assembly
 /// and serializes it for its sidecar file: embedded web resources and the given ones,
 /// written to the sidecar file.
 let ModifyWIGAssembly (current: M.Info) (a: PEMetadata.PEAssembly) (webResources: (string * string * byte[])[]) =
