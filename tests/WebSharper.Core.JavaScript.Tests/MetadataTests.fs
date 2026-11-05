@@ -230,3 +230,63 @@ let ``Sidecar files round trip and are not rewritten when unchanged`` () =
         Assert.AreNotEqual(old, File.GetLastWriteTimeUtc path)
     finally
         Directory.Delete(dir, true)
+
+let private meth n = Method { MethodName = n; Parameters = []; ReturnType = VoidType; Generics = 0 }
+
+[<Test>]
+let ``Runtime graph keeps only the nodes leading to resources`` () =
+    let g = DependencyGraph.Graph.New()
+    let f = M.MethodNode (td "A", meth "f")
+    let f2 = M.MethodNode (td "A", meth "g")
+    let h = M.MethodNode (td "A", meth "h")
+    let res = M.ResourceNode (td "R", None)
+    // f uses type T and h (no resources), g calls the abstract B.m, T overrides B.m with code needing R
+    g.AddEdge(f, M.TypeNode (td "T"))
+    g.AddEdge(f, h)
+    g.AddEdge(f2, M.AbstractMethodNode (td "B", meth "m"))
+    g.AddOverride(td "T", td "B", meth "m")
+    g.AddEdge(M.MethodNode (td "T", meth "m"), res)
+    let resources (gr: DependencyGraph.Graph) nodes =
+        gr.GetDependencies nodes |> List.choose (function M.ResourceNode _ as r -> Some (string r) | _ -> None) |> List.sort
+    let trimmed = DependencyGraph.Graph.FromData(g.GetResourceTrimmedData [ f; f2 ])
+    Assert.IsFalse(trimmed.Lookup.ContainsKey h)
+    for roots in [ [ f ]; [ f2 ]; [ f; f2 ] ] do
+        Assert.AreEqual(resources g roots, resources trimmed roots, sprintf "%A" roots)
+    Assert.AreEqual([ string res ], resources trimmed [ f; f2 ])
+
+[<Test>]
+let ``Runtime class info keeps addresses, static methods and anonymous record shapes`` () =
+    let info form : M.CompiledMethodInfo = { CompiledForm = form; Optimizations = M.Optimizations.None; Generics = []; Expression = Value (Int 1) }
+    let cls =
+        { M.ClassInfo.None with
+            Methods =
+                dict [
+                    meth "s", info (M.Static ("s", false, MemberKind.Simple))
+                    meth "f", info (M.Func ("f", true))
+                    meth "i", info (M.Instance ("i", MemberKind.Simple, M.Modifier.None))
+                    meth "n", info (M.Inline (true, false))
+                ]
+            Fields = dict [ "x", ({ CompiledForm = M.InstanceField "x"; ReadOnly = false; Type = VoidType; Order = 0 } : M.CompiledFieldInfo) ]
+            IsStub = false
+        }
+    let addr = Address.Global()
+    let meta =
+        { M.Info.Empty with
+            Classes =
+                dict [
+                    td "C", (addr, M.FSharpRecordInfo [], Some cls)
+                    td "I", (addr, M.NotCustomType, Some { M.ClassInfo.None with Methods = dict [ meth "i", info (M.Instance ("i", MemberKind.Simple, M.Modifier.None)) ] })
+                    td "Anon", (addr, M.FSharpAnonRecordInfo [ "a" ], None)
+                ]
+        }
+    let r = meta.DiscardNotRuntimeClassInfo()
+    Assert.AreEqual(2, r.Classes.Count)
+    let a, ct, c = r.Classes.[td "C"]
+    Assert.AreEqual(addr, a)
+    Assert.AreEqual(M.NotCustomType, ct)
+    Assert.AreEqual([ "f"; "s" ], c.Value.Methods.Keys |> Seq.map (fun m -> m.Value.MethodName) |> Seq.sort |> List.ofSeq)
+    Assert.AreEqual(Undefined, c.Value.Methods.[meth "s"].Expression)
+    Assert.AreEqual(0, c.Value.Fields.Count)
+    match r.Classes.[td "Anon"] with
+    | _, M.FSharpAnonRecordInfo [ "a" ], None -> ()
+    | x -> Assert.Fail(sprintf "Unexpected: %A" x)

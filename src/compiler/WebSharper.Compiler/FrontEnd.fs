@@ -391,28 +391,39 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                     let output = if ts then O.TypeScript else O.JavaScript 
                     let ext = if ts then ".ts" else ".js"
                     let sourcesUsed = HashSet()
+                    let writeBundle (bname, package) =
+                        let sw = System.Diagnostics.Stopwatch.StartNew()
+                        let bundleCode, addrMap = package ()
+                        let packaged = sw.Elapsed
+                        let bundleCode =
+                            match closures with
+                            | Some moveToTop ->
+                                bundleCode |> List.map (Closures.ExamineClosures(logger, comp, moveToTop).TransformStatement)
+                            | _ -> bundleCode
+                        let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap output WebSharper.Core.JavaScript.Readable addrMap
+                        let converted = sw.Elapsed
+                        let codeWriter =
+                            WebSharper.Core.JavaScript.Writer.CodeWriter(sourceMap)
+                        let js, map, isJsx = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable (fun () -> codeWriter) program false
+                        let sources = if sourceMap then codeWriter.GetSourceFiles() else [||]
+                        bname, js, map, isJsx, trAddrMap, sources, (packaged, converted - packaged, sw.Elapsed - converted)
                     let bundles =
-                        JavaScriptPackager.packageEntryPoint meta graph comp.AssemblyName output
-                        |> Seq.map (fun (bname, (bundleCode, addrMap)) ->
-                            let bundleCode =
-                                match closures with
-                                | Some moveToTop ->
-                                    let cla = bundleCode |> List.map (Closures.ExamineClosures(logger, comp, moveToTop).TransformStatement)
-                                    logger.TimedStage (sprintf "Closure analyzation for %s" bname)
-                                    cla
-                                | _ -> bundleCode
-                            let program, _, trAddrMap = bundleCode |> WebSharper.Compiler.JavaScriptWriter.transformProgramAndAddrMap output WebSharper.Core.JavaScript.Readable addrMap
-                            let codeWriter = 
-                                WebSharper.Core.JavaScript.Writer.CodeWriter(sourceMap)
-                            let js, map, isJsx = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable (fun () -> codeWriter) program false
+                        let entryPointBundles = JavaScriptPackager.entryPointBundles meta graph comp.AssemblyName output
+                        // closure analysis reports through the logger and the compilation, so it stays serial
+                        if closures.IsSome then
+                            entryPointBundles |> Array.map writeBundle
+                        else
+                            entryPointBundles |> Array.Parallel.map writeBundle
+                    let bundles =
+                        bundles |> Array.map (fun (bname, js, map, isJsx, trAddrMap, sources, (packaging, conversion, writing)) ->
                             let x = if isJsx then "x" else ""
                             if sourceMap then
-                                codeWriter.GetSourceFiles() |> Array.iter (sourcesUsed.Add >> ignore)
+                                sources |> Array.iter (sourcesUsed.Add >> ignore)
                                 addRes (bname + ext + x + ".map") map.Value
-                            logger.TimedStage (sprintf "Writing prebundle %s.js%s" bname x)
+                            logger.TimedStageElapsed (sprintf "Prebundle %s.js%s (packaging %.2f s, JS conversion %.2f s, writing)" bname x packaging.TotalSeconds conversion.TotalSeconds, writing)
                             bname, bname + ext + x, js, trAddrMap
                         )
-                        |> Array.ofSeq
+                    logger.TimedStage (sprintf "Writing %d prebundles" bundles.Length)
                     if sourceMap then
                         let allSources = 
                             if sourceMap then
@@ -451,10 +462,12 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                     |]
                 | _ ->
                     None
+            let trimmed =
+                if rm = M.DiscardExpressions then trimmed.DiscardNotRuntimeClassInfo() else trimmed
             let updated =
                 {
                     trimmed with
-                        Dependencies = 
+                        Dependencies =
                             deps
                         PreBundle = 
                             match bundles with
@@ -475,24 +488,22 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
         
         //let pu = P.PathUtility.VirtualPaths("/")
         //let ai = P.AssemblyId.Create(assemblyName)
-        let shouldUseJSX = ResizeArray<string>()
-        let jss' = 
-            pkg 
-            |> Array.map (fun (n, p) ->
+        // code files are converted and written in parallel, they only read the packaged code
+        let jss' =
+            pkg
+            |> Array.Parallel.map (fun (n, p) ->
                 let program, jsx = p |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript WebSharper.Core.JavaScript.Readable
-                if jsx then
-                    shouldUseJSX.Add n
                 n, program, jsx
             )
-        let sourcesUsed = HashSet()
-        let jss = 
-            jss' |> Array.map (fun (n, p, jsx) ->
+        let shouldUseJSX = jss' |> Array.choose (fun (n, _, jsx) -> if jsx then Some n else None)
+        let jss =
+            jss' |> Array.Parallel.map (fun (n, p, jsx) ->
                 let jsxModifiedProgram =
                     p
                     |> List.map (fun st ->
                         match st with
                         | JavaScript.Syntax.Statement.Import(di, fi, ni, mn) ->
-                            if shouldUseJSX.Exists(fun x -> mn.EndsWith(x + ".js")) then
+                            if shouldUseJSX |> Array.exists (fun x -> mn.EndsWith(x + ".js")) then
                                 JavaScript.Syntax.Statement.Import(di, fi, ni, mn + "x")
                             else
                                 st
@@ -502,10 +513,11 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
                     WebSharper.Core.JavaScript.Writer.CodeWriter(sourceMap)
 
                 let js, map, isJSX = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable (fun () -> codeWriter) jsxModifiedProgram jsx
-                if sourceMap then
-                    codeWriter.GetSourceFiles() |> Array.iter (sourcesUsed.Add >> ignore)
-                n, js, map, isJSX
+                let sources = if sourceMap then codeWriter.GetSourceFiles() else [||]
+                n, js, map, isJSX, sources
             )
+        let sourcesUsed = HashSet(jss |> Seq.collect (fun (_, _, _, _, sources) -> sources))
+        let jss = jss |> Array.map (fun (n, js, map, isJSX, _) -> n, js, map, isJSX)
         if sourceMap then
             sources |> Array.filter (fun (n, s) -> sourcesUsed.Contains n) 
             |> Array.iter (fun (name, contents) ->
@@ -527,12 +539,16 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
             let tspkg = 
                 JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName dce (comp |> Option.bind (fun c -> c.EntryPoint)) epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-            for (n, p) in tspkg do
-                let ts, _, isJSX =
-                    p
-                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScript WebSharper.Core.JavaScript.Readable
-                    |> fun (prog, jsx) ->
-                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+            let tss =
+                tspkg |> Array.Parallel.map (fun (n, p) ->
+                    let ts, _, isJSX =
+                        p
+                        |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScript WebSharper.Core.JavaScript.Readable
+                        |> fun (prog, jsx) ->
+                            WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+                    n, ts, isJSX
+                )
+            for (n, ts, isJSX) in tss do
                 let x = if isJSX then "x" else ""
                 let tsName = n + ".ts" + x
                 addRes tsName ts
@@ -542,12 +558,16 @@ let CreateResources (args: CreateResourcesArgs) (resFor: CreateResourcesFor) =
             let dtspkg = 
                 JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName dce None epStyle
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-            for (n, p) in dtspkg do
-                let ts, _, _ =
-                    p
-                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
-                    |> fun (prog, jsx) ->
-                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+            let dtss =
+                dtspkg |> Array.Parallel.map (fun (n, p) ->
+                    let ts, _, _ =
+                        p
+                        |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+                        |> fun (prog, jsx) ->
+                            WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
+                    n, ts
+                )
+            for (n, ts) in dtss do
                 let dTsName = n + ".d.ts"
                 addRes dTsName ts
                 logger.TimedStage (sprintf "Writing %s" dTsName)

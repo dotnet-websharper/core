@@ -1925,7 +1925,9 @@ let pageInitDependencies =
         M.AbstractMethodNode (Definitions.iInitializer, Definitions.postInitialize)
     ]
 
-let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
+/// The prebundles of a sitelet: their names and functions packaging them, which only read
+/// the metadata and the graph, so they can run in parallel.
+let entryPointBundles (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
 
     let all = ResizeArray()
     let addToAll = ResizeArray()
@@ -1959,9 +1961,7 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
         for b in bundles.Values do
             b.Add(item)
 
-    let results = ResizeArray()
-
-    for b in bundles do
+    let package (b: KeyValuePair<string, ResizeArray<TypeDefinition * Method>>) () =
         let nodes =
             seq {
                 yield! pageInitDependencies
@@ -1992,11 +1992,14 @@ let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmNa
                     s.Add(m) |> ignore
                     exportedTypes.Add(td, s)
 
-        let pkg = packageType output trimmed trimmed asmName false (Bundle (types, SiteletBundle exportedTypes, None)) 
-        results.Add(b.Key, (pkg.Statements, pkg.BundleExports))
+        let pkg = packageType output trimmed trimmed asmName false (Bundle (types, SiteletBundle exportedTypes, None))
+        pkg.Statements, pkg.BundleExports
 
-    results
-    
+    [| for b in bundles -> b.Key, package b |]
+
+let packageEntryPoint (runtimeMeta: M.Info) (graph: DependencyGraph.Graph) asmName output =
+    entryPointBundles runtimeMeta graph asmName output |> Array.map (fun (name, package) -> name, package ())
+
 let getTrimmedGraph (meta: M.Info) (graph: DependencyGraph.Graph) =
     let nodes = HashSet() 
     nodes.UnionWith(pageInitDependencies)
@@ -2013,4 +2016,5 @@ let getTrimmedGraph (meta: M.Info) (graph: DependencyGraph.Graph) =
                     addWithGenerics p
             | _ -> ()
         addWithGenerics t
-    graph.GetTrimmedData(nodes)                            
+    // the runtime only looks up resources in the graph
+    graph.GetResourceTrimmedData(nodes)

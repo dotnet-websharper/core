@@ -569,6 +569,30 @@ type Info =
                 Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardNotInline m.CompiledForm m.Expression })
             }), (fun _ -> Empty))
 
+    /// Keeps only what the website runtime reads from classes: addresses and the compiled form
+    /// of static methods (precompiled quotations and the straight-call fallbacks of handlers and
+    /// controls), and anonymous record shapes (remoting).
+    member this.DiscardNotRuntimeClassInfo() =
+        let classes = Dictionary()
+        for KeyValue(td, (addr, ct, ci)) in this.Classes do
+            let methods =
+                match ci with
+                | Some ci ->
+                    ci.Methods |> Seq.choose (fun (KeyValue(m, mi)) ->
+                        match mi.CompiledForm with
+                        | Static _ | Func _ | GlobalFunc _ ->
+                            Some (m, { CompiledForm = mi.CompiledForm; Optimizations = Optimizations.None; Generics = []; Expression = Undefined })
+                        | _ -> None
+                    ) |> dict
+                | None -> dict []
+            let isAnonRecord = match ct with FSharpAnonRecordInfo _ -> true | _ -> false
+            let ct = if isAnonRecord then ct else NotCustomType
+            if methods.Count > 0 then
+                classes.Add(td, (addr, ct, Some { ClassInfo.None with Methods = methods }))
+            elif isAnonRecord then
+                classes.Add(td, (addr, ct, None))
+        { this with Classes = classes; Interfaces = Map.empty }
+
     member this.IsEmpty =
         this.Classes.Count = 0 &&
         this.Interfaces.Count = 0 &&
