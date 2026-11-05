@@ -126,12 +126,29 @@
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
   <!-- marks the assembly as having a sidecar, so a copy without it is reported -->
-  <ItemGroup Condition=" '$(WebSharperSidecarMarker)' != 'False' ">
+  <ItemGroup Condition=" '$(GenerateAssemblyInfo)' != 'false' AND '$(WebSharperSidecarMarker)' != 'False' AND ('$(WebSharperRunCompiler)' == 'True' OR '$(DesignTimeBuild)' == 'true') ">
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>WebSharper.Sidecar</_Parameter1>
       <_Parameter2>1</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
+  <!-- projects writing their own assembly info (GenerateAssemblyInfo false) get the marker from a generated file -->
+  <Target Name="WebSharperGenerateSidecarMarker" BeforeTargets="BeforeCompile" DependsOnTargets="PrepareForBuild" Condition=" '$(GenerateAssemblyInfo)' == 'false' AND '$(WebSharperSidecarMarker)' != 'False' AND ('$(WebSharperRunCompiler)' == 'True' OR '$(DesignTimeBuild)' == 'true') ">
+    <PropertyGroup>
+      <_WebSharperSidecarMarkerFile>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', '$(MSBuildProjectName).WebSharperSidecarMarker$(DefaultLanguageSourceExtension)'))</_WebSharperSidecarMarkerFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WebSharperSidecarMarkerLine Include="namespace System" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="[&lt;assembly: System.Reflection.AssemblyMetadataAttribute(&quot;WebSharper.Sidecar&quot;, &quot;1&quot;)&gt;]" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="do ()" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;WebSharper.Sidecar&quot;, &quot;1&quot;)]" Condition=" '$(Language)' == 'C#' " />
+    </ItemGroup>
+    <WriteLinesToFile File="$(_WebSharperSidecarMarkerFile)" Lines="@(_WebSharperSidecarMarkerLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(_WebSharperSidecarMarkerFile)" CompileOrder="CompileBefore" />
+      <FileWrites Include="$(_WebSharperSidecarMarkerFile)" />
+    </ItemGroup>
+  </Target>
   <Target Name="WebSharperCopySidecar" AfterTargets="CopyFilesToOutputDirectory" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <PropertyGroup>
       <_WebSharperSidecar>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper')</_WebSharperSidecar>

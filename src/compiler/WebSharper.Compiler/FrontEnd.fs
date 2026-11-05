@@ -49,6 +49,9 @@ let TryReadFromAssemblyWith (readOptions: MIO.ReadOptions) (a: Assembly) =
     | Ok None ->
         if a.HasSidecarMarker then
             Some (Error (sprintf "WebSharper library %s has no sidecar file at %s. Copy the .websharper file together with the .dll." a.FullName (sidecarPath ())))
+        elif a.HasWebSharperMetadata then
+            // WebSharper 11 writes metadata only to sidecar files
+            Some (Error (sprintf "WebSharper library %s was built with WebSharper 10 or earlier (it has embedded metadata and no .websharper sidecar file). Use a version of it built with WebSharper 11, or recompile it." a.FullName))
         else None
     | Ok (Some sc) ->
         if sc.ModuleId <> a.ModuleId then

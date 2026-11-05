@@ -5,6 +5,8 @@
     <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DebugType>None</DebugType>
+    <!-- only a placeholder assembly, WebSharper.StdLib has the sidecar -->
+    <WebSharperSidecarMarker>False</WebSharperSidecarMarker>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WebSharper.StdLib/JavaScript.fs" />
