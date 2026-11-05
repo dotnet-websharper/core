@@ -31,7 +31,7 @@ files
     ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net11.0
     ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Module.Tests.dll ==> lib/net11.0
-    ../build/Release/Tests/net11.0/WebSharper.Module.Tests.websharper ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Module.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Sitelets.Tests.dll ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Sitelets.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Web.Tests.dll ==> lib/net11.0

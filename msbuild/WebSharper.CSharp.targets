@@ -107,11 +107,10 @@
   </Target>
   <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
   <PropertyGroup>
-    <!-- copied with references, like .pdb and .xml files -->
-    <!-- the defaults of Microsoft.Common.CurrentVersion.targets, it only sets them when empty -->
-    <AllowedReferenceRelatedFileExtensions Condition=" '$(AllowedReferenceRelatedFileExtensions)' == '' ">.pdb;.xml;.pri;.dll.config;.exe.config</AllowedReferenceRelatedFileExtensions>
-    <AllowedReferenceRelatedFileExtensions>$(AllowedReferenceRelatedFileExtensions);.websharper</AllowedReferenceRelatedFileExtensions>
+    <!-- not copied with references: compilation reads it next to the referenced assembly, the runtime does not need it -->
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
+    <!-- pack filters build output files by extension -->
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.websharper</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
     <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
     <!-- csc's command line for WebSharper, to emit website assemblies again with runtime metadata -->
@@ -168,8 +167,12 @@
     </ItemGroup>
   </Target>
   <Target Name="WebSharperPackSidecar">
+    <PropertyGroup>
+      <_WebSharperPackedSidecar>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(OutDir)', '$(TargetName).websharper'))</_WebSharperPackedSidecar>
+    </PropertyGroup>
+    <Warning Condition=" '$(WebSharperRunCompiler)' == 'True' AND !Exists('$(_WebSharperPackedSidecar)') " Text="The WebSharper sidecar file $(_WebSharperPackedSidecar) is missing, so the package does not have it. Compiling against a WebSharper library needs its sidecar: build the project before packing it. Bundle-only projects have no sidecar." />
     <ItemGroup>
-      <BuildOutputInPackage Include="$(OutDir)$(TargetName).websharper" Condition="Exists('$(OutDir)$(TargetName).websharper')" />
+      <BuildOutputInPackage Include="$(_WebSharperPackedSidecar)" Condition="Exists('$(_WebSharperPackedSidecar)')" />
     </ItemGroup>
   </Target>
 </Project>
