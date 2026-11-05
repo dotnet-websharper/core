@@ -34,6 +34,23 @@ type internal AssemblyResolution =
         ResolvePath : AssemblyName -> option<string>
     }
 
+/// The files assemblies were loaded from: the resolver loads them from bytes, so they
+/// have no Location.
+module internal LoadedFrom =
+    let private paths = System.Runtime.CompilerServices.ConditionalWeakTable<Assembly, string>()
+
+    let Add (path: string) (asm: Assembly) =
+        if not (isNull asm) then
+            lock paths (fun () ->
+                paths.Remove asm |> ignore
+                paths.Add(asm, path))
+        asm
+
+    let TryGet (asm: Assembly) =
+        match paths.TryGetValue asm with
+        | true, p -> Some p
+        | _ -> None
+
 [<AutoOpen>]
 module internal Common =
     let isCompatibleForLoad (ref: AssemblyName) (def: AssemblyName) =

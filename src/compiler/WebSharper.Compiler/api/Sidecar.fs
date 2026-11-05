@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -220,8 +220,13 @@ module SidecarWebResources =
     let private cache = Collections.Concurrent.ConcurrentDictionary<string, DateTime * option<Sidecar>>()
 
     let private sidecarOf (asm: Reflection.Assembly) =
-        let loc = try asm.Location with _ -> ""
+        // the assembly resolver loads assemblies from bytes, it knows their files
+        let location = try asm.Location with _ -> ""
+        let loc =
+            if location <> "" then location
+            else AssemblyResolution.LoadedFrom.TryGet asm |> Option.defaultValue ""
         if String.IsNullOrEmpty loc then None else
+        let loc = Sidecar.ImplementationPath loc
         let p = Sidecar.PathFor loc
         let time = if File.Exists p then File.GetLastWriteTimeUtc p else DateTime.MinValue
         match cache.TryGetValue loc with
