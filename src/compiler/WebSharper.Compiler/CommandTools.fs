@@ -90,6 +90,9 @@ type WsConfig =
         CompilerResponseFile : string option
         /// The implementation assemblies of references (@(ReferencePath)), compiler args may have reference assemblies instead (F# projects).
         ReferenceImplementations : string[]
+        /// The .NET compiler did not run: only WebSharper inputs changed (`.websharper.wsdeps`).
+        /// Library projects are translated again without compiling the assembly.
+        TranslateOnly : bool
         Configuration : string
         ProjectFile : string
         Documentation : string option
@@ -127,6 +130,11 @@ type WsConfig =
         | Some (Service | Html) -> true
         | _ -> Option.isSome this.OutputDir
 
+    /// Library projects leave their assembly as the .NET compiler wrote it, so WebSharper can
+    /// run alone when only what it reads from references changed.
+    member this.CanTranslateOnly =
+        this.ProjectType = None && not this.EmbedsRuntimeMetadata
+
     member this.ProjectDir =
         match Path.GetDirectoryName this.ProjectFile with
         | "" -> Directory.GetCurrentDirectory()
@@ -158,6 +166,7 @@ type WsConfig =
             CompilerArgs = [||]
             CompilerResponseFile = None
             ReferenceImplementations = [||]
+            TranslateOnly = false
             Configuration = null
             ProjectFile = null
             Documentation = None
@@ -636,6 +645,7 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with MinJSOutputPath = Some f }
     | StartsWith "--wstimings:" f ->
         Some { wsArgs with TimingLog = Some f }
+    | "--wstranslateonly" -> Some { wsArgs with TranslateOnly = true }
     | StartsWith "--implref:" r ->
         Some { wsArgs with ReferenceImplementations = Array.append wsArgs.ReferenceImplementations [| r |] }
     | Flag "--closures" v ->

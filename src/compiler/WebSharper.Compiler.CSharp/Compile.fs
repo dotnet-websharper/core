@@ -140,7 +140,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         || (a.Sidecar |> Option.exists (fun sc -> sc.ModuleId = a.ModuleId)
             && File.Exists listFile
             && File.GetLastWriteTimeUtc listFile >= File.GetLastWriteTimeUtc config.AssemblyFile)
-    if assem.IsSome && alreadyCompiled assem.Value then
+    // --wstranslateonly: only WebSharper inputs of a library changed (.websharper.wsdeps)
+    if assem.IsSome && not config.TranslateOnly && alreadyCompiled assem.Value then
         logger.TimedStage "WebSharper resources already exist, skipping"
         fullTime logger
     else
@@ -183,7 +184,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
-            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full (ExecutedReferences config.References aR.LoadedFiles)
+            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full (ExecutedReferences config.References aR.LoadedFiles) [] false
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -313,7 +314,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     assem.ModuleId
 
             WriteSidecar config.AssemblyFile moduleId sidecarEntries
-            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions) (ExecutedReferences config.References aR.LoadedFiles)
+            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions) (ExecutedReferences config.References aR.LoadedFiles) [] config.CanTranslateOnly
             logger.TimedStage "Writing sidecar file"
             Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles
 

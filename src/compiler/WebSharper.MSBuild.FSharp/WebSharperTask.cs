@@ -57,6 +57,17 @@ namespace WebSharper.MSBuild.FSharp
         /// The implementation assemblies of references (@(ReferencePath)), the Fsc task passes reference assemblies when there are.
         public ITaskItem[] ReferenceImplementations { get; set; } = new ITaskItem[] { };
 
+        /// The assembly fsc writes (@(IntermediateAssembly)), its command line is kept next to it
+        /// in <AssemblyName>.websharper.rsp.
+        public string IntermediateAssembly { get; set; } = "";
+
+        /// fsc was skipped, but WebSharper inputs of a library changed (.websharper.wsdeps):
+        /// WebSharper runs alone, with the command line of the last fsc run.
+        public string TranslateOnly { get; set; } = "";
+
+        private string ResponseFile =>
+            string.IsNullOrEmpty(IntermediateAssembly) ? null : Path.ChangeExtension(IntermediateAssembly, ".websharper.rsp");
+
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
         protected override string GenerateFullPathToTool()
@@ -66,70 +77,84 @@ namespace WebSharper.MSBuild.FSharp
 
         private void WriteAtFileName(string filename)
         {
-            using (FileStream f = File.OpenWrite(filename))
-            using (StreamWriter w = new StreamWriter(f))
+            string[] lines;
+            if (FscCommandLineArgs.Length == 0)
             {
-                if (FscCommandLineArgs.Length == 0)
-                {
+                if (TryParseBool(TranslateOnly) && ResponseFile != null && File.Exists(ResponseFile))
+                    lines = File.ReadAllLines(ResponseFile).Concat(new[] { "--wstranslateonly" }).ToArray();
+                else
                     throw new Exception("Expecting FscCommandLineArgs set, needs ProvideCommandLineArgs=True");
-                }
-
-                foreach (var a in FscCommandLineArgs)
-                    WriteIfSet(w, "", a);
-
-                if (!string.IsNullOrEmpty(RefAssembly) && !FscCommandLineArgs.Any(a => a.ItemSpec.StartsWith("--refout:")))
-                    w.WriteLine("--refout:" + RefAssembly);
-
-                foreach (var r in ReferenceImplementations)
-                    WriteIfSet(w, "--implref:", r);
-
-                WriteIfSet(w, "--ws:", WebSharperProject);
-
-                WriteIfSet(w, "--configuration:", Configuration);
-                WriteIfSet(w, "--project:", MSBuildProjectFullPath);
-
-                WriteIfSet(w, "--wsoutput:", WebProjectOutputDir);
-                WriteIfSet(w, "--wsoutput:", WebSharperBundleOutputDir);
-                WriteIfSet(w, "--wsoutput:", WebSharperHtmlDirectory);
-
-                if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
-                    w.WriteLine("--dce" + (parsed ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperTransparentCompiler, out bool transparentCompiler))
-                    w.WriteLine("--transparentcompiler" + (transparentCompiler ? "+" : "-"));
-
-                if (bool.TryParse(WebSharperParallelCompilation, out bool parallelCompilation))
-                    w.WriteLine("--parallelcompilation" + (parallelCompilation ? "+" : "-"));
-
-                if (TryParseBool(WebSharperDownloadResources))
-                    w.WriteLine("--dlres");
-
-                WriteIfSet(w, "--closures:", WebSharperAnalyzeClosures);
-
-                WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
-                WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
-                WriteIfSet(w, "--wstimings:", WebSharperTimingLog);
-
-                if (TryParseBool(WebSharperSourceMap))
-                    w.WriteLine("--jsmap");
-
-                if (TryParseBool(WebSharperTypeScriptDeclaration))
-                    w.WriteLine("--dts");
-
-                if (TryParseBool(WebSharperTypeScriptOutput))
-                    w.WriteLine("--ts");
-
-                if (TryParseBool(WebSharperErrorsAsWarnings))
-                    w.WriteLine("--wswarnonly");
-
-                if (TryParseBool(WebSharperStandalone))
-                    w.WriteLine("--standalone");
-
-                if (WebProjectOutputDir != null && WebSharperProject == null)
-                    w.WriteLine("--site");
-
-                WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
             }
+            else
+            {
+                using (var w = new StringWriter())
+                {
+                    WriteArgs(w);
+                    lines = w.ToString().Split(new[] { w.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                }
+                if (ResponseFile != null)
+                    File.WriteAllLines(ResponseFile, lines);
+            }
+            File.WriteAllLines(filename, lines);
+        }
+
+        private void WriteArgs(TextWriter w)
+        {
+            foreach (var a in FscCommandLineArgs)
+                WriteIfSet(w, "", a);
+
+            if (!string.IsNullOrEmpty(RefAssembly) && !FscCommandLineArgs.Any(a => a.ItemSpec.StartsWith("--refout:")))
+                w.WriteLine("--refout:" + RefAssembly);
+
+            foreach (var r in ReferenceImplementations)
+                WriteIfSet(w, "--implref:", r);
+
+            WriteIfSet(w, "--ws:", WebSharperProject);
+
+            WriteIfSet(w, "--configuration:", Configuration);
+            WriteIfSet(w, "--project:", MSBuildProjectFullPath);
+
+            WriteIfSet(w, "--wsoutput:", WebProjectOutputDir);
+            WriteIfSet(w, "--wsoutput:", WebSharperBundleOutputDir);
+            WriteIfSet(w, "--wsoutput:", WebSharperHtmlDirectory);
+
+            if (bool.TryParse(WebSharperDeadCodeElimination, out bool parsed))
+                w.WriteLine("--dce" + (parsed ? "+" : "-"));
+
+            if (bool.TryParse(WebSharperTransparentCompiler, out bool transparentCompiler))
+                w.WriteLine("--transparentcompiler" + (transparentCompiler ? "+" : "-"));
+
+            if (bool.TryParse(WebSharperParallelCompilation, out bool parallelCompilation))
+                w.WriteLine("--parallelcompilation" + (parallelCompilation ? "+" : "-"));
+
+            if (TryParseBool(WebSharperDownloadResources))
+                w.WriteLine("--dlres");
+
+            WriteIfSet(w, "--closures:", WebSharperAnalyzeClosures);
+
+            WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
+            WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
+            WriteIfSet(w, "--wstimings:", WebSharperTimingLog);
+
+            if (TryParseBool(WebSharperSourceMap))
+                w.WriteLine("--jsmap");
+
+            if (TryParseBool(WebSharperTypeScriptDeclaration))
+                w.WriteLine("--dts");
+
+            if (TryParseBool(WebSharperTypeScriptOutput))
+                w.WriteLine("--ts");
+
+            if (TryParseBool(WebSharperErrorsAsWarnings))
+                w.WriteLine("--wswarnonly");
+
+            if (TryParseBool(WebSharperStandalone))
+                w.WriteLine("--standalone");
+
+            if (WebProjectOutputDir != null && WebSharperProject == null)
+                w.WriteLine("--site");
+
+            WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
         }
 
         protected override string GenerateCommandLineCommands()
@@ -160,7 +185,8 @@ namespace WebSharper.MSBuild.FSharp
 
         protected override bool HandleTaskExecutionErrors()
         {
-            var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), FscCommandLineArgs[0].ItemSpec.Replace("-o:", "").Trim());
+            var output = FscCommandLineArgs.Length > 0 ? FscCommandLineArgs[0].ItemSpec.Replace("-o:", "").Trim() : IntermediateAssembly;
+            var dllOutput = Path.Combine(Path.GetDirectoryName(MSBuildProjectFullPath).Trim(), output);
             if (File.Exists(dllOutput))
             {
                 if (File.Exists(dllOutput + ".failed"))

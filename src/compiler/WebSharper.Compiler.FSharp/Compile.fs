@@ -375,6 +375,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
 
+    // fsc was skipped as up to date, only WebSharper inputs of a library changed: the assembly
+    // stays as it is, WebSharper type checks and translates again
+    let translateOnly =
+        config.TranslateOnly && config.CanTranslateOnly && File.Exists config.AssemblyFile
+    if config.TranslateOnly && not translateOnly then
+        logger.Out "WebSharper inputs changed, compiling the assembly too"
+
     let jsCompilerArgs =
         let ca =
             if thisName = "WebSharper.StdLib" then
@@ -415,7 +422,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     let needsEmitAgain = ref false
 
     let useParallel =
-        (config.ParallelCompilation || pendingRuntimeMeta.IsSome) && not isBundleOnly && config.ProjectType <> Some WIG
+        (config.ParallelCompilation || pendingRuntimeMeta.IsSome) && not isBundleOnly && config.ProjectType <> Some WIG && not translateOnly
 
     // Returns the exit code and a report printing the F# compilation output. IL emission does not
     // log itself: in parallel mode its output would interleave with translation output, so the
@@ -425,6 +432,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
+            0, ignore
+        elif translateOnly then
+            logger.TimedStage "F# compilation skipped, only WebSharper inputs changed"
             0, ignore
         else
             let errors, exnOpt = 
@@ -660,7 +670,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
         // references whose code ran during the compilation
         let executedReferences() =
-            ExecutedReferences config.References (Seq.append sourceGeneratorFiles aR.LoadedFiles)
+            ExecutedReferences config.References aR.LoadedFiles
+        let sourceGeneratorReferences =
+            ExecutedReferences config.References sourceGeneratorFiles
 
         let fullRefMetas =
             lazy
@@ -700,7 +712,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
-                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full (executedReferences())
+                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full (executedReferences()) sourceGeneratorReferences false
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 // with runtime metadata, the assembly is not written yet
@@ -839,7 +851,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         a.ModuleId
 
                 WriteSidecar config.AssemblyFile moduleId sidecarEntries
-                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions()) (executedReferences())
+                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions()) (executedReferences()) sourceGeneratorReferences config.CanTranslateOnly
                 logger.TimedStage "Writing sidecar file"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 

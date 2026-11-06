@@ -91,9 +91,15 @@ let ExecutedReferences (referencePaths: seq<string>) (loadedFiles: seq<string>) 
 /// Lists the files of references a compilation depended on, in `<AssemblyName>.websharper.deps`
 /// next to the assembly. MSBuild adds them to the compilation inputs: a reference assembly
 /// does not change when only WebSharper-relevant parts of a library do. `executed` are the
-/// implementation files of references whose code ran (macros, generators, source generators),
-/// their implementation changes show neither in reference assemblies nor in stamps.
-let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOptions: MIO.ReadOptions) (executed: seq<string>) =
+/// implementation files of references whose code ran (macros, generators), their
+/// implementation changes show neither in reference assemblies nor in stamps.
+/// `sourceGenerators` are the files loaded for F# source generators, their output is compiled
+/// by the .NET compiler.
+/// Projects that can be translated without compiling their assembly (`WsConfig.CanTranslateOnly`,
+/// libraries) list all but the source generators in `<AssemblyName>.websharper.wsdeps` instead:
+/// when one of them is newer than that file, which is written by every WebSharper compilation,
+/// MSBuild runs WebSharper alone (`--wstranslateonly`), also when the .NET compiler was skipped.
+let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOptions: MIO.ReadOptions) (executed: seq<string>) (sourceGenerators: seq<string>) (canTranslateOnly: bool) =
     let referenceFiles =
         references |> Seq.choose (fun r ->
             match r.LoadPath with
@@ -105,13 +111,27 @@ let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOp
                 else None
             | None -> None
         )
-    let lines =
+    let generatorFiles = sourceGenerators |> Seq.sort |> Seq.distinct |> Array.ofSeq
+    let translationFiles =
+        let generators = HashSet(generatorFiles, System.StringComparer.OrdinalIgnoreCase)
         Seq.append referenceFiles (Seq.sort executed)
+        |> Seq.filter (generators.Contains >> not)
         |> Seq.distinct
         |> Array.ofSeq
+    let compileInputs, translationInputs =
+        if canTranslateOnly then
+            generatorFiles, translationFiles
+        else
+            Array.append translationFiles generatorFiles |> Array.distinct, [||]
     let path = Path.ChangeExtension(assemblyPath, ".websharper.deps")
-    if not (File.Exists path && File.ReadAllLines path = lines) then
-        File.WriteAllLines(path, lines)
+    if not (File.Exists path && File.ReadAllLines path = compileInputs) then
+        File.WriteAllLines(path, compileInputs)
+    let wsPath = Path.ChangeExtension(assemblyPath, ".websharper.wsdeps")
+    if canTranslateOnly then
+        // always written: its time is when WebSharper last translated the project
+        File.WriteAllLines(wsPath, translationInputs)
+    elif File.Exists wsPath then
+        File.Delete wsPath
 
 /// When the final assembly differs from what fsc emitted (WIG, Proxy and BundleOnly projects),
 /// the reference assembly written by fsc (--refout) is replaced by the final assembly.

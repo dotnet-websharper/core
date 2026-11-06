@@ -66,6 +66,9 @@ namespace WebSharper.MSBuild.CSharp
         public string DebugType { get; set; } = "";
         public string SubsystemVersion { get; set; } = "";
         public string LangVersion { get; set; } = "";
+        /// csc was skipped, but WebSharper inputs of a library changed (.websharper.wsdeps):
+        /// WebSharper translates again with the command line of the last csc run.
+        public string TranslateOnly { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -150,6 +153,8 @@ namespace WebSharper.MSBuild.CSharp
                     }
                     if (File.Exists(rsp))
                         w.WriteLine("--cscrsp:" + rsp);
+                    if (CscCommandLineArgs.Length == 0 && TryParseBool(TranslateOnly))
+                        w.WriteLine("--wstranslateonly");
                 }
 
                 WriteIfSet(w, "/define:", DefineConstants);

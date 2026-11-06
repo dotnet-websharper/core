@@ -115,6 +115,7 @@
       SubsystemVersion="$(SubsystemVersion)"
       LangVersion="$(LangVersion)"
       CscCommandLineArgs="@(CscCommandLineArgs)"
+      TranslateOnly="$(_WebSharperTranslateOnly)"
     />
   </Target>
   <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
@@ -165,14 +166,28 @@
   <Target Name="WebSharperDependencyInputs" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <PropertyGroup>
       <_WebSharperDepsFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.deps')</_WebSharperDepsFile>
+      <_WebSharperTranslationDepsFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.wsdeps')</_WebSharperTranslationDepsFile>
+      <_WebSharperResponseFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.rsp')</_WebSharperResponseFile>
     </PropertyGroup>
     <ReadLinesFromFile File="$(_WebSharperDepsFile)" Condition="Exists('$(_WebSharperDepsFile)')">
       <Output TaskParameter="Lines" ItemName="_WebSharperDependency" />
     </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(_WebSharperTranslationDepsFile)" Condition="Exists('$(_WebSharperTranslationDepsFile)')">
+      <Output TaskParameter="Lines" ItemName="_WebSharperTranslationDependencyLine" />
+    </ReadLinesFromFile>
     <ItemGroup>
       <CustomAdditionalCompileInputs Include="@(_WebSharperDependency)" Condition="Exists('%(_WebSharperDependency.Identity)')" />
-      <FileWrites Include="$(_WebSharperDepsFile)" />
+      <_WebSharperTranslationDependency Include="@(_WebSharperTranslationDependencyLine)" Condition="Exists('%(_WebSharperTranslationDependencyLine.Identity)')" />
+      <FileWrites Include="$(_WebSharperDepsFile);$(_WebSharperTranslationDepsFile);$(_WebSharperResponseFile)" />
     </ItemGroup>
+  </Target>
+  <!-- library projects list what WebSharper reads from references in .websharper.wsdeps instead, written by every
+       WebSharper compilation: when one of them is newer, WebSharper translates again, also when the .NET compiler is skipped -->
+  <Target Name="WebSharperCheckTranslation" BeforeTargets="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(_WebSharperTranslationDependency)' != '' " Inputs="@(_WebSharperTranslationDependency)" Outputs="$(_WebSharperTranslationDepsFile)">
+    <!-- ValueSetByTask: not set when the target is skipped as up to date -->
+    <CreateProperty Value="True">
+      <Output TaskParameter="ValueSetByTask" PropertyName="_WebSharperTranslateOnly" />
+    </CreateProperty>
   </Target>
   <Target Name="WebSharperPackSidecar">
     <PropertyGroup>
