@@ -15,6 +15,7 @@ dependencies
         WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.CSharp.props ==> build
+    ../msbuild/buildMultiTargeting/WebSharper.CSharp.props ==> buildMultiTargeting
     ../msbuild/WebSharper.CSharp.targets ==> build
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
 
