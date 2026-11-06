@@ -245,7 +245,12 @@ type ResolveFuncArgs(comp: Compilation) =
             rArgs.[mi] <- value
             rArgs.[mi] <- value
 
+    /// Members added while set, for the booster read cache (see ReadCache).
+    member val Recording : ResizeArray<Member * NotResolvedMethod * Id list * bool> = null with get, set
+
     member this.AddMember(mem, nr, args, isInstance) =
+        if not (isNull this.Recording) then
+            this.Recording.Add((mem, nr, args, isInstance))
         try
             members.Add(mem, (nr, args, isInstance)) |> ignore    
         with _ -> failwithf "error during function argument resolver, member already added: %A" mem

@@ -83,6 +83,10 @@ type Compilation(meta: Info, ?hasGraph) =
 
     let typeErrors = HashSet()
 
+    // calls recorded while reading a source file, see StartRecording
+    let mutable recording : ResizeArray<CompilationAction> = null
+    let mutable recordingDepth = 0
+
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
@@ -131,6 +135,32 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ -> ()
             )
         remotes
+
+    /// Records the calls that add to this compilation (classes, custom types, errors, graph
+    /// edges...) until StopRecording, so they can be replayed into another compilation of the
+    /// same code (F# booster read cache). Nested calls are not recorded, replaying makes them again.
+    member this.StartRecording() =
+        recording <- ResizeArray()
+        recordingDepth <- 0
+
+    member this.StopRecording() =
+        let r = recording
+        recording <- null
+        if isNull r then [||] else r.ToArray()
+
+    member private this.Record(action: CompilationAction, run: unit -> unit) =
+        if isNull recording then run () else
+        if recordingDepth = 0 then recording.Add action
+        recordingDepth <- recordingDepth + 1
+        try run ()
+        finally recordingDepth <- recordingDepth - 1
+
+    /// Replays recorded calls, see StartRecording.
+    member this.Replay(actions: seq<CompilationAction>) =
+        for a in actions do
+            match a with
+            | CompilationAction.Call f -> f this
+            | CompilationAction.AddClass (typ, cls) -> this.AddClass(typ, cls)
 
     member val UseLocalMacros = true with get, set
     member val SingleNoJSErrors = false with get, set
@@ -183,6 +213,7 @@ type Compilation(meta: Info, ?hasGraph) =
         ) 
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
+        this.Record(CompilationAction.Call (fun c -> c.AddError(pos, error)), fun () ->
         if this.SingleNoJSErrors then
             match error with
             | TypeNotFound _
@@ -196,6 +227,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 errors.Add (pos, error)
         else
             errors.Add (pos, error)
+        )
 
     member this.Errors = List.ofSeq errors
 
@@ -208,13 +240,17 @@ type Compilation(meta: Info, ?hasGraph) =
         warnings.AddRange(w)
 
     member this.AddWarning (pos : SourcePos option, warning : CompilationWarning) =
+        this.Record(CompilationAction.Call (fun c -> c.AddWarning(pos, warning)), fun () ->
         warnings.Add (pos, warning)
+        )
 
     member this.SetEntryPoint (st) =
+        this.Record(CompilationAction.Call (fun c -> c.SetEntryPoint st), fun () ->
         if Option.isSome entryPoint then
             errors.Add(None, SourceError "Multiple SPAEntryPoint attributes found.")
         else
             entryPoint <- Some st
+        )
 
     member this.EntryPoint
         with get () = entryPoint
@@ -223,7 +259,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.JavaScriptExports = List.ofSeq jsExports
 
     member this.AddJavaScriptExport (jsExport: JsExport) =
+        this.Record(CompilationAction.Call (fun c -> c.AddJavaScriptExport jsExport), fun () ->
         jsExports.Add jsExport
+        )
 
     member this.Warnings = List.ofSeq warnings
 
@@ -606,13 +644,15 @@ type Compilation(meta: Info, ?hasGraph) =
         }    
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
+        this.Record(CompilationAction.Call (fun c -> c.AddProxy(tProxy, tTarget, isInternal)), fun () ->
         // if the proxy is for internal use only, drop it with a warning if a proxy for target type already exists
         if isInternal && (classes.Original.ContainsKey tTarget || interfaces.Original.ContainsKey tTarget) then 
             this.AddWarning (None, SourceWarning (sprintf "Proxy for internal proxy target type '%s' already exists, ignoring the internal proxy." tTarget.Value.FullName))
         else
-            proxies.Add(tProxy, tTarget)  
+            proxies.Add(tProxy, tTarget)
             if isInternal then
                 internalProxies.Add(tTarget, tProxy) |> ignore
+        )
 
     member this.ResolveProxySignature (meth: Method) =        
         if proxies.Count = 0 then meth else
@@ -645,7 +685,9 @@ type Compilation(meta: Info, ?hasGraph) =
             Member.StaticConstructor
 
     member this.AddQuotedArgMethod(typ, m, a) =
+        this.Record(CompilationAction.Call (fun c -> c.AddQuotedArgMethod(typ, m, a)), fun () ->
         compilingQuotedArgMethods.Add((typ, m), a)
+        )
 
     member this.TryLookupQuotedArgMethod(typ, m) =
         match compilingQuotedArgMethods.TryFind(typ, m) with
@@ -667,17 +709,21 @@ type Compilation(meta: Info, ?hasGraph) =
         }
         
     member this.AddQuotedConstArgMethod(typ: TypeDefinition, c: Constructor, a) =
+        this.Record(CompilationAction.Call (fun comp -> comp.AddQuotedConstArgMethod(typ, c, a)), fun () ->
         compilingQuotedArgMethods.Add((typ, this.GetFakeMethodForCtor(c)), a)
+        )
 
     member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, c: Constructor) =
         this.TryLookupQuotedArgMethod(typ, this.GetFakeMethodForCtor(c))
 
-    member this.AddQuotedMethod(typ, m, bs) =        
+    member this.AddQuotedMethod(typ, m, bs) =
+        this.Record(CompilationAction.Call (fun c -> c.AddQuotedMethod(typ, m, bs)), fun () ->
         match quotedMethods.TryFind (typ, m) with
-        | Some e -> 
+        | Some e ->
             quotedMethods[(typ, m)] <- List.distinct (bs @ e)
         | _ ->
             quotedMethods.Add((typ, m), bs)
+        )
 
     member this.AddBundleExports(
         initiator: option<TypeDefinition * Method>, 
@@ -685,9 +731,37 @@ type Compilation(meta: Info, ?hasGraph) =
         parameter: option<obj>, 
         bs: string list
     ) =
+        this.Record(CompilationAction.Call (fun c -> c.AddBundleExports(initiator, target, parameter, bs)), fun () ->
         bundleExports.Add(initiator, target, parameter, bs) |> ignore
+        )
+
+    /// A RequireFeature of a method called in a quotation: `create` makes the feature object
+    /// (and its parameter) again when a recorded read is replayed, an earlier instance may
+    /// belong to an unloaded assembly load context of the booster.
+    member this.AddRequiredFeature(initiator: option<TypeDefinition * Method>, create: unit -> obj * option<obj>, bs: string list) =
+        this.Record(CompilationAction.Call (fun c -> c.AddRequiredFeature(initiator, create, bs)), fun () ->
+        match create () with
+        | (:? IBundleExports as target), parameter ->
+            bundleExports.Add(initiator, target, parameter, bs) |> ignore
+        | _ -> ()
+        )
+
+    /// Adds a node to the dependency graph (if there is one).
+    member this.AddGraphNode(node: Node) =
+        if hasGraph then
+            this.Record(CompilationAction.Call (fun c -> c.AddGraphNode node), fun () ->
+            graph.AddOrLookupNode node |> ignore
+            )
+
+    /// Adds an edge to the dependency graph (if there is one).
+    member this.AddGraphEdge(from: Node, target: Node) =
+        if hasGraph then
+            this.Record(CompilationAction.Call (fun c -> c.AddGraphEdge(from, target)), fun () ->
+            graph.AddEdge(from, target)
+            )
 
     member this.AddClass(typ, cls) =
+        this.Record(CompilationAction.AddClass (typ, cls), fun () ->
         try
             notResolvedClasses.Add(typ, cls)
         with _ ->
@@ -705,12 +779,15 @@ type Compilation(meta: Info, ?hasGraph) =
                         }
             else
                 this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
+        )
 
     member this.AddInterface(typ, intf) =
+        this.Record(CompilationAction.Call (fun c -> c.AddInterface(typ, intf)), fun () ->
         try
             notResolvedInterfaces.Add(typ, intf)
         with _ ->
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
+        )
     
     member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
         let m = { Assembly = this.AssemblyName; TypeName = typ.Value.FullName.Replace('+', '.') }
@@ -743,7 +820,9 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ -> ()          
     
     member this.AddCustomType(typ: TypeDefinition, ct) =
+        this.Record(CompilationAction.Call (fun c -> c.AddCustomType(typ, ct)), fun () ->
         notResolvedCustomTypes.Add(typ, ct)
+        )
 
     member this.HasCustomTypeInfo(typ) =
         notResolvedCustomTypes.ContainsKey typ || classes.ContainsKey typ 
@@ -1232,7 +1311,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.CompilingMethods = compilingMethods  
 
     member this.AddCallWitnesses(pos, typ, meth: Method, witnesses) =
+        this.Record(CompilationAction.Call (fun c -> c.AddCallWitnesses(pos, typ, meth, witnesses)), fun () ->
         callWitnesses.[(pos, typ, meth.Value.MethodName)] <- witnesses
+        )
 
     member this.GetCallWitnesses(pos, typ, meth: Method) =
         match callWitnesses.TryGetValue((pos, typ, meth.Value.MethodName)) with
@@ -1312,19 +1393,23 @@ type Compilation(meta: Info, ?hasGraph) =
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.AddTypeNeedingDeserialization (t, pos, bundles) =
+        this.Record(CompilationAction.Call (fun c -> c.AddTypeNeedingDeserialization(t, pos, bundles)), fun () ->
         match typesNeedingDeserialization.TryFind(t) with
         | Some (p, b) ->
-            typesNeedingDeserialization[t] <- (p, List.distinct (bundles @ b))    
+            typesNeedingDeserialization[t] <- (p, List.distinct (bundles @ b))
         | _ ->
-            typesNeedingDeserialization[t] <- (pos, bundles) 
-    
+            typesNeedingDeserialization[t] <- (pos, bundles)
+        )
+
     member this.AddWebControl (t, pos, bundles) =
-        this.AddTypeNeedingDeserialization(t, pos, bundles)    
+        this.Record(CompilationAction.Call (fun c -> c.AddWebControl(t, pos, bundles)), fun () ->
+        this.AddTypeNeedingDeserialization(t, pos, bundles)
         match webControls.TryFind(t) with
         | Some b ->
             webControls[t] <- List.distinct (bundles @ b)
         | _ ->
             webControls[t] <- bundles
+        )
 
     member this.TypesNeedingDeserialization = 
         typesNeedingDeserialization 
@@ -2784,3 +2869,10 @@ type Compilation(meta: Info, ?hasGraph) =
                 | Verifier.CriticallyIncorrect msg ->
                     this.AddError (None, SourceError msg)
                 | _ -> ()
+
+/// A call recorded on a Compilation, see Compilation.StartRecording.
+and [<RequireQualifiedAccess>] CompilationAction =
+    /// A call whose arguments are not changed later.
+    | Call of (Compilation -> unit)
+    /// The members of the class are changed by later compilation steps, it is copied when recorded and replayed.
+    | AddClass of TypeDefinition * NotResolvedClass

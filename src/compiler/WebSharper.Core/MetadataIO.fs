@@ -231,6 +231,14 @@ let InterfaceHash (data: byte[]) =
     let h = sha.ComputeHash(m.GetBuffer(), 0, int m.Length)
     BitConverter.ToString(h).Replace("-", "")
 
+/// A hash of metadata that does not depend on the numbers of Ids, for comparing compilations.
+let ContentHash (meta: Info) =
+    use m = new MemoryStream(64 * 1024)
+    encodeWith Compression.NoCompression true m meta |> ignore
+    use sha = Security.Cryptography.SHA256.Create()
+    let h = sha.ComputeHash(m.GetBuffer(), 0, int m.Length)
+    BitConverter.ToString(h).Replace("-", "")
+
 /// Section names with their stored and uncompressed sizes.
 let SectionSizes (data: byte[]) =
     readEntries data 0 data.Length

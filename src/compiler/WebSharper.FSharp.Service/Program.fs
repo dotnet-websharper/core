@@ -77,6 +77,8 @@ let startListening() =
     let incrementalChecker = lazy FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = false)
     let checkerFactory (wsConfig: WsConfig) () =
         if wsConfig.TransparentCompiler then transparentChecker.Value else incrementalChecker.Value
+    // reads of unchanged source files are replayed, see ReadCache (standalone compilations have none)
+    WebSharper.Compiler.FSharp.ReadCache.Cache.Shared <- WebSharper.Compiler.FSharp.ReadCache.Cache.FromEnvironment()
 
     let memCache = MemoryCache.Default
     let tryGetMetadata (readOptions: WebSharper.Core.MetadataIO.ReadOptions) (r: WebSharper.Compiler.FrontEnd.Assembly) =

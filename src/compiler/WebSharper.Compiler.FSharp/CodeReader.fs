@@ -1613,36 +1613,39 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
                 match env.SymbolReader.ReadMember(meth) with
                 | Member.Method(_, m) ->
-                    let requiredFeatures = 
-                        meth.Attributes 
-                        |> Seq.choose (fun a -> 
+                    // the feature objects are created by the compilation, again when a recorded read is replayed
+                    let requiredFeatures =
+                        meth.Attributes
+                        |> Seq.choose (fun a ->
                             if a.AttributeType.FullName = "WebSharper.RequireFeatureAttribute" then
                                 let args = env.SymbolReader.AttributeReader.GetCtorArgs a
                                 let typeArg = env.SymbolReader.AttributeReader.GetTypeDef args[0]
-                                let paramArg = 
-                                    args 
-                                    |> Array.tryItem 1 
+                                let param =
+                                    args
+                                    |> Array.tryItem 1
                                     |> Option.map (fun a ->
                                         match a with
-                                        | :? FSharpType as t -> 
-                                            env.SymbolReader.ReadType Map.empty t 
-                                            |> Reflection.LoadType 
-                                            |> box
-                                        | _ -> a
+                                        | :? FSharpType as t ->
+                                            Choice1Of2 (env.SymbolReader.ReadType Map.empty t)
+                                        | _ -> Choice2Of2 a
                                     )
-                                try 
-                                    let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
-                                    Some (System.Activator.CreateInstance(loadedType), paramArg)
-                                with _ -> 
-                                    failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
+                                let create () =
+                                    let paramArg =
+                                        param |> Option.map (function
+                                            | Choice1Of2 t -> Reflection.LoadType t |> box
+                                            | Choice2Of2 a -> a
+                                        )
+                                    try
+                                        let loadedType = WebSharper.Core.AST.Reflection.LoadTypeDefinition typeArg
+                                        System.Activator.CreateInstance(loadedType), paramArg
+                                    with _ ->
+                                        failwithf "Could not create instance of required feature type %s" typeArg.Value.FullName
+                                Some create
                             else
                                 None
                         )
-                    for rf, arg in requiredFeatures do
-                        match rf with
-                        | :? WebSharper.IBundleExports as ems ->
-                            env.Compilation.AddBundleExports(Some (typ, m), ems, arg, bundleScope)
-                            | _ -> ()
+                    for create in requiredFeatures do
+                        env.Compilation.AddRequiredFeature(Some (typ, m), create, bundleScope)
                     let newBundleScope = 
                         match getBundleMethod (typ, m, arguments) with
                         | Ok scope -> scope
