@@ -54,6 +54,8 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperParallelCompilation { get; set; } = "";
         /// The reference assembly to write (@(IntermediateRefAssembly)), the Fsc task does not pass it in FscCommandLineArgs.
         public string RefAssembly { get; set; } = "";
+        /// The implementation assemblies of references (@(ReferencePath)), the Fsc task passes reference assemblies when there are.
+        public ITaskItem[] ReferenceImplementations { get; set; } = new ITaskItem[] { };
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -77,6 +79,9 @@ namespace WebSharper.MSBuild.FSharp
 
                 if (!string.IsNullOrEmpty(RefAssembly) && !FscCommandLineArgs.Any(a => a.ItemSpec.StartsWith("--refout:")))
                     w.WriteLine("--refout:" + RefAssembly);
+
+                foreach (var r in ReferenceImplementations)
+                    WriteIfSet(w, "--implref:", r);
 
                 WriteIfSet(w, "--ws:", WebSharperProject);
 

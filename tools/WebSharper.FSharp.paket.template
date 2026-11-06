@@ -14,6 +14,7 @@ dependencies
     framework: netstandard2.0
         WebSharper == CURRENTVERSION
 files
+    ../msbuild/WebSharper.FSharp.props ==> build
     ../msbuild/WebSharper.FSharp.targets ==> build
     ../build/Release/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll ==> tools/netstandard2.0
 

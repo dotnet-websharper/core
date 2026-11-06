@@ -183,7 +183,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
-            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full
+            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full (ExecutedReferences config.References aR.LoadedFiles)
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -313,7 +313,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     assem.ModuleId
 
             WriteSidecar config.AssemblyFile moduleId sidecarEntries
-            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions)
+            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions) (ExecutedReferences config.References aR.LoadedFiles)
             logger.TimedStage "Writing sidecar file"
             Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles
 

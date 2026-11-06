@@ -104,6 +104,7 @@
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
       RefAssembly="@(IntermediateRefAssembly)"
+      ReferenceImplementations="@(ReferencePath)"
     />
   </Target>
   <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->

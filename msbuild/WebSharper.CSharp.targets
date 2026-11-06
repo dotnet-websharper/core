@@ -111,8 +111,6 @@
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
     <!-- pack filters build output files by extension -->
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.websharper</AllowedOutputExtensionsInPackageBuildOutputFolder>
-    <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
-    <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
     <!-- csc's command line for WebSharper, to emit website assemblies again with runtime metadata -->
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
   </PropertyGroup>

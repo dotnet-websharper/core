@@ -39,6 +39,10 @@ type AssemblyResolver =
     /// Resolves a full path to the assembly.
     member ResolvePath : AssemblyName -> option<string>
 
+    /// The files of the assemblies this resolver loaded: code in them may have run (macros,
+    /// generators, source generators and what they call).
+    member LoadedFiles : string[]
+
     /// Adds search directories.
     member SearchDirectories : searchPaths: seq<string> -> AssemblyResolver
 

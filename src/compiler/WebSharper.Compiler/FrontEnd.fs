@@ -83,11 +83,18 @@ let WriteSidecar (assemblyPath: string) (moduleId: System.Guid) (entries: seq<st
         FileSystem.OutputFiles.Add stampPath
     | None -> ()
 
+/// The implementation files of references among the files an assembly resolver loaded.
+let ExecutedReferences (referencePaths: seq<string>) (loadedFiles: seq<string>) =
+    let refs = HashSet(referencePaths |> Seq.map Path.GetFullPath, System.StringComparer.OrdinalIgnoreCase)
+    loadedFiles |> Seq.map Path.GetFullPath |> Seq.filter refs.Contains |> Seq.distinct |> Array.ofSeq
+
 /// Lists the files of references a compilation depended on, in `<AssemblyName>.websharper.deps`
 /// next to the assembly. MSBuild adds them to the compilation inputs: a reference assembly
-/// does not change when only WebSharper-relevant parts of a library do.
-let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOptions: MIO.ReadOptions) =
-    let lines =
+/// does not change when only WebSharper-relevant parts of a library do. `executed` are the
+/// implementation files of references whose code ran (macros, generators, source generators),
+/// their implementation changes show neither in reference assemblies nor in stamps.
+let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOptions: MIO.ReadOptions) (executed: seq<string>) =
+    let referenceFiles =
         references |> Seq.choose (fun r ->
             match r.LoadPath with
             | Some p ->
@@ -98,6 +105,8 @@ let WriteDependencies (assemblyPath: string) (references: seq<Assembly>) (readOp
                 else None
             | None -> None
         )
+    let lines =
+        Seq.append referenceFiles (Seq.sort executed)
         |> Seq.distinct
         |> Array.ofSeq
     let path = Path.ChangeExtension(assemblyPath, ".websharper.deps")

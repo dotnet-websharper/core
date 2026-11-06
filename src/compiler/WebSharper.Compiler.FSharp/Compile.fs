@@ -108,13 +108,13 @@ let fullTime (logger: LoggerBase) =
     logger.ExitContext()
     logger.TimedStage "Total compilation time"
 
-let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
+let private runFSharpSourceGeneration (aR: Lazy<AssemblyResolver>) (logger: LoggerBase) (config : WsConfig) =
     let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
     let isSupportedFile (f: string) =
         f.EndsWith ".fs" || f.EndsWith ".fsi" || f.EndsWith ".fsx" || f.EndsWith ".fsscript" || f.EndsWith ".ml" || f.EndsWith ".mli"
     let unsupportedFiles = sourceFiles |> Array.filter (fun f -> not (isSupportedFile f))
     if unsupportedFiles.Length > 0 then
-        let aR = createAssemblyResolver config false    
+        let aR = aR.Value
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
             let keepUntouched = ResizeArray()
@@ -286,6 +286,39 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     else
         config
 
+/// The F# compiler loads the design-time assembly of a type provider from the folder of its
+/// runtime assembly, so a type provider referenced by its reference assembly (ref/refint
+/// folder) is passed by its implementation assembly in the output folder of its project
+/// (from @(ReferencePath)), where the design-time assembly is copied.
+let private typeProviderImplementationArg (implementations: string[]) (arg: string) =
+    let prefix =
+        if arg.StartsWith "-r:" then Some "-r:"
+        elif arg.StartsWith "--reference:" then Some "--reference:"
+        else None
+    match prefix with
+    | Some prefix ->
+        let path = arg.Substring(prefix.Length).Trim('"')
+        let impl =
+            if Sidecar.ImplementationPath path = path then path else
+            let name = Path.GetFileName path
+            implementations
+            |> Array.tryFind (fun i -> String.Equals(Path.GetFileName i, name, StringComparison.OrdinalIgnoreCase))
+            |> Option.defaultValue path
+        let isTypeProvider() =
+            try
+                PEMetadata.PEAssembly.ReadFileMetadata(impl).Attributes
+                |> Seq.exists (fun a -> a.TypeName = "Microsoft.FSharp.Core.CompilerServices.TypeProviderAssemblyAttribute")
+            with _ -> false
+        if impl <> path && isTypeProvider() then prefix + impl else arg
+    | None -> arg
+
+/// Runs the F# source generators for non-F# source files, returns the updated config and the
+/// files of the assemblies loaded for them.
+let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
+    let aR = lazy createAssemblyResolver config false
+    let config = runFSharpSourceGeneration aR logger config
+    config, (if aR.IsValueCreated then aR.Value.LoadedFiles else [||])
+
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: WebSharper.Core.MetadataIO.ReadOptions -> Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
@@ -304,6 +337,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     // reference assemblies (ref/refint folders) are used by fsc only: WebSharper reads sidecars
     // and executes macros and generators, for that it needs the implementation assemblies
     let config = { config with References = config.References |> Array.map Sidecar.ImplementationPath }
+    let config = { config with CompilerArgs = config.CompilerArgs |> Array.map (typeProviderImplementationArg config.ReferenceImplementations) }
 
     let mainProxiesFile() =
         "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
@@ -337,7 +371,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let checker = checkerFactory()
     
-    let config = RunFSharpSourceGeneration logger config
+    let config, sourceGeneratorFiles = RunFSharpSourceGeneration logger config
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
 
@@ -624,6 +658,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             | Some (r, _, _) -> r
             | _ -> []
 
+        // references whose code ran during the compilation
+        let executedReferences() =
+            ExecutedReferences config.References (Seq.append sourceGeneratorFiles aR.LoadedFiles)
+
         let fullRefMetas =
             lazy
             if refReadOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then
@@ -662,7 +700,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
-                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full
+                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full (executedReferences())
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
                 // with runtime metadata, the assembly is not written yet
@@ -801,7 +839,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         a.ModuleId
 
                 WriteSidecar config.AssemblyFile moduleId sidecarEntries
-                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions())
+                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions()) (executedReferences())
                 logger.TimedStage "Writing sidecar file"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
 

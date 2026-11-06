@@ -88,6 +88,8 @@ type WsConfig =
         CompilerArgs : string[]  
         /// The response file with csc's own command line (C# projects).
         CompilerResponseFile : string option
+        /// The implementation assemblies of references (@(ReferencePath)), compiler args may have reference assemblies instead (F# projects).
+        ReferenceImplementations : string[]
         Configuration : string
         ProjectFile : string
         Documentation : string option
@@ -155,6 +157,7 @@ type WsConfig =
             KeyFile = None
             CompilerArgs = [||]
             CompilerResponseFile = None
+            ReferenceImplementations = [||]
             Configuration = null
             ProjectFile = null
             Documentation = None
@@ -633,6 +636,8 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with MinJSOutputPath = Some f }
     | StartsWith "--wstimings:" f ->
         Some { wsArgs with TimingLog = Some f }
+    | StartsWith "--implref:" r ->
+        Some { wsArgs with ReferenceImplementations = Array.append wsArgs.ReferenceImplementations [| r |] }
     | Flag "--closures" v ->
         Some { wsArgs with AnalyzeClosures = Some v }
     | StartsWith "--closures:" c ->
