@@ -94,6 +94,10 @@ let startListening() =
                 match WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith readOptions r with
                 | None ->
                     None
+                // errors are not cached: a missing sidecar can appear later without the dll changing,
+                // and only existing files are watched
+                | Some (Error _) as result ->
+                    result
                 | result ->
                     let policy = CacheItemPolicy()
                     // metadata comes from the sidecar, its module id is checked against the dll
