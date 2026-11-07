@@ -6,7 +6,6 @@ source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
-nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.CodeAnalysis.CSharp 5.9.0
 nuget System.CodeDom 4.4.0
 nuget System.Runtime.Loader 4.3.0

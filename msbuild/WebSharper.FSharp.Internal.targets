@@ -26,8 +26,8 @@
     <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
-    <!-- also for design-time builds, so IDEs reference the output assembly with WebSharper metadata -->
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
+    <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net11.0/wsfsc.exe</WebSharperToolPath>
@@ -77,9 +77,14 @@
     </ReorderCompileItemsTask>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
-  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
-    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+  <!-- runs when fsc did (@(FscCommandLineArgs) is set), or when only WebSharper inputs of a library changed -->
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
+    <PropertyGroup>
+      <_WebSharperRunTask Condition=" '@(FscCommandLineArgs)' != '' OR ('$(_WebSharperTranslateOnly)' == 'True' AND Exists('$(_WebSharperResponseFile)')) ">True</_WebSharperRunTask>
+    </PropertyGroup>
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(_WebSharperRunTask)' == 'True'" />
     <WebSharperTask
+      Condition=" '$(_WebSharperRunTask)' == 'True' "
       StandardOutputImportance="$(WebSharperLogImportance)"
       FscCommandLineArgs="@(FscCommandLineArgs)"
       Configuration="$(Configuration)"
@@ -103,6 +108,90 @@
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      RefAssembly="@(IntermediateRefAssembly)"
+      ReferenceImplementations="@(ReferencePath)"
+      IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+      TranslateOnly="$(_WebSharperTranslateOnly)"
     />
+  </Target>
+  <!-- WebSharper sidecar file: <AssemblyName>.websharper, written by the WebSharper compiler next to the intermediate assembly -->
+  <PropertyGroup>
+    <!-- not copied with references: compilation reads it next to the referenced assembly, the runtime does not need it -->
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);WebSharperPackSidecar</TargetsForTfmSpecificBuildOutput>
+    <!-- pack filters build output files by extension -->
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.websharper</AllowedOutputExtensionsInPackageBuildOutputFolder>
+  </PropertyGroup>
+  <!-- marks the assembly as having a sidecar, so a copy without it is reported -->
+  <ItemGroup Condition=" '$(GenerateAssemblyInfo)' != 'false' AND '$(WebSharperSidecarMarker)' != 'False' AND ('$(WebSharperRunCompiler)' == 'True' OR '$(DesignTimeBuild)' == 'true') ">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>WebSharper.Sidecar</_Parameter1>
+      <_Parameter2>1</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <!-- projects writing their own assembly info (GenerateAssemblyInfo false) get the marker from a generated file -->
+  <Target Name="WebSharperGenerateSidecarMarker" BeforeTargets="BeforeCompile" DependsOnTargets="PrepareForBuild" Condition=" '$(GenerateAssemblyInfo)' == 'false' AND '$(WebSharperSidecarMarker)' != 'False' AND ('$(WebSharperRunCompiler)' == 'True' OR '$(DesignTimeBuild)' == 'true') ">
+    <PropertyGroup>
+      <_WebSharperSidecarMarkerFile>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', '$(MSBuildProjectName).WebSharperSidecarMarker$(DefaultLanguageSourceExtension)'))</_WebSharperSidecarMarkerFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WebSharperSidecarMarkerLine Include="namespace System" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="[&lt;assembly: System.Reflection.AssemblyMetadataAttribute(&quot;WebSharper.Sidecar&quot;, &quot;1&quot;)&gt;]" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="do ()" Condition=" '$(Language)' == 'F#' " />
+      <_WebSharperSidecarMarkerLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;WebSharper.Sidecar&quot;, &quot;1&quot;)]" Condition=" '$(Language)' == 'C#' " />
+    </ItemGroup>
+    <WriteLinesToFile File="$(_WebSharperSidecarMarkerFile)" Lines="@(_WebSharperSidecarMarkerLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(_WebSharperSidecarMarkerFile)" CompileOrder="CompileBefore" />
+      <FileWrites Include="$(_WebSharperSidecarMarkerFile)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="WebSharperCopySidecar" AfterTargets="CopyFilesToOutputDirectory" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <PropertyGroup>
+      <_WebSharperSidecar>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper')</_WebSharperSidecar>
+      <_WebSharperStamp>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.stamp')</_WebSharperStamp>
+    </PropertyGroup>
+    <!-- unchanged files keep their timestamps, so an unchanged stamp does not trigger dependent compilations -->
+    <Copy SourceFiles="$(_WebSharperStamp)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" Condition="Exists('$(_WebSharperStamp)')">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
+    <Copy SourceFiles="$(_WebSharperSidecar)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="$(SkipCopyUnchangedFiles)" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" Condition="Exists('$(_WebSharperSidecar)')">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+  <!-- files of references the last WebSharper compilation depended on: stamps of libraries, or their sidecars when all of their metadata was read -->
+  <Target Name="WebSharperDependencyInputs" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <PropertyGroup>
+      <_WebSharperDepsFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.deps')</_WebSharperDepsFile>
+      <_WebSharperTranslationDepsFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.wsdeps')</_WebSharperTranslationDepsFile>
+      <_WebSharperResponseFile>@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).websharper.rsp')</_WebSharperResponseFile>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(_WebSharperDepsFile)" Condition="Exists('$(_WebSharperDepsFile)')">
+      <Output TaskParameter="Lines" ItemName="_WebSharperDependency" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(_WebSharperTranslationDepsFile)" Condition="Exists('$(_WebSharperTranslationDepsFile)')">
+      <Output TaskParameter="Lines" ItemName="_WebSharperTranslationDependencyLine" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="@(_WebSharperDependency)" Condition="Exists('%(_WebSharperDependency.Identity)')" />
+      <_WebSharperTranslationDependency Include="@(_WebSharperTranslationDependencyLine)" Condition="Exists('%(_WebSharperTranslationDependencyLine.Identity)')" />
+      <FileWrites Include="$(_WebSharperDepsFile);$(_WebSharperTranslationDepsFile);$(_WebSharperResponseFile)" />
+    </ItemGroup>
+  </Target>
+  <!-- library projects list what WebSharper reads from references in .websharper.wsdeps instead, written by every
+       WebSharper compilation: when one of them is newer, WebSharper translates again, also when the .NET compiler is skipped -->
+  <Target Name="WebSharperCheckTranslation" BeforeTargets="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(_WebSharperTranslationDependency)' != '' " Inputs="@(_WebSharperTranslationDependency)" Outputs="$(_WebSharperTranslationDepsFile)">
+    <!-- ValueSetByTask: not set when the target is skipped as up to date -->
+    <CreateProperty Value="True">
+      <Output TaskParameter="ValueSetByTask" PropertyName="_WebSharperTranslateOnly" />
+    </CreateProperty>
+  </Target>
+  <Target Name="WebSharperPackSidecar">
+    <PropertyGroup>
+      <_WebSharperPackedSidecar>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(OutDir)', '$(TargetName).websharper'))</_WebSharperPackedSidecar>
+    </PropertyGroup>
+    <Warning Condition=" '$(WebSharperRunCompiler)' == 'True' AND !Exists('$(_WebSharperPackedSidecar)') " Text="The WebSharper sidecar file $(_WebSharperPackedSidecar) is missing, so the package does not have it. Compiling against a WebSharper library needs its sidecar: build the project before packing it. Bundle-only projects have no sidecar." />
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(_WebSharperPackedSidecar)" Condition="Exists('$(_WebSharperPackedSidecar)')" />
+    </ItemGroup>
   </Target>
 </Project>

@@ -130,7 +130,43 @@ type Graph =
         } 
 
     member this.GetTrimmedData(nodes : seq<Node>) =
-        let allNodes = this.GetDependencyIndexes nodes |> Array.ofSeq 
+        this.DataOf(this.GetDependencyIndexes nodes |> Array.ofSeq)
+
+    /// Like GetTrimmedData, but keeps only the nodes from which a resource node can be reached,
+    /// so GetResources still gives the same result for any set of nodes. An override implementation
+    /// counts as reachable from both its type and its abstract method.
+    member this.GetResourceTrimmedData(nodes : seq<Node>) =
+        let reachable : HashSet<int> = this.GetDependencyIndexes nodes
+        let preds = Dictionary<int, ResizeArray<int>>()
+        let addPred i p =
+            if reachable.Contains p then
+                match preds.TryGetValue i with
+                | true, ps -> ps.Add p
+                | _ -> preds.Add(i, ResizeArray [ p ])
+        for i in reachable do
+            for j in this.Edges.[i] do
+                if reachable.Contains j then addPred j i
+        for KeyValue(typ, ors) in this.Overrides do
+            for KeyValue(abstr, impl) in ors do
+                if reachable.Contains impl then
+                    addPred impl typ
+                    addPred impl abstr
+        let keep = HashSet<int>()
+        let stack = Stack<int>()
+        for i in reachable do
+            match this.Nodes.[i] with
+            | ResourceNode _ -> if keep.Add i then stack.Push i
+            | _ -> ()
+        while stack.Count > 0 do
+            match preds.TryGetValue(stack.Pop()) with
+            | true, ps ->
+                for p in ps do
+                    if keep.Add p then stack.Push p
+            | _ -> ()
+        this.DataOf(reachable |> Seq.filter keep.Contains |> Array.ofSeq)
+
+    /// Graph data of the given node indexes, with edges and overrides between them.
+    member private this.DataOf(allNodes: int[]) =
         let mapping = allNodes |> Seq.mapi (fun i n -> n, i) |> dict
         {
             

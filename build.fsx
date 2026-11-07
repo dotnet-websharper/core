@@ -33,8 +33,8 @@ System.Environment.GetCommandLineArgs()
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 
 open WebSharper.Fake
-let version = "11.0-rc1"
-let pre = None
+let version = "11.0"
+let pre = Some "preview.1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -227,9 +227,19 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
         ) 
     ) 
 
+// The metadata serializer is generated from the metadata types, fail if it was not regenerated after a change
+Target.create "CheckGeneratedSerializer" <| fun _ ->
+    let res = Shell.Exec("dotnet", "fsi src/compiler/WebSharper.Core/genSerializer.fsx --check build/Release/netstandard2.0/WebSharper.Core.dll")
+    if res <> 0 then
+        failwith "src/compiler/WebSharper.Core/Serialization.g.fs is out of date, run genSerializer.fsx in that folder"
+
 "WS-BuildRelease"
+    ?=> "CheckGeneratedSerializer"
     ?=> "RunCompilerTestsRelease"
     ?=> "WS-Package"
+
+"CheckGeneratedSerializer"
+    ==> "CI-Release"
 
 "RunCompilerTestsRelease"
     ==> "CI-Release"

@@ -15,4 +15,5 @@ dependencies
         WebSharper == CURRENTVERSION
 files
     ../build/Release/netstandard2.0/WebSharper.Testing.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Testing.websharper ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Testing.xml ==> lib/netstandard2.0

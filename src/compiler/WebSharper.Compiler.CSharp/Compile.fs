@@ -1,4 +1,4 @@
-﻿// $begin{copyright}
+// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -40,6 +40,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
     FileSystem.OutputFiles.Start()
+    SidecarWebResources.Install()
 
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -88,10 +89,12 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    logger.TimedStage "Loading referenced assemblies"
     let mutable refError = false
-    let wsRefs, metas = 
+    let refReadOptions = config.ReferenceReadOptions
+    let wsRefs, metas =
         refs |> List.choose (fun r -> 
-            match tryGetMetadata r with
+            match tryGetMetadata refReadOptions r with
             | None -> None
             | Some (Ok m) -> Some (r, m)
             | Some (Error e) ->
@@ -99,6 +102,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 PrintGlobalError logger e
                 None
         ) |> List.unzip
+    logger.TimedStage "Reading referenced metadata"
     let refMeta =
         if refError then None
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
@@ -110,7 +114,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 PrintGlobalError logger (sprintf "Error merging WebSharper metadata: %A" e)
                 None
 
-    logger.TimedStage "Loading referenced metadata"
+    logger.TimedStage "Merging referenced metadata"
 
     match refMeta with
     | None ->
@@ -123,9 +127,21 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         argError "You must provide project file path."
     
     let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
+    logger.TimedStage "Loading output assembly"
 
 #if !DEBUG
-    if assem.IsSome && assem.Value.HasWebSharperMetadata then
+    // WebSharperCompile also runs when csc did not: skip if the assembly was not written since
+    // the last WebSharper compilation finished (its output list is written last), and the
+    // sidecar belongs to it. A csc run rewrites the assembly, also when only reference stamps
+    // changed and the deterministic output has the same module id.
+    let alreadyCompiled (a: Assembly) =
+        let listFile = Path.ChangeExtension(config.AssemblyFile, ".websharper.files")
+        a.HasRuntimeMetadata
+        || (a.Sidecar |> Option.exists (fun sc -> sc.ModuleId = a.ModuleId)
+            && File.Exists listFile
+            && File.GetLastWriteTimeUtc listFile >= File.GetLastWriteTimeUtc config.AssemblyFile)
+    // --wstranslateonly: only WebSharper inputs of a library changed (.websharper.wsdeps)
+    if assem.IsSome && not config.TranslateOnly && alreadyCompiled assem.Value then
         logger.TimedStage "WebSharper resources already exist, skipping"
         fullTime logger
     else
@@ -141,28 +157,67 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         argError "" // exits without printing more errors
     else
 
+    // web worker bundles need the code of references, read again if only the library parts were read
+    let getExtraBundleRefMetas() =
+        if comp.CompiledExtraBundles.Count = 0 then []
+        elif refReadOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then metas
+        else
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let full =
+                wsRefs |> List.choose (fun r ->
+                    match tryGetMetadata WebSharper.Core.MetadataIO.ReadOptions.Full r with
+                    | Some (Ok m) -> Some m
+                    | Some (Error e) -> failwith e
+                    | None -> None
+                )
+            logger.TimedStageElapsed("Reading full referenced metadata for extra bundles", sw.Elapsed)
+            full
+
     let js, currentMeta, runtimeMeta, sources, extraBundles =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
             try
-                HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
+                HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
             with e ->
                 PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+            WriteDependencies config.AssemblyFile wsRefs WebSharper.Core.MetadataIO.ReadOptions.Full (ExecutedReferences config.References aR.LoadedFiles) [] false
             None, currentMeta, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
 
-            if config.ProjectType = Some Proxy then
-                EraseAssemblyContents assem
-                logger.TimedStage "Erasing assembly content for Proxy project"
+            // website, offline and service projects: the assembly is emitted again with runtime
+            // metadata, compiling the code in parallel with creating the output, the runtime
+            // metadata is only needed for writing it
+            let runtimeMetaReady = System.Threading.Tasks.TaskCompletionSource<byte[]>()
+            let emitTask =
+                if config.EmbedsRuntimeMetadata then
+                    Some (System.Threading.Tasks.Task.Run(fun () ->
+                        WebSharper.Compiler.CSharp.Emit.EmitWithResources
+                            compiler.CommandLineArguments compiler.RoslynCompilation config.AssemblyFile
+                            [ WebSharper.Constants.EmbeddedResources.EMBEDDED_RUNTIME_METADATA, fun () -> runtimeMetaReady.Task.Result ]
+                    ))
+                else None
 
             let extraBundles = 
                 aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
+                    Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
+
+            // extra.files of libraries and web worker bundles go into the sidecar file
+            let extraFiles =
+                let embed =
+                    match config.ProjectType with
+                    | Some (Bundle | Website | Html) -> false
+                    | _ -> true
+                try
+                    HandleExtraFiles logger embed comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                with e ->
+                    PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                    [||]
+            let webResources = Array.append extraFiles (Bundling.ExtraBundleWebResources extraBundles)
 
             let runtimeMeta =
                 match config.ProjectType with
@@ -208,9 +263,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 else
                     CreateResourcesMode.Other(refMeta)
 
-            let res =
-                assem
-                |> ModifyAssembly {
+            let res, runtimeMetaBytes, sidecarEntries =
+                CreateOutputFor {
                     Logger = logger
                     Compilation = Some comp
                     CurrentMetadata = currentMeta
@@ -220,25 +274,12 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     DeadCodeElimination = dce
                     AnalyzeClosures = config.AnalyzeClosures
                     Mode = mode
-                }
-
-            let extraFilesEmbedAssem =
-                match config.ProjectType with
-                | Some (Bundle | Website | Html) -> None
-                | _ -> Some assem
-            try
-                HandleExtraFiles logger extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
-            with e ->
-                PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                    WebResources = webResources
+                } (Some assem) comp.AssemblyName
 
             match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
             | None, Some true, Some outputDir ->
                 UnpackLibraryCode logger (Some comp) refMeta currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir
-            | _ -> ()
-
-            match config.ProjectType with
-            | Some (Bundle | Website | Html) ->
-                AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
 
             PrintWebSharperErrors logger config.WarnOnly comp
@@ -248,9 +289,33 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                     logger.Out("// " + fname)
                     logger.Out(js)
 
-            assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+            logger.TimedStage "Printing WebSharper errors and warnings"
 
-            logger.TimedStage "Writing resources into assembly"
+            // the assembly is left as csc wrote it, except for website, bundle, offline and
+            // service projects, emitted again with runtime metadata, and Proxy projects
+            let moduleId =
+                match runtimeMetaBytes with
+                | Some bytes when emitTask.IsSome ->
+                    runtimeMetaReady.SetResult bytes
+                    let ranGenerators = emitTask.Value.GetAwaiter().GetResult()
+                    logger.TimedStage (if ranGenerators then "Emitting assembly with runtime metadata (with source generators)" else "Emitting assembly with runtime metadata (join)")
+                    ReadModuleId config.AssemblyFile
+                | Some _ ->
+                    failwith "Unexpected runtime metadata"
+                | None when emitTask.IsSome ->
+                    runtimeMetaReady.SetException(exn "No runtime metadata")
+                    failwith "Expected runtime metadata to embed into the assembly"
+                | None when config.ProjectType = Some Proxy ->
+                    WriteProxyAssembly config.AssemblyFile config.KeyFile
+                    ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
+                    logger.TimedStage "Writing attributes-only assembly for Proxy project"
+                    ReadModuleId config.AssemblyFile
+                | None ->
+                    assem.ModuleId
+
+            WriteSidecar config.AssemblyFile moduleId sidecarEntries
+            WriteDependencies config.AssemblyFile wsRefs (if comp.CompiledExtraBundles.Count > 0 then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions) (ExecutedReferences config.References aR.LoadedFiles) [] config.CanTranslateOnly
+            logger.TimedStage "Writing sidecar file"
             Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles
 
     match config.JSOutputPath, js with
@@ -379,6 +444,8 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
             cscArgs.Add a
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
+        | StartsWith "--cscrsp:" r ->
+            wsArgs := { !wsArgs with CompilerResponseFile = Some r }
         | _ -> 
             cscArgs.Add a
     wsArgs := 

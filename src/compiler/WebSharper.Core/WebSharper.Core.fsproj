@@ -13,8 +13,6 @@
     <Compile Include="Utilities.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="AssemblyConventions.fs" />
-    <Compile Include="Binary.fsi" />
-    <Compile Include="Binary.fs" />
     <Compile Include="ASTTypes.fs" />
     <Compile Include="AST.fs" />
     <None Include="genAST.fsx" />
@@ -22,6 +20,11 @@
     <Compile Include="ASTReflection.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Metadata.fs" />
+    <Compile Include="Serialization.fs" />
+    <Compile Include="Serialization.g.fs" Condition="'$(WebSharperSkipGeneratedSerializer)' != 'true'" />
+    <Compile Include="SerializationStub.fs" Condition="'$(WebSharperSkipGeneratedSerializer)' == 'true'" />
+    <Compile Include="MetadataIO.fs" />
+    <None Include="genSerializer.fsx" />
     <Compile Include="Resources.fsi" />
     <Compile Include="Resources.fs" />
     <Compile Include="Interfaces.fs" />

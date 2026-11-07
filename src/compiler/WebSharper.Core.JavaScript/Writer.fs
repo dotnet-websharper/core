@@ -930,6 +930,8 @@ type CodeWriter(?sourceMap: bool, ?isBundle: bool) =
                 lastNameIndex <- nameIndex
             | _ -> ()
 
+    member this.HasSourceMap = sourceMap
+
     member this.GetCodeFile() = string code
 
     override this.ToString() = string code
@@ -1049,10 +1051,22 @@ let WriteExpression options writer expression =
     Expression expression
     |> Render options writer
 
-let WriteProgram options writer (program: S.Program) =
-    for elem in program do
-        Statement true elem
-        |> Render options writer
+let WriteProgram options (writer: CodeWriter) (program: S.Program) =
+    match program with
+    | _ :: _ :: _ when not writer.HasSourceMap ->
+        // top-level statements render independently, source map positions would need to be written in order
+        program
+        |> Array.ofList
+        |> Array.Parallel.map (fun elem ->
+            let w = CodeWriter()
+            Statement true elem |> Render options w
+            w.GetCodeFile()
+        )
+        |> Array.iter (fun (s: string) -> writer.Write s)
+    | _ ->
+        for elem in program do
+            Statement true elem
+            |> Render options writer
 
 let ExpressionToString options expression =
     let w = CodeWriter()

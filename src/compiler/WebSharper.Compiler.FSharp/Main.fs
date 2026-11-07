@@ -41,6 +41,9 @@ type WebSharperFSharpCompiler(?checker) =
 
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
+
+    /// The cache of reading source files, set in the booster, see ReadCache.
+    member val ReadCache : ReadCache.Cache option = ReadCache.Cache.Shared with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
     /// Diagnostics of the last type check, when it had errors not printed by Compile, which returned None.
@@ -98,16 +101,69 @@ type WebSharperFSharpCompiler(?checker) =
             None
         else
 
-        let translate () =
+        let readCacheContext =
+            this.ReadCache |> Option.map (fun cache ->
+                let projectDir = config.ProjectDir
+                let fullPath (f: string) = Path.GetFullPath(Path.Combine(projectDir, f))
+                let settings =
+                    String.concat "|" [
+                        assemblyName
+                        config.ProjectFile
+                        string config.ProjectType
+                        string config.JavaScriptScope
+                        config.JavaScriptExport |> Seq.map string |> String.concat ","
+                        string config.StubInterfaces
+                        string config.RemotingProvider
+                        string config.ProxyTargetName
+                        string config.UseJavaScriptSymbol
+                        string config.SingleNoJSErrors
+                        string this.UseGraphs
+                        string config.ReferenceReadOptions
+                    ]
+                let projectKey = ReadCache.ProjectKey projectOptions.OtherOptions config.References settings
+                ReadCache.Context(cache, fullPath config.AssemblyFile, projectKey, projectOptions.SourceFiles |> Array.map fullPath)
+            )
+
+        let read (readCache: ReadCache.Context option) =
             let comp =
-                WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                WebSharper.Compiler.FSharp.ProjectReader.transformAssemblyWith
                     logger
                     (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
                     assemblyName
                     config
                     checkProjectResults
+                    readCache
 
             WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+            comp
+
+        // WebSharperReadCacheCheck: reads replayed files again, compares the translated results
+        let checkReadCache (comp: WebSharper.Compiler.Compilation) =
+            match readCacheContext with
+            | Some rc when rc.Cache.Check && rc.Hits > 0 ->
+                let fresh = read None
+                let describe (c: WebSharper.Compiler.Compilation) =
+                    let meta = WebSharper.Core.MetadataIO.ContentHash (c.ToCurrentMetadata(true))
+                    let errors = c.Errors |> List.map (sprintf "%A") |> String.concat "\n"
+                    let warnings = c.Warnings |> List.map (sprintf "%A") |> String.concat "\n"
+                    meta, errors, warnings
+                let (m1, e1, w1), (m2, e2, w2) = describe comp, describe fresh
+                if m1 = m2 && e1 = e2 && w1 = w2 then
+                    logger.Out (sprintf "WebSharper read cache check: %d replayed files give the same result" rc.Hits)
+                else
+                    let parts =
+                        [
+                            if m1 <> m2 then "metadata"
+                            if e1 <> e2 then "errors"
+                            if w1 <> w2 then "warnings"
+                        ]
+                    comp.AddWarning(None, WebSharper.Compiler.SourceWarning (sprintf "WebSharper read cache check: replaying %d files gives different %s than reading them" rc.Hits (String.concat ", " parts)))
+                logger.TimedStage "Checking read cache"
+            | _ -> ()
+
+        let translate () =
+            let comp = read readCacheContext
+            checkReadCache comp
 
             if this.UseVerifier then
                 comp.VerifyRPCs()

@@ -18,18 +18,17 @@
 //
 // $end{copyright}
 
-/// Compiles `Library` values to `Mono.Cecil` assemblies.
+/// Compiles `Library` values to assemblies.
 namespace WebSharper.InterfaceGenerator
 
 open System
 open System.Collections.Generic
 open System.IO
 open System.Reflection
+open System.Reflection.PortableExecutable
 open System.Text.RegularExpressions
 open System.Xml
 open System.Xml.Linq
-open Mono.Cecil
-open Mono.Cecil.Cil
 open WebSharper.Core
 
 module Code = WebSharper.InterfaceGenerator.CodeModel
@@ -38,8 +37,8 @@ module R = WebSharper.Core.Reflection
 module Ty = WebSharper.InterfaceGenerator.Type
 
 type T = Ty.Type
-type Comments = Dictionary<MemberReference,string>
-type Types = Dictionary<Ty.Id,TypeDefinition>
+type internal Comments = Dictionary<obj,string>
+type internal Types = Dictionary<Ty.Id,TypeDef>
 type GenericTypes = Dictionary<Ty.Id, int>
 
 [<Sealed>]
@@ -247,155 +246,50 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, referencePaths: string seq) =
-    let assemblies = Dictionary()
-    let main = out.MainModule
+type internal TypeBuilder(resolver: ReferenceResolver) =
     let resolvedTypes = Dictionary()
-    
-    let netstandard =
-        let netstandardPath = 
-            referencePaths
-            |> Seq.tryPick (fun p ->
-                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
-            )
-        match netstandardPath with
-        | Some p -> 
-            AssemblyDefinition.ReadAssembly p
-        | _ ->
-            failwith "WIG project requires netstandard.dll reference"
 
-    let corelib =
-        let corePath = Assembly.GetAssembly(typeof<obj>).Location
-        AssemblyDefinition.ReadAssembly corePath
-    
-    do
-        assemblies.["netstandard"] <- netstandard
-        assemblies.["System.Private.CoreLib"] <- corelib
-
-    let rec correctType (t: TypeReference) =
-        if AssemblyConventions.IsNetStandardType t.FullName then
-            t.Scope <- netstandard.Name
-        match t with
-        | :? GenericInstanceType as g ->
-            for a in g.GenericArguments do
-                correctType a
-        | :? ArrayType as a ->
-            correctType a.ElementType
-        | _ -> ()
-        ()
-
-    let rec correctMethod (m: MethodReference) =
-        correctType m.ReturnType
-        correctType m.DeclaringType
-        for p in m.Parameters do
-            correctParameter p
-        match m with 
-        | :? GenericInstanceMethod as g ->
-            for a in g.GenericArguments do
-                correctType a
-        | _ -> ()
-
-    and correctParameter (p: ParameterDefinition) =
-        correctType p.ParameterType
-        for a in p.CustomAttributes do
-            correctAttribute a
-
-    and correctAttribute (a: CustomAttribute) =
-        correctMethod a.Constructor
-        for a in a.ConstructorArguments do
-            correctAttributeArg a
-        for a in a.Properties do
-            correctAttributeNamedArg a
-        for a in a.Fields do
-            correctAttributeNamedArg a
-
-    and correctAttributeArg (a: CustomAttributeArgument) =
-        correctType a.Type
-
-    and correctAttributeNamedArg (a: CustomAttributeNamedArgument) =
-        correctAttributeArg a.Argument
-
-    let resolveAsm (asmName: string) =
-        match assemblies.TryGetValue(AssemblyName(asmName).Name) with
-        | true, x -> x
-        | false, _ ->
-            let asm = aR.Resolve(asmName)
-            assemblies.[asmName] <- asm
-            asm
-
-    let doResolveTypeName (asm: AssemblyDefinition) (origAsmName: string) (typeName: string) =
-        let ty = 
-            match asm.MainModule.GetType(typeName.Replace('+', '/')) with
-            | null -> 
-                let asmName = string asm.Name
-                let asmNameWithOrig =
-                    if asmName = origAsmName then
-                        asmName
-                    else
-                        origAsmName + " loaded as " + asmName
-                failwithf "Could not resolve type %s in %A" typeName asmNameWithOrig
-            | ty when asm.Name = out.Name ->
-                correctType ty
-                ty :> TypeReference
-            | ty -> 
-                correctType ty
-                main.ImportReference ty
-        resolvedTypes.[typeName] <- ty
-        ty
-
-    let resolveTypeName asm origAsmName typeName =
+    let resolveTypeName (asmName: string) (typeName: string) =
         match resolvedTypes.TryGetValue(typeName) with
         | true, x -> x
-        | false, _ -> doResolveTypeName asm origAsmName typeName
+        | false, _ ->
+            let ty = resolver.Type(asmName, typeName)
+            resolvedTypes.[typeName] <- ty
+            ty
 
     let resolveType (ty: System.Type) =
-        match resolvedTypes.TryGetValue(ty.FullName) with
-        | true, x -> x
-        | false, _ ->
-            let origAsmName = ty.Assembly.FullName
-            let asm = resolveAsm origAsmName
-            resolveTypeName asm origAsmName ty.FullName
+        resolveTypeName ty.Assembly.FullName ty.FullName
 
-    let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
+    let genericInstance (def: TypeRef) (args: seq<TypeRef>) =
         if Seq.isEmpty args then
             def
         else
-            let r = 
-                match def with
-                | :? GenericInstanceType as r ->
-                    r.GenericArguments.Clear()
-                    r
-                | _ -> GenericInstanceType(def)
-            for x in args do
-                r.GenericArguments.Add(x)
-            r :> TypeReference
+            match def with
+            | Instance (d, _) -> Instance (d, List.ofSeq args)
+            | d -> Instance (d, List.ofSeq args)
 
-    let wsCore =
-        let t = typeof<WebSharper.InlineAttribute>
-        resolveAsm t.Assembly.FullName
+    let wsCore = typeof<WebSharper.InlineAttribute>.Assembly.FullName
 
-    let commonType (assembly: AssemblyDefinition) origAsmName baseName ts =
+    let commonType origAsmName baseName ts =
         let name =
             match Seq.length ts with
             | 0 -> baseName
             | k -> baseName + "`" + string k
-        let tDef = resolveTypeName assembly origAsmName name
+        let tDef = resolveTypeName origAsmName name
         genericInstance tDef ts
 
-    let coreLibType baseName ts = commonType corelib "System.Private.CoreLib" baseName ts
-    let wsCoreType baseName ts = commonType wsCore "WebSharper.Core" baseName ts
+    let coreLibType baseName ts = commonType typeof<obj>.Assembly.FullName baseName ts
+    let wsCoreType baseName ts = commonType wsCore baseName ts
 
-    // First resolve FSharp.Core without explicit version,
+    // FSharp.Core is resolved without explicit version,
     // so that the resolver can pick up the version from the passed references.
-    let fsharpCore = resolveAsm "FSharp.Core"
-    let funcType = resolveTypeName fsharpCore "FSharp.Core" "Microsoft.FSharp.Core.FSharpFunc`2"
+    let funcType = resolveTypeName "FSharp.Core" "Microsoft.FSharp.Core.FSharpFunc`2"
     let attributeType = resolveType typeof<System.Attribute>
     let converterType = resolveType typedefof<System.Converter<_, _>>
     let objectType = resolveType typeof<obj>
     let stringType = resolveType typeof<string>
     let systemType = resolveType typeof<System.Type>
     let voidType = resolveType typeof<System.Void>
-    let webResource = resolveType typeof<WebSharper.WebResourceAttribute>
     let baseResourceType = resolveType typeof<WebSharper.Core.Resources.BaseResource>
     let paramArray = resolveType typeof<System.ParamArrayAttribute>
     let notImpl = resolveType typeof<System.NotImplementedException>
@@ -415,12 +309,6 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let optionType = resolveType typedefof<WebSharper.JavaScript.Optional<_>>
     let itemOrArrayType = resolveType typedefof<WebSharper.JavaScript.ItemOrArray<_>>
 
-    member b.CorrectType t = correctType t; t
-
-    member b.CorrectMethod m = correctMethod m; m
-
-    member b.CoreLib = corelib
-
     member b.Action ts =
         coreLibType "System.Action" ts
 
@@ -430,10 +318,10 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Function d r =
         genericInstance funcType [d; r]
 
-    member c.GenericInstanceType(def: TypeReference, args: seq<TypeReference>) =
+    member c.GenericInstanceType(def: TypeRef, args: seq<TypeRef>) =
         genericInstance def args
 
-    member b.Tuple(ts: seq<TypeReference>) =
+    member b.Tuple(ts: seq<TypeRef>) =
         let rec createTuple (ta: _[]) =
             if ta.Length < 8 then
                 coreLibType "System.Tuple" ta
@@ -441,7 +329,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
                 coreLibType "System.Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
         createTuple (Array.ofSeq ts)
 
-    member b.Choice(ts: seq<TypeReference>) =
+    member b.Choice(ts: seq<TypeRef>) =
         wsCoreType "WebSharper.JavaScript.Union" ts
 
     member b.ItemOrArray t =
@@ -451,9 +339,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
-        match resolveAsm assemblyName with
-        | null -> failwithf "Could not resolve assembly: %s" assemblyName
-        | asm -> resolveTypeName asm assemblyName fullName
+        resolveTypeName assemblyName fullName
 
     member b.Type(t: Type) =
         b.Type(t.Assembly.FullName, t.FullName)
@@ -508,15 +394,14 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
-    member b.WebResource = webResource
 
 [<Sealed>]
-type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericTypes, 
-                                genericsByPosition: GenericParameter [], genericsById: Type.Id -> GenericParameter) =
+type internal TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericTypes, 
+                                genericsByPosition: GenericParam [], genericsById: Type.Id -> GenericParam) =
 
     let byId id =
         match types.TryGetValue id with
-        | true, x -> x :> TypeReference
+        | true, x -> Local x
         | _ ->
             if id.Name = "" then tB.Object else
             failwithf "Type definition not included in assembly definition: %s" id.Name
@@ -532,24 +417,21 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
     member c.TypeReference(t: R.Type) =
         match t with
         | R.Type.Array (t, rank) ->
-            ArrayType(c.TypeReference t, rank) :> TypeReference
+            ArrayOf(c.TypeReference t, rank)
         | R.Type.Concrete (def, args) ->
             if not args.IsEmpty then
-                let r = GenericInstanceType(c.TypeReference def)
-                for a in args do
-                    r.GenericArguments.Add(c.TypeReference a)
-                r :> TypeReference
+                Instance(c.TypeReference def, args |> List.map c.TypeReference)
             else
                 c.TypeReference def
         | R.Type.Generic pos ->
-            genericsByPosition.[pos] :> _
+            Param genericsByPosition.[pos]
 
     member private c.TypeReference(t: T, defT: Code.TypeDeclaration, allowGeneric: bool, isCSharp: bool) =
         let tRef x = c.TypeReference(x, defT, false, isCSharp)
         let tres =
             match t with
             | Type.ArrayType (rank, t) ->
-                ArrayType(tRef t, rank) :> TypeReference
+                ArrayOf(tRef t, rank)
             | Type.DeclaredType id ->
                 byId id
             | Type.FunctionType f ->
@@ -590,7 +472,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
             | Type.FSFunctionType (a, r) ->
                 tB.Function (tRef a) (tRef r)
             | Type.GenericType i ->
-                genericsById i :> _
+                Param (genericsById i)
             | Type.SpecializedType (Type.DeclaredType id, xs) 
             | Type.SpecializedType (Type.InteropType(Type.DeclaredType id, _), xs)
             | Type.SpecializedType (Type.NoInteropType(Type.DeclaredType id), xs) ->
@@ -606,10 +488,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 tB.GenericInstanceType(t, args)
             | Type.SpecializedType (x, xs) ->
                 let t = c.TypeReference(x, defT, true, isCSharp)
-                let gen = 
-                    match t with
-                    | :? GenericInstanceType as t -> t.GenericArguments.Count
-                    | _ -> t.GenericParameters.Count
+                let gen = t.GenericParameterCount
                 if gen <> xs.Length then
                     failwithf "Wrong number of generic parameters applied on %s in member of %s: %d instead of %d"
                         t.FullName defT.Name xs.Length gen
@@ -638,7 +517,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
                 if genTypes.ContainsKey id then
                     failwithf "Generic parameters not applied on %s in member of %s" tres.FullName defT.Name       
             | _ ->
-                if tres.HasGenericParameters && not (tres :? GenericInstanceType) then
+                if tres.HasGenericParameters then
                     failwithf "Generic parameters not applied on %s in member of %s" tres.FullName defT.Name       
         tres
 
@@ -648,7 +527,7 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
     member c.TypeReference(t: T, defT: Code.TypeDeclaration, isCSharp) =
         c.TypeReference(t, defT, false, isCSharp)
 
-    member c.WithGenerics(gs: seq<GenericParameter>, byId: Type.Id -> GenericParameter option) =
+    member c.WithGenerics(gs: seq<GenericParam>, byId: Type.Id -> GenericParam option) =
         let gbi i =
             match byId i with
             | Some p -> p
@@ -656,74 +535,45 @@ type TypeConverter private (tB: TypeBuilder, types: Types, genTypes: GenericType
         TypeConverter(tB, types, genTypes, Array.append genericsByPosition (Seq.toArray gs), gbi)
 
 [<Sealed>]
-type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
+type internal MemberBuilder(tB: TypeBuilder) =
 
-    let findConstructor (t: TypeReference) (isMatch: MethodDefinition -> bool) =
-        t.Resolve().Methods
-        |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
-        |> function
-            | Some x ->
-                tB.CorrectMethod x
-                |> def.MainModule.ImportReference
-            | None -> failwithf "Could not find a constructor in %s" t.FullName
+    let ctor t pars =
+        { DeclaringType = t; Name = ".ctor"; HasThis = true; ReturnType = tB.Void; Parameters = pars }
 
-    let findConstructorByArity t n =
-        findConstructor t (fun m -> m.Parameters.Count = n)
+    let paramArrayConstructor = ctor tB.ParamArray []
+    let notImplementedConstructor = ctor tB.NotImplemented []
+    let baseResourceCtor1 = ctor tB.BaseResource [tB.String]
+    let baseResourceCtorN = ctor tB.BaseResource [tB.String; tB.String; ArrayOf(tB.String, 1)]
+    let nameAttributeConstructor = ctor tB.Name [tB.String]
+    let inlineAttributeConstructor = ctor tB.Inline [tB.String]
+    let macroAttributeConstructor = ctor tB.Macro [tB.SystemType]
+    let requireAttributeConstructor = ctor tB.Require [tB.SystemType]
+    let obsoleteAttributeConstructor = ctor tB.Obsolete []
+    let obsoleteAttributeWithMsgConstructor = ctor tB.Obsolete [tB.String]
+    let pureAttributeConstructor = ctor tB.Pure []
+    let warnAttributeConstructor = ctor tB.Warn [tB.String]
+    let typeAttributeConstructor = ctor tB.TypeAttr [tB.String]
+    let importAttributeConstructorDefault = ctor tB.Import [tB.String]
+    let importAttributeConstructor = ctor tB.Import [tB.String; tB.String]
 
-    let findDefaultConstructor t =
-        findConstructorByArity t 0
+    member c.Constructor(t: TypeRef, pars: TypeRef list) = ctor t pars
 
-    let findTypedConstructor t names =
-        findConstructor t (fun m ->
-            m.Parameters.Count = List.length names
-            && (m.Parameters, names) ||> Seq.forall2 (fun p n -> p.ParameterType.Name = n))
-
-    let webResourceConstructor = findTypedConstructor tB.WebResource [tB.String.Name; tB.String.Name]
-
-    let paramArrayConstructor = findDefaultConstructor tB.ParamArray
-    let notImplementedConstructor = findDefaultConstructor tB.NotImplemented
-    let baseResourceCtor1 = findTypedConstructor tB.BaseResource [tB.String.Name]
-    let baseResourceCtorN = findConstructorByArity tB.BaseResource 3
-    let nameAttributeConstructor = findTypedConstructor tB.Name [tB.String.Name]
-    let inlineAttributeConstructor = findTypedConstructor tB.Inline [tB.String.Name]
-    let macroAttributeConstructor = findTypedConstructor tB.Macro [tB.SystemType.Name]
-    let requireAttributeConstructor = findTypedConstructor tB.Require [tB.SystemType.Name]
-    let obsoleteAttributeConstructor = findDefaultConstructor tB.Obsolete 
-    let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
-    let pureAttributeConstructor = findDefaultConstructor tB.Pure 
-    let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
-    let typeAttributeConstructor = findTypedConstructor tB.TypeAttr [tB.String.Name]
-    let importAttributeConstructorDefault = findTypedConstructor tB.Import [tB.String.Name]
-    let importAttributeConstructor = findTypedConstructor tB.Import [tB.String.Name; tB.String.Name]
-
-    member c.AddBody(m: MethodDefinition) =
-        let body = MethodBody(m)
-        Instruction.Create(OpCodes.Newobj, notImplementedConstructor)
-        |> body.Instructions.Add
-        Instruction.Create(OpCodes.Throw)
-        |> body.Instructions.Add
-        m.Body <- body
+    member c.AddBody(m: MethodDef) =
+        m.Body <- Some (ThrowNew notImplementedConstructor)
 
     member c.BuildConstructor(?attrs) =
         let attrs =
             defaultArg attrs MethodAttributes.Public
             ||| MethodAttributes.SpecialName
             ||| MethodAttributes.RTSpecialName
-        let r = MethodDefinition(".ctor", attrs, tB.Void)
+        let r = MethodDef(".ctor", attrs, tB.Void)
         c.AddBody(r)
         r
 
-    member c.BuildParamArrayParameter(t: TypeReference) =
-        let t = ArrayType(t)
-        let p = ParameterDefinition("ps", ParameterAttributes.None, t)
-        p.CustomAttributes.Add(CustomAttribute paramArrayConstructor)
+    member c.BuildParamArrayParameter(t: TypeRef) =
+        let p = ParamDef("ps", ArrayOf(t, 1))
+        p.CustomAttributes.Add { Constructor = paramArrayConstructor; Arguments = [] }
         p
-
-    member c.BuildWebResourceAttribute(a: string, b: string) =
-        let attr = CustomAttribute(webResourceConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, a))
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, b))
-        attr
 
     member c.BaseResourceConstructor1 = baseResourceCtor1
     member c.BaseResourceConstructorN = baseResourceCtorN
@@ -740,15 +590,6 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.ImportAttributeConstructor = importAttributeConstructor
 
 
-type CompilationKind =
-    | LibraryKind
-    | ConsoleKind
-    | WindowsKind
-
-    static member Library = LibraryKind
-    static member Console = ConsoleKind
-    static member Windows = WindowsKind
-
 type CompilerOptions =
     {
         AssemblyName : string
@@ -756,9 +597,7 @@ type CompilerOptions =
         AssemblyVersion : Version
         DocPath : option<string>
         EmbeddedResources : seq<string>
-        Kind : CompilationKind
         OutputPath : option<string>
-        ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
     }
@@ -770,9 +609,7 @@ type CompilerOptions =
             AssemblyVersion = Version(0, 0)
             DocPath = None
             EmbeddedResources = Seq.empty
-            Kind = LibraryKind
             OutputPath = None
-            ProjectDir = "."
             ReferencePaths = Seq.empty
             StrongNameKeyPath = None
         }
@@ -798,96 +635,64 @@ type CompilerOptions =
             | S "-r:" ref ->
                 let rps = Seq.toArray (Seq.append opts.ReferencePaths [ref])
                 { opts with ReferencePaths = rps :> seq<_> }
-            | "-console" ->
-                { opts with Kind = CompilationKind.Console }
-            | "-library" ->
-                { opts with Kind = CompilationKind.Library }
-            | "-windows" ->
-                { opts with Kind = CompilationKind.Windows }
             | _ ->
                 opts)
 
 [<Sealed>]
-type MemberConverter
+type internal MemberConverter
         (
             tB: TypeBuilder,
             mB: MemberBuilder,
             tC: TypeConverter,
             types: Types,
             iG: InlineGenerator,
-            def: AssemblyDefinition,
+            asmAttrs: List<CustomAttr>,
             comments: Comments,
             compilerOptions: CompilerOptions,
             genParamNames: string list
         ) =
 
-    let nameAttribute (code: string) =
-        let attr = CustomAttribute(mB.NameAttributeConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, code))
-        attr
+    let attr ctor args = { Constructor = ctor; Arguments = args }
 
-    let inlineAttribute (code: string) =
-        let attr = CustomAttribute(mB.InlineAttributeConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, code))
-        attr
+    let nameAttribute (code: string) = attr mB.NameAttributeConstructor [AString code]
 
-    let macroAttribute (macroType: TypeReference) =
-        let attr = CustomAttribute(mB.MacroAttributeConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.SystemType, macroType))
-        attr
+    let inlineAttribute (code: string) = attr mB.InlineAttributeConstructor [AString code]
 
-    let requireAttribute (resourceType: TypeReference) =
-        let attr = CustomAttribute(mB.RequireAttributeConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.SystemType, resourceType))
-        attr
+    let macroAttribute (macroType: TypeRef) = attr mB.MacroAttributeConstructor [AType macroType]
 
-    let obsoleteAttribute = CustomAttribute(mB.ObsoleteAttributeConstructor)
-    let obseleteAttributeWithMsg (msg: string) =
-        let ca = CustomAttribute(mB.ObsoleteAttributeWithMsgConstructor)
-        ca.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box msg))
-        ca
-    let setObsoleteAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let requireAttribute (resourceType: TypeRef) = attr mB.RequireAttributeConstructor [AType resourceType]
+
+    let obsoleteAttribute = attr mB.ObsoleteAttributeConstructor []
+    let obseleteAttributeWithMsg (msg: string) = attr mB.ObsoleteAttributeWithMsgConstructor [AString msg]
+    let setObsoleteAttribute (x: CodeModel.Entity) (attrs: List<CustomAttr>) =
         match x.ObsoleteStatus with
         | CodeModel.NotObsolete -> ()
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
 
-    let typeAttribute (t: string) =
-        let ca = CustomAttribute(mB.TypeAttributeConstructor)
-        ca.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box t))
-        ca
-    let setTSAttribute (x: CodeModel.TypeDeclaration) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let typeAttribute (t: string) = attr mB.TypeAttributeConstructor [AString t]
+    let setTSAttribute (x: CodeModel.TypeDeclaration) (attrs: List<CustomAttr>) =
         match x.TSType with
         | None -> ()
         | Some t -> attrs.Add (typeAttribute t)
 
     let importAttribute (n: option<string>) (f: string) =
         match n with
-        | None ->
-            let attr = CustomAttribute(mB.ImportAttributeConstructorDefault)
-            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
-            attr
-        | Some n ->
-            let attr = CustomAttribute(mB.ImportAttributeConstructor)
-            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box n))
-            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
-            attr
-    let setImportAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        | None -> attr mB.ImportAttributeConstructorDefault [AString f]
+        | Some n -> attr mB.ImportAttributeConstructor [AString n; AString f]
+    let setImportAttribute (x: CodeModel.Entity) (attrs: List<CustomAttr>) =
         match x.Import with
         | None -> ()
         | Some (n, f) -> attrs.Add (importAttribute n f)
 
-    let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
+    let pureAttribute = attr mB.PureAttributeConstructor []
 
-    let setPureAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let setPureAttribute (x: CodeModel.MethodBase) (attrs: List<CustomAttr>) =
         if x.IsPure then attrs.Add pureAttribute
 
-    let warnAttribute warning = 
-        let attr = CustomAttribute(mB.WarnAttributeConstructor)
-        attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, warning))
-        attr 
+    let warnAttribute warning = attr mB.WarnAttributeConstructor [AString warning]
 
-    let setWarnAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let setWarnAttribute (x: CodeModel.Entity) (attrs: List<CustomAttr>) =
         match x.Warning with
         | Some warning -> attrs.Add (warnAttribute warning)
         | _ -> ()
@@ -895,7 +700,7 @@ type MemberConverter
     let makeParameters (f: Type.Function, defT, isCSharp) =
         Seq.ofArray [|
             for (n, t) in f.Parameters do
-                yield ParameterDefinition(n, ParameterAttributes.None, tC.TypeReference (t, defT, isCSharp))
+                yield ParamDef(n, tC.TypeReference (t, defT, isCSharp))
             match f.ParamArray with
             | None -> ()
             | Some pa ->
@@ -911,7 +716,7 @@ type MemberConverter
     let abstractMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
     let virtualMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
 
-    let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
+    let methodAttributes (dt: TypeDef) (x: Code.Entity) =
         if dt.IsInterface then 
             interfaceMethodAttributes 
         else
@@ -930,18 +735,18 @@ type MemberConverter
             | :? Code.Property as p when p.IsOverride -> overrideMethodAttributes
             | _ -> instanceMethodAttributes
 
-    let addDependencies (ent: Code.IResourceDependable) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let addDependencies (ent: Code.IResourceDependable) (attrs: List<CustomAttr>) =
         for d in ent.GetRequires() do
             match d with
             | Code.LocalDependency d ->
                 match types.TryGetValue(d) with
-                | true, t -> attrs.Add(requireAttribute t)
+                | true, t -> attrs.Add(requireAttribute (Local t))
                 | _ -> ()
             | Code.ExternalDependency ty ->
                 let t = tC.TypeReference (ty, Unchecked.defaultof<_>)
                 attrs.Add(requireAttribute t)
 
-    let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
+    let addConstructor (dT: TypeDef) (td: Code.TypeDeclaration) (x: Code.Constructor) =
         let overloads =
             x.Type
             |> Type.GetOverloads
@@ -978,7 +783,7 @@ type MemberConverter
                     | Some c -> comments.[cD] <- c
             | _ -> ()
 
-    let addProperty (dT: TypeDefinition) (td: Code.TypeDeclaration) name (p: Code.Property) =
+    let addProperty (dT: TypeDef) (td: Code.TypeDeclaration) name (p: Code.Property) =
         let t =
             match p.GetterInline, p.SetterInline with
             | Some (Code.BasicInline _), _
@@ -986,8 +791,7 @@ type MemberConverter
             | _ -> Type.TransformOption true (Type.Normalize p.Type)
         let ty = tC.TypeReference (t, td)
         //let name = iG.GetPropertySourceName p
-        let attrs = PropertyAttributes.None
-        let pD = PropertyDefinition(name, attrs, ty)
+        let pD = PropertyDef(name, ty)
         do
             match p.Comment with
             | None -> ()
@@ -995,8 +799,7 @@ type MemberConverter
         let isInterface = dT.IsInterface
         let isMixin = isInterface && not (p.GetterInline.IsSome || p.SetterInline.IsSome)
         if p.HasGetter then
-            let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
-            mD.IsGetter <- true
+            let mD = MethodDef("get_" + name, methodAttributes dT p, ty)
             if not isMixin then
                 if not isInterface then
                     mB.AddBody mD
@@ -1006,12 +809,11 @@ type MemberConverter
             match p.IndexerType with
             | None -> ()
             | Some it ->
-                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference (it, td)))         
+                mD.Parameters.Add(ParamDef("index", tC.TypeReference (it, td)))         
             dT.Methods.Add mD
             pD.GetMethod <- mD
         if p.HasSetter then
-            let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
-            mD.IsSetter <- true
+            let mD = MethodDef("set_" + name, methodAttributes dT p, tB.Void)
             if not isMixin then
                 if not isInterface then
                     mB.AddBody mD
@@ -1021,8 +823,8 @@ type MemberConverter
             match p.IndexerType with
             | None -> ()
             | Some it ->
-                mD.Parameters.Add(ParameterDefinition("index", ParameterAttributes.None, tC.TypeReference (it, td)))         
-            mD.Parameters.Add(ParameterDefinition("value", ParameterAttributes.None, ty))
+                mD.Parameters.Add(ParamDef("index", tC.TypeReference (it, td)))         
+            mD.Parameters.Add(ParamDef("value", ty))
             dT.Methods.Add mD
             pD.SetMethod <- mD
         if isMixin then
@@ -1035,7 +837,7 @@ type MemberConverter
         setWarnAttribute p pD.CustomAttributes
         dT.Properties.Add pD
 
-    let withGenerics (generics: Code.TypeParameter list, td: Code.TypeDeclaration, owner) =
+    let withGenerics (generics: Code.TypeParameter list, td: Code.TypeDeclaration, addGenericParameter: string -> GenericParam) =
         let namesTaken = HashSet(genParamNames) 
         let fmt (x: string) (n: int) =
             if n = 0 then x else
@@ -1050,15 +852,14 @@ type MemberConverter
                 for g in generics ->
                     let n = pick g.Name 0
                     namesTaken.Add n |> ignore
-                    let gP = GenericParameter(n, owner)
+                    let gP = addGenericParameter n
                     for c in g.Constraints do
-                        gP.Constraints.Add(GenericParameterConstraint(tC.TypeReference (c, td)))
-                    owner.GenericParameters.Add(gP)
+                        gP.Constraints.Add(tC.TypeReference (c, td))
                     g.Id, gP
             ]        
         let byId i =
             gs |> List.tryPick (fun (id, p) -> if i = id then Some p else None)    
-        MemberConverter(tB, mB, tC.WithGenerics (gs |> Seq.map snd, byId), types, iG, def, comments, 
+        MemberConverter(tB, mB, tC.WithGenerics (gs |> Seq.map snd, byId), types, iG, asmAttrs, comments, 
             compilerOptions, List.ofSeq namesTaken)
 
     let genericType (x: Code.TypeDeclaration) k =
@@ -1066,11 +867,11 @@ type MemberConverter
         | true, tD ->
             if x.Generics.Length > 0 then
                 tD.Name <- tD.Name + "`" + string x.Generics.Length
-            k (withGenerics (x.Generics, x, tD)) tD
+            k (withGenerics (x.Generics, x, tD.AddGenericParameter)) tD
             setWarnAttribute x tD.CustomAttributes
         | _ -> ()
 
-    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method) =
+    member private c.AddMethod(dT: TypeDef, td: Code.TypeDeclaration, x: Code.Method) =
         let overloads =
             x.Type
             |> Type.GetOverloads
@@ -1084,16 +885,16 @@ type MemberConverter
             | Type.FunctionType f ->
                 let name = iG.GetSourceName x
                 let attrs = methodAttributes dT x
-                let mD = MethodDefinition(name, attrs, tB.Object)
+                let mD = MethodDef(name, attrs, tB.Object)
                 do
                     match x.Comment with
                     | None -> ()
                     | Some c -> comments.[mD] <- c
-                let c = withGenerics (x.Generics, td, mD)
+                let c = withGenerics (x.Generics, td, mD.AddGenericParameter)
                 c.AddMethod(dT, td, x, mD, t, f, isCSharp)
             | _ -> ()
 
-    member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDefinition, t: Type.Type, f: Type.Function, isCSharp: bool) =
+    member private c.AddMethod(dT: TypeDef, td: Code.TypeDeclaration, x: Code.Method, mD: MethodDef, t: Type.Type, f: Type.Function, isCSharp: bool) =
         mD.ReturnType <-
             match f.ReturnType with
             | Type.Unit -> tB.Void
@@ -1136,7 +937,7 @@ type MemberConverter
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>
-            (x: 'T, tD: TypeDefinition) =
+            (x: 'T, tD: TypeDef) =
         for m in x.Methods do
             c.AddMethod(tD, x, m)
         let propNames = HashSet()
@@ -1147,27 +948,27 @@ type MemberConverter
         addDependencies x tD.CustomAttributes
         setWarnAttribute x tD.CustomAttributes
     
-    member d.AddDependencies(ent: Code.IResourceDependable, prov: ICustomAttributeProvider) =
-        addDependencies ent prov.CustomAttributes
+    member d.AddDependencies(ent: Code.IResourceDependable, attrs: List<CustomAttr>) =
+        addDependencies ent attrs
 
     member c.Class(x: Code.Class) =
         genericType x (fun c tD -> c.Class(x, tD))
 
-    member private c.Class(x: Code.Class, tD: TypeDefinition) =
+    member private c.Class(x: Code.Class, tD: TypeDef) =
         if x.IsAbstract then
-            tD.IsAbstract <- true
+            tD.Attributes <- tD.Attributes ||| TypeAttributes.Abstract
         do
             match x.BaseClass with
-            | None -> tD.BaseType <- tB.Object
-            | Some t -> tD.BaseType <- tC.TypeReference (t, x)
+            | None -> tD.BaseType <- Some tB.Object
+            | Some t -> tD.BaseType <- Some (tC.TypeReference (t, x))
         do
             match x.Comment with
             | None -> ()
             | Some c -> comments.[tD] <- c
         for i in x.ImplementedInterfaces do
             let tr = tC.TypeReference (i, x)
-            if tr.Resolve().IsInterface then
-                tD.Interfaces.Add(InterfaceImplementation(tr))
+            if tr.IsInterface then
+                tD.Interfaces.Add tr
             else
                 failwithf "Class %s is trying to implement a non-interface type: %s" x.Name tr.FullName
         for ctor in x.Constructors do
@@ -1181,11 +982,11 @@ type MemberConverter
     member c.Interface(x: Code.Interface) =
         genericType x (fun c tD -> c.Interface(x, tD))
 
-    member private c.Interface(x: Code.Interface, tD: TypeDefinition) =
+    member private c.Interface(x: Code.Interface, tD: TypeDef) =
         for i in x.BaseInterfaces do
             let tr = tC.TypeReference (i, x)
-            if tr.Resolve().IsInterface then
-                tD.Interfaces.Add(InterfaceImplementation(tr))
+            if tr.IsInterface then
+                tD.Interfaces.Add tr
             else
                 failwithf "Interface %s is trying to inherit a non-interface type: %s" x.Name tr.FullName
         setObsoleteAttribute x tD.CustomAttributes
@@ -1200,58 +1001,27 @@ type MemberConverter
     member c.Resource(r: Code.Resource) =
         match types.TryGetValue(r.Id) with
         | true, tD ->
-            /// recognize embedded resources here.
-            do
-                match r.Paths with
-                | [p] when
-                    compilerOptions.EmbeddedResources
-                    |> Seq.exists ((=) p) ->
-                        let f = Path.Combine(compilerOptions.ProjectDir, r.Name)
-                        if File.Exists(f) then
-                            EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
-                            |> def.MainModule.Resources.Add
-                | _ -> ()
             addDependencies r tD.CustomAttributes
             if r.IsAssemblyWide then
-                def.CustomAttributes.Add(requireAttribute tD)
+                asmAttrs.Add(requireAttribute (Local tD))
             match r.Paths with
             | [] -> ()
             | [p] ->
-                tD.BaseType <- tB.BaseResource
+                tD.BaseType <- Some tB.BaseResource
                 let ctor = mB.BuildConstructor()
-                let body = MethodBody(ctor)
-                let add (i: Instruction) = body.Instructions.Add i
-                Instruction.Create(OpCodes.Ldarg_0) |> add
-                Instruction.Create(OpCodes.Ldstr, p) |> add
-                Instruction.Create(OpCodes.Callvirt, mB.BaseResourceConstructor1) |> add
-                Instruction.Create(OpCodes.Ret) |> add
-                ctor.Body <- body
+                ctor.Body <- Some (CallBaseConstructor(mB.BaseResourceConstructor1, [p], None))
                 tD.Methods.Add ctor
             | a :: b :: rest ->
-                tD.BaseType <- tB.BaseResource
+                tD.BaseType <- Some tB.BaseResource
                 let ctor = mB.BuildConstructor()
-                let body = MethodBody(ctor)
-                let add (i: Instruction) = body.Instructions.Add i
-                Instruction.Create(OpCodes.Ldarg_0) |> add
-                Instruction.Create(OpCodes.Ldstr, a) |> add
-                Instruction.Create(OpCodes.Ldstr, b) |> add
-                Instruction.Create(OpCodes.Ldc_I4, List.length rest) |> add
-                Instruction.Create(OpCodes.Newarr, tB.String) |> add
-                rest
-                |> List.iteri (fun i arg ->
-                    Instruction.Create(OpCodes.Ldc_I4, i) |> add
-                    Instruction.Create(OpCodes.Ldstr, arg) |> add
-                    Instruction.Create(OpCodes.Stelem_Ref, tB.String) |> add)
-                Instruction.Create(OpCodes.Callvirt, mB.BaseResourceConstructorN) |> add
-                Instruction.Create(OpCodes.Ret) |> add
-                ctor.Body <- body
+                ctor.Body <- Some (CallBaseConstructor(mB.BaseResourceConstructorN, [a; b], Some (tB.String, rest)))
                 tD.Methods.Add ctor
         | _ -> ()
 
 [<Sealed>]
-type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
+type internal XmlDocGenerator(assemblyName: string, types: seq<TypeDef>, comments: Comments) =
 
-    let getComment (m: MemberReference) =
+    let getComment (m: obj) =
         match comments.TryGetValue m with
         | true, c -> Some c
         | _ -> None
@@ -1268,41 +1038,39 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
     let t (text: string) =
         XText(text)
 
-    let rec typeRefId (t: TypeReference) : string =
-        let fullName (t: TypeReference) =
-            t.FullName.Replace("/", ".")
-        if t.IsArray then
-            let t = t :?> ArrayType
-            match t.Rank with
-            | 0 | 1 -> typeRefId t.ElementType + "[]"
-            | k -> sprintf "%s, [%s]" (typeRefId t.ElementType) (String.replicate (k - 1) ",")
-        elif t.IsGenericInstance then
-            let t = t :?> GenericInstanceType
-            let untaggedName = t.FullName.[.. (fullName t).IndexOf '`' - 1]
+    let rec typeRefId (t: TypeRef) : string =
+        let fullName (t: TypeRef) =
+            t.FullName.Replace("+", ".")
+        match t with
+        | ArrayOf (el, rank) ->
+            match rank with
+            | 0 | 1 -> typeRefId el + "[]"
+            | k -> sprintf "%s, [%s]" (typeRefId el) (String.replicate (k - 1) ",")
+        | Instance (d, args) ->
+            let name = fullName d
+            let untaggedName = name.[.. name.IndexOf '`' - 1]
             let pars =
-                t.GenericArguments
+                args
                 |> Seq.map typeRefId
                 |> String.concat ","
             sprintf "%s{%s}" untaggedName pars
-        elif t.IsGenericParameter then
-            let t = t :?> GenericParameter
-            match t.DeclaringMethod with
-            | null -> "`" + string t.Position
-            | _ -> "``" + string t.Position
-        else
+        | Param g ->
+            if g.IsMethodParameter then "``" + string g.Position
+            else "`" + string g.Position
+        | _ ->
             fullName t
 
-    let propertyId (p: PropertyDefinition) =
-        sprintf "P:%s.%s" (typeRefId p.DeclaringType) p.Name
+    let propertyId (dT: TypeDef) (p: PropertyDef) =
+        sprintf "P:%s.%s" (typeRefId (Local dT)) p.Name
 
-    let methodId (m: MethodDefinition) =
+    let methodId (dT: TypeDef) (m: MethodDef) =
         let name =
             match m.Name with
             | ".ctor" -> "#ctor"
             | ".cctor" -> "#cctor"
             | n -> n
-        let gen = if m.HasGenericParameters then "``" + string m.GenericParameters.Count else ""
-        sprintf "M:%s.%s%s%s" (typeRefId m.DeclaringType) name gen
+        let gen = if m.GenericParameters.Count > 0 then "``" + string m.GenericParameters.Count else ""
+        sprintf "M:%s.%s%s%s" (typeRefId (Local dT)) name gen
             (if m.Parameters.Count = 0 then "" else
                 seq {
                     for p in m.Parameters ->
@@ -1319,35 +1087,24 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
             | None -> ()
         }
 
-    let visitMethod m =
-        visitMember (methodId m) (getComment m)
-
-    let visitProperty p =
-        visitMember (propertyId p) (getComment p)
-
-    let rec visitType (t: TypeDefinition) =
+    let rec visitType (dT: TypeDef) =
         seq {
-            yield! visitMember ("T:" + typeRefId t) (getComment t)
-            for m in t.Methods do
-                yield! visitMethod m
-            for p in t.Properties do
-                yield! visitProperty p
-        }
-
-    let visitMembers () =
-        seq {
-            for t in assembly.MainModule.GetTypes() do
-                yield! visitType t
+            yield! visitMember ("T:" + typeRefId (Local dT)) (getComment dT)
+            for m in dT.Methods do
+                yield! visitMember (methodId dT m) (getComment m)
+            for p in dT.Properties do
+                yield! visitMember (propertyId dT p) (getComment p)
         }
 
     let generate (fileName: string) =
         let doc = XDocument()
         e "doc" [] [
             yield e "assembly" [] [
-                e "name" [] [t assembly.Name.Name]
+                e "name" [] [t assemblyName]
             ] :> XNode
-            for m in visitMembers () do
-                yield m :> XNode
+            for dT in types do
+                for m in visitType dT do
+                    yield m :> XNode
         ]
         |> doc.Add
         doc.Save fileName
@@ -1356,37 +1113,54 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         generate fileName
 
 [<Sealed>]
-type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder) =
+type CompiledAssembly internal (def: AssemblyDef, doc: XmlDocGenerator, tB: TypeBuilder,
+                                prototypes: IDictionary<string, string>, mB: MemberBuilder, logger: WebSharper.Compiler.LoggerBase) =
 
-    let writerParams =
-        match options.StrongNameKeyPath with
-        | None -> WriterParameters()
-        | Some p ->
-            WriterParameters(StrongNameKeyBlob = File.ReadAllBytes p)
+    let webResources = List<string * string * byte[]>()
 
     member a.GetBytes() =
-        use out = new MemoryStream()
-        a.Write(out)
-        out.ToArray()
+        AssemblyWriter.Write def
 
+    /// WebSharper metadata of the assembly image: read from the image, with the hashes
+    /// of its web resources.
+    member a.GetWebSharperMetadata(image: WebSharper.Compiler.PEMetadata.PEAssembly) =
+        let meta = WebSharper.Compiler.Reflector.TransformAssembly prototypes image
+        let bytes = WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta image (webResources.ToArray())
+        logger.TimedStage "Creating WebSharper metadata"
+        bytes
+
+    /// Adds web resources, written to the sidecar file. The first one with a name is kept.
+    member a.AddWebResources(resources: seq<string * string * byte[]>) =
+        for (file, _, _) as r in resources do
+            if not (webResources.Exists(fun (n, _, _) -> n = file)) then
+                webResources.Add r
+
+    /// Writes the assembly and its sidecar file with the WebSharper metadata and web resources.
     member a.Save(path: string) =
-        let mm = def.MainModule
         let d = Path.GetDirectoryName path
         let dir = DirectoryInfo d
         if not dir.Exists then
             dir.Create()
-        use out = File.Open(path, FileMode.Create)
-        a.Write(out)
+        let bytes = a.GetBytes()
+        logger.TimedStage "Writing assembly"
+        File.WriteAllBytes(path, bytes)
+        let image = WebSharper.Compiler.PEMetadata.PEAssembly.Read bytes
+        let meta = a.GetWebSharperMetadata image
+        WebSharper.Compiler.FrontEnd.WriteSidecar path image.ModuleId [
+            yield WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA, meta
+            yield! WebSharper.Compiler.FrontEnd.WebResourceSidecarEntries (webResources.ToArray())
+        ]
 
     member a.Write(out: Stream) =
-        def.Write(out, writerParams)
+        let bytes = a.GetBytes()
+        out.Write(bytes, 0, bytes.Length)
 
     member a.FileName =
-        def.Name.Name + ".dll"
+        def.Name + ".dll"
 
-    member a.Assembly = WebSharper.Compiler.Assembly.Create(def)
-
-    member a.SetAssemblyAttributes(orig: Assembly) =
+    /// Copies the assembly attributes describing the assembly (title, versions, metadata...)
+    /// with string arguments from the interface generator assembly.
+    member internal a.SetAssemblyAttributes(orig: Assembly) =
         let attrTypes =
             HashSet [|
                 typeof<System.Reflection.AssemblyCompanyAttribute>
@@ -1395,52 +1169,33 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyTitleAttribute>
                 typeof<System.Reflection.AssemblyFileVersionAttribute>
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
+                typeof<System.Reflection.AssemblyMetadataAttribute>
                 typeof<System.Runtime.Versioning.TargetFrameworkAttribute>
             |]
-        let getSystemTypeDef (t: Type) =
-            tB.CoreLib.MainModule.GetType(t.FullName)
-            |> tB.CorrectType
-            |> def.MainModule.ImportReference
-        let stringTypeDef =
-            getSystemTypeDef typeof<string>
-        let findStringCtor (ty: TypeReference) =
-            ty.Resolve().Methods
-            |> Seq.find (fun m ->
-                m.IsConstructor
-                && m.HasParameters
-                && m.Parameters.Count = 1
-                && m.Parameters.[0].ParameterType.FullName = stringTypeDef.FullName)
-            |> tB.CorrectMethod
-            |> def.MainModule.ImportReference
-        let setAttr (t: Type) (v: string) =
-            let ty = getSystemTypeDef t
-            let ctor = findStringCtor ty
-            let attr = CustomAttribute(ctor)
-            attr.ConstructorArguments.Add(CustomAttributeArgument(stringTypeDef, v))
-            def.CustomAttributes.Add(attr)
         for data in orig.GetCustomAttributesData() do
             let attrType = data.Constructor.DeclaringType
             if attrTypes.Contains attrType then
-                match Seq.toList data.ConstructorArguments with
-                | [x] when x.ArgumentType = typeof<string> ->
-                    match x.Value with
-                    | :? string as s ->
-                        setAttr attrType s
-                    | _ -> ()
-                | _ -> ()
+                let args = Seq.toList data.ConstructorArguments
+                let strings =
+                    args |> List.choose (fun x ->
+                        match x.Value with
+                        | :? string as s when x.ArgumentType = typeof<string> -> Some s
+                        | _ -> None)
+                if not args.IsEmpty && strings.Length = args.Length then
+                    let ctor = mB.Constructor(tB.Type attrType, strings |> List.map (fun _ -> tB.String))
+                    def.CustomAttributes.Add { Constructor = ctor; Arguments = strings |> List.map AString }
 
 [<Sealed>]
 type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
     let iG = InlineGenerator()
 
-    let createAssemblyResolvers (opts: CompilerOptions) =
+    let createAssemblyResolver (opts: CompilerOptions) =
         let aR =
             match opts.AssemblyResolver with
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
-        let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, new WebSharper.Compiler.LoaderUtility.Resolver(aR))
+        aR.SearchPaths(opts.ReferencePaths)
 
     let getId (d: Code.NamespaceEntity) =
         d.Id
@@ -1448,9 +1203,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
     let visit visitClass visitInterface visitResource visitNestedClass visitNestedInterface (assembly: Code.Assembly) =
         let names = HashSet()
         let genCl (c: CodeModel.Class) =
-            if c.Generics.Length > 0 then "`" + string c.Generics.Length else ""   
+            if c.Generics.Length > 0 then "`" + string c.Generics.Length else ""
         let genInt (i: CodeModel.Interface) =
-            if i.Generics.Length > 0 then "`" + string i.Generics.Length else ""  
+            if i.Generics.Length > 0 then "`" + string i.Generics.Length else ""
         let rec onClass (ctx: Choice<string,Code.Class>) fullName sourceName (c: Code.Class) =
             match ctx with
             | Choice1Of2 ns -> visitClass ns sourceName c
@@ -1482,32 +1237,31 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                 if not (names.Add fullName) then failwithf "Duplicate type definition: %s" fullName
                 visitResource ns.Name sourceName r
 
-    let buildInitialTypes assembly (def: AssemblyDefinition) =
+    let buildInitialTypes assembly (def: AssemblyDef) =
         let types : Types = Dictionary()
         let genTypes : GenericTypes = Dictionary()
         let build attrs ns sourceName (x: Code.NamespaceEntity) =
             let attrs = attrs ||| TypeAttributes.Public
-            let tD = TypeDefinition(ns, sourceName, attrs)
+            let tD = TypeDef(ns, sourceName, attrs)
             types.[getId x] <- tD
-            def.MainModule.Types.Add(tD)
+            def.Types.Add(tD)
         let buildType attrs ns sourceName (x: Code.TypeDeclaration) =
             let attrs = if x.IsAbstract then attrs ||| TypeAttributes.Abstract else attrs
             build attrs ns sourceName x
             match x.Generics.Length with
             | 0 -> ()
-            | gs -> genTypes.[getId x] <- gs 
+            | gs -> genTypes.[getId x] <- gs
         let buildNested attrs (parent: Code.NamespaceEntity) sourceName (x: Code.TypeDeclaration) =
             match types.TryGetValue parent.Id with
             | true, parent ->
                 let attrs = attrs ||| TypeAttributes.NestedPublic
                 let attrs = if x.IsAbstract then attrs ||| TypeAttributes.Abstract else attrs
-                let tD = TypeDefinition(null, sourceName, attrs)
-                tD.DeclaringType <- parent
+                let tD = TypeDef("", sourceName, attrs)
                 types.[getId x] <- tD
-                parent.NestedTypes.Add tD
+                parent.AddNestedType tD
                 match x.Generics.Length with
                 | 0 -> ()
-                | gs -> genTypes.[getId x] <- gs 
+                | gs -> genTypes.[getId x] <- gs
             | _ -> ()
         assembly
         |> visit
@@ -1518,38 +1272,45 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             (buildNested TypeAttributes.Interface)
         types, genTypes
 
-    let buildAssembly resolver options (assembly: Code.Assembly) (originalAssembly: Assembly option) (filePath: string) =
+    /// The assembly to generate. The identity, Win32 resources (file properties) and PE
+    /// header settings come from the interface generator assembly, if there is one.
+    let createAssembly options (filePath: string) (hasOriginal: bool) =
+        let def = AssemblyDef(options.AssemblyName, options.AssemblyVersion)
+        let keyPair =
+            options.StrongNameKeyPath |> Option.bind (fun p -> WebSharper.Compiler.PEWriter.ReadKeyPair (File.ReadAllBytes p))
+        def.KeyPair <- keyPair
+        keyPair |> Option.iter (fun k -> def.PublicKey <- k.PublicKey)
+        if hasOriginal then
+            use pe = new PEReader(File.ReadAllBytes filePath |> System.Collections.Immutable.ImmutableArray.Create<byte>)
+            let md = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader pe
+            let a = md.GetAssemblyDefinition()
+            def.Culture <- md.GetString a.Culture
+            def.Flags <- a.Flags
+            if keyPair.IsNone then
+                def.PublicKey <- md.GetBlobBytes a.PublicKey
+            def.Win32Resources <-
+                match WebSharper.Compiler.PEWriter.CopiedWin32Resources.TryRead pe with
+                | Some r -> r :> ResourceSectionBuilder
+                | None -> null
+            let h = pe.PEHeaders
+            def.Header <-
+                PEHeaderBuilder(
+                    machine = h.CoffHeader.Machine,
+                    imageCharacteristics = h.CoffHeader.Characteristics,
+                    subsystem = h.PEHeader.Subsystem,
+                    dllCharacteristics = h.PEHeader.DllCharacteristics)
+        def
+
+    let buildAssembly resolver options (assembly: Code.Assembly) (hasOriginal: bool) (filePath: string) =
         if box assembly = null then
             failwithf "buildAssembly: assembly cannot be null"
-        let aND = AssemblyNameDefinition(options.AssemblyName, options.AssemblyVersion)
-        let mp = ModuleParameters()
-        mp.Kind <-
-            match options.Kind with
-            | ConsoleKind -> ModuleKind.Console
-            | LibraryKind -> ModuleKind.Dll
-            | WindowsKind -> ModuleKind.Windows
-        mp.AssemblyResolver <- resolver
-        mp.Runtime <- TargetRuntime.Net_4_0
         let comments : Comments = Dictionary()
-        let def =
-            // If the original assembly is provided, we should read the Assembly from the fileSystem through Mono.Cecil,
-            // instead of creating a new one.
-            // Note: the ReaderParameters settings are important, as we want to avoid locking the dll we are handling, otherwise when we want to save the dll,
-            // we can run into access denied errors.
-            match originalAssembly with
-            | Some _ ->
-                let rp = ReaderParameters(ReadWrite = true, InMemory = true, ReadingMode = ReadingMode.Immediate)
-                AssemblyDefinition.ReadAssembly(filePath, rp)
-            | _ ->
-                AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
-        def.Modules.Clear()
-        def.CustomAttributes.Clear()
-        def.MainModule.Resources.Clear()
+        let def = createAssembly options filePath hasOriginal
         let types, genTypes = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def, options.ReferencePaths)
+        let tB = TypeBuilder(resolver)
         let tC = TypeConverter(tB, types, genTypes)
-        let mB = MemberBuilder(tB, def)
-        let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])
+        let mB = MemberBuilder(tB)
+        let mC = MemberConverter(tB, mB, tC, types, iG, def.CustomAttributes, comments, options, [])
         assembly
         |> visit
             (fun _ _ c -> mC.Class c)
@@ -1557,50 +1318,43 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             (fun _ _ r -> mC.Resource r)
             (fun _ _ c -> mC.Class c)
             (fun _ _ i -> mC.Interface i)
-        mC.AddDependencies(assembly, def)
+        mC.AddDependencies(assembly, def.CustomAttributes)
         (def, comments, mB, tB)
 
-    let addResourceExports (mB: MemberBuilder) (def: AssemblyDefinition) =
-        let addResource name mime =
-            def.CustomAttributes.Add(mB.BuildWebResourceAttribute(name, mime))
-        for r in def.MainModule.Resources do
-            if r.IsPublic then
-                match CT.TryGuessByFileName r.Name with
-                | Some (CT.JavaScript as res) ->
-                    addResource r.Name res.Text
-                | Some (CT.Css as res) ->
-                    addResource r.Name res.Text
-                | _ -> () // TODO: correct here?
-
-    member c.Compile(resolver, options, assembly, filePath: string, ?originalAssembly: Assembly) =
-        let (def, comments, mB, tB) = buildAssembly resolver options assembly originalAssembly filePath
+    member c.Compile(aR: WebSharper.Compiler.AssemblyResolver, options, assembly, filePath: string, ?originalAssembly: Assembly) =
+        let resolver = ReferenceResolver(aR, options.ReferencePaths, options.AssemblyName)
+        let (def, comments, mB, tB) = buildAssembly resolver options assembly (originalAssembly.IsSome && filePath <> "") filePath
         logger.TimedStage "Built assembly"
+        // embedded JavaScript and CSS files are web resources in the sidecar file, others
+        // are embedded in the assembly
+        let webResources = List()
         for f in options.EmbeddedResources do
-            try
-                EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
-                |> def.MainModule.Resources.Add
-            with _ ->
-                failwithf "Failed to add resource file: %s" f
-        addResourceExports mB def
-        
+            let name = Path.GetFileName(f)
+            let contents =
+                try File.ReadAllBytes(f)
+                with _ -> failwithf "Failed to add resource file: %s" f
+            match CT.TryGuessByFileName name with
+            | Some (CT.JavaScript as res)
+            | Some (CT.Css as res) ->
+                webResources.Add((name, res.Text, contents))
+            | _ ->
+                def.Resources.Add((name, contents))
+
         let assemblyPrototypes = Dictionary()
         for ns in assembly.Namespaces do
             let rec addClass parentFullName (c: CodeModel.Class) =
-                let sn = 
-                    parentFullName + 
+                let sn =
+                    parentFullName +
                     (iG.GetSourceName c) +
                     (match c.Generics with [] -> "" | g -> "`" + string (List.length g))
                 assemblyPrototypes.Add(sn, c.Name)
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
 
-        // Add WebSharper metadata
-        let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
-        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
-        logger.TimedStage "Creating WebSharper metadata"
-
-        let doc = XmlDocGenerator(def, comments)
-        let r = CompiledAssembly(def, doc, options, tB)
+        let doc = XmlDocGenerator(options.AssemblyName, def.AllTypes, comments)
+        // WebSharper metadata is created from the written assembly
+        let r = CompiledAssembly(def, doc, tB, assemblyPrototypes, mB, logger)
+        r.AddWebResources webResources
         match originalAssembly with
         | None -> ()
         | Some assem -> r.SetAssemblyAttributes(assem)
@@ -1613,8 +1367,8 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         r
 
     member c.Compile(options, assembly, filePath, ?original) =
-        let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, filePath, ?originalAssembly = original)
+        let aR = createAssemblyResolver options
+        c.Compile(aR, options, assembly, filePath, ?originalAssembly = original)
 
     member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
@@ -1622,9 +1376,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             match resolver with
             | None -> opts
             | Some r -> { opts with AssemblyResolver = Some r }
-        let (aR, resolver) = createAssemblyResolvers opts
+        let aR = createAssemblyResolver opts
         aR.Wrap <| fun () ->
-            c.Compile(resolver, opts, assembly, "", ?originalAssembly = originalAssembly)
+            c.Compile(aR, opts, assembly, "", ?originalAssembly = originalAssembly)
             |> ignore
         0
 
@@ -1636,3 +1390,36 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
     static member Create(logger) =
         Compiler(logger)
+
+module ExtensionAssembly =
+
+    let Load (file: string) (logger: WebSharper.Compiler.LoggerBase) =
+        let asm = R.LoadAssembly(file)
+        let genFile = Path.ChangeExtension(file, ".Generator.dll")
+        if File.Exists genFile then File.Delete genFile
+        // Instead of removing the original dll, we are going to keep the original F# dll as is,
+        // so we can properly carry over the win32 resources, so that the file properties are populated
+        File.Copy(file, genFile)
+        let name = asm.GetName()
+        let typedArg =
+            asm.CustomAttributes |> Seq.tryPick (fun a ->
+                if a.AttributeType.FullName = "WebSharper.InterfaceGenerator.Pervasives+ExtensionAttribute" then
+                    Some a.ConstructorArguments.[0]
+                else
+                    None
+            )
+        match typedArg with 
+        | Some a ->
+            let typeName = (a.Value :?> System.Type).FullName
+            let t = asm.GetType(typeName)
+            let e = Activator.CreateInstance(t)
+            logger.TimedStage "Loading IExtension implementation"
+            let assemblyGetter =
+                let intfMap = t.GetInterfaceMap(typeof<Pervasives.IExtension>)
+                intfMap.InterfaceMethods.[0]
+            let asmDefObj = assemblyGetter.Invoke(e, [||])
+            let asmDef = asmDefObj :?> Code.Assembly
+            logger.TimedStage "Getting Assembly definition"
+            name, asmDef, asm
+        | None ->
+            failwith "No ExtensionAttribute set on the input assembly"

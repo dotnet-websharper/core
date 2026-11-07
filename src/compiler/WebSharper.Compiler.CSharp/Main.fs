@@ -35,42 +35,67 @@ type WebSharperCSharpCompiler() =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
+    /// The command line of the last compilation.
+    member val CommandLineArguments : CSharpCommandLineArguments = null with get, set
+
+    /// The Roslyn compilation of the last compilation.
+    member val RoslynCompilation : CSharpCompilation = null with get, set
+
     member this.Compile (refMeta, config: WsConfig, ?logger: LoggerBase) =
-        let argv = config.CompilerArgs 
         let path = config.ProjectFile
+        let projectDir = System.IO.Path.GetDirectoryName path
+
+        // csc's own command line when available (all options, needed for emitting the assembly
+        // again), otherwise the one MSBuild passes to WebSharper
+        let fullArgs =
+            config.CompilerResponseFile |> Option.filter File.Exists |> Option.map (fun rsp ->
+                CSharpCommandLineParser.Default.Parse([| "@" + rsp |], projectDir, null))
 
         let parsedArgs =
-            CSharpCommandLineParser.Default.Parse(
-                argv, 
-                System.IO.Path.GetDirectoryName path,
-                null
-            )
+            match fullArgs with
+            | Some a -> a
+            | None ->
+                CSharpCommandLineParser.Default.Parse(config.CompilerArgs, projectDir, null)
+
+        // sources MSBuild passes to WebSharper but not to csc: files written by source
+        // generators (EmitCompilerGeneratedFiles), csc generates their contents itself
+        let extraSources =
+            match fullArgs with
+            | None -> [||]
+            | Some a ->
+                let cscSources = a.SourceFiles |> Seq.map (fun s -> s.Path) |> System.Collections.Generic.HashSet
+                CSharpCommandLineParser.Default.Parse(config.CompilerArgs, projectDir, null).SourceFiles
+                |> Seq.map (fun s -> s.Path)
+                |> Seq.filter (cscSources.Contains >> not)
+                |> Array.ofSeq
 
         let syntaxTrees =
-            parsedArgs.SourceFiles 
-            |> Seq.map (fun s -> 
-                CSharpSyntaxTree.ParseText(
-                    File.ReadAllText s.Path, 
-                    options = parsedArgs.ParseOptions,
-                    path = s.Path
-                )
-            )
+            Seq.append (parsedArgs.SourceFiles |> Seq.map (fun s -> s.Path)) extraSources
+            |> Seq.map (fun s -> WebSharper.Compiler.CSharp.Emit.ParseSourceFile parsedArgs s)
         
         let references = 
-            argv
-            |> Seq.choose (fun a ->
-                if a.StartsWith "/reference:" then Some a.[11 ..] else None
-            ) 
-            |> Seq.map (fun r ->
-                MetadataReference.CreateFromFile(r) :> MetadataReference
-            )
+            match fullArgs with
+            | Some a ->
+                a.MetadataReferences |> Seq.map (fun r ->
+                    MetadataReference.CreateFromFile(System.IO.Path.Combine(projectDir, r.Reference), r.Properties) :> MetadataReference)
+                |> Array.ofSeq
+            | None ->
+                config.CompilerArgs
+                |> Array.choose (fun a ->
+                    if a.StartsWith "/reference:" then Some a.[11 ..] else None
+                ) 
+                |> Array.map (fun r ->
+                    MetadataReference.CreateFromFile(r) :> MetadataReference
+                )
         
         let compilation = 
             CSharpCompilation.Create(
-                System.IO.Path.GetFileNameWithoutExtension path,
+                (match parsedArgs.CompilationName with
+                 | null -> System.IO.Path.GetFileNameWithoutExtension path
+                 | n -> n),
                 syntaxTrees,
                 references,
-                parsedArgs.CompilationOptions
+                WebSharper.Compiler.CSharp.Emit.CompilationOptions parsedArgs config.KeyFile
             )
         
         let firstError =
@@ -80,6 +105,9 @@ type WebSharperCSharpCompiler() =
         | Some err ->
             failwithf "C# compilation resulted in errors: %s" (err.GetMessage())
         | _ -> ()
+
+        this.CommandLineArguments <- parsedArgs
+        this.RoslynCompilation <- compilation
 
         let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         logger.TimedStage "Creating Roslyn compilation" 

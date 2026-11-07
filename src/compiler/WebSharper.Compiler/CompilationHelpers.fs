@@ -640,7 +640,6 @@ let isFunctionMethodForInterface (t: TypeDefinition) =
     }
 
 module Definitions =
-    open WebSharper.InterfaceGenerator.Type
 
     // Private static field for single-case unions.
     let SingletonUnionCase name typ =

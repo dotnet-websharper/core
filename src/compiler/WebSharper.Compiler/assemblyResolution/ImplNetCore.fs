@@ -93,12 +93,12 @@ module internal NetCoreImplemetnation =
             |> amsToDictByName
 
         let loadIntoAppDomain (path: string) =
-            try File.ReadAllBytes path |> dom.Load
+            try File.ReadAllBytes path |> dom.Load |> LoadedFrom.Add path
             with :? System.BadImageFormatException -> null
 
         let loadIntoAssemblyLoadContext (loadContext: AssemblyLoadContext) (path: string) =
             let fs = new MemoryStream (File.ReadAllBytes path)
-            try loadContext.LoadFromStream fs 
+            try loadContext.LoadFromStream fs |> LoadedFrom.Add path
             with :? System.BadImageFormatException -> null
 
         let tryFindAssembly (name: AssemblyName) =

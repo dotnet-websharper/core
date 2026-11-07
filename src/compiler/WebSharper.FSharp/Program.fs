@@ -74,7 +74,7 @@ let main(argv) =
                 else
                     "--standalone compile flag is set or WebSharperStandalone targets variable set"
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = wsConfig.TransparentCompiler)
-            let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
+            let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith
 #if DEBUG
             StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata  
 #else
@@ -96,7 +96,7 @@ let main(argv) =
             with
             | PipeException () ->
                 let createChecker() = FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = wsConfig.TransparentCompiler)
-                let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
+                let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith
                 try StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata
                 with 
                 | ArgumentError msg -> 

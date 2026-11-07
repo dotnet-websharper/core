@@ -45,6 +45,7 @@ module internal Net4xImplemetnation =
         else
             File.ReadAllBytes path
             |> dom.Load
+            |> LoadedFrom.Add path
 
     type Resolver(reso: AssemblyResolution, dom: AppDomain) =
 

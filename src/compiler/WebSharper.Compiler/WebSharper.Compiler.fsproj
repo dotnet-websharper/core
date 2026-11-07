@@ -43,6 +43,10 @@
     <Compile Include="api/Symbols.fs" />
     <Compile Include="api/EmbeddedFile.fsi" />
     <Compile Include="api/EmbeddedFile.fs" />
+    <Compile Include="api/PEMetadata.fs" />
+    <Compile Include="api/Sidecar.fs" />
+    <Compile Include="PEWriter.fs" />
+    <Compile Include="StubAssembly.fs" />
     <Compile Include="api/Assembly.fsi" />
     <Compile Include="api/Assembly.fs" />
     <Compile Include="api/Content.fsi" />
@@ -53,8 +57,6 @@
     <Compile Include="Reflector.fs" />
     <Compile Include="QuotationCompiler.fs" />
     <Compile Include="FrontEnd.fs" />
-    <Compile Include="WIGCompile.fsi" />
-    <Compile Include="WIGCompile.fs" />
     <Compile Include="commands/DownloadResources.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
@@ -65,13 +67,11 @@
     <Compile Include="CommandTools.fs" />
     <Compile Include="WsFscServiceCommon.fs" />
     <Compile Include="Bundle.fs" />
-    <Compile Include="Merging.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />
-    <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

@@ -1,4 +1,4 @@
-﻿// $begin{copyright}
+// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -32,6 +32,29 @@ open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
+
+/// Compiles a WIG project: the interface generator assembly fsc wrote is replaced by the
+/// generated one, which WebSharper.Compiler.InterfaceGenerator writes.
+let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
+    let (name, asmDef, asm) = WebSharper.InterfaceGenerator.ExtensionAssembly.Load config.AssemblyFile logger        
+    let cfg =
+        {
+            WebSharper.InterfaceGenerator.CompilerOptions.Default(name.Name) with
+                AssemblyResolver = Some aR
+                AssemblyVersion = name.Version
+                DocPath = config.Documentation
+                EmbeddedResources = config.Resources |> Seq.map fst
+                ReferencePaths = config.References
+                StrongNameKeyPath = snk
+        }
+    let cmp = WebSharper.InterfaceGenerator.Compiler.Create(logger)
+    // the assembly fsc wrote gives the identity, assembly attributes and Win32 resources (file properties)
+    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
+    // extra.files of WIG projects go into the sidecar file
+    FrontEnd.HandleExtraFiles logger true name.Name config.ProjectFile config.OutputDir false
+    |> out.AddWebResources
+    out.Save config.AssemblyFile
+    logger.TimedStage "Writing sidecar"
 
 let clearOutput config logger =
     try
@@ -85,13 +108,13 @@ let fullTime (logger: LoggerBase) =
     logger.ExitContext()
     logger.TimedStage "Total compilation time"
 
-let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
+let private runFSharpSourceGeneration (aR: Lazy<AssemblyResolver>) (logger: LoggerBase) (config : WsConfig) =
     let sourceFiles = config.CompilerArgs[1 ..] |> Array.filter (fun a -> not (a.StartsWith "-"))
     let isSupportedFile (f: string) =
         f.EndsWith ".fs" || f.EndsWith ".fsi" || f.EndsWith ".fsx" || f.EndsWith ".fsscript" || f.EndsWith ".ml" || f.EndsWith ".mli"
     let unsupportedFiles = sourceFiles |> Array.filter (fun f -> not (isSupportedFile f))
     if unsupportedFiles.Length > 0 then
-        let aR = createAssemblyResolver config false    
+        let aR = aR.Value
         aR.Wrap <| fun () ->
             let generatedFiles = ResizeArray()
             let keepUntouched = ResizeArray()
@@ -144,11 +167,13 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                             | _ ->
                                 let genInfo =
                                     config.References |> Array.tryPick (fun r ->
-                                        let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(r)
+                                        let asm = PEMetadata.PEAssembly.ReadFileMetadata r
                                         
-                                        asm.CustomAttributes |> Seq.tryPick (fun a -> 
-                                            if a.AttributeType.FullName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.ConstructorArguments[0].Value = ext then
-                                                Some (asm.FullName, a.ConstructorArguments[1].Value :?> Mono.Cecil.TypeReference)
+                                        asm.Attributes |> Seq.tryPick (fun a -> 
+                                            if a.TypeName = "WebSharper.FSharpSourceGeneratorAttribute" && string a.Arguments[0] = ext then
+                                                match a.Arguments[1] with
+                                                | :? PEMetadata.AttributeType as t -> Some (asm.FullName, t)
+                                                | _ -> None
                                             else
                                                 None
                                         )                                        
@@ -160,7 +185,11 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
                                     | Some (asmName, gen) ->
                                         // load generator type with Reflection
                                         let genInstance = 
-                                            let fqn = gen.FullName.Replace('/', '+') + ", " + asmName
+                                            let fqn =
+                                                match gen with
+                                                | PEMetadata.Named (Some genAsm, fullName) -> fullName + ", " + genAsm
+                                                | PEMetadata.Named (None, fullName) -> fullName + ", " + asmName
+                                                | t -> failwithf "Unexpected generator type: %A" t
                                             try
                                                 let genType = 
                                                     Type.GetType(fqn, true)
@@ -257,11 +286,45 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     else
         config
 
-let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
+/// The F# compiler loads the design-time assembly of a type provider from the folder of its
+/// runtime assembly, so a type provider referenced by its reference assembly (ref/refint
+/// folder) is passed by its implementation assembly in the output folder of its project
+/// (from @(ReferencePath)), where the design-time assembly is copied.
+let private typeProviderImplementationArg (implementations: string[]) (arg: string) =
+    let prefix =
+        if arg.StartsWith "-r:" then Some "-r:"
+        elif arg.StartsWith "--reference:" then Some "--reference:"
+        else None
+    match prefix with
+    | Some prefix ->
+        let path = arg.Substring(prefix.Length).Trim('"')
+        let impl =
+            if Sidecar.ImplementationPath path = path then path else
+            let name = Path.GetFileName path
+            implementations
+            |> Array.tryFind (fun i -> String.Equals(Path.GetFileName i, name, StringComparison.OrdinalIgnoreCase))
+            |> Option.defaultValue path
+        let isTypeProvider() =
+            try
+                PEMetadata.PEAssembly.ReadFileMetadata(impl).Attributes
+                |> Seq.exists (fun a -> a.TypeName = "Microsoft.FSharp.Core.CompilerServices.TypeProviderAssemblyAttribute")
+            with _ -> false
+        if impl <> path && isTypeProvider() then prefix + impl else arg
+    | None -> arg
+
+/// Runs the F# source generators for non-F# source files, returns the updated config and the
+/// files of the assemblies loaded for them.
+let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
+    let aR = lazy createAssemblyResolver config false
+    let config = runFSharpSourceGeneration aR logger config
+    config, (if aR.IsValueCreated then aR.Value.LoadedFiles else [||])
+
+let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: WebSharper.Core.MetadataIO.ReadOptions -> Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
     config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
     FileSystem.OutputFiles.Start()
+    SidecarWebResources.Install()
 
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -270,6 +333,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         argError "You must provide project file path."
 
     let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+
+    // reference assemblies (ref/refint folders) are used by fsc only: WebSharper reads sidecars
+    // and executes macros and generators, for that it needs the implementation assemblies
+    let config = { config with References = config.References |> Array.map Sidecar.ImplementationPath }
+    let config = { config with CompilerArgs = config.CompilerArgs |> Array.map (typeProviderImplementationArg config.ReferenceImplementations) }
 
     let mainProxiesFile() =
         "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
@@ -293,6 +361,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
         MakeDummyDll config.AssemblyFile thisName
+        ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
         logger.Out "Written Proxies.args"
         0 
     else
@@ -302,9 +371,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let checker = checkerFactory()
     
-    let config = RunFSharpSourceGeneration logger config
+    let config, sourceGeneratorFiles = RunFSharpSourceGeneration logger config
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
+
+    // fsc was skipped as up to date, only WebSharper inputs of a library changed: the assembly
+    // stays as it is, WebSharper type checks and translates again
+    let translateOnly =
+        config.TranslateOnly && config.CanTranslateOnly && File.Exists config.AssemblyFile
+    if config.TranslateOnly && not translateOnly then
+        logger.Out "WebSharper inputs changed, compiling the assembly too"
 
     let jsCompilerArgs =
         let ca =
@@ -324,8 +400,29 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     // RequireFeature, RPC verification) blocks until emission is done: the assembly resolver
     // only resolves the current assembly then (createDeferredAssemblyResolver).
     // WIG projects execute the assembly and bundle-only projects have none, so they stay serial.
+    // Website, offline and service projects (projects producing runtime metadata, see isSitelet
+    // below) embed it when fsc writes the assembly (--resource): fsc reads it only before
+    // writing, so type checking and code generation still run in parallel with translation.
+    // RPC verification needs the assembly, it runs after it is written. If translation needs the
+    // assembly anyway, it is emitted without runtime metadata first, then again with it.
+    let pendingRuntimeMeta =
+        if config.EmbedsRuntimeMetadata then
+            Some (new PendingResources.PendingResource(Path.ChangeExtension(config.AssemblyFile, ".websharper.runtime")))
+        else None
+    let emitArgs =
+        match pendingRuntimeMeta with
+        | Some p ->
+            Array.append config.CompilerArgs [| "--resource:" + p.Path + "," + WebSharper.Constants.EmbeddedResources.EMBEDDED_RUNTIME_METADATA |]
+        | None when config.ProjectType = Some Proxy -> jsCompilerArgs
+        | None -> config.CompilerArgs
+    let releaseRuntimeMeta () =
+        match pendingRuntimeMeta with
+        | Some p -> p.Release()
+        | None -> false
+    let needsEmitAgain = ref false
+
     let useParallel =
-        config.ParallelCompilation && not isBundleOnly && config.ProjectType <> Some WIG
+        (config.ParallelCompilation || pendingRuntimeMeta.IsSome) && not isBundleOnly && config.ProjectType <> Some WIG && not translateOnly
 
     // Returns the exit code and a report printing the F# compilation output. IL emission does not
     // log itself: in parallel mode its output would interleave with translation output, so the
@@ -334,10 +431,17 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let ilEmitStopwatch = System.Diagnostics.Stopwatch.StartNew()
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
+            ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
+            0, ignore
+        elif translateOnly then
+            logger.TimedStage "F# compilation skipped, only WebSharper inputs changed"
             0, ignore
         else
             let errors, exnOpt = 
-                checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
+                try
+                    checker.Compile(emitArgs) |> Async.RunSynchronously
+                finally
+                    pendingRuntimeMeta |> Option.iter (fun p -> (p :> IDisposable).Dispose())
             let elapsed = ilEmitStopwatch.Elapsed
 
             let report () =
@@ -368,6 +472,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             System.Threading.Tasks.Task.FromResult(runIlEmit())
 
     let waitIlEmit () =
+        releaseRuntimeMeta () |> ignore
         try ilEmitTask.Wait() with _ -> ()
 
     // Never return with IL emission still running: in the booster it would keep writing the
@@ -394,6 +499,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config logger
+                ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
                 fullTime logger
                 0
             with e ->
@@ -437,6 +543,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     let waitForIlEmit () =
         if not ilEmitTask.IsCompleted then
             let sw = System.Diagnostics.Stopwatch.StartNew()
+            if releaseRuntimeMeta () then
+                // emitted again with runtime metadata after translation
+                needsEmitAgain.Value <- true
+                logger.Out "Translation uses the current assembly: it is written now and again with runtime metadata"
             waitIlEmit ()
             logger.TimedStageElapsed("Waiting for F# output (reflection)", sw.Elapsed)
 
@@ -447,12 +557,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             createAssemblyResolver config true
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    logger.TimedStage "Loading referenced assemblies"
+    // measured on the background task, reported on this thread after translation
+    let refDecodeTime = ref TimeSpan.Zero
+    let refUnionTime = ref TimeSpan.Zero
+    let refReadOptions = config.ReferenceReadOptions
     let wsRefsMeta =
         System.Threading.Tasks.Task.Run(fun () ->
             let mutable refError = false
-            let wsRefs, metas = 
-                refs |> List.choose (fun r -> 
-                    match tryGetMetadata r with
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let wsRefs, metas =
+                refs |> List.choose (fun r ->
+                    match tryGetMetadata refReadOptions r with
                     | None -> None
                     | Some (Ok m) -> Some (r, m)
                     | Some (Error e) ->
@@ -460,18 +576,26 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         PrintGlobalError logger e
                         None
                 ) |> List.unzip
+            refDecodeTime.Value <- sw.Elapsed
+            sw.Restart()
             if refError then None
-            elif List.isEmpty metas then Some ([], [], WebSharper.Core.Metadata.Info.Empty) 
+            elif List.isEmpty metas then Some ([], [], WebSharper.Core.Metadata.Info.Empty)
             else
                 try
+                    let union = WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+                    refUnionTime.Value <- sw.Elapsed
                     Some (
-                        wsRefs, metas, WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas
+                        wsRefs, metas, union
                     )
                 with e ->
                     refError <- true
                     PrintGlobalError logger (sprintf "Error merging WebSharper metadata: %A" e)
                     None
         )
+    let reportRefMetaTimes () =
+        if wsRefsMeta.IsCompleted then
+            logger.TimedStageElapsed("Reading referenced metadata (background)", refDecodeTime.Value)
+            logger.TimedStageElapsed("Merging referenced metadata (background)", refUnionTime.Value)
     
     let refMeta = 
         wsRefsMeta.ContinueWith(fun (t: System.Threading.Tasks.Task<_>) -> 
@@ -482,6 +606,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
     compiler.WarnSettings <- warnSettings
+    // verified after the assembly is written
+    if pendingRuntimeMeta.IsSome then
+        compiler.UseVerifier <- false
 
     let comp =
         try
@@ -490,6 +617,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             // F# output may explain the failure, but must not replace its exception
             try joinIlEmit () with _ -> ()
             reraise ()
+
+    reportRefMetaTimes ()
 
     let exitCode =
         match comp with
@@ -503,10 +632,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
         // Join point: translation never needed the assembly up to here.
         // GetResult rethrows the IL emission exception preserving its stack trace
-        let ilExitCode = fst (ilEmitTask.GetAwaiter().GetResult())
-        joinIlEmit ()
-        if useParallel then
-            logger.TimedStage "Waiting for F# output (join)"
+        let join () =
+            releaseRuntimeMeta () |> ignore
+            let ilExitCode = fst (ilEmitTask.GetAwaiter().GetResult())
+            joinIlEmit ()
+            if useParallel then
+                logger.TimedStage "Waiting for F# output (join)"
+            ilExitCode
+
+        // with runtime metadata, joined when it is ready
+        let deferJoin = pendingRuntimeMeta.IsSome && (List.isEmpty comp.Errors || config.WarnOnly)
+        let ilExitCode = if deferJoin then 0 else join ()
+        let lateExitCode = ref 0
 
         if ilExitCode <> 0 then
             ilExitCode
@@ -521,9 +658,48 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             | _ -> WebSharper.Core.Metadata.Info.Empty
 
         let getRefMetas() =
-            match wsRefsMeta.Result with 
-            | Some (_, m, _) -> m 
+            match wsRefsMeta.Result with
+            | Some (_, m, _) -> m
             | _ -> []
+
+        // all of reference metadata, read again if only the library parts were read
+        let getWsRefs() =
+            match wsRefsMeta.Result with
+            | Some (r, _, _) -> r
+            | _ -> []
+
+        // references whose code ran during the compilation
+        let executedReferences() =
+            ExecutedReferences config.References aR.LoadedFiles
+        let sourceGeneratorReferences =
+            ExecutedReferences config.References sourceGeneratorFiles
+
+        let fullRefMetas =
+            lazy
+            if refReadOptions = WebSharper.Core.MetadataIO.ReadOptions.Full then
+                getRefMetas()
+            else
+                let sw = System.Diagnostics.Stopwatch.StartNew()
+                let metas =
+                    match wsRefsMeta.Result with
+                    | Some (wsRefs, _, _) ->
+                        wsRefs |> List.choose (fun r ->
+                            match tryGetMetadata WebSharper.Core.MetadataIO.ReadOptions.Full r with
+                            | Some (Ok m) -> Some m
+                            | Some (Error e) -> failwith e
+                            | None -> None
+                        )
+                    | _ -> []
+                logger.TimedStageElapsed("Reading full referenced metadata for extra bundles", sw.Elapsed)
+                metas
+
+        // web worker bundles need the code of references
+        let getExtraBundleRefMetas() =
+            if comp.CompiledExtraBundles.Count = 0 then [] else fullRefMetas.Value
+
+        // what this compilation read from references, for its dependency list
+        let depsReadOptions() =
+            if fullRefMetas.IsValueCreated then WebSharper.Core.MetadataIO.ReadOptions.Full else refReadOptions
 
         let js, currentMeta, runtimeMeta, sources, extraBundles, textOutputs =
             let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
@@ -531,22 +707,37 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
                 let extraBundles =
                     aR.Wrap <| fun () ->
-                        Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                        Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
                 try
-                    HandleExtraFiles logger None comp.AssemblyName config.ProjectFile config.OutputDir true
+                    HandleExtraFiles logger false comp.AssemblyName config.ProjectFile config.OutputDir true |> ignore
                 with e ->
                     PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                WriteDependencies config.AssemblyFile (getWsRefs()) WebSharper.Core.MetadataIO.ReadOptions.Full (executedReferences()) sourceGeneratorReferences false
                 None, currentMeta, currentMeta, sources, extraBundles, [||]
             else
-                let assem = loader.LoadFile config.AssemblyFile
-
-                if config.ProjectType = Some Proxy then
-                    EraseAssemblyContents assem
-                    logger.TimedStage "Erasing assembly content for Proxy project"
+                // with runtime metadata, the assembly is not written yet
+                let assem =
+                    if pendingRuntimeMeta.IsSome then None else
+                    let a = loader.LoadFile config.AssemblyFile
+                    logger.TimedStage "Loading output assembly"
+                    Some a
 
                 let extraBundles = 
                     aR.Wrap <| fun () ->
-                        Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
+                        Bundling.AddExtraBundles config logger (getExtraBundleRefMetas()) currentMeta refs comp comp.AssemblyName
+
+                // extra.files of libraries and web worker bundles go into the sidecar file
+                let extraFiles =
+                    let embed =
+                        match config.ProjectType with
+                        | Some (Bundle | Website | Html) -> false
+                        | _ -> true
+                    try
+                        HandleExtraFiles logger embed comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
+                    with e ->
+                        PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                        [||]
+                let webResources = Array.append extraFiles (Bundling.ExtraBundleWebResources extraBundles)
     
                 let runtimeMeta =
                     match config.ProjectType with
@@ -592,9 +783,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     else
                         CreateResourcesMode.Other(getRefMeta())
 
-                let res =
-                    assem
-                    |> ModifyAssembly {
+                let res, runtimeMetaBytes, sidecarEntries =
+                    CreateOutputFor {
                         Logger = logger
                         Compilation = Some comp
                         CurrentMetadata = currentMeta
@@ -604,42 +794,69 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         DeadCodeElimination = dce
                         AnalyzeClosures = config.AnalyzeClosures
                         Mode = mode
-                    }
-                
-                let extraFilesEmbedAssem =
-                    match config.ProjectType with
-                    | Some (Bundle | Website | Html) -> None
-                    | _ -> Some assem
-                try
-                    HandleExtraFiles logger extraFilesEmbedAssem comp.AssemblyName config.ProjectFile config.OutputDir (config.ProjectType = Some Bundle)
-                with e ->
-                    PrintGlobalError logger (sprintf "Error processing extra.files: %A" e)
+                        WebResources = webResources
+                    } assem comp.AssemblyName
+
+                // the assembly is written with the runtime metadata, then RPCs are verified
+                if pendingRuntimeMeta.IsSome then
+                    match runtimeMetaBytes with
+                    | Some bytes -> pendingRuntimeMeta.Value.Set bytes |> ignore
+                    | None ->
+                        PrintGlobalError logger "Expected runtime metadata to embed into the assembly"
+                        lateExitCode.Value <- 1
+                    let ilExitCode = join ()
+                    if ilExitCode <> 0 then
+                        lateExitCode.Value <- ilExitCode
+                    else
+                        if needsEmitAgain.Value then
+                            let errors, exnOpt = checker.Compile(emitArgs) |> Async.RunSynchronously
+                            PrintFSharpErrors warnSettings logger errors
+                            match exnOpt with
+                            | Some exn ->
+                                PrintGlobalError logger (sprintf "F# compilation failed: %O" exn)
+                                lateExitCode.Value <- 1
+                            | None -> ()
+                            logger.TimedStage "F# compilation with runtime metadata"
+                        if lateExitCode.Value = 0 then
+                            aR.Wrap <| fun () -> comp.VerifyRPCs()
+                            logger.TimedStage "Verifying RPCs"
+                            if not (List.isEmpty comp.Errors || config.WarnOnly) then
+                                lateExitCode.Value <- 1
 
                 match config.ProjectType, config.DeadCodeElimination, config.OutputDir with
                 | None, Some true, Some outputDir ->
                     UnpackLibraryCode logger (Some comp) (getRefMeta()) currentMeta config.TypeScriptDeclaration config.TypeScriptOutput runtimeMeta outputDir
                 | _ -> ()
                 
-                match config.ProjectType with
-                | Some (Bundle | Website | Html) ->
-                    let wsRefs =
-                        match wsRefsMeta.Result with 
-                        | Some (r, _, m) -> r 
-                        | _ -> []
-                    AddExtraAssemblyReferences wsRefs assem
-                | _ -> ()
-
                 PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-            
+
                 if config.PrintJS then
                     for (fname, js) in res.JSFiles do
                         logger.Out("// " + fname)
                         logger.Out(js)
 
-                assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+                logger.TimedStage "Printing WebSharper errors and warnings"
 
-                logger.TimedStage "Writing resources into assembly"
+                // the assembly is left as fsc wrote it, except for Proxy projects
+                let moduleId =
+                    match assem with
+                    | None ->
+                        if File.Exists config.AssemblyFile then ReadModuleId config.AssemblyFile else Guid.Empty
+                    | Some _ when config.ProjectType = Some Proxy ->
+                        WriteProxyAssembly config.AssemblyFile config.KeyFile
+                        logger.TimedStage "Writing attributes-only assembly for Proxy project"
+                        ReplaceReferenceAssembly logger config.ProjectDir config.CompilerArgs config.AssemblyFile
+                        ReadModuleId config.AssemblyFile
+                    | Some a ->
+                        a.ModuleId
+
+                WriteSidecar config.AssemblyFile moduleId sidecarEntries
+                WriteDependencies config.AssemblyFile (getWsRefs()) (depsReadOptions()) (executedReferences()) sourceGeneratorReferences config.CanTranslateOnly
+                logger.TimedStage "Writing sidecar file"
                 Some res.JSFiles, currentMeta, res.RuntimeMetadata |> Option.defaultValue currentMeta, res.Sources, extraBundles, res.AllTextFiles
+
+        // writing the assembly with runtime metadata or RPC verification failed
+        if lateExitCode.Value <> 0 then lateExitCode.Value else
 
         match config.JSOutputPath, js with
         | Some path, Some jss ->

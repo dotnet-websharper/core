@@ -86,6 +86,13 @@ type WsConfig =
         Resources : (string * string option)[]
         KeyFile : string option
         CompilerArgs : string[]  
+        /// The response file with csc's own command line (C# projects).
+        CompilerResponseFile : string option
+        /// The implementation assemblies of references (@(ReferencePath)), compiler args may have reference assemblies instead (F# projects).
+        ReferenceImplementations : string[]
+        /// The .NET compiler did not run: only WebSharper inputs changed (`.websharper.wsdeps`).
+        /// Library projects are translated again without compiling the assembly.
+        TranslateOnly : bool
         Configuration : string
         ProjectFile : string
         Documentation : string option
@@ -115,10 +122,33 @@ type WsConfig =
         RemotingProvider: string option
     }
 
+    /// Website, offline and service projects (and other projects with an output folder) embed
+    /// runtime metadata into their assembly.
+    member this.EmbedsRuntimeMetadata =
+        match this.ProjectType with
+        | Some (WIG | Proxy | BundleOnly) -> false
+        | Some (Service | Html) -> true
+        | _ -> Option.isSome this.OutputDir
+
+    /// Library projects leave their assembly as the .NET compiler wrote it, so WebSharper can
+    /// run alone when only what it reads from references changed.
+    member this.CanTranslateOnly =
+        this.ProjectType = None && not this.EmbedsRuntimeMetadata
+
     member this.ProjectDir =
         match Path.GetDirectoryName this.ProjectFile with
         | "" -> Directory.GetCurrentDirectory()
         | p -> p
+
+    /// The parts of reference metadata this project needs. Libraries (and proxies) without
+    /// dead code elimination or an output folder only need what translation uses: no
+    /// non-inline code and no dependency graph. Web worker bundles read the rest on demand.
+    member this.ReferenceReadOptions =
+        match this.ProjectType with
+        | (None | Some Proxy) when this.DeadCodeElimination <> Some true && Option.isNone this.OutputDir ->
+            WebSharper.Core.MetadataIO.ReadOptions.Library
+        | _ ->
+            WebSharper.Core.MetadataIO.ReadOptions.Full
 
     static member Empty =
         {                 
@@ -134,6 +164,9 @@ type WsConfig =
             Resources = [||]
             KeyFile = None
             CompilerArgs = [||]
+            CompilerResponseFile = None
+            ReferenceImplementations = [||]
+            TranslateOnly = false
             Configuration = null
             ProjectFile = null
             Documentation = None
@@ -455,57 +488,6 @@ module ExecuteCommands =
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
 
-let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
-    let asm = WebSharper.Core.Reflection.LoadAssembly(file)
-    let genFile = Path.ChangeExtension(file, ".Generator.dll")
-    if File.Exists genFile then File.Delete genFile
-    // Instead of removing the original dll, we are going to keep the original F# dll as is,
-    // so we can properly carry over the win32 resources, so that the file properties are populated
-    File.Copy(file, genFile)
-    let name = asm.GetName()
-    let typedArg =
-        asm.CustomAttributes |> Seq.tryPick (fun a ->
-            if a.AttributeType.FullName = "WebSharper.InterfaceGenerator.Pervasives+ExtensionAttribute" then
-                Some a.ConstructorArguments.[0]
-            else
-                None
-        )
-    match typedArg with 
-    | Some a ->
-        let typeName = (a.Value :?> Type).FullName
-        let t = asm.GetType(typeName)
-        let e = Activator.CreateInstance(t)
-        logger.TimedStage "Loading IExtension implementation"
-        let assemblyGetter =
-            let intfMap = t.GetInterfaceMap(typeof<WebSharper.InterfaceGenerator.Pervasives.IExtension>)
-            intfMap.InterfaceMethods.[0]
-        let asmDefObj = assemblyGetter.Invoke(e, [||])
-        let asmDef = asmDefObj :?> WebSharper.InterfaceGenerator.CodeModel.Assembly
-        logger.TimedStage "Getting Assembly definition"
-        name, asmDef, asm
-    | None ->
-        failwith "No ExtensionAttribute set on the input assembly"
-
-let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
-    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
-    let cfg =
-        {
-            InterfaceGenerator.CompilerOptions.Default(name.Name) with
-                AssemblyResolver = Some aR
-                AssemblyVersion = name.Version
-                DocPath = config.Documentation
-                EmbeddedResources = config.Resources |> Seq.map fst
-                ProjectDir = config.ProjectDir
-                ReferencePaths = config.References
-                StrongNameKeyPath = snk
-        }
-    let cmp = InterfaceGenerator.Compiler.Create(logger)
-    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
-    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
-    FrontEnd.HandleExtraFiles logger (Some out.Assembly) name.Name config.ProjectFile config.OutputDir false
-    out.Save config.AssemblyFile
-    logger.TimedStage "Writing final dll"
-
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then
         Some input.[start.Length ..]
@@ -663,6 +645,9 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with MinJSOutputPath = Some f }
     | StartsWith "--wstimings:" f ->
         Some { wsArgs with TimingLog = Some f }
+    | "--wstranslateonly" -> Some { wsArgs with TranslateOnly = true }
+    | StartsWith "--implref:" r ->
+        Some { wsArgs with ReferenceImplementations = Array.append wsArgs.ReferenceImplementations [| r |] }
     | Flag "--closures" v ->
         Some { wsArgs with AnalyzeClosures = Some v }
     | StartsWith "--closures:" c ->

@@ -17,14 +17,26 @@ dependencies
 files
     ../build/Release/Tests/netstandard2.0/ProxyProjectTest.dll ==> lib/net11.0
     ../build/Release/Tests/netstandard2.0/ProxyProjectTest.Proxy.dll ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.Proxy.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.CSharp.Sitelets.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.CSharp.Interop.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.CSharp.Interop.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.CSharp.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.CSharp.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Module.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Module.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Sitelets.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.Sitelets.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Web.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.Web.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/WebSharper.Tests.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/WebSharper.Tests.websharper ==> lib/net11.0
     ../build/Release/Tests/net11.0/Website.dll ==> lib/net11.0
+    ../build/Release/Tests/net11.0/Website.websharper ==> lib/net11.0

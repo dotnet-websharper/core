@@ -19,11 +19,9 @@
 // $end{copyright}
 
 // Uses reflection to get inline and macro information.
-// Used by WebSharper Interface Generator and WebSharper.TypeScript
+// Used by WebSharper Interface Generator
 module WebSharper.Compiler.Reflector
 
 open WebSharper.Core.AST
 
-val TransformAssembly : prototypes: IDictionary<string, string> -> Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
-
-val TransformWSAssembly : prototypes: IDictionary<string, string> -> WebSharper.Compiler.Assembly -> WebSharper.Core.Metadata.Info
+val TransformAssembly : prototypes: IDictionary<string, string> -> WebSharper.Compiler.PEMetadata.PEAssembly -> WebSharper.Core.Metadata.Info

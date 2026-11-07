@@ -569,6 +569,30 @@ type Info =
                 Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardNotInline m.CompiledForm m.Expression })
             }), (fun _ -> Empty))
 
+    /// Keeps only what the website runtime reads from classes: addresses and the compiled form
+    /// of static methods (precompiled quotations and the straight-call fallbacks of handlers and
+    /// controls), and anonymous record shapes (remoting).
+    member this.DiscardNotRuntimeClassInfo() =
+        let classes = Dictionary()
+        for KeyValue(td, (addr, ct, ci)) in this.Classes do
+            let methods =
+                match ci with
+                | Some ci ->
+                    ci.Methods |> Seq.choose (fun (KeyValue(m, mi)) ->
+                        match mi.CompiledForm with
+                        | Static _ | Func _ | GlobalFunc _ ->
+                            Some (m, { CompiledForm = mi.CompiledForm; Optimizations = Optimizations.None; Generics = []; Expression = Undefined })
+                        | _ -> None
+                    ) |> dict
+                | None -> dict []
+            let isAnonRecord = match ct with FSharpAnonRecordInfo _ -> true | _ -> false
+            let ct = if isAnonRecord then ct else NotCustomType
+            if methods.Count > 0 then
+                classes.Add(td, (addr, ct, Some { ClassInfo.None with Methods = methods }))
+            elif isAnonRecord then
+                classes.Add(td, (addr, ct, None))
+        { this with Classes = classes; Interfaces = Map.empty }
+
     member this.IsEmpty =
         this.Classes.Count = 0 &&
         this.Interfaces.Count = 0 &&
@@ -666,42 +690,3 @@ type ICompilation =
     abstract AddJSImport : export: option<string> * from: string -> Expression
     /// Generates an expression that is equivalent to using the `JS.Import` helper for side effect only.
     abstract AddJSImportSideEffect : from: string -> Expression
-              
-module IO =
-    let private MetadataEncoding =
-        try
-            let eP = Binary.EncodingProvider.Create()
-            eP.DeriveEncoding typeof<Info>
-        with Binary.NoEncodingException t ->
-            failwithf "Failed to create binary encoder for type %s" t.FullName
-
-    /// Current medata version flag to ensure consistency across WebSharper libraries
-    let CurrentVersion = "10.1-rev1"
-
-    /// Deserialize metadata from a stream
-    let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
-
-    /// Serialize metadata into a stream
-    let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
-
-    /// Load metadata from an in-memory assembly, which must not be loaded as reflection-only.
-    let LoadMetadata (a: System.Reflection.Assembly) =
-        use s = a.GetManifestResourceStream EMBEDDED_METADATA
-        if isNull s then
-            None
-        else
-            try
-                Some (Decode s)
-            with e ->
-                raise (exn (sprintf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message, e))
-
-    /// Load runtime metadata from an in-memory assembly, which must not be loaded as reflection-only.
-    let LoadRuntimeMetadata (a: System.Reflection.Assembly) =
-        use s = a.GetManifestResourceStream EMBEDDED_RUNTIME_METADATA
-        if isNull s then
-            None
-        else
-            try
-                Some (Decode s)
-            with e ->
-                raise (exn (sprintf "Failed to load runtime metadata for: %s. Error: %s" a.FullName e.Message, e))

@@ -14,6 +14,8 @@ dependencies
     framework: netstandard2.0
         WebSharper == CURRENTVERSION
 files
+    ../msbuild/WebSharper.CSharp.props ==> build
+    ../msbuild/buildMultiTargeting/WebSharper.CSharp.props ==> buildMultiTargeting
     ../msbuild/WebSharper.CSharp.targets ==> build
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
 
@@ -65,12 +67,8 @@ files
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net11.0
 
     ../build/Release/CSharp/Analyzer/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/Analyzer/netstandard2.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/Analyzer/netstandard2.0/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Core.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/Analyzer/netstandard2.0/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs

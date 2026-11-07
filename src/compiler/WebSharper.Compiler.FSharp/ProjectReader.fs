@@ -281,10 +281,10 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
-        if comp.HasGraph then
-            let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
-            for req, po in annot.Requires do
-                comp.Graph.AddEdge(thisRes, ResourceNode (req, po |> Option.map ParameterObject.OfObj))
+        let thisRes = ResourceNode (thisDef, None)
+        comp.AddGraphNode thisRes
+        for req, po in annot.Requires do
+            comp.AddGraphEdge(thisRes, ResourceNode (req, po |> Option.map ParameterObject.OfObj))
         None
     else    
     
@@ -950,8 +950,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                         match memdef with
                         | Member.Method (false, mdef) when List.isEmpty mdef.Value.Parameters ->
                             let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
-                            if comp.HasGraph then
-                                comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
+                            comp.AddGraphEdge(EntryPointNode, MethodNode (def, mdef))
                             comp.SetEntryPoint(ep)
                         | _ ->
                             error "The SPAEntryPoint must be a static method with no arguments"
@@ -1427,7 +1426,9 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
         }
     )
 
-let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
+/// Reads the checked project into the compilation. With a read cache (booster), the reads of
+/// unchanged files are replayed, see ReadCache.
+let transformAssemblyWith (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) (readCache: ReadCache.Context option) =
     comp.AssemblyName <- assemblyName
     comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1469,6 +1470,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
     | None -> ()
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
+
+    // assembly attributes can be in any file, they change how all files are read
+    readCache |> Option.iter (fun rc -> rc.Start(sprintf "%A" asmAnnot))
 
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
@@ -1796,81 +1800,108 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | Some p -> comp.AddProxy(def, p, annot.IsProxyInteral)
             | _ -> ()
 
-        for t in topLevelTypes do
-            match t with
-            | SourceMember _ -> failwith "impossible: top level member"
-            | InitAction _ -> failwith "impossible: top level init action"
-            | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface false recMembers c m |> Option.iter comp.AddClass
-            | SourceInterface (i, m) ->
-                let intf, isNotWSInterface = transformInterface sr classAnnotations i 
-                intf |> Option.iter comp.AddInterface
-                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
+        // the rest of reading the file only adds to the compilation: replayed from the cache
+        // when the file and the files before it are unchanged
+        let transformFile () =
+            for t in topLevelTypes do
+                match t with
+                | SourceMember _ -> failwith "impossible: top level member"
+                | InitAction _ -> failwith "impossible: top level init action"
+                | SourceEntity (c, m) ->
+                    transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface false recMembers c m |> Option.iter comp.AddClass
+                | SourceInterface (i, m) ->
+                    let intf, isNotWSInterface = transformInterface sr classAnnotations i 
+                    intf |> Option.iter comp.AddInterface
+                    transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition isInterface isNotWSInterface recMembers i m |> Option.iter comp.AddClass
             
-        let getStartupCodeClass (sc: StartupCode) =
+            let getStartupCodeClass (sc: StartupCode) =
 
-            let cctor = Block (List.ofSeq (Seq.append sc.RecDecls sc.Statements))
-            let members =
-                [
-                    for KeyValue(f, t) in sc.Fields -> 
-                        NotResolvedMember.Field(f, 
-                            {
-                                StrongName = None
-                                IsStatic = true
-                                IsOptional = false
-                                IsReadonly = true
-                                FieldType = t
-                                Order = 0
-                            } 
-                        )
-                    yield NotResolvedMember.StaticConstructor cctor
-                    for pos, mdef, argNames, e, bundleScope in sc.Quotations ->
-                        let nr =
-                            {
-                                Kind = N.Quotation (pos, argNames, bundleScope)
-                                StrongName = None
-                                Generics = []
-                                Macros = []
-                                Generator = None
-                                Compiled = false
-                                Pure = false
-                                FuncArgs = None
-                                Args = []
-                                Body = e
-                                Requires = []
-                                Warn = None
-                                JavaScriptOptions = WebSharper.JavaScriptOptions.None
-                            }
-                        NotResolvedMember.Method (mdef, nr)    
-                ]
+                let cctor = Block (List.ofSeq (Seq.append sc.RecDecls sc.Statements))
+                let members =
+                    [
+                        for KeyValue(f, t) in sc.Fields -> 
+                            NotResolvedMember.Field(f, 
+                                {
+                                    StrongName = None
+                                    IsStatic = true
+                                    IsOptional = false
+                                    IsReadonly = true
+                                    FieldType = t
+                                    Order = 0
+                                } 
+                            )
+                        yield NotResolvedMember.StaticConstructor cctor
+                        for pos, mdef, argNames, e, bundleScope in sc.Quotations ->
+                            let nr =
+                                {
+                                    Kind = N.Quotation (pos, argNames, bundleScope)
+                                    StrongName = None
+                                    Generics = []
+                                    Macros = []
+                                    Generator = None
+                                    Compiled = false
+                                    Pure = false
+                                    FuncArgs = None
+                                    Args = []
+                                    Body = e
+                                    Requires = []
+                                    Warn = None
+                                    JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                                }
+                            NotResolvedMember.Method (mdef, nr)    
+                    ]
             
-            sc.TypeDefinition,
-            {
-                StrongName = None
-                Generics = []
-                BaseClass = None
-                Implements = []
-                Requires = [] //annot.Requires
-                Members = members
-                Kind = NotResolvedClassKind.Static
-                IsProxy = false
-                Macros = []
-                ForceNoPrototype = false
-                ForceAddress = false
-                Type = None
-                SourcePos =
-                    {
-                        FileName = filePath
-                        Start = 0, 0
-                        End = 0, 0
-                    }
-            }
+                sc.TypeDefinition,
+                {
+                    StrongName = None
+                    Generics = []
+                    BaseClass = None
+                    Implements = []
+                    Requires = [] //annot.Requires
+                    Members = members
+                    Kind = NotResolvedClassKind.Static
+                    IsProxy = false
+                    Macros = []
+                    ForceNoPrototype = false
+                    ForceAddress = false
+                    Type = None
+                    SourcePos =
+                        {
+                            FileName = filePath
+                            Start = 0, 0
+                            End = 0, 0
+                        }
+                }
             
-        if sc.IsValueCreated then
-            getStartupCodeClass sc.Value |> comp.AddClass
+            if sc.IsValueCreated then
+                getStartupCodeClass sc.Value |> comp.AddClass
+
+        let cacheKey = readCache |> Option.bind (fun rc -> rc.KeyOf file.FileName)
+        match cacheKey |> Option.bind (fun k -> readCache.Value.TryGet k) with
+        | Some read ->
+            comp.Replay read.Actions
+            for mem, nr, args, isInstance in read.FuncArgs do
+                argCurrying.AddMember(mem, nr, args, isInstance)
+        | None ->
+            match cacheKey with
+            | Some key ->
+                comp.StartRecording()
+                argCurrying.Recording <- ResizeArray()
+                transformFile ()
+                let actions = comp.StopRecording()
+                let funcArgs = argCurrying.Recording.ToArray()
+                argCurrying.Recording <- null
+                readCache.Value.Add(key, { ReadCache.Actions = actions; ReadCache.FuncArgs = funcArgs })
+            | None ->
+                transformFile ()
     )
     
-    logger.TimedStage "Parsing with FCS"
+    match readCache with
+    | Some rc ->
+        rc.Finish()
+        logger.TimedStage (sprintf "Parsing with FCS (%d of %d files from the read cache)" rc.Hits (rc.Hits + rc.Misses))
+    | None ->
+        logger.TimedStage "Parsing with FCS"
 
     argCurrying.ResolveAll()
 
@@ -1881,3 +1912,6 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
     logger.TimedStage "Resolving names"
 
     comp
+
+let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =
+    transformAssemblyWith logger comp assemblyName config checkResults None

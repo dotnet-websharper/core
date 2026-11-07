@@ -113,6 +113,12 @@ and IResource =
     /// Renders the resource to a given TextWriter.
     abstract member Render : Context -> ((RenderLocation -> HtmlTextWriter) -> unit)
 
+/// Checks if the assembly of a type has a web resource that is not a manifest resource.
+/// WebSharper stores extra.files and web worker bundles of libraries in their sidecar files:
+/// the compiler looks them up there, website runtimes in the resource hashes of their
+/// runtime metadata.
+val mutable IsExternalWebResource : (System.Type -> string -> bool)
+
 /// A resource value appending nothing.
 val EmptyResource : IResource
 

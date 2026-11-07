@@ -55,6 +55,12 @@ type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
     member r.SearchPathDeferred (path: string, beforeResolve: unit -> unit) = AssemblyResolver(dom, reso ++ Common.deferredPath path beforeResolve)
     member r.ResolvePath name = reso.ResolvePath name
 
+    member r.LoadedFiles =
+        reso.Cache.Values
+        |> Seq.choose (fun a -> if isNull a then None else LoadedFrom.TryGet a)
+        |> Seq.distinct
+        |> Array.ofSeq
+
     static member Create(?domain) =
         let dom = defaultArg domain AppDomain.CurrentDomain
         AssemblyResolver(dom, zero)
