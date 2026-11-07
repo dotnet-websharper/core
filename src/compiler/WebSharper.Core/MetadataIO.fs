@@ -34,7 +34,7 @@ open WebSharper.Core.Serialization
 type Info = WebSharper.Core.Metadata.Info
 
 /// Current metadata format version, checked when reading to ensure consistency across WebSharper libraries.
-let CurrentVersion = "11.0-rev2"
+let CurrentVersion = "11.0-preview.1"
 
 /// Compression of a metadata section.
 type Compression =
