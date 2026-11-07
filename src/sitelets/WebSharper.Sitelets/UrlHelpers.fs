@@ -154,25 +154,68 @@ module UrlHelpers =
         |> List.ofArray
         |> Some
 
-    let (|DELETE|GET|OPTIONS|POST|PUT|TRACE|SPECIAL|) (req: Http.Request) =
-        let allParams () = req.Get.ToList () @ req.Post.ToList ()
-        match req.Method with
-        | Http.Method.Delete ->
-            DELETE (allParams (), req.Uri)
-        | Http.Method.Get
-        | Http.Method.Custom "GET" ->
-            GET (req.Get.ToList (), req.Uri)
-        | Http.Method.Options ->
-            OPTIONS (allParams (), req.Uri)
-        | Http.Method.Post ->
-            POST (req.Post.ToList (), req.Uri)
-        | Http.Method.Put ->
-            PUT (allParams (), req.Uri)
-        | Http.Method.Trace ->
-            TRACE (allParams (), req.Uri)
-        // TODO: Revise.  Unfortunately, F# active patterns only allow up to 7 cases.
-        | Http.Method.Head
-        | Http.Method.Connect
-        | Http.Method.Custom _ ->
-            SPECIAL (req.Method, allParams, req.Uri)
+    let private allParams (req: Http.Request) =
+        req.Get.ToList () @ req.Post.ToList ()
 
+    let private ifMethod (m: Http.Method) (req: Http.Request) =
+        if req.Method = m then Some (allParams req, req.Uri) else None
+
+    let (|GET|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Get
+        | Http.Method.Custom "GET" -> Some (req.Get.ToList (), req.Uri)
+        | _ -> None
+
+    let (|POST|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Post
+        | Http.Method.Custom "POST" -> Some (req.Post.ToList (), req.Uri)
+        | _ -> None
+
+    let (|PUT|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Put
+        | Http.Method.Custom "PUT" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|DELETE|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Delete
+        | Http.Method.Custom "DELETE" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|OPTIONS|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Options
+        | Http.Method.Custom "OPTIONS" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|TRACE|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Trace
+        | Http.Method.Custom "TRACE" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|QUERY|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Query
+        | Http.Method.Custom "QUERY" -> Some (req.Post.ToList (), req.Uri)
+        | _ -> None
+
+    let (|HEAD|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Head
+        | Http.Method.Custom "HEAD" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|CONNECT|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Connect
+        | Http.Method.Custom "CONNECT" -> Some (allParams req, req.Uri)
+        | _ -> None
+
+    let (|CUSTOM|_|) (req: Http.Request) =
+        match req.Method with
+        | Http.Method.Custom ("GET" | "POST" | "PUT" | "DELETE" | "OPTIONS" | "TRACE" | "HEAD" | "CONNECT" | "QUERY") -> None
+        | Http.Method.Custom _ -> Some (req.Method, (fun () -> allParams req), req.Uri)
+        | _ -> None

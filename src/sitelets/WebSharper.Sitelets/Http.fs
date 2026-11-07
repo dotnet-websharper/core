@@ -41,6 +41,7 @@ module Http =
         | Options
         | Put
         | Trace
+        | Query
         | Custom of string
 
         override this.ToString() =
@@ -53,6 +54,7 @@ module Http =
             | Options -> "OPTIONS"
             | Put -> "PUT"
             | Trace -> "TRACE"
+            | Query -> "QUERY"
             | Custom s -> s
 
         static member OfString (s: string) =
@@ -65,6 +67,7 @@ module Http =
             | "OPTIONS" -> Options
             | "PUT" -> Put
             | "TRACE" -> Trace
+            | "QUERY" -> Query
             | s -> Custom s
 
     /// Represents the HTTP version for responses and requests.

@@ -101,6 +101,8 @@ module PerformanceTests =
         | [<Method "POST"; EndPoint "/post">] UPost of int
         | [<Method "PUT"; EndPoint "/put">] UPut of int
         | [<EndPoint "POST /post2">] UPost2 of int
+        | [<Method "QUERY"; EndPoint "/query-method">] UQueryMethod of int
+        | [<EndPoint "QUERY /query-json"; Json "body">] UQueryJson of body: RecTest
         | [<EndPoint "/json-input"; Json "json">] UJsonInput of json: RecTest 
         | [<EndPoint "/json-input"; Json "json">] UJsonInt of json: int 
         | [<EndPoint "/formdata"; FormData "data">] UFormData of data: string 
@@ -155,6 +157,8 @@ module PerformanceTests =
             UPost 1
             UPut 2
             UPost2 3
+            UQueryMethod 4
+            UQueryJson { A = "query"; B = 5; C = true }
             UJsonInput { A = "hello"; B = 123; C = false }
             UJsonInt 4
             UFormData "hello"
@@ -317,3 +321,64 @@ module Bug940 =
         | Some _ -> Some "Failed to parse /about correctly"
         | None -> Some "Failed to parse /about"
         |> async.Return
+
+module HttpMethods =
+    open WebSharper.Sitelets.UrlHelpers
+
+    let private request (m: Http.Method) =
+        let get = Http.ParametersFromMap (Map.ofList [ ("q", "1") ])
+        let post = Http.ParametersFromMap (Map.ofList [ ("f", "2") ])
+        let empty = Http.Request.Empty "/x"
+        { new Http.Request() with
+            override x.Method = m
+            override x.Uri = empty.Uri
+            override x.Headers = empty.Headers
+            override x.Post = post
+            override x.Get = get
+            override x.ServerVariables = empty.ServerVariables
+            override x.Body = empty.Body
+            override x.Files = empty.Files
+            override x.Cookies = empty.Cookies
+            override x.BodyText = empty.BodyText
+            override x.IsBodyTextCompleted = empty.IsBodyTextCompleted
+        }
+
+    let private describe (req: Http.Request) =
+        let p (ps: (string * string) list, _: Uri) = ps |> List.map (fun (k, v) -> k + "=" + v) |> String.concat "&"
+        [
+            match req with GET x -> "GET " + p x | _ -> ()
+            match req with POST x -> "POST " + p x | _ -> ()
+            match req with PUT x -> "PUT " + p x | _ -> ()
+            match req with DELETE x -> "DELETE " + p x | _ -> ()
+            match req with OPTIONS x -> "OPTIONS " + p x | _ -> ()
+            match req with TRACE x -> "TRACE " + p x | _ -> ()
+            match req with QUERY x -> "QUERY " + p x | _ -> ()
+            match req with HEAD x -> "HEAD " + p x | _ -> ()
+            match req with CONNECT x -> "CONNECT " + p x | _ -> ()
+            match req with CUSTOM (m, ps, u) -> "CUSTOM " + string m + " " + p (ps (), u) | _ -> ()
+        ]
+        |> String.concat ", "
+
+    /// Returns the method names and the UrlHelpers active patterns matching them.
+    [<Remote>]
+    let MatchMethods () =
+        [| "GET"; "POST"; "PUT"; "DELETE"; "OPTIONS"; "TRACE"; "QUERY"; "HEAD"; "CONNECT"; "PATCH" |]
+        |> Array.map (fun m ->
+            let meth = Http.Method.OfString m
+            string meth, describe (request meth)
+        )
+        |> Array.append (
+            [| "GET"; "QUERY"; "HEAD" |]
+            |> Array.map (fun m -> "Custom " + m, describe (request (Http.Method.Custom m)))
+        )
+        |> async.Return
+
+    /// Parses QUERY routes with QUERY and GET methods.
+    [<Remote>]
+    let ParseQueryMethod () =
+        let router = Router.Infer<PerformanceTests.Action>()
+        let parse m =
+            { Route.FromUrl "/query-method/4" with Method = Some m }
+            |> Router.Parse router
+        async.Return (parse "QUERY", parse "GET")
+

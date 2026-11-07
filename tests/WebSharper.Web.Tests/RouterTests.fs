@@ -49,6 +49,8 @@ module ClientServerTests =
             | UPost _ 
             | UPut _
             | UPost2 _
+            | UQueryMethod _
+            | UQueryJson _
             | UJsonInput _
             | UJsonInt _
             | UFormData _
@@ -236,6 +238,36 @@ module ClientServerTests =
             TestIf runServerTests "#940 'GET /' union case" {
                 let! errOpt = Bug940.Test()
                 equal errOpt None
+            }
+
+            Test "#1612 QUERY method links" {
+                let r = Router.Write ShiftedRouter (UQueryMethod 4)
+                equal (r |> Option.bind (fun r -> r.Method)) (Some "QUERY")
+                equal (r |> Option.map (fun r -> r.ToLink())) (Some "/perf-tests/query-method/4")
+                let rj = Router.Write ShiftedRouter (UQueryJson { A = "a"; B = 1; C = false })
+                equal (rj |> Option.bind (fun r -> r.Method)) (Some "QUERY")
+            }
+
+            TestIf runServerTests "#1612 QUERY method on the server" {
+                let! queryParsed, getParsed = HttpMethods.ParseQueryMethod()
+                equal queryParsed (Some (UQueryMethod 4))
+                notEqual getParsed (Some (UQueryMethod 4))
+                let! methods = HttpMethods.MatchMethods()
+                equal methods [|
+                    "Custom GET", "GET q=1"
+                    "Custom QUERY", "QUERY f=2"
+                    "Custom HEAD", "HEAD q=1&f=2"
+                    "GET", "GET q=1"
+                    "POST", "POST f=2"
+                    "PUT", "PUT q=1&f=2"
+                    "DELETE", "DELETE q=1&f=2"
+                    "OPTIONS", "OPTIONS q=1&f=2"
+                    "TRACE", "TRACE q=1&f=2"
+                    "QUERY", "QUERY f=2"
+                    "HEAD", "HEAD q=1&f=2"
+                    "CONNECT", "CONNECT q=1&f=2"
+                    "PATCH", "CUSTOM PATCH q=1&f=2"
+                |]
             }
 
             TestIf runServerTests "#960 Encoded slash in a path segment" {

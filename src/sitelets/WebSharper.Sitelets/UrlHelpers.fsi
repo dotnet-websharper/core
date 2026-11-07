@@ -84,14 +84,33 @@ module UrlHelpers =
     /// Split the Path component of a URL by a given character.
     val (|SPLIT_BY|_|) : char -> Uri -> string list option
 
-    /// Extract the URL and parameters from an HTTP request
-    /// that uses the given method.
-    val (|DELETE|GET|OPTIONS|POST|PUT|TRACE|SPECIAL|) :
-        Http.Request ->
-        Choice< (string * string) list * Uri,
-                (string * string) list * Uri,
-                (string * string) list * Uri,
-                (string * string) list * Uri,
-                (string * string) list * Uri,
-                (string * string) list * Uri,
-                Http.Method * (unit -> (string * string) list) * Uri >
+    /// Matches a GET request, extracting the query parameters and the URL.
+    val (|GET|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a POST request, extracting the form parameters and the URL.
+    val (|POST|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a PUT request, extracting the query and form parameters and the URL.
+    val (|PUT|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a DELETE request, extracting the query and form parameters and the URL.
+    val (|DELETE|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches an OPTIONS request, extracting the query and form parameters and the URL.
+    val (|OPTIONS|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a TRACE request, extracting the query and form parameters and the URL.
+    val (|TRACE|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a QUERY request, extracting the form parameters and the URL.
+    val (|QUERY|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a HEAD request, extracting the query and form parameters and the URL.
+    val (|HEAD|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a CONNECT request, extracting the query and form parameters and the URL.
+    val (|CONNECT|_|) : Http.Request -> ((string * string) list * Uri) option
+
+    /// Matches a request with a method not recognized by the patterns above, extracting the method,
+    /// a function returning the query and form parameters, and the URL.
+    val (|CUSTOM|_|) : Http.Request -> (Http.Method * (unit -> (string * string) list) * Uri) option
