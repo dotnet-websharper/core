@@ -22,6 +22,7 @@ namespace WebSharper.Sitelets
 
 module UrlHelpers =
     open System
+    open System.Globalization
     open System.Text.RegularExpressions
 
     module Internals =
@@ -48,81 +49,60 @@ module UrlHelpers =
             (fun (n, rest) -> rest |> Some)
 
     let (|INT|_|) (s: string) =
-        let res = ref 0
-        if Int32.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-    
+        match Int32.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|UINT|_|) (s: string) =
-        let res = ref 0u
-        if UInt32.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-     
+        match UInt32.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|INT64|_|) (s: string) =
-        let res = ref 0L
-        if Int64.TryParse(s, res) then
-            !res |> Some
-        else
-            None
+        match Int64.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
 
     let (|UINT64|_|) (s: string) =
-        let res = ref 0UL
-        if UInt64.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-    
+        match UInt64.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|INT16|_|) (s: string) =
-        let res = ref (int16 0)
-        if Int16.TryParse(s, res) then
-            !res |> Some
-        else
-            None
+        match Int16.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
 
     let (|UINT16|_|) (s: string) =
-        let res = ref (uint16 0)
-        if UInt16.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-    
+        match UInt16.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|INT8|_|) (s: string) =
-        let res = ref (int8 0)
-        if SByte.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-    
+        match SByte.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|UINT8|_|) (s: string) =
-        let res = ref (uint8 0)
-        if Byte.TryParse(s, res) then
-            !res |> Some
-        else
-            None
+        match Byte.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
 
     let (|SBYTE|_|) (s: string) =
-        let res = ref (sbyte 0)
-        if SByte.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-    
+        match SByte.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
     let (|BYTE|_|) (s: string) =
-        let res = ref (byte 0)
-        if Byte.TryParse(s, res) then
-            !res |> Some
-        else
-            None
-            
-    let (|FLOAT|_|) (s: string)=
-        let res = ref 0.0
-        if Double.TryParse(s, res) then
-            !res |> Some
-        else
-            None
+        match Byte.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
+
+    let (|FLOAT|_|) (s: string) =
+        let style = NumberStyles.AllowLeadingSign ||| NumberStyles.AllowDecimalPoint ||| NumberStyles.AllowExponent
+        match Double.TryParse(s, style, CultureInfo.InvariantCulture) with
+        | true, res -> Some res
+        | _ -> None
 
     let (|GUID|_|) (s: string) =
         let res = ref Guid.Empty
@@ -154,68 +134,52 @@ module UrlHelpers =
         |> List.ofArray
         |> Some
 
-    let private allParams (req: Http.Request) =
-        req.Get.ToList () @ req.Post.ToList ()
-
-    let private ifMethod (m: Http.Method) (req: Http.Request) =
-        if req.Method = m then Some (allParams req, req.Uri) else None
-
-    let (|GET|_|) (req: Http.Request) =
+    let private isMethod (m: Http.Method) (req: Http.Request) =
         match req.Method with
-        | Http.Method.Get
-        | Http.Method.Custom "GET" -> Some (req.Get.ToList (), req.Uri)
+        | Http.Method.Custom name when name = m.ToString() -> Some ()
+        | x when x = m -> Some ()
         | _ -> None
 
-    let (|POST|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Post
-        | Http.Method.Custom "POST" -> Some (req.Post.ToList (), req.Uri)
-        | _ -> None
+    let (|GET|_|) req = isMethod Http.Method.Get req
 
-    let (|PUT|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Put
-        | Http.Method.Custom "PUT" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|POST|_|) req = isMethod Http.Method.Post req
 
-    let (|DELETE|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Delete
-        | Http.Method.Custom "DELETE" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|PUT|_|) req = isMethod Http.Method.Put req
 
-    let (|OPTIONS|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Options
-        | Http.Method.Custom "OPTIONS" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|DELETE|_|) req = isMethod Http.Method.Delete req
 
-    let (|TRACE|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Trace
-        | Http.Method.Custom "TRACE" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|OPTIONS|_|) req = isMethod Http.Method.Options req
 
-    let (|QUERY|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Query
-        | Http.Method.Custom "QUERY" -> Some (req.Post.ToList (), req.Uri)
-        | _ -> None
+    let (|TRACE|_|) req = isMethod Http.Method.Trace req
 
-    let (|HEAD|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Head
-        | Http.Method.Custom "HEAD" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|QUERY|_|) req = isMethod Http.Method.Query req
 
-    let (|CONNECT|_|) (req: Http.Request) =
-        match req.Method with
-        | Http.Method.Connect
-        | Http.Method.Custom "CONNECT" -> Some (allParams req, req.Uri)
-        | _ -> None
+    let (|HEAD|_|) req = isMethod Http.Method.Head req
+
+    let (|CONNECT|_|) req = isMethod Http.Method.Connect req
 
     let (|CUSTOM|_|) (req: Http.Request) =
         match req.Method with
-        | Http.Method.Custom ("GET" | "POST" | "PUT" | "DELETE" | "OPTIONS" | "TRACE" | "HEAD" | "CONNECT" | "QUERY") -> None
-        | Http.Method.Custom _ -> Some (req.Method, (fun () -> allParams req), req.Uri)
+        | Http.Method.Custom ("GET" | "POST" | "PUT" | "DELETE" | "OPTIONS" | "TRACE" | "QUERY" | "HEAD" | "CONNECT") -> None
+        | Http.Method.Custom name -> Some name
         | _ -> None
+
+    let (|PATH|) (req: Http.Request) =
+        let u = req.Uri
+        let p =
+            if u.IsAbsoluteUri then
+                u.AbsolutePath
+            else
+                let s = u.OriginalString
+                match s.IndexOfAny [| '?'; '#' |] with
+                | -1 -> s
+                | i -> s.Substring(0, i)
+        p.Split([| '/' |], StringSplitOptions.RemoveEmptyEntries)
+        |> Seq.map Uri.UnescapeDataString
+        |> List.ofSeq
+
+    let (|PARAM|_|) (name: string) (req: Http.Request) =
+        req.Get.Item name
+
+    let (|FORM|_|) (name: string) (req: Http.Request) =
+        req.Post.Item name

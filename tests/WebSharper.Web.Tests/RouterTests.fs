@@ -254,20 +254,42 @@ module ClientServerTests =
                 notEqual getParsed (Some (UQueryMethod 4))
                 let! methods = HttpMethods.MatchMethods()
                 equal methods [|
-                    "Custom GET", "GET q=1"
-                    "Custom QUERY", "QUERY f=2"
-                    "Custom HEAD", "HEAD q=1&f=2"
-                    "GET", "GET q=1"
-                    "POST", "POST f=2"
-                    "PUT", "PUT q=1&f=2"
-                    "DELETE", "DELETE q=1&f=2"
-                    "OPTIONS", "OPTIONS q=1&f=2"
-                    "TRACE", "TRACE q=1&f=2"
-                    "QUERY", "QUERY f=2"
-                    "HEAD", "HEAD q=1&f=2"
-                    "CONNECT", "CONNECT q=1&f=2"
-                    "PATCH", "CUSTOM PATCH q=1&f=2"
+                    "Custom GET", "GET"
+                    "Custom QUERY", "QUERY"
+                    "Custom HEAD", "HEAD"
+                    "GET", "GET"
+                    "POST", "POST"
+                    "PUT", "PUT"
+                    "DELETE", "DELETE"
+                    "OPTIONS", "OPTIONS"
+                    "TRACE", "TRACE"
+                    "QUERY", "QUERY"
+                    "HEAD", "HEAD"
+                    "CONNECT", "CONNECT"
+                    "PATCH", "CUSTOM PATCH"
                 |]
+            }
+
+            TestIf runServerTests "UrlHelpers request patterns" {
+                let! routed = HttpMethods.RouteRequests()
+                equal routed [|
+                    HttpMethods.BlogDefault 12
+                    HttpMethods.Blog (12, 3)
+                    HttpMethods.BlogDefault 12
+                    HttpMethods.BlogDefault 12
+                    HttpMethods.Page [ "blog"; " 12" ]
+                    HttpMethods.Search "2"
+                    HttpMethods.Unknown
+                    HttpMethods.Page [ "a/b"; "c d" ]
+                    HttpMethods.Page [ "a/b"; "c" ]
+                |]
+            }
+
+            TestIf runServerTests "UrlHelpers number patterns" {
+                let! floats, ints, uints = HttpMethods.ParseNumbers()
+                equal floats [| Some 1.5; None; Some -2000.; None |]
+                equal ints [| Some -12; Some 12; None; None |]
+                equal uints [| Some 12u; None; None |]
             }
 
             TestIf runServerTests "#960 Encoded slash in a path segment" {

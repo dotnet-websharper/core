@@ -325,13 +325,13 @@ module Bug940 =
 module HttpMethods =
     open WebSharper.Sitelets.UrlHelpers
 
-    let private request (m: Http.Method) =
-        let get = Http.ParametersFromMap (Map.ofList [ ("q", "1") ])
+    let private requestWith (m: Http.Method) (uri: string) (query: list<string * string>) =
+        let get = Http.ParametersFromMap (Map.ofList query)
         let post = Http.ParametersFromMap (Map.ofList [ ("f", "2") ])
-        let empty = Http.Request.Empty "/x"
+        let empty = Http.Request.Empty "/"
         { new Http.Request() with
             override x.Method = m
-            override x.Uri = empty.Uri
+            override x.Uri = Uri(uri, UriKind.RelativeOrAbsolute)
             override x.Headers = empty.Headers
             override x.Post = post
             override x.Get = get
@@ -343,19 +343,20 @@ module HttpMethods =
             override x.IsBodyTextCompleted = empty.IsBodyTextCompleted
         }
 
+    let private request m uri = requestWith m uri []
+
     let private describe (req: Http.Request) =
-        let p (ps: (string * string) list, _: Uri) = ps |> List.map (fun (k, v) -> k + "=" + v) |> String.concat "&"
         [
-            match req with GET x -> "GET " + p x | _ -> ()
-            match req with POST x -> "POST " + p x | _ -> ()
-            match req with PUT x -> "PUT " + p x | _ -> ()
-            match req with DELETE x -> "DELETE " + p x | _ -> ()
-            match req with OPTIONS x -> "OPTIONS " + p x | _ -> ()
-            match req with TRACE x -> "TRACE " + p x | _ -> ()
-            match req with QUERY x -> "QUERY " + p x | _ -> ()
-            match req with HEAD x -> "HEAD " + p x | _ -> ()
-            match req with CONNECT x -> "CONNECT " + p x | _ -> ()
-            match req with CUSTOM (m, ps, u) -> "CUSTOM " + string m + " " + p (ps (), u) | _ -> ()
+            match req with GET -> "GET" | _ -> ()
+            match req with POST -> "POST" | _ -> ()
+            match req with PUT -> "PUT" | _ -> ()
+            match req with DELETE -> "DELETE" | _ -> ()
+            match req with OPTIONS -> "OPTIONS" | _ -> ()
+            match req with TRACE -> "TRACE" | _ -> ()
+            match req with QUERY -> "QUERY" | _ -> ()
+            match req with HEAD -> "HEAD" | _ -> ()
+            match req with CONNECT -> "CONNECT" | _ -> ()
+            match req with CUSTOM m -> "CUSTOM " + m | _ -> ()
         ]
         |> String.concat ", "
 
@@ -365,13 +366,61 @@ module HttpMethods =
         [| "GET"; "POST"; "PUT"; "DELETE"; "OPTIONS"; "TRACE"; "QUERY"; "HEAD"; "CONNECT"; "PATCH" |]
         |> Array.map (fun m ->
             let meth = Http.Method.OfString m
-            string meth, describe (request meth)
+            string meth, describe (request meth "/x")
         )
         |> Array.append (
             [| "GET"; "QUERY"; "HEAD" |]
-            |> Array.map (fun m -> "Custom " + m, describe (request (Http.Method.Custom m)))
+            |> Array.map (fun m -> "Custom " + m, describe (request (Http.Method.Custom m) "/x"))
         )
         |> async.Return
+
+    type Endpoint =
+        | Blog of int * int
+        | BlogDefault of int
+        | Search of string
+        | Page of string list
+        | Unknown
+
+    let private route (req: Http.Request) =
+        match req with
+        | GET & PATH ["blog"; INT id] & PARAM "page" (INT page) -> Blog (id, page)
+        | GET & PATH ["blog"; INT id] -> BlogDefault id
+        | QUERY & PATH ["search"] & FORM "f" f -> Search f
+        | GET & PATH p -> Page p
+        | _ -> Unknown
+
+    /// Routes requests with the UrlHelpers request patterns.
+    [<Remote>]
+    let RouteRequests () =
+        [|
+            route (request Http.Method.Get "/blog/12")
+            route (requestWith Http.Method.Get "/blog/12?page=3" [ ("page", "3") ])
+            route (requestWith Http.Method.Get "/blog/12?page=x" [ ("page", "x") ])
+            route (request Http.Method.Get "/blog/+12")
+            route (request Http.Method.Get "/blog/%2012")
+            route (request Http.Method.Query "/search")
+            route (request Http.Method.Post "/search")
+            route (request Http.Method.Get "/a%2Fb//c%20d/")
+            route (request Http.Method.Get "http://example.com/a%2Fb/c?x=1")
+        |]
+        |> async.Return
+
+    /// Parses numbers with the UrlHelpers number patterns under a culture with a decimal comma.
+    [<Remote>]
+    let ParseNumbers () =
+        let culture = System.Globalization.CultureInfo.CurrentCulture
+        try
+            System.Globalization.CultureInfo.CurrentCulture <- System.Globalization.CultureInfo "de-DE"
+            let f s = match s with FLOAT x -> Some x | _ -> None
+            let i s = match s with INT x -> Some x | _ -> None
+            let u s = match s with UINT x -> Some x | _ -> None
+            async.Return (
+                [| f "1.5"; f "1,5"; f "-2e3"; f " 1" |],
+                [| i "-12"; i "12"; i " 12"; i "1.000" |],
+                [| u "12"; u "-12"; u "+12" |]
+            )
+        finally
+            System.Globalization.CultureInfo.CurrentCulture <- culture
 
     /// Parses QUERY routes with QUERY and GET methods.
     [<Remote>]
