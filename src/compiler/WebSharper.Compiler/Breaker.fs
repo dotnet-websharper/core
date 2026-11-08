@@ -1,8 +1,8 @@
 // $begin{copyright}
-//                                                                                                                                           
+//
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2016 IntelliFactory
+// Copyright (c) 2008-2026 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
