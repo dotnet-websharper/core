@@ -540,7 +540,8 @@ and Statement canBeEmpty statement =
         ++ s1L
         -- s2L
     | S.Labelled (label, s) ->
-        Label label ++ Token ": " ++ Statement canBeEmpty s
+        // a label needs a statement, write `{ }` for an empty one
+        Label label ++ Token ": " ++ Statement false s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e

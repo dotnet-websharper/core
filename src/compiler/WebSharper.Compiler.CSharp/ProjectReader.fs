@@ -734,7 +734,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         |> Continuation.FreeNestedGotos().TransformStatement
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
-                                else b1 |> Scoping.fix |> Continuation.eliminateGotos
+                                else 
+                                    // let/const give a new binding on each loop iteration, the loop bodies
+                                    // only need wrapping when gotos make the method a state machine
+                                    let b = b1 |> Scoping.forwardGotosToBreaks
+                                    if Continuation.HasGotos.Check b then
+                                        b |> Scoping.fix |> Continuation.eliminateGotos
+                                    else b
                             { m with Body = b2 }
                         let backingField() = 
                             members.OfType<IFieldSymbol>()
