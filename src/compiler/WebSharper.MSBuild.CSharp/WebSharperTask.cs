@@ -56,6 +56,8 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperTimingLog { get; set; }
         public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
+        /// $(DOTNET_HOST_PATH), runs WebSharperToolPath when it is a .dll
+        public string DotnetHostPath { get; set; } = "";
         public string DefineConstants { get; set; } = "";
         /// The command line of csc (ProvideCommandLineArgs), empty if csc was skipped.
         public ITaskItem[] CscCommandLineArgs { get; set; } = new ITaskItem[] { };
@@ -74,7 +76,7 @@ namespace WebSharper.MSBuild.CSharp
 
         protected override string GenerateFullPathToTool()
         {
-            return WebSharperToolPath;
+            return DotnetHost.IsPortable(WebSharperToolPath) ? DotnetHost.Find(DotnetHostPath) : WebSharperToolPath;
         }
 
         private void WriteAtFileName(string filename)
@@ -175,6 +177,8 @@ namespace WebSharper.MSBuild.CSharp
             var atFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
             WriteAtFileName(atFileName);
             var builder = new CommandLineBuilder();
+            if (DotnetHost.IsPortable(WebSharperToolPath))
+                builder.AppendFileNameIfNotNull(Path.GetFullPath(WebSharperToolPath));
             builder.AppendFileNameIfNotNull("@" + atFileName);
             return builder.ToString();
         }

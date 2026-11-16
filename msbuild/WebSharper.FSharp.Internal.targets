@@ -30,7 +30,7 @@ $end{copyright}
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net11.0/wsfsc.exe</WebSharperToolPath>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net11.0/wsfsc.sh</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net11.0/wsfsc.dll</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
     <WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
@@ -81,7 +81,7 @@ $end{copyright}
     <PropertyGroup>
       <_WebSharperRunTask Condition=" '@(FscCommandLineArgs)' != '' OR ('$(_WebSharperTranslateOnly)' == 'True' AND Exists('$(_WebSharperResponseFile)')) ">True</_WebSharperRunTask>
     </PropertyGroup>
-    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(_WebSharperRunTask)' == 'True'" />
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(WebSharperToolPath.EndsWith(`.dll`))' != 'True' AND '$(_WebSharperRunTask)' == 'True'" />
     <WebSharperTask
       Condition=" '$(_WebSharperRunTask)' == 'True' "
       StandardOutputImportance="$(WebSharperLogImportance)"
@@ -104,6 +104,7 @@ $end{copyright}
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
+      DotnetHostPath="$(DOTNET_HOST_PATH)"
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"

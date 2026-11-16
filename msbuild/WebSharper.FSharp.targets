@@ -27,12 +27,9 @@ $end{copyright}
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
-    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">True</WebSharperStandalone>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wsfsc.cmd</WebSharperToolPath>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.sh</WebSharperToolPath>
-    <WebSharperBoosterToolPath Condition=" '$(WebSharperToolPath)' != '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfscservice_start.sh') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfscservice_start.sh</WebSharperBoosterToolPath>
-    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">True</WebSharperStandalone>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wsfsc.sh</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.dll') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.dll</WebSharperToolPath>
+    <!-- portable compiler: a .dll tool path runs with $(DOTNET_HOST_PATH), and starts the booster the same way -->
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wsfsc.dll</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>
@@ -80,8 +77,7 @@ $end{copyright}
     <PropertyGroup>
       <_WebSharperRunTask Condition=" '@(FscCommandLineArgs)' != '' OR ('$(_WebSharperTranslateOnly)' == 'True' AND Exists('$(_WebSharperResponseFile)')) ">True</_WebSharperRunTask>
     </PropertyGroup>
-    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(_WebSharperRunTask)' == 'True'" />
-    <Exec Command="chmod u+x '$(WebSharperBoosterToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(WebSharperBoosterToolPath)' != '' AND '$(_WebSharperRunTask)' == 'True'" />
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(_WebSharperRunTask)' == 'True' AND '$(WebSharperToolPath.EndsWith(`.dll`))' != 'True'" />
     <WebSharperTask
       Condition=" '$(_WebSharperRunTask)' == 'True' "
       StandardOutputImportance="$(WebSharperLogImportance)"
@@ -104,6 +100,7 @@ $end{copyright}
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
+      DotnetHostPath="$(DOTNET_HOST_PATH)"
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"

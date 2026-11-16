@@ -49,6 +49,8 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperMinJsOutput { get; set; }
         public string WebSharperTimingLog { get; set; }
         public string WebSharperToolPath { get; set; } = "wsfsc.exe";
+        /// $(DOTNET_HOST_PATH), runs WebSharperToolPath when it is a .dll
+        public string DotnetHostPath { get; set; } = "";
         public string WebSharperStandalone { get; set; } = "";
         public string WebSharperTransparentCompiler { get; set; } = "";
         public string WebSharperParallelCompilation { get; set; } = "";
@@ -72,7 +74,7 @@ namespace WebSharper.MSBuild.FSharp
 
         protected override string GenerateFullPathToTool()
         {
-            return WebSharperToolPath;
+            return DotnetHost.IsPortable(WebSharperToolPath) ? DotnetHost.Find(DotnetHostPath) : WebSharperToolPath;
         }
 
         private void WriteAtFileName(string filename)
@@ -162,6 +164,8 @@ namespace WebSharper.MSBuild.FSharp
             var atFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
             WriteAtFileName(atFileName);
             var builder = new CommandLineBuilder();
+            if (DotnetHost.IsPortable(WebSharperToolPath))
+                builder.AppendFileNameIfNotNull(Path.GetFullPath(WebSharperToolPath));
             builder.AppendFileNameIfNotNull("@" + atFileName);
             return builder.ToString();
         }
