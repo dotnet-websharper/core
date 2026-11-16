@@ -1182,6 +1182,7 @@ type RoslynTransformer(env: Environment) =
             | For(init, cond, incr, body) -> For(init, cond, incr, continueAtEnd body)
             | While(cond, body) -> While(cond, continueAtEnd body)
             | DoWhile(body, cond) -> DoWhile(continueAtEnd body, cond)
+            | ForOf(v, e, body) -> ForOf(v, e, continueAtEnd body)
             | Block statements ->
                 match List.rev statements with
                 | last :: rest -> Block(List.rev rest @ [ addContinueTarget last ])
@@ -2527,7 +2528,26 @@ type RoslynTransformer(env: Environment) =
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
-
+        let isArray =
+            match env.SemanticModel.GetTypeInfo(x.Expression.Node).Type with
+            | :? IArrayTypeSymbol as a -> a.Rank = 1
+            | _ -> false
+        // await, yield and jumps inside need the enumerator loop, as the state machines do not support for...of
+        let hasAwaitYieldOrJump () =
+            let mutable found = false
+            { new Visitor() with
+                override this.VisitAwait _ = found <- true
+                override this.VisitYield _ = found <- true
+                override this.VisitGoto _ = found <- true
+                override this.VisitBreak l = if Option.isSome l then found <- true
+                override this.VisitContinue l = if Option.isSome l then found <- true
+            }.VisitStatement statement
+            found
+        let isLabeled = x.Node.Parent :? LabeledStatementSyntax
+        if isArray && not isAsync && not isLabeled && not (hasAwaitYieldOrJump ()) then
+            ForOf (v, expression, statement)
+            |> withStatementSourcePos x.Node
+        else
         this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info, isAsync)
         |> withStatementSourcePos x.Node
 
