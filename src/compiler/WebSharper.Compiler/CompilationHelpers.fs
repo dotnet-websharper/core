@@ -100,6 +100,7 @@ let rec isPureExpr expr =
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
     | Coerce (a, _, _)
+    | Cast (_, a)
         -> isPureExpr a     
     | Object a 
         -> List.forall (fun (_, _, v) -> isPureExpr v) a 
@@ -131,7 +132,8 @@ let rec isTrivialValue expr =
         -> true
     | Var v  ->
         not v.IsMutable
-    | ExprSourcePos (_, a) ->
+    | ExprSourcePos (_, a) 
+    | Cast (_, a) ->
         isTrivialValue a
     //| Function (args, _, _, (I.Empty | I.Block [])) -> true
     //| Function (args, _, _, (I.Return body)) ->
@@ -172,6 +174,7 @@ let rec isStronglyPureExpr expr =
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
     | Coerce (a, _, _)
+    | Cast (_, a)
         -> isStronglyPureExpr a     
     | Object a 
         -> List.forall (fun (_, _, v) -> isStronglyPureExpr v) a 

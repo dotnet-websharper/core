@@ -72,7 +72,7 @@ let thisFunc (this: Id) vars ret body isReturn =
 
 let globalArray = Address.Lib "Array"
 
-let cleanRuntime force expr =
+let rec cleanRuntime force expr =
 //    let tr = Transform clean
     match expr with
     | Application (Runtime "id", [ x ], _) -> 
@@ -250,6 +250,9 @@ let cleanRuntime force expr =
             transformIfAlwaysInterop "CreateFuncWithThisArgs" (fun () -> thisFunc obj vars ret lBody isReturn)
         | _ ->
             expr
+    // see through TypeScript casts of object and array literals
+    | ItemGet (Cast (_, (Object _ | NewArray _ as o)), item, p) ->
+        cleanRuntime force (ItemGet (o, item, p))
     | ItemGet (Object fs, Value (String fieldName), _) when not (I.IsObjectMember fieldName) ->
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []

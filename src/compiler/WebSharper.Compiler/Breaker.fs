@@ -269,6 +269,13 @@ let rec removeLets expr =
     let func vars ret body isReturn =
         if isReturn then Lambda(vars, ret, body) else Function(vars, None, ret, ExprStatement body)
     match expr with
+    // TypeScript casts: move a cast of a bound value to the uses of the variable,
+    // so that the patterns below see the value itself and type information is kept
+    | Let (var, I.Cast (t, value), body) ->
+        Let (var, value, SubstituteVar(var, Cast(t, Var var)).TransformExpression(body)) |> removeLets
+    // a cast on a function value being applied does not change the JavaScript result
+    | Application (I.Cast (_, (I.Function _ | I.Application _ | I.Let _ as f)), xs, info) ->
+        Application (f, xs, info) |> removeLets
     | Application (I.Let (var, value, body), xs, info) ->
         Let (var, value, Application (body, xs, info)) |> removeLets
     | Application (I.GlobalAccess g, [x], _) when g = globalId ->
@@ -349,7 +356,7 @@ let rec removeLets expr =
 let optimize expr =
     match expr with
     // eta-reduction
-    | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i })))
+    | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i }) | I.Cast (_, I.Application (f, args, { KnownLength = Some i }))))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
     // created for sprintf
