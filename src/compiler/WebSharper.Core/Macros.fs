@@ -347,17 +347,18 @@ let translateComparison (c: M.ICompilation) (t: Type) args leftNble rightNble cm
                     | Some i, _ -> comp (cInt i) (y.[cString "$"])
                     | _, Some j -> comp (x.[cString "$"]) (cInt j)
                     | _ -> makeComparison cmp t a b
-            match leftNble, rightNble with
-            | false, false -> res
-            | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
-            | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
-            | true , true  -> 
+            // lifted operators: == is true if both are null, != is true if only one is null,
+            // other comparisons are false if any side is null
+            if not (leftNble || rightNble) then res
+            else
                 match cmp with
-                | Comparison.``<=`` 
-                | Comparison.``>=`` 
-                | Comparison.``=`` 
-                    -> utils c "nullableCmpE" [ x; y; lambda res ]
-                | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
+                | Comparison.``=`` -> utils c "nullableCmpE" [ x; y; lambda res ]
+                | Comparison.``<>`` -> utils c "nullableCmpNE" [ x; y; lambda res ]
+                | _ ->
+                    match leftNble, rightNble with
+                    | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
+                    | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
+                    | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
             |> MacroOk
         | Some method ->
             Call(None, t.TypeDefinition |> NonGeneric, method |> NonGeneric, [x; y]) |> MacroOk

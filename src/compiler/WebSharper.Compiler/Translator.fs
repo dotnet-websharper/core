@@ -663,6 +663,25 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | Some res -> res
             | _ -> this.Error("Unrecognized F# compiler generated method for union case: " + me.MethodName)    
         | M.EnumInfo e ->
+            // operators of C# enums are defined on the enum type, replace it with the
+            // underlying type in the signature so that numeric macros recognize them
+            let underlying = NonGenericType e
+            let rec subst t =
+                match t with
+                | ConcreteType ct when ct.Entity = typ.Entity -> underlying
+                | ConcreteType ct when not ct.Generics.IsEmpty ->
+                    ConcreteType { ct with Generics = ct.Generics |> List.map subst }
+                | _ -> t
+            let meth =
+                { meth with
+                    Entity =
+                        Method {
+                            me with
+                                Parameters = me.Parameters |> List.map subst
+                                ReturnType = subst me.ReturnType
+                        }
+                    Generics = meth.Generics |> List.map subst
+                }
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      

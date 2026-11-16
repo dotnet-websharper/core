@@ -2248,7 +2248,7 @@ type RoslynTransformer(env: Environment) =
                         MutatingUnaryOperator.``()--``
                     else
                         MutatingUnaryOperator.``--()``
-            if typ = opTyp && numericTypes.Contains typ.Entity.Value.FullName then
+            if typ = opTyp && (numericTypes.Contains typ.Entity.Value.FullName || opT.TypeKind = TypeKind.Enum) then
                 match e with
                 | Var _ 
                 | ItemGet _ 
@@ -2276,7 +2276,7 @@ type RoslynTransformer(env: Environment) =
         | Some o -> o |> withExprSourcePos node
         | _ ->
         let convGet, convSet, callOp = 
-            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) then
+            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) && opT.TypeKind <> TypeKind.Enum then
                 // synthetic method, try to find conversions
                 let realOpType =
                     incrOrDecrAutoConvertTypes |> Seq.tryPick (fun t ->
