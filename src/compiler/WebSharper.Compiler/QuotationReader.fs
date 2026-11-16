@@ -279,7 +279,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             | ParseError m -> m
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
         env.Compilation.AddError(getOptSourcePos expr, sprintf "%s at %A" msg expr)
-        CompilationHelpers.errorPlaceholder        
+        CompilationHelpers.errorPlaceholderWith msg        
 
 let readExpression (comp: ICompilation) expr =
     transformExpression (Environment.New(comp)) expr

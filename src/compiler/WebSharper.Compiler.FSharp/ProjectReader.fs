@@ -756,7 +756,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                                             | ExprSourcePos (p, _) -> Some p
                                             | _ -> None
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
-                                        errorPlaceholder
+                                        errorPlaceholderWith e.Message
                                 | _ -> b
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
@@ -830,7 +830,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                         curriedArgs, TailCalls.optimize currentMethod inlinesOfClass res
                     with e ->
                         error (sprintf "Error reading definition: %s at %s" e.Message e.StackTrace)
-                        None, errorPlaceholder
+                        None, errorPlaceholderWith ("Error reading definition: " + e.Message)
 
                 let getImport() =
                     mAnnot.Import |> Option.map comp.JSImport

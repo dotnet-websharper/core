@@ -1398,8 +1398,19 @@ let needsScoping args values body =
 
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
-let errorPlaceholder = 
-    Cast(TSType.Any, Value (String "$$ERROR$$"))
+/// Projects compiled with WarnOnly still get output, so the placeholder
+/// throws when evaluated, showing the error message at the failure point.
+let errorPlaceholderWith (msg: string) =
+    let msg =
+        let lines = msg.Split([| '\r'; '\n' |], System.StringSplitOptions.RemoveEmptyEntries)
+        let m = if lines.Length > 0 then lines.[0] else msg
+        if m.Length > 300 then m.Substring(0, 300) + "..." else m
+    Cast(TSType.Any, Appl(GlobalAccess (Address.Runtime "CompileError"), [ Value (String msg) ], NonPure, Some 1))
+
+/// A placeholder expression when encountering a translation error
+/// with no message available at the creation site.
+let errorPlaceholder =
+    errorPlaceholderWith "translation failed"
 
 /// A transformer that tracks current source position
 type TransformerWithSourcePos(comp: Metadata.ICompilation) =
@@ -1417,7 +1428,7 @@ type TransformerWithSourcePos(comp: Metadata.ICompilation) =
             failwithf "Experimental compilation failed"
         else
             comp.AddError(currentSourcePos, msg)
-            errorPlaceholder
+            errorPlaceholderWith msg
 
     member this.Warning msg =
         if not this.FailOnError then

@@ -1448,7 +1448,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | ParseError m -> m
             | _ -> "Error while reading F# code: " + e.Message + " " + e.StackTrace
         env.Compilation.AddError(Some (getSourcePos expr), WebSharper.Compiler.SourceError msg)
-        errorPlaceholder        
+        errorPlaceholderWith msg        
     |> withSourcePos expr
 
 type FSharp.Compiler.Text.Range with

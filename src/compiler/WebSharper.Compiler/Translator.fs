@@ -927,7 +927,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.Error(err) =
         comp.AddError(this.CurrentSourcePos, err)
-        errorPlaceholder
+        errorPlaceholderWith (string err)
 
     member this.OptimizeArg (opt, expr) =
         match opt with
@@ -1237,9 +1237,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             match thisObj with 
             | Some thisObj ->
-                Appl(ItemGet(this.TransformExpression thisObj, errorPlaceholder, NonPure), args |> List.map this.TransformExpression, NonPure, None) 
+                Appl(ItemGet(this.TransformExpression thisObj, (errorPlaceholderWith (string err)), NonPure), args |> List.map this.TransformExpression, NonPure, None) 
             | _ ->
-                Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
+                Appl((errorPlaceholderWith (string err)), args |> List.map this.TransformExpression, NonPure, None)
 
     override this.TransformTraitCall(thisObj, typs, meth, args) =
         let witness =
@@ -1743,7 +1743,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Error("Failed to translate compiler generated constructor")
         | LookupMemberError err ->
             comp.AddError (this.CurrentSourcePos, err)
-            Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
+            Appl((errorPlaceholderWith (string err)), args |> List.map this.TransformExpression, NonPure, None)
                   
     override this.TransformChainedCtor(isBase, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
@@ -1766,7 +1766,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
-                Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
+                Appl((errorPlaceholderWith (string err)), args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then
             norm
         else def()
@@ -2108,7 +2108,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> this.Error(sprintf "Could not find setter of property: %s.%s" typ.Entity.Value.FullName field)
         | LookupFieldError err ->
             comp.AddError (this.CurrentSourcePos, err)
-            ItemSet(errorPlaceholder, errorPlaceholder, this.TransformExpression value)
+            Sequential [ this.TransformExpression value; errorPlaceholderWith (string err) ]
 
     member this.GetTypeCheckKind typ =
         match typ with

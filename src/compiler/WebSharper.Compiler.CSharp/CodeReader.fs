@@ -974,7 +974,7 @@ type RoslynTransformer(env: Environment) =
             else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
-            errorPlaceholder       
+            errorPlaceholderWith ("Error while reading C# code: " + e.Message)
 
     member this.TransformType (x: TypeData) : _ =
         match x with
@@ -1159,7 +1159,7 @@ type RoslynTransformer(env: Environment) =
             | StatementData.TryStatement              x -> this.TransformTryStatement x             
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
-            ExprStatement errorPlaceholder        
+            ExprStatement (errorPlaceholderWith ("Error while reading C# code: " + e.Message))
 
     member this.TransformBlock (x: BlockData) : Statement =
         x.Statements |> Seq.map (this.TransformStatement) |> List.ofSeq |> Block

@@ -164,6 +164,10 @@ export function DelegateEqual(d1, d2) {
   return true;
 }
 
+export function CompileError(msg: string): never {
+  throw new Error("WebSharper compile error: " + msg);
+}
+
 export function ThisFunc(d) {
   return function (...args) {
     args.unshift(this);
