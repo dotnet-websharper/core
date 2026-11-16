@@ -27,6 +27,7 @@ module I = WebSharper.Core.JavaScript.Identifier
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open System.Collections.Generic
 
 type P = WebSharper.Core.JavaScript.Preferences
 type O = WebSharper.Core.JavaScript.Output
@@ -42,6 +43,8 @@ type Environment =
         //ScopeVars : ResizeArray<string>
         OuterScope : bool
         IsJSX : bool ref
+        /// Variables assigned anywhere in the program, others are written as `const`
+        Reassigned : HashSet<Id>
     }
     static member New(pref, ?mode) =
         {
@@ -54,6 +57,7 @@ type Environment =
             //ScopeVars = ResizeArray()
             OuterScope = true
             IsJSX = ref false
+            Reassigned = HashSet()
         }
 
     member this.NewInner() =
@@ -67,7 +71,12 @@ type Environment =
             //ScopeVars = ResizeArray()
             OuterScope = false
             IsJSX = this.IsJSX
+            Reassigned = this.Reassigned
         }
+
+    /// Declaration kind for a variable declared with a value
+    member this.DeclKind(id: Id) =
+        if id.IsMutable && this.Reassigned.Contains id then J.LetDecl else J.ConstDecl
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
@@ -200,6 +209,30 @@ type CollectVariables(env: Environment) =
             let jsNames = n |> Seq.map fst |> Set
             env.ScopeNames <- Set.union env.ScopeNames jsNames
             env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
+
+/// Collects variables that are assigned after their declaration
+type CollectReassigned(env: Environment) =
+    inherit Visitor()
+
+    override this.VisitVarSet(v, e) =
+        env.Reassigned.Add v |> ignore
+        this.VisitExpression e
+
+    override this.VisitMutatingBinary(a, op, b) =
+        match a with
+        | IgnoreSourcePos.Var v -> env.Reassigned.Add v |> ignore
+        | _ -> ()
+        base.VisitMutatingBinary(a, op, b)
+
+    override this.VisitMutatingUnary(op, a) =
+        match a with
+        | IgnoreSourcePos.Var v -> env.Reassigned.Add v |> ignore
+        | _ -> ()
+        base.VisitMutatingUnary(op, a)
+
+    override this.VisitForIn(v, o, b) =
+        env.Reassigned.Add v |> ignore
+        base.VisitForIn(v, o, b)
 
 type RegisterTSTypes(env: Environment) =
     inherit Visitor()
@@ -498,8 +531,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | xs ->
                     yield J.Vars(xs |> List.map (fun (id, _) -> transformIdTyped env id, None), J.LetDecl)
                 for id, e in withValues do
-                    let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
-                    yield J.Vars([transformIdTyped env id, Some (trE e)], kind)
+                    yield J.Vars([transformIdTyped env id, Some (trE e)], env.DeclKind id)
             ]
         let rec addBlock s =
             let decls, rest = varDeclarationPrefix s
@@ -597,8 +629,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         //        J.Import(Some export, defineId env false id, from)  
         //    | _ -> failwith "unrecognized args for import"
         | _ -> 
-            let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
-            J.Vars([transformIdTyped env id, Some (trE e)], kind)
+            J.Vars([transformIdTyped env id, Some (trE e)], env.DeclKind id)
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, t, b, g) ->
         let jsgen = g |> transformGenerics env
@@ -900,6 +931,8 @@ let transformProgram output pref statements =
         statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
+    let reassigned = CollectReassigned(env)
+    statements |> List.iter reassigned.VisitStatement
     //J.Ignore (J.Constant (J.String "use strict")) ::
     (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value
 
@@ -911,6 +944,8 @@ let transformProgramAndAddrMap output pref (addrMap: IDictionary<Address, Id>) s
         statements |> List.iter typs.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
+    let reassigned = CollectReassigned(env)
+    statements |> List.iter reassigned.VisitStatement
     (statements |> List.map (transformStatement env) |> flattenJS), 
     env.IsJSX.Value, 
     (addrMap |> Dict.map (fun id -> (transformId env id).Name))

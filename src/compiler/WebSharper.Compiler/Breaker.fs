@@ -207,6 +207,12 @@ let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
         toDecls b.Variables (b.Statements |> List.map (TransformVarSets(v, id).TransformStatement))
+    | ResultExpr (I.VarSet (v, _) as e) when List.contains v b.Variables ->
+        // declare the variable with its first value: `let x = v` instead of `let x; x = v`
+        toDecls b.Variables (b.Statements @ [ ExprStatement e ])
+    | ResultExpr (I.Sequential es) when es |> List.exists (function I.VarSet (v, _) -> List.contains v b.Variables | _ -> false) ->
+        let st = es |> List.filter (isPureExpr >> not) |> List.map (removePureParts >> ExprStatement)
+        toDecls b.Variables (b.Statements @ st)
     | ResultExpr e ->
         seq {
             yield! toDecls b.Variables b.Statements 
@@ -281,7 +287,7 @@ let rec removeLets expr =
     | Application (I.GlobalAccess g, [x], _) when g = globalId ->
         x
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        when List.length args <= List.length xs ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
@@ -365,7 +371,7 @@ let optimize expr =
     // created for F# string interpolation
     | Application(Lets(bindings, I.Function ([i], None, _, I.Return (I.Application (Var j, [expr], _)))), [ I.Function([x], None, _, I.Return (Var y))], _) when i = j && x = y ->
         expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
-    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) ->
         let moreArgsCount = args.Length - vars.Length
         let bind key (isUnit, value) body = 
             if isUnit then
@@ -389,7 +395,7 @@ let optimize expr =
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, ret, body)) 
     | Application(TupledLambda(vars, _, body, isReturn), [ I.NewArray args ], { KnownLength = Some _ })
-        when vars.Length = args.Length && not (needsScoping vars args body) ->
+        when vars.Length = args.Length ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
@@ -397,7 +403,7 @@ let optimize expr =
     | Application(I.ItemGet(I.Function (vars, None, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        when List.length args <= List.length xs ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body

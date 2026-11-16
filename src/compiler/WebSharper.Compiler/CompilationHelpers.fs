@@ -1346,45 +1346,6 @@ type Capturing(?var) =
         | _ -> 
             ExprStatement expr
 
-type NeedsScoping() =
-    inherit Visitor()
-
-    let defined = HashSet()
-    let mutable needed = false
-    let mutable scope = 0
-
-    override this.VisitNewVar(var, value) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-
-    override this.VisitVarDeclaration(var, value) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-    
-    override this.VisitId i =
-        if scope > 0 && defined.Contains i then 
-            needed <- true
-
-    override this.VisitFunction (args, thisVar, typ, body) =
-        scope <- scope + 1
-        this.VisitStatement body
-        scope <- scope - 1
-
-    override this.VisitExpression expr =
-        if not needed then
-            base.VisitExpression expr
-
-    member this.Check(args: seq<Id>, values, expr) =
-        for a, v in Seq.zip args values do
-            if a.IsMutable && not (isTrivialValue v) then
-                defined.Add a |> ignore
-        this.VisitExpression expr  
-        needed
-
-let needsScoping args values body =
-    NeedsScoping().Check(args, values, body)    
     
 //type HasNoThisVisitor() =
 //    inherit Visitor()
