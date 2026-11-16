@@ -729,7 +729,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
 
                         let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr, recMembers)  
                         let res =
-                            let b = CodeReader.transformExpression env expr 
+                            let b = CodeReader.transformExpression env expr |> SeqGenerators.transform
                             match env.RecMemberUsed with
                             | Some (i, expr) ->
                                 let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  

@@ -1,0 +1,168 @@
+// $begin{copyright}
+//
+// This file is part of WebSharper
+//
+// Copyright (c) 2008-2026 IntelliFactory
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied.  See the License for the specific language governing
+// permissions and limitations under the License.
+//
+// $end{copyright}
+
+/// Translates F# sequence expressions to JavaScript generator functions, and
+/// list and array comprehensions to building an array with a loop.
+/// F# gives sequence expressions as nested calls of Seq.delay, Seq.append,
+/// Seq.collect and similar combinators. The recognized combinators become
+/// statements, any other sub-sequence is enumerated with `yield*`, so the
+/// translation applies to every `seq { ... }`.
+module internal WebSharper.Compiler.FSharp.SeqGenerators
+
+open WebSharper.Core
+open WebSharper.Core.AST
+
+module I = IgnoreSourcePos
+
+let private (|ModuleCall|_|) (typeName: string) (name: string) e =
+    match e with
+    | I.Call (None, td, m, args) when m.Entity.Value.MethodName = name && td.Entity.Value.FullName = typeName -> Some args
+    | _ -> None
+
+let private (|SeqCall|_|) name e = (|ModuleCall|_|) "Microsoft.FSharp.Collections.SeqModule" name e
+let private (|HelperCall|_|) name e = (|ModuleCall|_|) "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers" name e
+let private (|OperatorsCall|_|) name e = (|ModuleCall|_|) "Microsoft.FSharp.Core.Operators" name e
+
+let rec private (|IgnoreCoerce|) e =
+    match e with
+    | I.Coerce (e, _, _) -> (|IgnoreCoerce|) e
+    | _ -> e
+
+/// `seq { ... }` is `CreateSequence (Seq.delay (fun () -> ...))`, also accept a plain `Seq.delay`
+let private (|SeqExpr|_|) e =
+    match e with
+    | IgnoreCoerce (OperatorsCall "CreateSequence" [ IgnoreCoerce (SeqCall "Delay" [ I.Function ([], None, _, I.Return body) ]) ])
+    | IgnoreCoerce (SeqCall "Delay" [ I.Function ([], None, _, I.Return body) ]) -> Some body
+    | _ -> None
+
+let private disposableType, disposeMethod =
+    match <@ (null: System.IDisposable).Dispose() @> with
+    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
+        Reflection.ReadTypeDefinition mi.DeclaringType,
+        Reflection.ReadMethod mi
+    | _ -> failwith "Expecting a Call pattern"
+
+/// A JavaScript iterable for a .NET sequence, arrays are used directly
+let private iterable (e: Expression) =
+    match e with
+    | I.Coerce (src, ArrayType (_, 1), _) -> src
+    | _ -> Appl (GlobalAccess (Address.Runtime "Iter"), [ e ], NonPure, Some 1)
+
+/// How the items of the sequence are produced
+type private Emit =
+    {
+        /// A single item
+        Item : Expression -> Statement
+        /// All items of a .NET sequence
+        All : Expression -> Statement
+    }
+
+/// Statements producing the items of a sequence expression.
+/// `tr` is applied to every expression that is not part of the sequence structure.
+let rec private gen (emit: Emit) (tr: Expression -> Expression) (e: Expression) : Statement =
+    let g = gen emit tr
+    match e with
+    | ExprSourcePos (p, e) -> StatementSourcePos (p, g e)
+    | Coerce (e, _, _) -> g e
+    | SeqExpr body -> g body
+    | SeqCall "Singleton" [ v ] -> emit.Item (tr v)
+    | SeqCall "Empty" [] -> Empty
+    | SeqCall "Append" [ a; b ] -> Block [ g a; g b ]
+    | SeqCall "Collect" [ I.Function ([ x ], None, _, I.Return body); src ] ->
+        ForOf (x, iterable (tr src), g body)
+    | SeqCall "Map" [ I.Function ([ x ], None, _, I.Return v); src ] ->
+        ForOf (x, iterable (tr src), emit.Item (tr v))
+    | HelperCall "EnumerateWhile" [ I.Function ([], None, _, I.Return cond); body ] ->
+        While (tr cond, g body)
+    | HelperCall "EnumerateThenFinally" [ body; I.Function ([], None, _, fin) ] ->
+        TryFinally (g body, trSt tr fin)
+    | HelperCall "EnumerateUsing" [ res; I.Function ([ x ], None, _, I.Return body) ] ->
+        Block [
+            VarDeclaration (x, tr res)
+            TryFinally (
+                g body,
+                If (Binary (Var x, BinaryOperator.``!=``, Value Null),
+                    ExprStatement (Call (Some (Var x), NonGeneric disposableType, NonGeneric disposeMethod, [])),
+                    Empty)
+            )
+        ]
+    | I.Conditional (c, a, b) -> If (tr c, g a, g b)
+    | I.Let (x, v, body) -> Block [ VarDeclaration (x, tr v); g body ]
+    | I.Sequential es ->
+        match List.rev es with
+        | last :: restRev ->
+            Block [
+                for r in List.rev restRev do
+                    match r with
+                    | I.NewVar (x, v) -> yield VarDeclaration (x, tr v)
+                    | _ -> yield ExprStatement (tr r)
+                yield g last
+            ]
+        | [] -> Empty
+    | _ -> emit.All (tr e)
+
+/// Applies an expression transformation to the expressions inside a statement
+and private trSt (tr: Expression -> Expression) (s: Statement) =
+    { new Transformer() with
+        override this.TransformExpression e = tr e
+    }.TransformStatement s
+
+/// Translates sequence expressions to generators and list/array comprehensions to loops
+type private SeqTransformer() =
+    inherit Transformer()
+
+    override this.TransformExpression e =
+        let tr = this.TransformExpression
+        match e with
+        | I.Call (None, td, m, [ SeqExpr body ]) 
+            when td.Entity.Value.FullName = "Microsoft.FSharp.Collections.SeqModule" 
+                && (m.Entity.Value.MethodName = "ToList" || m.Entity.Value.MethodName = "ToArray") ->
+            let conv = m.Entity.Value.MethodName
+            // [ ... ] and [| ... |]: push the items to an array
+            let a = Id.New("a", mut = false)
+            let push v = ExprStatement (Appl (ItemGet (Var a, Value (String "push"), NonPure), [ v ], NonPure, Some 1))
+            let emit =
+                {
+                    Item = push
+                    All = fun s ->
+                        let x = Id.New("x", mut = false)
+                        ForOf (x, iterable s, push (Var x))
+                }
+            let arr = Let (a, NewArray [], Sequential [ IgnoredStatementExpr (gen emit tr body); Var a ])
+            if conv = "ToArray" then arr
+            else
+                match e with
+                | I.Call (None, td, m, _) -> Call (None, td, m, [ arr ])
+                | _ -> failwith "impossible"
+        | SeqExpr body ->
+            // seq { ... }: a generator function enumerated by the runtime
+            let emit =
+                {
+                    Item = fun v -> ExprStatement (YieldExpr (Some v, false))
+                    All = fun s -> ExprStatement (YieldExpr (Some (iterable s), true))
+                }
+            let genFunc = FuncWithKind (FuncKind.Generator, Function ([], None, None, gen emit tr body))
+            Appl (GlobalAccess (Address.Runtime "Iterate"), [ genFunc ], Pure, Some 1)
+        | _ -> base.TransformExpression e
+
+let private transformer = SeqTransformer()
+
+/// Translates sequence expressions and list/array comprehensions in an expression
+let transform (e: Expression) = transformer.TransformExpression e
