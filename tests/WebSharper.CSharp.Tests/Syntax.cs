@@ -825,10 +825,14 @@ x: Equal(a, 1);
             return f();
         }
 
-        [Test("lambda with default parameter", TestKind.Skip)]
+        [Test("lambda with default parameter")]
         public void TestDefaultLambdaParameter()
         {
             Equal(DefaultLambdaParameter(x => x + 2), 3);
+            var f = (int i = 1, string s = "a") => s + i;
+            Equal(f(), "a1", "natural type lambda, all defaults");
+            Equal(f(2), "a2", "natural type lambda, one default");
+            Equal(f(3, "b"), "b3", "natural type lambda, no defaults");
         }
 
         [Test("Extension syntax")]

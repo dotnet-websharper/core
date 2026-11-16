@@ -552,7 +552,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.TransformNewRecord(typ, args)
         | _ -> this.Error("Unhandled F# compiler generated constructor")
     
-    member this.CustomTypeMethod (objExpr : option<Expression>, typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, meth: Concrete<Method>, args) =
+    member this.CustomTypeMethod (objExpr : option<Expression>, typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, meth: Concrete<Method>, args: Expression list) =
         let me = meth.Entity.Value
         let unionCase isSingleCase (c: M.FSharpUnionCaseInfo) =
             let mN = me.MethodName
@@ -572,11 +572,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 None
 
         match i with
-        | M.DelegateInfo _ ->
+        | M.DelegateInfo (di: M.DelegateInfo) ->
             match me.MethodName with
             | "Invoke" ->
-                // TODO: optional arguments
-                Appl(this.TransformExpression objExpr.Value, args |> List.map this.TransformExpression, NonPure, Some args.Length)
+                // C# fills omitted optional arguments from the delegate type's Invoke signature
+                let defaults =
+                    if args.Length < di.DelegateArgs.Length then
+                        di.DelegateArgs |> List.skip args.Length |> List.map (fun (_, d) ->
+                            match d with
+                            | Some v -> Value v
+                            | None -> Undefined
+                        )
+                    else []
+                let trArgs = (args |> List.map this.TransformExpression) @ defaults
+                Appl(this.TransformExpression objExpr.Value, trArgs, NonPure, Some trArgs.Length)
             | "op_Addition" -> JSRuntime.CombineDelegates (NewArray (args |> List.map this.TransformExpression))
             | "op_Subtraction" -> this.TransformCall(None, NonGeneric delegateType, NonGeneric delegateRemove, args)
             | "op_Equality" -> 
