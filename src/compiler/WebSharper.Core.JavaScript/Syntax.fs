@@ -88,6 +88,9 @@ type BinaryOperator =
     | ``??=`` = 39
     /// Optional member access `a?.b` or `a?.[b]`
     | ``?.`` = 40
+    | ``&&=`` = 41
+    | ``||=`` = 42
+    | ``**=`` = 43
 
 type private B = BinaryOperator
 
@@ -218,6 +221,8 @@ and Expression =
     | TemplateLiteral of tag: option<E> * parts: list<string> * holes: list<E>
     /// Optional call `f?.(args)`
     | OptionalApplication of func: E * args: list<E>
+    /// Value of an object literal member with a computed key `[key]: value`, the member name is empty
+    | ComputedMember of key: E * value: E
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)

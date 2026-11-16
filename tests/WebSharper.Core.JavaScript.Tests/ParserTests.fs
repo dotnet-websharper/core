@@ -271,4 +271,73 @@ let Run () =
             S.If (S.Var "x", S.If (S.Var "y", !one, !two), !three)
     }
 
+    // ES2022 forms: parse, then write back in compact form
+    let W = WebSharper.Core.JavaScript.Writer.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
+    let WP = WebSharper.Core.JavaScript.Writer.ProgramToString WebSharper.Core.JavaScript.Preferences.Compact
+    let rt (s: string) (expected: string) = (W (p s)).Trim() =? expected
+    let rtp (s: string) (expected: string) = (WP (pp s)).Trim().Replace("\r", "").Replace("\n", "") =? expected
+
+    Test "template literals" {
+        rt "`a${x}b`" "`a${x}b`"
+        rt "`a${ `inner${y}` }b${z}`" "`a${`inner${y}`}b${z}`"
+        rt @"`line\nbreak \` \${notahole}`" @"`line\nbreak \` \${notahole}`"
+        rt "tag`x${y}`" "tag`x${y}`"
+        rt "a.b`x`" "a.b`x`"
+        rt "``" "``"
+        rt "`${a}${b}`" "`${a}${b}`"
+    }
+
+    Test "spread, rest and default parameters" {
+        rt "f(...xs, 1)" "f(...xs, 1)"
+        rt "[1, ...xs]" "[1, ...xs]"
+        rt "(a, b = 2, ...rest) => a" "(a, b=2, ...rest) => a"
+        rt "function (a = 1, ...r) { return r }" "function(a=1, ...r){ return r;}"
+        rt "{...a, b: 1}" "{...a, b:1}"
+    }
+
+    Test "optional chaining and nullish" {
+        rt "a?.b" "a?.b"
+        rt "a?.[i]" "a?.[i]"
+        rt "a?.b.c(d)" "a?.b.c(d)"
+        rt "f?.(1)" "f?.(1)"
+        rt "() => ({ f: g }?.f?.(2))" "() =>({f:g}?.f?.(2))"
+        rt "a ? .5 : b" "a?.5:b"
+        rt "a ?? b" "a??b"
+        rt "(a || b) ?? c" "(a||b)??c"
+        rt "a ??= b" "a??=b"
+        rt "a &&= b" "a&&=b"
+        rt "a ||= b" "a||=b"
+        rt "a **= 2" "a**=2"
+    }
+
+    Test "object literals" {
+        rt "{ a, b }" "{a:a, b:b}"
+        rt "{ f(x) { return x } }" "{f(x){ return x;}}"
+        rt "{ get x() { return 1 }, set x(v) { } }" "{get x(){ return 1;}, set x(v){ }}"
+        rt "{ [k]: 1 }" "{[k]:1}"
+        rt "{ async f() { await g() }, *h() { yield 1 } }" "{async f(){ await g();}, *h(){ yield 1;}}"
+        rt "{ get: 1, set: 2, async: 3 }" "{get:1, set:2, async:3}"
+    }
+
+    Test "functions" {
+        rt "async x => await x" "async(x) => await x"
+        rt "async (a, b) => a" "async(a, b) => a"
+        rt "async function () { await f() }" "async function(){ await f();}"
+        rt "function* () { yield 1; yield* xs }" "function*(){ yield 1;yield*xs;}"
+        rt "async function* g() { yield await x }" "async function* g(){ yield await x;}"
+        rt "async(1)" "async(1)"
+    }
+
+    Test "declarations and loops" {
+        rtp "let x = 1; const y = 2;" "let x=1;const y=2;"
+        rtp "for (const x of xs) f(x)" "for(const x of xs)f(x);"
+        rtp "for (let k in o) f(k)" "for(let k in o)f(k);"
+        rtp "for (x of xs) f(x)" "for(x of xs)f(x);"
+        rtp "for (let i = 0; i < 3; i++) f(i)" "for(let i=0;i<3;i++)f(i);"
+        rtp "{ function f() { } f() }" "{ function f(){ } f();}"
+        rtp "async function f() { await g() }" "async function f(){ await g();}"
+        rtp "l: for (;;) break l" "l: for(;;)break l;"
+        rtp "try { f() } catch { g() }" "try { f();} catch(_){ g();}"
+    }
+
     Report ()

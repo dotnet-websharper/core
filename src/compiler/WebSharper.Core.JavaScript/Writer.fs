@@ -68,7 +68,8 @@ let BinaryOperatorPrecedence operator =
 let BinaryOperatorAssociativity operator =
     match operator with
     | B.``=`` | B.``+=`` | B.``-=`` | B.``*=`` | B.``/=`` | B.``%=``
-    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` | B.``**`` | B.``??=`` ->
+    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` | B.``**`` | B.``??=``
+    | B.``&&=`` | B.``||=`` | B.``**=`` ->
         RightAssociative
     | _ ->
         LeftAssociative
@@ -261,7 +262,8 @@ let inline Label (l: S.Label) =
 
 let rec startsWithObjectExpression = function
     | S.IgnoreEPos (S.NewObject _) -> true
-    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _)) -> startsWithObjectExpression e
+    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _) | S.OptionalApplication(e, _) | S.TemplateLiteral(Some e, _, _) | S.Postfix(e, _)) -> 
+        startsWithObjectExpression e
     | _ -> false
 
 module Seq =
@@ -348,6 +350,8 @@ and Expression (expression) =
         Token "..." ++ AssignmentExpression e
     | S.TemplateLiteral (tag, parts, holes) ->
         Optional MemberExpression tag ++ TemplateLiteralLayout parts holes
+    | S.ComputedMember _ ->
+        failwith "Computed member name used outside of an object literal"
     | S.NewArray xs ->
         let element = function
             | None -> Token ", "
@@ -361,7 +365,8 @@ and Expression (expression) =
                 match S.IgnoreExprPos x with
                 | S.Constant (S.Number _) -> Parens e
                 | S.Application _
-                | S.Binary (_, B.``.``, _)
+                | S.OptionalApplication _
+                | S.Binary (_, (B.``.`` | B.``?.``), _)
                 | S.This
                 | S.Super
                 | S.Var _
@@ -440,10 +445,22 @@ and Expression (expression) =
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->
-        let mem (k, a, v) =
-            match v with
+        let rec mem (k, a, v) =
+            match v with 
             | S.IgnoreEPos (S.Spread _) ->
                 Expression v
+            | S.IgnoreEPos (S.ComputedMember (key, v)) ->
+                let keyL = Token "[" ++ AssignmentExpression key ++ Token "]"
+                match v with
+                | S.IgnoreEPos (S.Lambda (_, args, body, false, kind)) ->
+                    FuncKindPrefix kind
+                    ++ Accessor a
+                    ++ Conditional (Token "*") kind.HasGenerator
+                    ++ keyL
+                    ++ Parens (CommaSeparated Id args) 
+                    ++ BlockLayout (List.map (Statement true) body)
+                | _ ->
+                    keyL ++ Token ":" ++ AssignmentExpression v
             | S.IgnoreEPos (S.Lambda (_, args, body, false, kind)) ->
                 FuncKindPrefix kind
                 ++ Accessor a

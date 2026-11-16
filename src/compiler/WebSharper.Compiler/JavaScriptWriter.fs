@@ -545,7 +545,13 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                     | IgnoreSourcePos.Function _ -> ()
                     | _ -> failwithf "getter/setter in object expression is not a function: %s" (Debug.PrintExpression v)
                 | _ -> ()
-                k, transformMemberKind mk, trE v
+                let trV = 
+                    match mk, trE v with
+                    | (MemberKind.Getter | MemberKind.Setter), J.IgnoreEPos (J.Lambda (n, args, b, true, kind)) ->
+                        // accessors are written as methods
+                        J.Lambda (n, args, b, false, kind)
+                    | _, trV -> trV
+                k, transformMemberKind mk, trV
             )
         )
     | New (x, ts, y) -> J.New(trE x, transformGenerics env ts, y |> List.map trE)
@@ -766,8 +772,9 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, t, b, g) ->
         let jsgen = g |> transformGenerics env
+        let defaults, b = extractParamDefaults ids b
         let innerEnv = env.NewInner()
-        let args = getUsedArgs ids b innerEnv
+        let args = getUsedArgs ids b innerEnv |> withDefaults innerEnv ids defaults
         let id = transformIdTyped innerEnv x
         let id = id.WithGenerics(jsgen)
         CollectVariables(innerEnv).VisitStatement(b)
