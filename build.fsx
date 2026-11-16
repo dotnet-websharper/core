@@ -460,6 +460,124 @@ Target.create "WS-CompileReleasePackage" <| fun args ->
 
 //endregion
 
+//region ** Booster tool packages **
+// WebSharper.FSharp.Booster and WebSharper.CSharp.Booster: the ReadyToRun compilers as RID-specific .NET tools
+// (SDK 10+). A pointer package (type DotnetTool) lists one <id>.<rid> package (type DotnetToolRidPackage) per
+// platform, the CLI downloads only the one for the current platform. The WebSharper targets use an installed
+// Booster of the same version instead of the portable compiler of WebSharper.FSharp / WebSharper.CSharp.
+
+/// Platforms with a ReadyToRun build (PublishReadyToRun in the compiler projects).
+let boosterRids = [ "win-x64"; "linux-x64"; "osx-arm64" ]
+
+type BoosterTool =
+    {
+        Id: string
+        Command: string
+        Folder: string
+        Executables: string list
+        Description: string
+    }
+
+let boosterTools =
+    [
+        {
+            Id = "WebSharper.FSharp.Booster"
+            Command = "wsfsc"
+            Folder = "FSharp"
+            Executables = [ "wsfsc"; "wsfscservice" ]
+            Description = "ReadyToRun build of the WebSharper F# compiler and its booster service for the current platform. Install it as a .NET tool at the version of WebSharper.FSharp to use it instead of the portable compiler."
+        }
+        {
+            Id = "WebSharper.CSharp.Booster"
+            Command = "wscsc"
+            Folder = "CSharp"
+            Executables = [ "wscsc" ]
+            Description = "ReadyToRun build of the WebSharper C# compiler for the current platform. Install it as a .NET tool at the version of WebSharper.CSharp to use it instead of the portable compiler."
+        }
+    ]
+
+let packBoosters (mode: BuildMode) (rids: string list) (version: string) (outputPath: string) =
+    let workDir = __SOURCE_DIRECTORY__ </> "build" </> string mode </> "booster"
+    Directory.CreateDirectory outputPath |> ignore
+    let save (b: NuGet.Packaging.PackageBuilder) =
+        let path = outputPath </> sprintf "%s.%s.nupkg" b.Id (b.Version.ToNormalizedString())
+        use fs = File.Create path
+        b.Save fs
+        Trace.log (sprintf "Created %s" path)
+    let builder (id: string) (description: string) (packageType: string) =
+        let b = NuGet.Packaging.PackageBuilder()
+        b.Id <- id
+        b.Version <- NuGet.Versioning.NuGetVersion.Parse version
+        b.Authors.Add "IntelliFactory"
+        b.Description <- description
+        b.ProjectUrl <- System.Uri "https://websharper.com/"
+        b.Repository <- NuGet.Packaging.Core.RepositoryMetadata("git", "https://github.com/dotnet-websharper/core/", null, null)
+        b.LicenseMetadata <-
+            NuGet.Packaging.LicenseMetadata(
+                NuGet.Packaging.LicenseType.Expression, "Apache-2.0",
+                NuGet.Packaging.Licenses.NuGetLicenseExpression.Parse "Apache-2.0", null,
+                NuGet.Packaging.LicenseMetadata.CurrentVersion)
+        b.Tags.Add "WebSharper"
+        b.PackageTypes.Add(NuGet.Packaging.Core.PackageType(packageType, NuGet.Packaging.Core.PackageType.EmptyVersion))
+        b
+    let addFile (b: NuGet.Packaging.PackageBuilder) (src: string) (target: string) =
+        b.Files.Add(NuGet.Packaging.PhysicalPackageFile(SourcePath = src, TargetPath = target.Replace('\\', '/')))
+    let writeSettings (path: string) (lines: string list) =
+        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+        File.WriteAllLines(path, "<?xml version=\"1.0\" encoding=\"utf-8\"?>" :: lines)
+    for tool in boosterTools do
+        // platform packages first, see https://learn.microsoft.com/dotnet/core/tools/rid-specific-tools
+        for rid in rids do
+            let deploy = __SOURCE_DIRECTORY__ </> "build" </> string mode </> tool.Folder </> "net11.0" </> rid </> "deploy"
+            if not (Directory.Exists deploy) then
+                failwithf "%s is missing: publish the compiler for %s first" deploy rid
+            let exe name = if rid.StartsWith "win-" then name + ".exe" else name
+            let target = sprintf "tools/net11.0/%s" rid
+            let b = builder (tool.Id + "." + rid) tool.Description "DotnetToolRidPackage"
+            let settings = workDir </> tool.Id </> rid </> "DotnetToolSettings.xml"
+            writeSettings settings [
+                "<DotNetCliTool Version=\"2\">"
+                "  <Commands>"
+                sprintf "    <Command Name=\"%s\" EntryPoint=\"%s\" Runner=\"executable\" />" tool.Command (exe tool.Command)
+                "  </Commands>"
+                "</DotNetCliTool>"
+            ]
+            addFile b settings (target + "/DotnetToolSettings.xml")
+            for file in Directory.EnumerateFiles(deploy, "*.dll", SearchOption.AllDirectories) do
+                addFile b file (target + "/" + Path.GetRelativePath(deploy, file))
+            for name in tool.Executables do
+                for file in [ exe name; name + ".runtimeconfig.json"; name + ".dll.config" ] do
+                    if File.Exists(deploy </> file) then
+                        addFile b (deploy </> file) (target + "/" + file)
+            if File.Exists(deploy </> "NLog.config") then
+                addFile b (deploy </> "NLog.config") (target + "/NLog.config")
+            save b
+        let b = builder tool.Id tool.Description "DotnetTool"
+        let settings = workDir </> tool.Id </> "any" </> "DotnetToolSettings.xml"
+        writeSettings settings [
+            yield "<DotNetCliTool Version=\"2\">"
+            yield "  <Commands>"
+            yield sprintf "    <Command Name=\"%s\" />" tool.Command
+            yield "  </Commands>"
+            yield "  <RuntimeIdentifierPackages>"
+            for rid in rids do
+                yield sprintf "    <RuntimeIdentifierPackage RuntimeIdentifier=\"%s\" Id=\"%s.%s\" />" rid tool.Id rid
+            yield "  </RuntimeIdentifierPackages>"
+            yield "</DotNetCliTool>"
+        ]
+        addFile b settings "tools/any/any/DotnetToolSettings.xml"
+        save b
+
+Target.create "PackBoosters" <| fun _ ->
+    let outputPath = Environment.environVarOrNone "WSPackageFolder" |> Option.defaultValue "build"
+    packBoosters Release boosterRids computedVersion.AsString outputPath
+
+//endregion
+
+"WS-BuildRelease"
+    ==> "PackBoosters"
+    ==> "WS-Package"
+
 "WS-BuildRelease"
 //    ?=> "RunSPATestsRelease"
     ==> "RunMainTestsRelease"
