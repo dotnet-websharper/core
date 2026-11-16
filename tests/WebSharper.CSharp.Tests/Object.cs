@@ -274,6 +274,15 @@ namespace WebSharper.CSharp.Tests
             o.OnNameChanged += (_, args) => nameChange = $"{args.OldName} to {args.NewName}";
             o.Name = "Jane";
             Equal(nameChange, "John to Jane");
+
+            // partial event remove accessor
+            EventHandler<NameChangeEventArgs> handler = (_, args) => nameChange = "handler called";
+            o.OnNameChanged += handler;
+            o.Name = "Joe";
+            Equal(nameChange, "handler called");
+            o.OnNameChanged -= handler;
+            o.Name = "Jim";
+            Equal(nameChange, "Joe to Jim", "removed handler not called");
         }
 
         class Renamings

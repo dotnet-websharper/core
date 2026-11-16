@@ -245,6 +245,13 @@ let removeEmptyVarsSt (s: Statement) =
 //    else   
 //        collectCurriedTr.TransformExpression body
     
+let private delegateType, delegateRemove =
+    match <@ System.Delegate.Remove(null, null) @> with
+    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
+        Reflection.ReadTypeDefinition mi.DeclaringType,
+        Reflection.ReadMethod mi
+    | _ -> failwith "Expecting a Call pattern"
+
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
 
@@ -571,6 +578,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 // TODO: optional arguments
                 Appl(this.TransformExpression objExpr.Value, args |> List.map this.TransformExpression, NonPure, Some args.Length)
             | "op_Addition" -> JSRuntime.CombineDelegates (NewArray (args |> List.map this.TransformExpression))
+            | "op_Subtraction" -> this.TransformCall(None, NonGeneric delegateType, NonGeneric delegateRemove, args)
             | "op_Equality" -> 
                 match args |> List.map this.TransformExpression with
                 | [ d1; d2 ] ->
