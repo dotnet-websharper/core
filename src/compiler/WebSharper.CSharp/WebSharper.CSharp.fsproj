@@ -8,7 +8,7 @@
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <CSharpTool>True</CSharpTool>
-    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
     <RollForward>LatestMajor</RollForward>
     <!-- Same GC settings as csc: compilation allocates heavily from several threads -->
     <ServerGarbageCollection>true</ServerGarbageCollection>

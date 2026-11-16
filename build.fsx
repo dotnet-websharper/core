@@ -64,6 +64,22 @@ let publish rids (mode: BuildMode) =
     publishExe mode "net11.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
     publishExe mode "net11.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
 
+/// msbuild/WebSharper.CompilerVersion.props, packed next to the props of WebSharper.FSharp and
+/// WebSharper.CSharp: the WebSharper task uses a Booster tool only at exactly this version
+let writeVersionProps (version: string) =
+    let versionProps = "msbuild/WebSharper.CompilerVersion.props"
+    let vp =
+        String.concat "\r\n" [
+            "<Project>"
+            "  <PropertyGroup>"
+            sprintf "    <WebSharperCompilerVersion>%s</WebSharperCompilerVersion>" version
+            "  </PropertyGroup>"
+            "</Project>"
+            ""
+        ]
+    if not (File.Exists(versionProps) && vp = File.ReadAllText(versionProps)) then
+        File.WriteAllText(versionProps, vp)
+
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
@@ -104,20 +120,7 @@ Target.create "Prepare" <| fun _ ->
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
-    // make msbuild/WebSharper.CompilerVersion.props, packed next to the props of WebSharper.FSharp and
-    // WebSharper.CSharp: the WebSharper task uses a Booster tool only at exactly this version
-    let versionProps = "msbuild/WebSharper.CompilerVersion.props"
-    let vp =
-        String.concat "\r\n" [
-            "<Project>"
-            "  <PropertyGroup>"
-            sprintf "    <WebSharperCompilerVersion>%s</WebSharperCompilerVersion>" computedVersion.AsString
-            "  </PropertyGroup>"
-            "</Project>"
-            ""
-        ]
-    if not (File.Exists(versionProps) && vp = File.ReadAllText(versionProps)) then
-        File.WriteAllText(versionProps, vp)
+    writeVersionProps computedVersion.AsString
 
     //// make minified scripts
     //let needsBuilding input output =
@@ -163,7 +166,8 @@ let targets =
                 BuildAction.Multiple [
                     BuildAction.Projects ["WebSharper.Compiler.sln"]
                     //BuildAction.Custom (publish [ Some "win-x64" ])
-                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64"; Some "osx-arm64" ])
+                    // portable compiler for WebSharper.FSharp / WebSharper.CSharp, ReadyToRun builds for the Booster tools (PackBoosters)
+                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "osx-arm64" ])
                     BuildAction.Projects ["WebSharper.sln"]
                     BuildAction.Custom (fun _ -> stopService())
                 ]
@@ -339,127 +343,6 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     runMainTestsRelease()
 
 
-//region ** Custom Build Target for compiler packages **
-type RID =
-    | WIN_X64
-    | LINUX_X64
-    | LINUX_MUSL_X64
-    | OSX_X64
-    | OSX_ARM64
-
-    static member OfString (s: string) =
-        match s.ToLower() with
-        | "win-x64" -> WIN_X64
-        | "linux-x64" -> LINUX_X64
-        | "linux_musl-x64" -> LINUX_MUSL_X64
-        | "osx-x64" -> OSX_X64
-        | "osx-arm64" -> OSX_ARM64
-        | _ ->
-            printfn "Invalid RID, defaulting to win-x64"
-            WIN_X64
-
-    override this.ToString() =
-        match this with
-        | WIN_X64 -> "win-x64"
-        | LINUX_X64 -> "linux-x64"
-        | LINUX_MUSL_X64 -> "linux-musl-x64"
-        | OSX_X64 -> "osx-x64"
-        | OSX_ARM64 -> "osx-arm64"
-
-let RUNTIMEIDPARAM = "--runtimeID:"
-
-let obtainRuntimeId () =
-    fsi.CommandLineArgs
-    |> Array.tryPick (fun arg ->
-        if arg.StartsWith RUNTIMEIDPARAM then
-            arg.Substring RUNTIMEIDPARAM.Length |> RID.OfString |> Some
-        else
-            None
-    )
-    |> function
-        | None ->
-            printfn "RID not provided, defaulting to win-x64"
-            RID.WIN_X64
-        | Some x -> x
-
-let buildProjectPrerequisites (mode: BuildMode) =
-    let build =
-        DotNet.build <| fun p ->
-            { p with
-                Configuration = mode.AsDotNet
-                MSBuildParams = 
-                    match Environment.environVarOrNone "OS" with
-                    | Some "Windows_NT" ->
-                        { p.MSBuildParams with
-                            Properties = ["Configuration", string mode]
-                            DisableInternalBinLog = true
-                        }
-                    | _ ->
-                        p.MSBuildParams
-            }
-    build "src/compiler/WebSharper.MSBuild.CSharp/WebSharper.MSBuild.CSharp.csproj"
-    build "src/compiler/WebSharper.MSBuild.FSharp/WebSharper.MSBuild.FSharp.csproj"
-
-
-let buildPackage (mode: BuildMode) (rid: RID) (version: Paket.SemVerInfo) =
-    printfn "%A %A" mode rid
-    publish [Some (rid.ToString())] mode
-    let package (tp: string) =
-        let tempTemplatePath =
-            let basePath = tp.Substring(0, tp.Length - 1 - ("paket.template".Length))
-            basePath + rid.ToString() + ".paket.template"
-        let targetFramework =
-            let projectName = (tp.Split('/')[1]).Replace(".paket.template", "")
-            let projectPath = $"src/compiler/{projectName}/{projectName}.fsproj"
-            System.Xml.XPath.XPathDocument(projectPath).CreateNavigator().Evaluate "string(//Project/PropertyGroup/TargetFramework/text())" |> string
-        let tempTemplate =
-            File.ReadAllLines tp
-            |> Array.choose (fun line ->
-                if line.EndsWith $"tools/{targetFramework}" then
-                    None
-                elif line.EndsWith "osx-arm64" && rid <> RID.OSX_ARM64 then
-                    None
-                elif line.EndsWith "osx-x64" && rid <> RID.OSX_X64 then
-                    None
-                elif line.EndsWith "linux-musl-x64" && rid <> RID.LINUX_MUSL_X64 then
-                    None
-                elif line.EndsWith "linux-x64" && rid <> RID.LINUX_X64 then
-                    None
-                elif line.EndsWith "win-x64" && rid <> RID.WIN_X64 then
-                    None
-                else
-                    line.Replace("Release", mode.ToString()) |> Some
-            )
-        File.WriteAllLines(tempTemplatePath, tempTemplate)
-        Paket.pack <| fun p ->
-            { p with
-                ToolType = ToolType.CreateLocalTool()
-                OutputPath = "build"
-                Version = version.AsString
-                TemplateFile = tempTemplatePath
-            }
-        File.Delete tempTemplatePath
-    [
-        "tools/WebSharper.FSharp.paket.template"
-        "tools/WebSharper.CSharp.paket.template"
-    ]
-    |> List.iter package
-
-
-Target.create "WS-CompileDebugPackage" <| fun args ->
-    let versionToBuild = { computedVersion with Build = bigint 999 }
-    let rid = obtainRuntimeId ()
-    buildProjectPrerequisites Debug
-    buildPackage Debug rid versionToBuild
-
-Target.create "WS-CompileReleasePackage" <| fun args ->
-    let versionToBuild = { computedVersion with Build = bigint 999 }
-    let rid = obtainRuntimeId ()
-    buildProjectPrerequisites Release
-    buildPackage Release rid versionToBuild
-
-//endregion
-
 //region ** Booster tool packages **
 // WebSharper.FSharp.Booster and WebSharper.CSharp.Booster: the ReadyToRun compilers as RID-specific .NET tools
 // (SDK 10+). A pointer package (type DotnetTool) lists one <id>.<rid> package (type DotnetToolRidPackage) per
@@ -508,7 +391,7 @@ let packBoosters (mode: BuildMode) (rids: string list) (version: string) (output
         let b = NuGet.Packaging.PackageBuilder()
         b.Id <- id
         b.Version <- NuGet.Versioning.NuGetVersion.Parse version
-        b.Authors.Add "IntelliFactory"
+        b.Authors.Add "IntelliFactory" |> ignore
         b.Description <- description
         b.ProjectUrl <- System.Uri "https://websharper.com/"
         b.Repository <- NuGet.Packaging.Core.RepositoryMetadata("git", "https://github.com/dotnet-websharper/core/", null, null)
@@ -517,7 +400,7 @@ let packBoosters (mode: BuildMode) (rids: string list) (version: string) (output
                 NuGet.Packaging.LicenseType.Expression, "Apache-2.0",
                 NuGet.Packaging.Licenses.NuGetLicenseExpression.Parse "Apache-2.0", null,
                 NuGet.Packaging.LicenseMetadata.CurrentVersion)
-        b.Tags.Add "WebSharper"
+        b.Tags.Add "WebSharper" |> ignore
         b.PackageTypes.Add(NuGet.Packaging.Core.PackageType(packageType, NuGet.Packaging.Core.PackageType.EmptyVersion))
         b
     let addFile (b: NuGet.Packaging.PackageBuilder) (src: string) (target: string) =
@@ -571,6 +454,69 @@ let packBoosters (mode: BuildMode) (rids: string list) (version: string) (output
 Target.create "PackBoosters" <| fun _ ->
     let outputPath = Environment.environVarOrNone "WSPackageFolder" |> Option.defaultValue "build"
     packBoosters Release boosterRids computedVersion.AsString outputPath
+
+// Local compiler packages (version x.y.z.999) in build/: WebSharper.FSharp and WebSharper.CSharp with the
+// portable compiler, and with --runtimeID:<rid> also the Booster tools for that platform.
+let RUNTIMEIDPARAM = "--runtimeID:"
+
+let obtainRuntimeId () =
+    fsi.CommandLineArgs
+    |> Array.tryPick (fun arg ->
+        if arg.StartsWith RUNTIMEIDPARAM then Some (arg.Substring RUNTIMEIDPARAM.Length) else None
+    )
+
+let buildProjectPrerequisites (mode: BuildMode) =
+    let build =
+        DotNet.build <| fun p ->
+            { p with
+                Configuration = mode.AsDotNet
+                MSBuildParams = 
+                    match Environment.environVarOrNone "OS" with
+                    | Some "Windows_NT" ->
+                        { p.MSBuildParams with
+                            Properties = ["Configuration", string mode]
+                            DisableInternalBinLog = true
+                        }
+                    | _ ->
+                        p.MSBuildParams
+            }
+    build "src/compiler/WebSharper.MSBuild.CSharp/WebSharper.MSBuild.CSharp.csproj"
+    build "src/compiler/WebSharper.MSBuild.FSharp/WebSharper.MSBuild.FSharp.csproj"
+
+let buildPackage (mode: BuildMode) (rid: string option) (version: Paket.SemVerInfo) =
+    printfn "%A %A" mode rid
+    publish [ yield None; if rid.IsSome then yield rid ] mode
+    // the next Prepare writes the version of regular builds again
+    writeVersionProps version.AsString
+    let package (tp: string) =
+        let tempTemplatePath = tp.Replace(".paket.template", ".local.paket.template")
+        File.WriteAllLines(tempTemplatePath, File.ReadAllLines tp |> Array.map (fun line -> line.Replace("Release", mode.ToString())))
+        try
+            Paket.pack <| fun p ->
+                { p with
+                    ToolType = ToolType.CreateLocalTool()
+                    OutputPath = "build"
+                    Version = version.AsString
+                    TemplateFile = tempTemplatePath
+                }
+        finally
+            File.Delete tempTemplatePath
+    [
+        "tools/WebSharper.FSharp.paket.template"
+        "tools/WebSharper.CSharp.paket.template"
+    ]
+    |> List.iter package
+    rid |> Option.iter (fun rid -> packBoosters mode [ rid ] version.AsString "build")
+
+Target.create "WS-CompileDebugPackage" <| fun args ->
+    let versionToBuild = { computedVersion with Build = bigint 999 }
+    buildProjectPrerequisites Debug
+    buildPackage Debug (obtainRuntimeId ()) versionToBuild
+
+Target.create "WS-CompileReleasePackage" <| fun args ->
+    let versionToBuild = { computedVersion with Build = bigint 999 }
+    buildProjectPrerequisites Release
+    buildPackage Release (obtainRuntimeId ()) versionToBuild
 
 //endregion
 

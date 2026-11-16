@@ -28,9 +28,8 @@ $end{copyright}
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <!-- the compiler of this package: the WebSharper task uses an installed Booster tool of the same version instead -->
     <_WebSharperToolPathIsDefault Condition=" '$(WebSharperToolPath)' == '' ">True</_WebSharperToolPathIsDefault>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.dll') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wsfsc.dll</WebSharperToolPath>
-    <!-- portable compiler: a .dll tool path runs with $(DOTNET_HOST_PATH), and starts the booster the same way -->
+    <!-- portable compiler: a .dll tool path runs with $(DOTNET_HOST_PATH), and starts the booster the same way.
+         The ReadyToRun compiler for the current platform is the WebSharper.FSharp.Booster .NET tool. -->
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' ">$(MSBuildThisFileDirectory)/../tools/net11.0/wsfsc.dll</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
