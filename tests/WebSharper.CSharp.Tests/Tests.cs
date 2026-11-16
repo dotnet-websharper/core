@@ -120,7 +120,7 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test("try/finally in iterators, known issue: https://github.com/intellifactory/websharper/issues/542", TestKind.Skip)]
+        [Test("try/finally in iterators")]
         public void DisposingGenerator()
         {
             foreach (var a in DisposingSeq().Take(2))

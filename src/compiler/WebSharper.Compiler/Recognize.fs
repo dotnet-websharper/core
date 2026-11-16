@@ -282,6 +282,8 @@ let wsRuntimeFunctions =
         "CombineDelegates"
         "DelegateEqual"
         "CompileError"
+        "Iterate"
+        "Iter"
         "ThisFunc"
         "ThisFuncOut"
         "ParamsFunc"

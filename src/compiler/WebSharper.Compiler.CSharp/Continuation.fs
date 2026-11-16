@@ -687,6 +687,36 @@ type GotoTransformer(labels) =
 
 open WebSharper.Compiler
 
+/// Checks for gotos and labeled continue, not counting yield statements
+type HasJumps() =
+    inherit StatementVisitor()
+    let mutable found = false
+
+    member private this.Found = found
+
+    override this.VisitGoto(_) = found <- true
+    override this.VisitContinue(a) = if Option.isSome a then found <- true
+    override this.VisitContinuation(_,_) = found <- true
+
+    static member Check s =
+        let vis = HasJumps()
+        vis.VisitStatement s
+        vis.Found    
+
+/// Translates a C# iterator method body to a JavaScript generator function
+/// enumerated by the runtime: yield return becomes yield, yield break return.
+/// Disposing the enumerator runs the pending finally blocks like in .NET.
+let iteratorToGenerator (s: Statement) =
+    let tr =
+        { new StatementTransformer() with
+            override this.TransformYield(v) =
+                match v with
+                | Some v -> ExprStatement (YieldExpr (Some v, false))
+                | None -> Return Undefined
+        }
+    let genFunc = FuncWithKind (FuncKind.Generator, Function ([], None, None, tr.TransformStatement s))
+    Return (Appl (GlobalAccess (Address.Runtime "Iterate"), [ genFunc ], Pure, Some 1))
+
 let eliminateGotos s =
     if HasGotos.Check s then 
         let g =

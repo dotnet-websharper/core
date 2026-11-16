@@ -756,6 +756,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         |> Continuation.FreeNestedGotos().TransformStatement
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncGeneratorTransformer(labels).TransformMethodBody(b)
+                                elif isSeq && hasYield b1 && not (Continuation.HasJumps.Check (Scoping.forwardGotosToBreaks b1)) then
+                                    Scoping.forwardGotosToBreaks b1 |> Continuation.iteratorToGenerator
                                 elif isSeq && hasYield b1 then
                                     let b = 
                                         b1 |> Continuation.addLastReturnIfNeeded (Value (Bool false))
