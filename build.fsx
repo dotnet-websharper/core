@@ -513,6 +513,8 @@ let packBoosters (mode: BuildMode) (rids: string list) (version: string) (output
                         addFile b (deploy </> file) (target + "/" + file)
             if File.Exists(deploy </> "NLog.config") then
                 addFile b (deploy </> "NLog.config") (target + "/NLog.config")
+            // fsc looks for it next to the compiler when compiling an executable
+            addFile b (__SOURCE_DIRECTORY__ </> "src/compiler/WebSharper.FSharp/default.win32manifest") (target + "/default.win32manifest")
             save b
         let b = builder tool.Id tool.Description "DotnetTool"
         let settings = workDir </> tool.Id </> "any" </> "DotnetToolSettings.xml"
