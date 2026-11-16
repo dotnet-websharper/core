@@ -1320,7 +1320,7 @@ type Capturing(?var) =
                 match captVal with
                 | Some c -> c
                 | _ ->
-                    let c = i.Clone()
+                    let c = Id.New(?name = i.Name, mut = false, ?typ = i.VarType)
                     captVal <- Some c
                     c
             | _ ->
@@ -1335,13 +1335,16 @@ type Capturing(?var) =
         scope <- scope - 1
         res
 
+    /// Creates a loop body statement. Variables declared inside the body are
+    /// block scoped, so closures capture a new binding on each iteration.
+    /// The loop variable itself is copied to a new constant if it is captured.
     member this.CaptureValueIfNeeded expr =
         let res = this.TransformExpression expr  
-        if capture then
-            match captVal with
-            | None -> Appl (Function ([], None, None, Return res), [], NonPure, None)
-            | Some c -> Appl (Function ([c], None, None, Return res), [Var var.Value], NonPure, None)        
-        else expr
+        match captVal with
+        | Some c when capture -> 
+            Block [ VarDeclaration(c, Var var.Value); ExprStatement res ]
+        | _ -> 
+            ExprStatement expr
 
 type NeedsScoping() =
     inherit Visitor()

@@ -382,6 +382,39 @@ let Tests =
             equal !accum 6
         }
 
+        Test "Closures in loops" {
+            let run (fs: ResizeArray<unit -> int>) = fs |> Seq.map (fun f -> f()) |> List.ofSeq
+            let forLoop =
+                let fs = ResizeArray()
+                for i in 1 .. 3 do
+                    fs.Add(fun () -> i)
+                run fs
+            equalMsg forLoop [1; 2; 3] "for loop variable"
+            let nestedLoops =
+                let fs = ResizeArray()
+                for i in 1 .. 2 do
+                    for j in 1 .. 2 do
+                        fs.Add(fun () -> i * 10 + j)
+                run fs
+            equalMsg nestedLoops [11; 12; 21; 22] "nested for loops"
+            let downtoLoop =
+                let fs = ResizeArray()
+                for i = 3 downto 1 do
+                    let k = i * 2
+                    fs.Add(fun () -> i + k)
+                run fs
+            equalMsg downtoLoop [9; 6; 3] "downto loop with local"
+            let whileLoop =
+                let fs = ResizeArray()
+                let mutable n = 0
+                while n < 3 do
+                    let m = n
+                    fs.Add(fun () -> m)
+                    n <- n + 1
+                run fs
+            equalMsg whileLoop [0; 1; 2] "while loop local"
+        }
+
         Test "Floats" {
             notEqualMsg 1. 2.             "1. <> 2."
             equalMsg 1. 1.                "1. = 1."
