@@ -42,27 +42,108 @@ let baseVersion =
 
 let computedVersion = ComputeVersion (Some baseVersion)
 
+/// Platforms of the Booster tools, each a ReadyToRun publish of the compilers: the 64-bit platforms .NET
+/// supports for development machines and CI. 32-bit hosts (win-x86, linux-arm, linux-musl-arm) use the
+/// portable compiler of WebSharper.FSharp / WebSharper.CSharp. Same list as RuntimeIdentifiers in the
+/// compiler projects.
+let boosterRids =
+    [
+        "win-x64"; "win-arm64"
+        "linux-x64"; "linux-arm64"
+        "linux-musl-x64"; "linux-musl-arm64"
+        "osx-x64"; "osx-arm64"
+    ]
+
+/// Compiler executables, in the order they publish for one platform: wsfsc references wsfscservice.
+let compilerExes =
+    [
+        "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj", "FSharp"
+        "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj", "FSharp"
+        "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj", "CSharp"
+    ]
+
+/// Runs dotnet with its output in a log file, printed when it fails.
+let runDotnetLogged (args: string list) (logFile: string) =
+    let psi = ProcessStartInfo(DotNet.Options.Create().DotNetCliPath)
+    for a in args do psi.ArgumentList.Add a
+    psi.WorkingDirectory <- __SOURCE_DIRECTORY__
+    psi.UseShellExecute <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    use p = new Process(StartInfo = psi)
+    let output = System.Text.StringBuilder()
+    let add (e: DataReceivedEventArgs) = if not (isNull e.Data) then lock output (fun () -> output.AppendLine e.Data |> ignore)
+    p.OutputDataReceived.Add add
+    p.ErrorDataReceived.Add add
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+    let text = lock output (fun () -> output.ToString())
+    Directory.CreateDirectory(Path.GetDirectoryName logFile) |> ignore
+    File.WriteAllText(logFile, text)
+    if p.ExitCode <> 0 then
+        Trace.traceError text
+    p.ExitCode
+
+/// Publishes the compilers to build/<mode>/<FSharp|CSharp>/net11.0/[<rid>/]deploy: None is the portable
+/// compiler, Some rid a ReadyToRun build. The platforms publish in parallel after one restore with
+/// ReadyToRun (which brings the runtime and crossgen packs of every platform), without restoring or
+/// building the referenced libraries again (the portable publish or the solution build did): each platform
+/// has its own obj/ and bin/ folders, so the parallel publishes share no output.
 let publish rids (mode: BuildMode) =
-    let publishExe (mode: BuildMode) fw input output =
-        for rid in rids do
-            let outputPath =
-                __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
-            DotNet.publish (fun p ->
-                { p with
-                    Framework = Some fw
-                    OutputPath = Some outputPath
-                    SelfContained = false |> Some
-                    Runtime = rid
-                    Configuration = mode.AsDotNet
-                    MSBuildParams =
-                        { p.MSBuildParams with
-                            NodeReuse = true
-                            DisableInternalBinLog = true
+    let fw = "net11.0"
+    let logDir = __SOURCE_DIRECTORY__ </> "build" </> string mode </> "publish-logs"
+    let deploy output (rid: string option) =
+        __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
+    let publishArgs (proj: string) output (rid: string option) extra =
+        [
+            yield "publish"; yield proj
+            yield "-f"; yield fw
+            yield "-c"; yield string mode
+            yield "-o"; yield deploy output rid
+            yield "--self-contained"; yield "false"
+            yield "-nr:false"
+            match rid with
+            | Some r -> yield "-r"; yield r
+            | None -> ()
+            yield! extra
+        ]
+    let check what code = if code <> 0 then failwithf "%s failed (exit code %d), see %s" what code logDir
+    // portable compiler first: it also builds the referenced libraries if needed
+    if rids |> List.contains None then
+        for (proj, output) in compilerExes do
+            let name = Path.GetFileNameWithoutExtension proj
+            Trace.log (sprintf "Publishing %s (portable)" name)
+            runDotnetLogged (publishArgs proj output None []) (logDir </> sprintf "%s.portable.log" name)
+            |> check (sprintf "Publishing %s" name)
+    let platforms = rids |> List.choose id
+    if not platforms.IsEmpty then
+        for (proj, _) in compilerExes do
+            let name = Path.GetFileNameWithoutExtension proj
+            Trace.log (sprintf "Restoring %s for %s" name (String.concat ", " platforms))
+            runDotnetLogged [ "restore"; proj; "-p:PublishReadyToRun=true"; "-nr:false" ] (logDir </> sprintf "%s.restore.log" name)
+            |> check (sprintf "Restoring %s" name)
+        // one job per platform and output folder: the F# job publishes wsfscservice, then wsfsc
+        let jobs =
+            [
+                for rid in platforms do
+                    for output in compilerExes |> List.map snd |> List.distinct do
+                        yield async {
+                            for (proj, _) in compilerExes |> List.filter (fun (_, o) -> o = output) do
+                                let name = Path.GetFileNameWithoutExtension proj
+                                let sw = Stopwatch.StartNew()
+                                let code =
+                                    runDotnetLogged
+                                        (publishArgs proj output (Some rid) [ "--no-restore"; "--no-dependencies" ])
+                                        (logDir </> sprintf "%s.%s.log" name rid)
+                                Trace.log (sprintf "Published %s for %s in %.0f s (exit code %d)" name rid sw.Elapsed.TotalSeconds code)
+                                check (sprintf "Publishing %s for %s" name rid) code
                         }
-                }) input
-    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
-    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
-    publishExe mode "net11.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+            ]
+        Async.Parallel(jobs, maxDegreeOfParallelism = max 2 System.Environment.ProcessorCount)
+        |> Async.RunSynchronously
+        |> ignore
 
 /// msbuild/WebSharper.CompilerVersion.props, packed next to the props of WebSharper.FSharp and
 /// WebSharper.CSharp: the WebSharper task uses a Booster tool only at exactly this version
@@ -167,7 +248,7 @@ let targets =
                     BuildAction.Projects ["WebSharper.Compiler.sln"]
                     //BuildAction.Custom (publish [ Some "win-x64" ])
                     // portable compiler for WebSharper.FSharp / WebSharper.CSharp, ReadyToRun builds for the Booster tools (PackBoosters)
-                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "osx-arm64" ])
+                    BuildAction.Custom (publish (None :: List.map Some boosterRids))
                     BuildAction.Projects ["WebSharper.sln"]
                     BuildAction.Custom (fun _ -> stopService())
                 ]
@@ -349,8 +430,6 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 // platform, the CLI downloads only the one for the current platform. The WebSharper targets use an installed
 // Booster of the same version instead of the portable compiler of WebSharper.FSharp / WebSharper.CSharp.
 
-/// Platforms with a ReadyToRun build (PublishReadyToRun in the compiler projects).
-let boosterRids = [ "win-x64"; "linux-x64"; "osx-arm64" ]
 
 type BoosterTool =
     {
