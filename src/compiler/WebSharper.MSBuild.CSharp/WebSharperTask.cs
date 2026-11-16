@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -58,6 +58,38 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
         /// $(DOTNET_HOST_PATH), runs WebSharperToolPath when it is a .dll
         public string DotnetHostPath { get; set; } = "";
+        /// True when the targets chose WebSharperToolPath (the portable compiler of the package):
+        /// an installed Booster tool of the same version is used instead.
+        public string WebSharperToolPathIsDefault { get; set; } = "";
+        /// False: do not look for the Booster tool.
+        public string WebSharperUseBoosterTool { get; set; } = "";
+        public string WebSharperCompilerVersion { get; set; } = "";
+        public string NuGetPackageRoot { get; set; } = "";
+        /// $(NETCoreSdkRuntimeIdentifier);$(NETCoreSdkPortableRuntimeIdentifier)
+        public string RuntimeIdentifiers { get; set; } = "";
+
+        private string boosterToolPath;
+
+        /// The compiler that runs: the Booster tool when found, otherwise WebSharperToolPath.
+        private string ToolPath => boosterToolPath ?? WebSharperToolPath;
+
+        public override bool Execute()
+        {
+            if (TryParseBool(WebSharperToolPathIsDefault) && !string.Equals(WebSharperUseBoosterTool, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                boosterToolPath = new BoosterLocator
+                {
+                    PackageId = "WebSharper.CSharp.Booster",
+                    EntryAssembly = "wscsc.dll",
+                    Version = WebSharperCompilerVersion,
+                    ProjectDirectory = string.IsNullOrEmpty(MSBuildProjectFullPath) ? null : Path.GetDirectoryName(MSBuildProjectFullPath),
+                    NuGetPackageRoot = NuGetPackageRoot,
+                    RuntimeIdentifiers = (RuntimeIdentifiers ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries),
+                    Log = Log,
+                }.Locate();
+            }
+            return base.Execute();
+        }
         public string DefineConstants { get; set; } = "";
         /// The command line of csc (ProvideCommandLineArgs), empty if csc was skipped.
         public ITaskItem[] CscCommandLineArgs { get; set; } = new ITaskItem[] { };
@@ -72,11 +104,11 @@ namespace WebSharper.MSBuild.CSharp
         /// WebSharper translates again with the command line of the last csc run.
         public string TranslateOnly { get; set; } = "";
 
-        protected override string ToolName => Path.GetFileName(WebSharperToolPath);
+        protected override string ToolName => Path.GetFileName(ToolPath);
 
         protected override string GenerateFullPathToTool()
         {
-            return DotnetHost.IsPortable(WebSharperToolPath) ? DotnetHost.Find(DotnetHostPath) : WebSharperToolPath;
+            return DotnetHost.IsPortable(ToolPath) ? DotnetHost.Find(DotnetHostPath) : ToolPath;
         }
 
         private void WriteAtFileName(string filename)
@@ -177,8 +209,8 @@ namespace WebSharper.MSBuild.CSharp
             var atFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
             WriteAtFileName(atFileName);
             var builder = new CommandLineBuilder();
-            if (DotnetHost.IsPortable(WebSharperToolPath))
-                builder.AppendFileNameIfNotNull(Path.GetFullPath(WebSharperToolPath));
+            if (DotnetHost.IsPortable(ToolPath))
+                builder.AppendFileNameIfNotNull(Path.GetFullPath(ToolPath));
             builder.AppendFileNameIfNotNull("@" + atFileName);
             return builder.ToString();
         }

@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\WebSharper.MSBuild.FSharp\DotnetHost.cs" Link="DotnetHost.cs" />
+    <Compile Include="..\WebSharper.MSBuild.FSharp\BoosterLocator.cs" Link="BoosterLocator.cs" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\CSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

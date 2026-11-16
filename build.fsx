@@ -104,6 +104,21 @@ Target.create "Prepare" <| fun _ ->
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
+    // make msbuild/WebSharper.CompilerVersion.props, packed next to the props of WebSharper.FSharp and
+    // WebSharper.CSharp: the WebSharper task uses a Booster tool only at exactly this version
+    let versionProps = "msbuild/WebSharper.CompilerVersion.props"
+    let vp =
+        String.concat "\r\n" [
+            "<Project>"
+            "  <PropertyGroup>"
+            sprintf "    <WebSharperCompilerVersion>%s</WebSharperCompilerVersion>" computedVersion.AsString
+            "  </PropertyGroup>"
+            "</Project>"
+            ""
+        ]
+    if not (File.Exists(versionProps) && vp = File.ReadAllText(versionProps)) then
+        File.WriteAllText(versionProps, vp)
+
     //// make minified scripts
     //let needsBuilding input output =
     //    let i = FileInfo(input)

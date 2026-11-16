@@ -26,6 +26,8 @@ $end{copyright}
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <!-- the compiler of this package: the WebSharper task uses an installed Booster tool of the same version instead -->
+    <_WebSharperToolPathIsDefault Condition=" '$(WebSharperToolPath)' == '' ">True</_WebSharperToolPathIsDefault>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wscsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkRuntimeIdentifier)/wscsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wscsc.dll') ">$(MSBuildThisFileDirectory)/../tools/net11.0/$(NETCoreSdkPortableRuntimeIdentifier)/wscsc.dll</WebSharperToolPath>
     <!-- portable compiler: a .dll tool path runs with $(DOTNET_HOST_PATH) -->
@@ -97,6 +99,11 @@ $end{copyright}
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
       DotnetHostPath="$(DOTNET_HOST_PATH)"
+      WebSharperToolPathIsDefault="$(_WebSharperToolPathIsDefault)"
+      WebSharperUseBoosterTool="$(WebSharperUseBoosterTool)"
+      WebSharperCompilerVersion="$(WebSharperCompilerVersion)"
+      NuGetPackageRoot="$(NuGetPackageRoot)"
+      RuntimeIdentifiers="$(NETCoreSdkRuntimeIdentifier);$(NETCoreSdkPortableRuntimeIdentifier)"
       TargetType="$(OutputType)"
       NoConfig="true"
       DebugType="$(DebugType)"
