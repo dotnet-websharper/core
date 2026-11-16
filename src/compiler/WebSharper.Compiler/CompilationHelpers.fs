@@ -57,6 +57,11 @@ let rec removePureParts expr =
         -> CombineExpressions (a |> List.map removePureParts) 
     | Conditional (a, b, c) 
         -> Conditional (a, removePureParts b, removePureParts c) 
+    | Binary (a, (BinaryOperator.``&&`` | BinaryOperator.``||`` | BinaryOperator.``??`` as op), b) ->
+        // the right side runs only depending on the left side
+        match removePureParts b with
+        | Undefined -> removePureParts a
+        | rb -> Binary (a, op, rb)
     | ItemGet(a, b, (NoSideEffect | Pure))
     | Binary (a, _, b)
         -> CombineExpressions [removePureParts a; removePureParts b]
