@@ -148,7 +148,8 @@ let Concat (ss: seq<#seq<'T>>) : seq<'T> =
                     st.Current <- innerE.Current
                     true
                 else
-                    (st :> System.IDisposable).Dispose()
+                    // dispose only the finished inner enumerator
+                    innerE.Dispose()
                     st.State <- null
                     next st
         Enumerator.NewDisposing null (fun st -> 
