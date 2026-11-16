@@ -213,6 +213,16 @@ let ExprDefs =
             , "F# object expression"
         "Verbatim", [ List Str, "stringParts"; List Expr, "holes"; Bool, "isJSX" ]
             , "JavaScript verbatim code"
+        "FuncWithKind", [ Object "FuncKind", "kind"; Expr, "func" ]
+            , "JavaScript generator or `async` function, `func` is a `Function`"
+        "YieldExpr", [ Option Expr, "value"; Bool, "isDelegating" ]
+            , "JavaScript `yield` or `yield*` expression inside a generator function"
+        "Spread", [ Expr, "expression" ]
+            , "JavaScript spread `...x`, valid as an item of `Application` and `New` arguments and `NewArray`"
+        "TemplateString", [ Option Expr, "tag"; List Str, "parts"; List Expr, "holes" ]
+            , "JavaScript template literal, `parts` has one more item than `holes`"
+        "OptionalChain", [ Expr, "object"; Id, "variable"; Expr, "chain" ]
+            , "JavaScript optional chaining: `undefined` if `object` is null or undefined, otherwise `chain` evaluated with `variable` bound to `object`"
     ]    
 
 let StatementDefs =
@@ -243,6 +253,8 @@ let StatementDefs =
             , "`for` loop"
         "ForIn", [ Id, "variable"; Expr, "object"; Statement, "body" ]
             , "JavaScript `for ... in` loop"
+        "ForOf", [ Id, "variable"; Expr, "iterable"; Statement, "body" ]
+            , "JavaScript `for ... of` loop"
         "Switch", [ Expr, "expression"; List (Option Expr * Statement), "cases" ]
             , "JavaScript `switch` expression"
         "If", [ Expr, "condition"; Statement, "thenStatement"; Statement, "elseStatement" ]
@@ -381,7 +393,13 @@ let javaScriptCases =
         "Cast"
         "ClassExpr"
         "Verbatim"
+        "FuncWithKind"
+        "YieldExpr"
+        "Spread"
+        "TemplateString"
+        "OptionalChain"
         "ForIn"
+        "ForOf"
         "Switch"
         "Import"
         "ExportDecl"

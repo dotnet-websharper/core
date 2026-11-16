@@ -53,6 +53,7 @@ type private T_Purity = WebSharper.Core.AST.Purity
 type private T_Statement = WebSharper.Core.AST.Statement
 type private T_SourcePos = WebSharper.Core.AST.SourcePos
 type private T_ClassMethodInfo = WebSharper.Core.AST.ClassMethodInfo
+type private T_FuncKind = WebSharper.Core.AST.FuncKind
 type private T_ClassPropertyInfo = WebSharper.Core.AST.ClassPropertyInfo
 type private T_Concrete_Hashed_MethodInfo__ = WebSharper.Core.AST.Concrete<WebSharper.Core.Hashed<WebSharper.Core.AST.MethodInfo>>
 type private T_CompiledFieldInfo = WebSharper.Core.Metadata.CompiledFieldInfo
@@ -806,6 +807,27 @@ and w_Expression (w: MetaWriter) (x: WebSharper.Core.AST.Expression) =
         writeList w (fun w x177 -> w.String(x177)) a174
         writeList w (fun w x178 -> w_Expression w x178) a175
         w.Bool(a176)
+    | T_Expression.FuncWithKind(a179, a180) ->
+        w.Tag 56
+        w_FuncKind w a179
+        w_Expression w a180
+    | T_Expression.YieldExpr(a181, a182) ->
+        w.Tag 57
+        writeOption w (fun w x183 -> w_Expression w x183) a181
+        w.Bool(a182)
+    | T_Expression.Spread(a184) ->
+        w.Tag 58
+        w_Expression w a184
+    | T_Expression.TemplateString(a185, a186, a187) ->
+        w.Tag 59
+        writeOption w (fun w x188 -> w_Expression w x188) a185
+        writeList w (fun w x189 -> w.String(x189)) a186
+        writeList w (fun w x190 -> w_Expression w x190) a187
+    | T_Expression.OptionalChain(a191, a192, a193) ->
+        w.Tag 60
+        w_Expression w a191
+        w_Id w a192
+        w_Expression w a193
 
 and w_ApplicationInfo (w: MetaWriter) (x: WebSharper.Core.AST.ApplicationInfo) =
     w_Purity w x.Purity
@@ -872,122 +894,127 @@ and w_Statement (w: MetaWriter) (x: WebSharper.Core.AST.Statement) =
         w_Id w a30
         w_Expression w a31
         w_Statement w a32
-    | T_Statement.Switch(a33, a34) ->
+    | T_Statement.ForOf(a33, a34, a35) ->
         w.Tag 13
-        w_Expression w a33
-        writeList w (fun w x35 -> (let (t36, t37) = x35 in writeOption w (fun w x38 -> w_Expression w x38) t36; w_Statement w t37)) a34
-    | T_Statement.If(a39, a40, a41) ->
+        w_Id w a33
+        w_Expression w a34
+        w_Statement w a35
+    | T_Statement.Switch(a36, a37) ->
         w.Tag 14
-        w_Expression w a39
-        w_Statement w a40
-        w_Statement w a41
-    | T_Statement.Throw(a42) ->
+        w_Expression w a36
+        writeList w (fun w x38 -> (let (t39, t40) = x38 in writeOption w (fun w x41 -> w_Expression w x41) t39; w_Statement w t40)) a37
+    | T_Statement.If(a42, a43, a44) ->
         w.Tag 15
         w_Expression w a42
-    | T_Statement.TryWith(a43, a44, a45) ->
-        w.Tag 16
         w_Statement w a43
-        writeOption w (fun w x46 -> w_Id w x46) a44
-        w_Statement w a45
-    | T_Statement.TryFinally(a47, a48) ->
+        w_Statement w a44
+    | T_Statement.Throw(a45) ->
+        w.Tag 16
+        w_Expression w a45
+    | T_Statement.TryWith(a46, a47, a48) ->
         w.Tag 17
-        w_Statement w a47
+        w_Statement w a46
+        writeOption w (fun w x49 -> w_Id w x49) a47
         w_Statement w a48
-    | T_Statement.Labeled(a49, a50) ->
+    | T_Statement.TryFinally(a50, a51) ->
         w.Tag 18
-        w_Id w a49
         w_Statement w a50
-    | T_Statement.StatementSourcePos(a51, a52) ->
+        w_Statement w a51
+    | T_Statement.Labeled(a52, a53) ->
         w.Tag 19
-        w_SourcePos w a51
-        w_Statement w a52
-    | T_Statement.Goto(a53) ->
+        w_Id w a52
+        w_Statement w a53
+    | T_Statement.StatementSourcePos(a54, a55) ->
         w.Tag 20
-        w_Id w a53
-    | T_Statement.Continuation(a54, a55) ->
+        w_SourcePos w a54
+        w_Statement w a55
+    | T_Statement.Goto(a56) ->
         w.Tag 21
-        w_Id w a54
-        w_Expression w a55
-    | T_Statement.Yield(a56) ->
+        w_Id w a56
+    | T_Statement.Continuation(a57, a58) ->
         w.Tag 22
-        writeOption w (fun w x57 -> w_Expression w x57) a56
-    | T_Statement.CSharpSwitch(a58, a59) ->
-        w.Tag 23
+        w_Id w a57
         w_Expression w a58
-        writeList w (fun w x60 -> (let (t61, t62) = x60 in writeList w (fun w x63 -> writeOption w (fun w x64 -> w_Expression w x64) x63) t61; w_Statement w t62)) a59
-    | T_Statement.GotoCase(a65) ->
+    | T_Statement.Yield(a59) ->
+        w.Tag 23
+        writeOption w (fun w x60 -> w_Expression w x60) a59
+    | T_Statement.CSharpSwitch(a61, a62) ->
         w.Tag 24
-        writeOption w (fun w x66 -> w_Expression w x66) a65
-    | T_Statement.DoNotReturn ->
+        w_Expression w a61
+        writeList w (fun w x63 -> (let (t64, t65) = x63 in writeList w (fun w x66 -> writeOption w (fun w x67 -> w_Expression w x67) x66) t64; w_Statement w t65)) a62
+    | T_Statement.GotoCase(a68) ->
         w.Tag 25
-    | T_Statement.Import(a67, a68, a69, a70) ->
+        writeOption w (fun w x69 -> w_Expression w x69) a68
+    | T_Statement.DoNotReturn ->
         w.Tag 26
-        writeOption w (fun w x71 -> w_Id w x71) a67
-        writeOption w (fun w x72 -> w_Id w x72) a68
-        writeList w (fun w x73 -> (let (t74, t75) = x73 in w.String(t74); w_Id w t75)) a69
-        w.String(a70)
-    | T_Statement.ExportDecl(a76, a77) ->
+    | T_Statement.Import(a70, a71, a72, a73) ->
         w.Tag 27
-        w.Bool(a76)
-        w_Statement w a77
-    | T_Statement.Declare(a78) ->
+        writeOption w (fun w x74 -> w_Id w x74) a70
+        writeOption w (fun w x75 -> w_Id w x75) a71
+        writeList w (fun w x76 -> (let (t77, t78) = x76 in w.String(t77); w_Id w t78)) a72
+        w.String(a73)
+    | T_Statement.ExportDecl(a79, a80) ->
         w.Tag 28
-        w_Statement w a78
-    | T_Statement.Class(a79, a80, a81, a82, a83, a84) ->
+        w.Bool(a79)
+        w_Statement w a80
+    | T_Statement.Declare(a81) ->
         w.Tag 29
-        w_Id w a79
-        writeOption w (fun w x85 -> w_Expression w x85) a80
-        writeList w (fun w x86 -> w_TSType w x86) a81
-        writeList w (fun w x87 -> w_Statement w x87) a82
-        writeList w (fun w x88 -> w_TSType w x88) a83
-        writeList w (fun w x89 -> w_TSType w x89) a84
-    | T_Statement.ClassMethod(a90, a91, a92, a93, a94, a95) ->
+        w_Statement w a81
+    | T_Statement.Class(a82, a83, a84, a85, a86, a87) ->
         w.Tag 30
-        w_ClassMethodInfo w a90
-        w.String(a91)
-        writeList w (fun w x96 -> w_Id w x96) a92
-        writeOption w (fun w x97 -> w_Id w x97) a93
-        writeOption w (fun w x98 -> w_Statement w x98) a94
-        w_TSType w a95
-    | T_Statement.ClassConstructor(a99, a100, a101, a102) ->
+        w_Id w a82
+        writeOption w (fun w x88 -> w_Expression w x88) a83
+        writeList w (fun w x89 -> w_TSType w x89) a84
+        writeList w (fun w x90 -> w_Statement w x90) a85
+        writeList w (fun w x91 -> w_TSType w x91) a86
+        writeList w (fun w x92 -> w_TSType w x92) a87
+    | T_Statement.ClassMethod(a93, a94, a95, a96, a97, a98) ->
         w.Tag 31
-        writeList w (fun w x103 -> (let (t104, t105) = x103 in w_Id w t104; w.Int(int (t105)))) a99
-        writeOption w (fun w x106 -> w_Id w x106) a100
-        writeOption w (fun w x107 -> w_Statement w x107) a101
-        w_TSType w a102
-    | T_Statement.ClassProperty(a108, a109, a110, a111) ->
+        w_ClassMethodInfo w a93
+        w.String(a94)
+        writeList w (fun w x99 -> w_Id w x99) a95
+        writeOption w (fun w x100 -> w_Id w x100) a96
+        writeOption w (fun w x101 -> w_Statement w x101) a97
+        w_TSType w a98
+    | T_Statement.ClassConstructor(a102, a103, a104, a105) ->
         w.Tag 32
-        w_ClassPropertyInfo w a108
-        w.String(a109)
-        w_TSType w a110
-        writeOption w (fun w x112 -> w_Expression w x112) a111
-    | T_Statement.ClassStatic(a113) ->
+        writeList w (fun w x106 -> (let (t107, t108) = x106 in w_Id w t107; w.Int(int (t108)))) a102
+        writeOption w (fun w x109 -> w_Id w x109) a103
+        writeOption w (fun w x110 -> w_Statement w x110) a104
+        w_TSType w a105
+    | T_Statement.ClassProperty(a111, a112, a113, a114) ->
         w.Tag 33
-        w_Statement w a113
-    | T_Statement.Interface(a114, a115, a116, a117) ->
+        w_ClassPropertyInfo w a111
+        w.String(a112)
+        w_TSType w a113
+        writeOption w (fun w x115 -> w_Expression w x115) a114
+    | T_Statement.ClassStatic(a116) ->
         w.Tag 34
-        w_Id w a114
-        writeList w (fun w x118 -> w_TSType w x118) a115
-        writeList w (fun w x119 -> w_Statement w x119) a116
-        writeList w (fun w x120 -> w_TSType w x120) a117
-    | T_Statement.Alias(a121, a122, a123) ->
+        w_Statement w a116
+    | T_Statement.Interface(a117, a118, a119, a120) ->
         w.Tag 35
-        w_Id w a121
-        writeList w (fun w x124 -> w_TSType w x124) a122
-        w_TSType w a123
-    | T_Statement.XmlComment(a125) ->
+        w_Id w a117
+        writeList w (fun w x121 -> w_TSType w x121) a118
+        writeList w (fun w x122 -> w_Statement w x122) a119
+        writeList w (fun w x123 -> w_TSType w x123) a120
+    | T_Statement.Alias(a124, a125, a126) ->
         w.Tag 36
-        w.String(a125)
-    | T_Statement.LazyClass(a126, a127) ->
+        w_Id w a124
+        writeList w (fun w x127 -> w_TSType w x127) a125
+        w_TSType w a126
+    | T_Statement.XmlComment(a128) ->
         w.Tag 37
-        w_Statement w a126
-        w_Statement w a127
-    | T_Statement.FuncSignature(a128, a129, a130, a131) ->
+        w.String(a128)
+    | T_Statement.LazyClass(a129, a130) ->
         w.Tag 38
-        w_Id w a128
-        writeList w (fun w x132 -> w_Id w x132) a129
-        writeOption w (fun w x133 -> w_Id w x133) a130
-        writeList w (fun w x134 -> w_TSType w x134) a131
+        w_Statement w a129
+        w_Statement w a130
+    | T_Statement.FuncSignature(a131, a132, a133, a134) ->
+        w.Tag 39
+        w_Id w a131
+        writeList w (fun w x135 -> w_Id w x135) a132
+        writeOption w (fun w x136 -> w_Id w x136) a133
+        writeList w (fun w x137 -> w_TSType w x137) a134
 
 and w_SourcePos (w: MetaWriter) (x: WebSharper.Core.AST.SourcePos) =
     w.String(x.FileName)
@@ -999,6 +1026,18 @@ and w_ClassMethodInfo (w: MetaWriter) (x: WebSharper.Core.AST.ClassMethodInfo) =
     w.Bool(x.IsPrivate)
     w.Bool(x.IsAbstract)
     w_MemberKind w x.Kind
+    w_FuncKind w x.FuncKind
+
+and w_FuncKind (w: MetaWriter) (x: WebSharper.Core.AST.FuncKind) =
+    match x with
+    | T_FuncKind.Normal ->
+        w.Tag 0
+    | T_FuncKind.Generator ->
+        w.Tag 1
+    | T_FuncKind.Async ->
+        w.Tag 2
+    | T_FuncKind.AsyncGenerator ->
+        w.Tag 3
 
 and w_ClassPropertyInfo (w: MetaWriter) (x: WebSharper.Core.AST.ClassPropertyInfo) =
     w.Bool(x.IsStatic)
@@ -1824,6 +1863,27 @@ and r_Expression (r: MetaReader) : WebSharper.Core.AST.Expression =
         let a139 = readList r (fun r -> r_Expression r)
         let a140 = r.Bool()
         T_Expression.Verbatim(a138, a139, a140)
+    | 56 ->
+        let a141 = r_FuncKind r
+        let a142 = r_Expression r
+        T_Expression.FuncWithKind(a141, a142)
+    | 57 ->
+        let a143 = readOption r (fun r -> r_Expression r)
+        let a144 = r.Bool()
+        T_Expression.YieldExpr(a143, a144)
+    | 58 ->
+        let a145 = r_Expression r
+        T_Expression.Spread(a145)
+    | 59 ->
+        let a146 = readOption r (fun r -> r_Expression r)
+        let a147 = readList r (fun r -> r.String())
+        let a148 = readList r (fun r -> r_Expression r)
+        T_Expression.TemplateString(a146, a147, a148)
+    | 60 ->
+        let a149 = r_Expression r
+        let a150 = r_Id r
+        let a151 = r_Expression r
+        T_Expression.OptionalChain(a149, a150, a151)
     | i -> failTag "WebSharper.Core.AST.Expression" i
 
 and r_ApplicationInfo (r: MetaReader) : WebSharper.Core.AST.ApplicationInfo =
@@ -1889,120 +1949,125 @@ and r_Statement (r: MetaReader) : WebSharper.Core.AST.Statement =
         let a23 = r_Statement r
         T_Statement.ForIn(a21, a22, a23)
     | 13 ->
-        let a24 = r_Expression r
-        let a25 = readList r (fun r -> (let t26 = readOption r (fun r -> r_Expression r) in let t27 = r_Statement r in (t26, t27)))
-        T_Statement.Switch(a24, a25)
+        let a24 = r_Id r
+        let a25 = r_Expression r
+        let a26 = r_Statement r
+        T_Statement.ForOf(a24, a25, a26)
     | 14 ->
-        let a28 = r_Expression r
-        let a29 = r_Statement r
-        let a30 = r_Statement r
-        T_Statement.If(a28, a29, a30)
+        let a27 = r_Expression r
+        let a28 = readList r (fun r -> (let t29 = readOption r (fun r -> r_Expression r) in let t30 = r_Statement r in (t29, t30)))
+        T_Statement.Switch(a27, a28)
     | 15 ->
         let a31 = r_Expression r
-        T_Statement.Throw(a31)
-    | 16 ->
         let a32 = r_Statement r
-        let a33 = readOption r (fun r -> r_Id r)
-        let a34 = r_Statement r
-        T_Statement.TryWith(a32, a33, a34)
+        let a33 = r_Statement r
+        T_Statement.If(a31, a32, a33)
+    | 16 ->
+        let a34 = r_Expression r
+        T_Statement.Throw(a34)
     | 17 ->
         let a35 = r_Statement r
-        let a36 = r_Statement r
-        T_Statement.TryFinally(a35, a36)
+        let a36 = readOption r (fun r -> r_Id r)
+        let a37 = r_Statement r
+        T_Statement.TryWith(a35, a36, a37)
     | 18 ->
-        let a37 = r_Id r
         let a38 = r_Statement r
-        T_Statement.Labeled(a37, a38)
+        let a39 = r_Statement r
+        T_Statement.TryFinally(a38, a39)
     | 19 ->
-        let a39 = r_SourcePos r
-        let a40 = r_Statement r
-        T_Statement.StatementSourcePos(a39, a40)
+        let a40 = r_Id r
+        let a41 = r_Statement r
+        T_Statement.Labeled(a40, a41)
     | 20 ->
-        let a41 = r_Id r
-        T_Statement.Goto(a41)
+        let a42 = r_SourcePos r
+        let a43 = r_Statement r
+        T_Statement.StatementSourcePos(a42, a43)
     | 21 ->
-        let a42 = r_Id r
-        let a43 = r_Expression r
-        T_Statement.Continuation(a42, a43)
+        let a44 = r_Id r
+        T_Statement.Goto(a44)
     | 22 ->
-        let a44 = readOption r (fun r -> r_Expression r)
-        T_Statement.Yield(a44)
+        let a45 = r_Id r
+        let a46 = r_Expression r
+        T_Statement.Continuation(a45, a46)
     | 23 ->
-        let a45 = r_Expression r
-        let a46 = readList r (fun r -> (let t47 = readList r (fun r -> readOption r (fun r -> r_Expression r)) in let t48 = r_Statement r in (t47, t48)))
-        T_Statement.CSharpSwitch(a45, a46)
+        let a47 = readOption r (fun r -> r_Expression r)
+        T_Statement.Yield(a47)
     | 24 ->
-        let a49 = readOption r (fun r -> r_Expression r)
-        T_Statement.GotoCase(a49)
-    | 25 -> T_Statement.DoNotReturn
-    | 26 ->
-        let a50 = readOption r (fun r -> r_Id r)
-        let a51 = readOption r (fun r -> r_Id r)
-        let a52 = readList r (fun r -> (let t54 = r.String() in let t55 = r_Id r in (t54, t55)))
-        let a53 = r.String()
-        T_Statement.Import(a50, a51, a52, a53)
+        let a48 = r_Expression r
+        let a49 = readList r (fun r -> (let t50 = readList r (fun r -> readOption r (fun r -> r_Expression r)) in let t51 = r_Statement r in (t50, t51)))
+        T_Statement.CSharpSwitch(a48, a49)
+    | 25 ->
+        let a52 = readOption r (fun r -> r_Expression r)
+        T_Statement.GotoCase(a52)
+    | 26 -> T_Statement.DoNotReturn
     | 27 ->
-        let a56 = r.Bool()
-        let a57 = r_Statement r
-        T_Statement.ExportDecl(a56, a57)
+        let a53 = readOption r (fun r -> r_Id r)
+        let a54 = readOption r (fun r -> r_Id r)
+        let a55 = readList r (fun r -> (let t57 = r.String() in let t58 = r_Id r in (t57, t58)))
+        let a56 = r.String()
+        T_Statement.Import(a53, a54, a55, a56)
     | 28 ->
-        let a58 = r_Statement r
-        T_Statement.Declare(a58)
+        let a59 = r.Bool()
+        let a60 = r_Statement r
+        T_Statement.ExportDecl(a59, a60)
     | 29 ->
-        let a59 = r_Id r
-        let a60 = readOption r (fun r -> r_Expression r)
-        let a61 = readList r (fun r -> r_TSType r)
-        let a62 = readList r (fun r -> r_Statement r)
-        let a63 = readList r (fun r -> r_TSType r)
-        let a64 = readList r (fun r -> r_TSType r)
-        T_Statement.Class(a59, a60, a61, a62, a63, a64)
+        let a61 = r_Statement r
+        T_Statement.Declare(a61)
     | 30 ->
-        let a65 = r_ClassMethodInfo r
-        let a66 = r.String()
-        let a67 = readList r (fun r -> r_Id r)
-        let a68 = readOption r (fun r -> r_Id r)
-        let a69 = readOption r (fun r -> r_Statement r)
-        let a70 = r_TSType r
-        T_Statement.ClassMethod(a65, a66, a67, a68, a69, a70)
+        let a62 = r_Id r
+        let a63 = readOption r (fun r -> r_Expression r)
+        let a64 = readList r (fun r -> r_TSType r)
+        let a65 = readList r (fun r -> r_Statement r)
+        let a66 = readList r (fun r -> r_TSType r)
+        let a67 = readList r (fun r -> r_TSType r)
+        T_Statement.Class(a62, a63, a64, a65, a66, a67)
     | 31 ->
-        let a71 = readList r (fun r -> (let t75 = r_Id r in let t76 = (LanguagePrimitives.EnumOfValue (r.Int()) : WebSharper.Core.JavaScript.Syntax.Modifiers) in (t75, t76)))
-        let a72 = readOption r (fun r -> r_Id r)
-        let a73 = readOption r (fun r -> r_Statement r)
-        let a74 = r_TSType r
-        T_Statement.ClassConstructor(a71, a72, a73, a74)
+        let a68 = r_ClassMethodInfo r
+        let a69 = r.String()
+        let a70 = readList r (fun r -> r_Id r)
+        let a71 = readOption r (fun r -> r_Id r)
+        let a72 = readOption r (fun r -> r_Statement r)
+        let a73 = r_TSType r
+        T_Statement.ClassMethod(a68, a69, a70, a71, a72, a73)
     | 32 ->
-        let a77 = r_ClassPropertyInfo r
-        let a78 = r.String()
-        let a79 = r_TSType r
-        let a80 = readOption r (fun r -> r_Expression r)
-        T_Statement.ClassProperty(a77, a78, a79, a80)
+        let a74 = readList r (fun r -> (let t78 = r_Id r in let t79 = (LanguagePrimitives.EnumOfValue (r.Int()) : WebSharper.Core.JavaScript.Syntax.Modifiers) in (t78, t79)))
+        let a75 = readOption r (fun r -> r_Id r)
+        let a76 = readOption r (fun r -> r_Statement r)
+        let a77 = r_TSType r
+        T_Statement.ClassConstructor(a74, a75, a76, a77)
     | 33 ->
-        let a81 = r_Statement r
-        T_Statement.ClassStatic(a81)
+        let a80 = r_ClassPropertyInfo r
+        let a81 = r.String()
+        let a82 = r_TSType r
+        let a83 = readOption r (fun r -> r_Expression r)
+        T_Statement.ClassProperty(a80, a81, a82, a83)
     | 34 ->
-        let a82 = r_Id r
-        let a83 = readList r (fun r -> r_TSType r)
-        let a84 = readList r (fun r -> r_Statement r)
-        let a85 = readList r (fun r -> r_TSType r)
-        T_Statement.Interface(a82, a83, a84, a85)
+        let a84 = r_Statement r
+        T_Statement.ClassStatic(a84)
     | 35 ->
-        let a86 = r_Id r
-        let a87 = readList r (fun r -> r_TSType r)
-        let a88 = r_TSType r
-        T_Statement.Alias(a86, a87, a88)
+        let a85 = r_Id r
+        let a86 = readList r (fun r -> r_TSType r)
+        let a87 = readList r (fun r -> r_Statement r)
+        let a88 = readList r (fun r -> r_TSType r)
+        T_Statement.Interface(a85, a86, a87, a88)
     | 36 ->
-        let a89 = r.String()
-        T_Statement.XmlComment(a89)
+        let a89 = r_Id r
+        let a90 = readList r (fun r -> r_TSType r)
+        let a91 = r_TSType r
+        T_Statement.Alias(a89, a90, a91)
     | 37 ->
-        let a90 = r_Statement r
-        let a91 = r_Statement r
-        T_Statement.LazyClass(a90, a91)
+        let a92 = r.String()
+        T_Statement.XmlComment(a92)
     | 38 ->
-        let a92 = r_Id r
-        let a93 = readList r (fun r -> r_Id r)
-        let a94 = readOption r (fun r -> r_Id r)
-        let a95 = readList r (fun r -> r_TSType r)
-        T_Statement.FuncSignature(a92, a93, a94, a95)
+        let a93 = r_Statement r
+        let a94 = r_Statement r
+        T_Statement.LazyClass(a93, a94)
+    | 39 ->
+        let a95 = r_Id r
+        let a96 = readList r (fun r -> r_Id r)
+        let a97 = readOption r (fun r -> r_Id r)
+        let a98 = readList r (fun r -> r_TSType r)
+        T_Statement.FuncSignature(a95, a96, a97, a98)
     | i -> failTag "WebSharper.Core.AST.Statement" i
 
 and r_SourcePos (r: MetaReader) : WebSharper.Core.AST.SourcePos =
@@ -2016,7 +2081,16 @@ and r_ClassMethodInfo (r: MetaReader) : WebSharper.Core.AST.ClassMethodInfo =
     let f2 = r.Bool()
     let f3 = r.Bool()
     let f4 = r_MemberKind r
-    ({ T_ClassMethodInfo.IsStatic = f1; IsPrivate = f2; IsAbstract = f3; Kind = f4 } : WebSharper.Core.AST.ClassMethodInfo)
+    let f5 = r_FuncKind r
+    ({ T_ClassMethodInfo.IsStatic = f1; IsPrivate = f2; IsAbstract = f3; Kind = f4; FuncKind = f5 } : WebSharper.Core.AST.ClassMethodInfo)
+
+and r_FuncKind (r: MetaReader) : WebSharper.Core.AST.FuncKind =
+    match r.Tag() with
+    | 0 -> T_FuncKind.Normal
+    | 1 -> T_FuncKind.Generator
+    | 2 -> T_FuncKind.Async
+    | 3 -> T_FuncKind.AsyncGenerator
+    | i -> failTag "WebSharper.Core.AST.FuncKind" i
 
 and r_ClassPropertyInfo (r: MetaReader) : WebSharper.Core.AST.ClassPropertyInfo =
     let f1 = r.Bool()

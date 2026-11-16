@@ -39,6 +39,8 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
         this.Error("Invalid form after JavaScript translation in " + name() + ": " + f)
 
     let mutable insideLoop = false
+    let mutable insideAsync = false
+    let mutable nextFunctionIsAsync = false
 
     //override this.TransformSelf () = invalidForm "Self"
     //override this.TransformBase () = invalidForm "Base"
@@ -48,7 +50,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformLet (a, b, c) = if isInline then base.TransformLet(a, b, c) else invalidForm "Let" 
     override this.TransformLetRec (a, b) = if isInline then base.TransformLetRec(a, b) else invalidForm "LetRec"
     override this.TransformStatementExpr (a, b) = if isInline then base.TransformStatementExpr(a, b) else invalidForm "StatementExpr"
-    override this.TransformAwait _  = invalidForm "Await"
+    override this.TransformAwait a = if insideAsync then base.TransformAwait a else invalidForm "Await"
     override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
     override this.TransformRefOrOutParameter _ = invalidForm "RefOrOutParamete"
     override this.TransformCtor (_, _, _) = invalidForm "Ctor"
@@ -62,18 +64,29 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformDoNotReturn () = if isInline then DoNotReturn else invalidForm "DoNotReturn" |> ExprStatement
     override this.TransformCoerce (a, b, c) = if isInline then base.TransformCoerce(a, b, c) else invalidForm "Coerce"
 
+    override this.TransformFuncWithKind(k, f) =
+        nextFunctionIsAsync <- (k = FuncKind.Async || k = FuncKind.AsyncGenerator)
+        base.TransformFuncWithKind(k, f)
+
     override this.TransformFunction(a, arr, ret, b) =
         let l = insideLoop
+        let ia = insideAsync
         insideLoop <- false
+        insideAsync <- nextFunctionIsAsync
+        nextFunctionIsAsync <- false
         let res = base.TransformFunction(a, arr, ret, b)
         insideLoop <- l
+        insideAsync <- ia
         res
 
     override this.TransformFuncDeclaration(a, b, c, d, e) =
         let l = insideLoop                             
+        let ia = insideAsync
         insideLoop <- false
+        insideAsync <- false
         let res = base.TransformFuncDeclaration(a, b, c, d, e)
         insideLoop <- l
+        insideAsync <- ia
         res
 
     override this.TransformFor(a, b, c, d) =
@@ -87,6 +100,13 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
         let l = insideLoop
         insideLoop <- true
         let res = base.TransformForIn(a, b, c)
+        insideLoop <- l
+        res
+
+    override this.TransformForOf(a, b, c) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformForOf(a, b, c)
         insideLoop <- l
         res
 
@@ -1972,6 +1992,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     IsPrivate = false
                     IsAbstract = false
                     Kind = kind
+                    FuncKind = FuncKind.Normal
                 }
             let trOvr =
                 ovr |> List.map (

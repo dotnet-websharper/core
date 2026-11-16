@@ -287,7 +287,7 @@ let rec removeLets expr =
     | Application (I.GlobalAccess g, [x], _) when g = globalId ->
         x
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs ->
+        when List.length args <= List.length xs && not (hasSpread xs) ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
@@ -371,7 +371,7 @@ let optimize expr =
     // created for F# string interpolation
     | Application(Lets(bindings, I.Function ([i], None, _, I.Return (I.Application (Var j, [expr], _)))), [ I.Function([x], None, _, I.Return (Var y))], _) when i = j && x = y ->
         expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
-    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (args |> List.map snd |> hasSpread) ->
         let moreArgsCount = args.Length - vars.Length
         let bind key (isUnit, value) body = 
             if isUnit then
@@ -395,7 +395,7 @@ let optimize expr =
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, ret, body)) 
     | Application(TupledLambda(vars, _, body, isReturn), [ I.NewArray args ], { KnownLength = Some _ })
-        when vars.Length = args.Length ->
+        when vars.Length = args.Length && not (hasSpread args) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
@@ -403,7 +403,7 @@ let optimize expr =
     | Application(I.ItemGet(I.Function (vars, None, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs ->
+        when List.length args <= List.length xs && not (hasSpread xs) ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
@@ -977,6 +977,34 @@ let rec breakExpr expr : Broken<BreakResult> =
         )
     | ClassExpr(name, baseCls, mem, cgen, bgen) ->
         ClassExpr(name, baseCls, mem |> List.map BreakStatement, cgen, bgen) |> broken
+    | FuncWithKind (k, f) ->
+        br f |> mapBroken (fun fE -> FuncWithKind (k, getExpr fE))
+    | YieldExpr (None, _) ->
+        broken expr
+    | YieldExpr (Some a, d) ->
+        br a |> toBrExpr |> mapBroken (fun aE -> YieldExpr (Some aE, d))
+    | Await a ->
+        br a |> toBrExpr |> mapBroken Await
+    | Spread a ->
+        br a |> toBrExpr |> mapBroken Spread
+    | TemplateString (tag, parts, holes) ->
+        brL (Option.toList tag @ holes)
+        |> mapBroken (fun l ->
+            match tag with
+            | Some _ -> TemplateString (Some l.Head, parts, l.Tail)
+            | None -> TemplateString (None, parts, l)
+        )
+    | OptionalChain (o, v, chain) ->
+        let brChain = br chain
+        if hasNoStatements brChain then
+            let brO = br o |> toBrExpr
+            {
+                Body = ResultExpr (OptionalChain (brO.Body, v, getExpr brChain.Body))
+                Statements = brO.Statements
+                Variables = brO.Variables @ brChain.Variables
+            }
+        else
+            Let (v, o, Conditional (Binary (Var v, BinaryOperator.``==``, Value Null), Undefined, chain)) |> br
     | Verbatim(stringParts, holes, isJSX) ->
         let brHoles =
             holes 
@@ -1282,6 +1310,8 @@ and private breakSt statement : Statement seq =
         Seq.singleton (TryFinally (combine (brS a), combine (brS b)))
     | ForIn(a, b, c) -> 
         brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
+    | ForOf(a, b, c) -> 
+        brE b |> toStatements (fun bE -> ForOf (a, bE, combine (brS c)))
     | Continuation(a, b) ->
         brE b |> toStatements (fun bE -> Continuation(a, bE))
     | ClassMethod(isStatic, name, pars, thisVar, body, sgn) ->

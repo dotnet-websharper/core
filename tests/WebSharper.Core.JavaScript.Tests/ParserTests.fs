@@ -170,7 +170,7 @@ let Run () =
 
     Test "arrow function - single-arg, concise body" {
         match p "x => x" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.length ids =? 1
             ids[0].Name =? "x"
             match body with
@@ -185,7 +185,7 @@ let Run () =
 
     Test "arrow function - multiple params, concise body" {
         match p "(x, y) => x + y" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.length ids =? 2
             ids[0].Name =? "x"
             ids[1].Name =? "y"
@@ -197,7 +197,7 @@ let Run () =
 
     Test "arrow function - empty params, concise body" {
         match p "() => 42" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.isEmpty ids =? true
             match body with
             | [ WebSharper.Core.JavaScript.Syntax.Return (Some e) ] -> ()
@@ -207,7 +207,7 @@ let Run () =
 
     Test "arrow function - single-arg, block body" {
         match p "x => { return x }" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.length ids =? 1
             ids[0].Name =? "x"
             match body with
@@ -222,7 +222,7 @@ let Run () =
 
     Test "arrow function - multiple params, block body" {
         match p "(x, y) => { return x + y; }" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.length ids =? 2
             ids[0].Name =? "x"
             ids[1].Name =? "y"
@@ -234,7 +234,7 @@ let Run () =
 
     Test "arrow function - empty params, block body" {
         match p "() => { return 42 }" with
-        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true) ->
+        | WebSharper.Core.JavaScript.Syntax.Lambda (None, ids, body, true, _) ->
             List.isEmpty ids =? true
             match body with
             | [ WebSharper.Core.JavaScript.Syntax.Return (Some e) ] -> ()

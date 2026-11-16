@@ -280,7 +280,7 @@ let rec cleanRuntime force expr =
             Let (resVar, result, 
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )
-    | ItemGet (NewArray fs, Value (Int index), _) ->
+    | ItemGet (NewArray fs, Value (Int index), _) when not (hasSpread fs) ->
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []
         let mutable fieldValue = None

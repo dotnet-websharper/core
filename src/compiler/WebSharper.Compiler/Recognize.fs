@@ -406,7 +406,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.String x -> String x
         | S.True -> Bool true
         |> Value
-    | S.Lambda (a, b, c, d) ->
+    | S.Lambda (a, b, c, d, _) ->
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), d)
         let body = S.Block c
@@ -575,7 +575,9 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
             Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "Unsupported: JS with statement"
-    | S.Function (a, b, c) ->
+    | S.ForOf _ | S.ForDeclIn _ | S.ForDeclOf _ ->
+        failwith "Currently unsupported: for...of and let/const in for...in in inline"
+    | S.Function (a, b, c, _) ->
         let f = env.NewVar a
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), false)

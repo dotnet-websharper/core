@@ -140,6 +140,10 @@ let rec isTrivialValue expr =
     //    isTrivialValue body || isTrivialFunction args body
     | _ -> false
 
+/// Checks if a list of arguments or array items contains a spread
+let hasSpread (xs: Expression list) =
+    xs |> List.exists (function I.Spread _ -> true | _ -> false)
+
 /// Determine if expression has no side effect and value does not depend on execution order
 let rec isStronglyPureExpr expr =
     match expr with
@@ -452,6 +456,11 @@ let varEvalOrder (vars : Id list) expr =
             | ObjectExpr _
             | ClassExpr _
             | Verbatim _
+            | FuncWithKind _
+            | YieldExpr _
+            | Spread _
+            | TemplateString _
+            | OptionalChain _
                 -> fail()
     
     and evalSt s =
@@ -487,6 +496,7 @@ let varEvalOrder (vars : Id list) expr =
             | DoWhile _
             | For _
             | ForIn _
+            | ForOf _
             | Goto _
             | GotoCase _
             | Switch _

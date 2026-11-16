@@ -86,6 +86,8 @@ type BinaryOperator =
     | ``**`` = 37
     | ``??`` = 38
     | ``??=`` = 39
+    /// Optional member access `a?.b` or `a?.[b]`
+    | ``?.`` = 40
 
 type private B = BinaryOperator
 
@@ -127,6 +129,8 @@ and Id =
         IsTypeName : bool
         Type : option<E>
         Generics : list<Id>
+        /// Default value of a function parameter
+        DefaultValue : option<E>
     }
 
     member this.ToNonTyped() =
@@ -142,7 +146,7 @@ and Id =
         | [] -> this 
         | _ -> { this with Generics = g }
 
-    static member New(name, ?opt, ?rest, ?typ, ?gen, ?typn, ?priv) =
+    static member New(name, ?opt, ?rest, ?typ, ?gen, ?typn, ?priv, ?def) =
         {
             Name = name
             Optional = defaultArg opt false
@@ -151,7 +155,11 @@ and Id =
             IsTypeName = defaultArg typn false 
             Type = typ
             Generics = defaultArg gen []
+            DefaultValue = def
         }
+
+    member this.WithDefault(d) =
+        { this with DefaultValue = Some d }
 
 and Modifiers =
     | None = 0
@@ -169,13 +177,23 @@ and Accessor =
     | Set
     | Simple
 
+/// Kind of a function: generator (`function*`), `async` or both
+and FuncKind =
+    | Normal
+    | Generator
+    | Async
+    | AsyncGenerator
+
+    member this.HasAsync = match this with Async | AsyncGenerator -> true | _ -> false
+    member this.HasGenerator = match this with Generator | AsyncGenerator -> true | _ -> false
+
 /// Represents JavaScript expressions.
 and Expression =
     | Application of func: E * generics: list<Id> * args: list<E>
     | Binary      of left: E * op: BinaryOperator * right: E
     | Conditional of test: E * consequent: E * alternate: E
     | Constant    of lit: Literal
-    | Lambda      of name: option<Id> * formals: list<Id> * body: list<S> * isArrow: bool
+    | Lambda      of name: option<Id> * formals: list<Id> * body: list<S> * isArrow: bool * kind: FuncKind
     | New         of callee: E * generics: list<Id> * args: list<E>
     | NewArray    of elements: list<option<E>>
     | NewObject   of fields: list<string * Accessor * E>
@@ -192,6 +210,14 @@ and Expression =
     | ImportFunc
     | ClassExpr   of name: option<Id> * baseAndGenerics: option<E * list<Id>> * args: list<E> * members: list<Member>
     | Verbatim    of tokens: list<string> * exprs: list<E>
+    | Yield       of value: option<E> * isDelegating: bool
+    | Await       of expr: E
+    /// Spread `...x` in arguments, array items and object literals
+    | Spread      of expr: E
+    /// Template literal, `parts` are the cooked strings and have one more item than `holes`
+    | TemplateLiteral of tag: option<E> * parts: list<string> * holes: list<E>
+    /// Optional call `f?.(args)`
+    | OptionalApplication of func: E * args: list<E>
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -238,6 +264,9 @@ and Statement =
     | ForIn            of lhs: E * rhs: E * body: S
     | ForVarIn         of id: Id * value: option<E> * expr: E * body: S
     | ForVars          of vars: list<Id * option<E>> * cond: option<E> * step: option<E> * body: S
+    | ForOf            of lhs: E * rhs: E * body: S
+    | ForDeclIn        of kind: DeclKind * id: Id * rhs: E * body: S
+    | ForDeclOf        of kind: DeclKind * id: Id * rhs: E * body: S
     | If               of test: E * thenBranch: S * elseBranch: S
     | Ignore           of expr: E
     | Labelled         of label: Label * statement: S
@@ -249,7 +278,7 @@ and Statement =
     | Vars             of vars: list<Id * option<E>> * kind: DeclKind
     | While            of test: E * body: S
     | With             of expr: E * body: S
-    | Function         of id: Id * args: list<Id> * bodyOpt: option<list<S>>
+    | Function         of id: Id * args: list<Id> * bodyOpt: option<list<S>> * kind: FuncKind
     | Export           of isDefault: bool * decl: S 
     | ExportAlias      of fromId: Id * toId: Id 
     | Import           of a: option<Id> * b: option<Id> * items: list<string  * Id> * path: string
@@ -265,7 +294,7 @@ and Statement =
     | StatementComment of stmt: S * comment: string
 
 and Member =
-    | Method      of isStatic:bool * isAbstract:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
+    | Method      of isStatic:bool * isAbstract:bool * accessor:Accessor * Id * list<Id> * option<list<S>> * kind: FuncKind
     | Constructor of args: list<Id * Modifiers> * body: option<list<S>>
     | Property    of isStatic:bool * Id * option<E>
     | Static      of body: list<S>

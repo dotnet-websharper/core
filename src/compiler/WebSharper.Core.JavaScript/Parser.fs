@@ -146,10 +146,10 @@ let rec primExpr i =
             skipRx i // consume '=>'
             // parse body: block or expression
             match (peek i).Lexeme with
-            | L.Punctuator Sy.``{`` -> S.Lambda (None, [S.Id.New x], funBody i, true)
+            | L.Punctuator Sy.``{`` -> S.Lambda (None, [S.Id.New x], funBody i, true, S.Normal)
             | _ ->
                 let e = expr true i
-                S.Lambda (None, [S.Id.New x], [S.Return (Some e)], true)
+                S.Lambda (None, [S.Id.New x], [S.Return (Some e)], true, S.Normal)
         | _ -> S.Var (S.Id.New x)
     | L.ReservedWord Kw.``this`` -> skipDiv i; S.This
     | L.ReservedWord Kw.``null`` -> skipDiv i; S.Constant S.Null
@@ -172,8 +172,8 @@ let rec primExpr i =
             | L.Punctuator s when string s = "=>" ->
                 skipRx i // consume '=>'
                 match (peek i).Lexeme with
-                | L.Punctuator Sy.``{`` -> S.Lambda (None, [], funBody i, true)
-                | _ -> let e = expr true i in S.Lambda (None, [], [S.Return (Some e)], true)
+                | L.Punctuator Sy.``{`` -> S.Lambda (None, [], funBody i, true, S.Normal)
+                | _ -> let e = expr true i in S.Lambda (None, [], [S.Return (Some e)], true, S.Normal)
             | _ -> error t "Expecting a primary expression."
         | _ ->
             let e = expr true i
@@ -188,8 +188,8 @@ let rec primExpr i =
                     | Some ids ->
                         skipRx i // consume '=>'
                         match (peek i).Lexeme with
-                        | L.Punctuator Sy.``{`` -> S.Lambda (None, ids, funBody i, true)
-                        | _ -> let be = expr true i in S.Lambda (None, ids, [S.Return (Some be)], true)
+                        | L.Punctuator Sy.``{`` -> S.Lambda (None, ids, funBody i, true, S.Normal)
+                        | _ -> let be = expr true i in S.Lambda (None, ids, [S.Return (Some be)], true, S.Normal)
                     | None ->
                         // Not a valid parameter list, treat as grouped expression
                         e
@@ -719,10 +719,10 @@ and funExpr i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Lambda (Some (S.Id.New id), f, funBody i, false)
+        S.Lambda (Some (S.Id.New id), f, funBody i, false, S.Normal)
     | L.Punctuator Sy.``(`` ->
         let f = formals i
-        S.Lambda (None, f, funBody i, false)
+        S.Lambda (None, f, funBody i, false, S.Normal)
     | _ ->
         error t "Expecting '(' or an identifier."
 
@@ -732,7 +732,7 @@ and funDecl i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Function (S.Id.New id, f, Some (funBody i))
+        S.Function (S.Id.New id, f, Some (funBody i), S.Normal)
     | _ ->
         error t "Expecting an identifier."
 

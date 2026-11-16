@@ -89,12 +89,20 @@ and [<RequireQualifiedAccess>] VarKind =
     | Const
     | Let
 
+/// Kind of a JavaScript function: generator (`function*`), `async` or both
+and [<RequireQualifiedAccess>] FuncKind =
+    | Normal
+    | Generator
+    | Async
+    | AsyncGenerator
+
 and ClassMethodInfo =
     {
         IsStatic : bool
         IsPrivate : bool
         IsAbstract : bool
         Kind : MemberKind
+        FuncKind : FuncKind
     }
 
 and ClassPropertyInfo =
@@ -248,6 +256,16 @@ and Expression =
     | ObjectExpr of ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression>
     /// JavaScript verbatim code
     | Verbatim of StringParts:list<string> * Holes:list<Expression> * IsJSX:bool
+    /// JavaScript generator or `async` function, `func` is a `Function`
+    | FuncWithKind of Kind:FuncKind * Func:Expression
+    /// JavaScript `yield` or `yield*` expression inside a generator function
+    | YieldExpr of Value:option<Expression> * IsDelegating:bool
+    /// JavaScript spread `...x`, valid as an item of `Application` and `New` arguments and `NewArray`
+    | Spread of Expression:Expression
+    /// JavaScript template literal, `parts` has one more item than `holes`
+    | TemplateString of Tag:option<Expression> * Parts:list<string> * Holes:list<Expression>
+    /// JavaScript optional chaining: `undefined` if `object` is null or undefined, otherwise `chain` evaluated with `variable` bound to `object`
+    | OptionalChain of Object:Expression * Variable:Id * Chain:Expression
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -299,6 +317,8 @@ and Statement =
     | For of Initializer:option<Expression> * Condition:option<Expression> * Step:option<Expression> * Body:Statement
     /// JavaScript `for ... in` loop
     | ForIn of Variable:Id * Object:Expression * Body:Statement
+    /// JavaScript `for ... of` loop
+    | ForOf of Variable:Id * Iterable:Expression * Body:Statement
     /// JavaScript `switch` expression
     | Switch of Expression:Expression * Cases:list<option<Expression> * Statement>
     /// `if` statement
@@ -524,6 +544,21 @@ type Transformer() =
     /// JavaScript verbatim code
     abstract TransformVerbatim : StringParts:list<string> * Holes:list<Expression> * IsJSX:bool -> Expression
     override this.TransformVerbatim (a, b, c) = Verbatim (a, List.map this.TransformExpression b, c)
+    /// JavaScript generator or `async` function, `func` is a `Function`
+    abstract TransformFuncWithKind : Kind:FuncKind * Func:Expression -> Expression
+    override this.TransformFuncWithKind (a, b) = FuncWithKind (a, this.TransformExpression b)
+    /// JavaScript `yield` or `yield*` expression inside a generator function
+    abstract TransformYieldExpr : Value:option<Expression> * IsDelegating:bool -> Expression
+    override this.TransformYieldExpr (a, b) = YieldExpr (Option.map this.TransformExpression a, b)
+    /// JavaScript spread `...x`, valid as an item of `Application` and `New` arguments and `NewArray`
+    abstract TransformSpread : Expression:Expression -> Expression
+    override this.TransformSpread a = Spread (this.TransformExpression a)
+    /// JavaScript template literal, `parts` has one more item than `holes`
+    abstract TransformTemplateString : Tag:option<Expression> * Parts:list<string> * Holes:list<Expression> -> Expression
+    override this.TransformTemplateString (a, b, c) = TemplateString (Option.map this.TransformExpression a, b, List.map this.TransformExpression c)
+    /// JavaScript optional chaining: `undefined` if `object` is null or undefined, otherwise `chain` evaluated with `variable` bound to `object`
+    abstract TransformOptionalChain : Object:Expression * Variable:Id * Chain:Expression -> Expression
+    override this.TransformOptionalChain (a, b, c) = OptionalChain (this.TransformExpression a, this.TransformId b, this.TransformExpression c)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -563,6 +598,9 @@ type Transformer() =
     /// JavaScript `for ... in` loop
     abstract TransformForIn : Variable:Id * Object:Expression * Body:Statement -> Statement
     override this.TransformForIn (a, b, c) = ForIn (this.TransformId a, this.TransformExpression b, this.TransformStatement c)
+    /// JavaScript `for ... of` loop
+    abstract TransformForOf : Variable:Id * Iterable:Expression * Body:Statement -> Statement
+    override this.TransformForOf (a, b, c) = ForOf (this.TransformId a, this.TransformExpression b, this.TransformStatement c)
     /// JavaScript `switch` expression
     abstract TransformSwitch : Expression:Expression * Cases:list<option<Expression> * Statement> -> Statement
     override this.TransformSwitch (a, b) = Switch (this.TransformExpression a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) b)
@@ -702,6 +740,11 @@ type Transformer() =
         | ClassExpr (a, b, c, d, e) -> this.TransformClassExpr (a, b, c, d, e)
         | ObjectExpr (a, b, c) -> this.TransformObjectExpr (a, b, c)
         | Verbatim (a, b, c) -> this.TransformVerbatim (a, b, c)
+        | FuncWithKind (a, b) -> this.TransformFuncWithKind (a, b)
+        | YieldExpr (a, b) -> this.TransformYieldExpr (a, b)
+        | Spread a -> this.TransformSpread a
+        | TemplateString (a, b, c) -> this.TransformTemplateString (a, b, c)
+        | OptionalChain (a, b, c) -> this.TransformOptionalChain (a, b, c)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -718,6 +761,7 @@ type Transformer() =
         | DoWhile (a, b) -> this.TransformDoWhile (a, b)
         | For (a, b, c, d) -> this.TransformFor (a, b, c, d)
         | ForIn (a, b, c) -> this.TransformForIn (a, b, c)
+        | ForOf (a, b, c) -> this.TransformForOf (a, b, c)
         | Switch (a, b) -> this.TransformSwitch (a, b)
         | If (a, b, c) -> this.TransformIf (a, b, c)
         | Throw a -> this.TransformThrow a
@@ -918,6 +962,21 @@ type Visitor() =
     /// JavaScript verbatim code
     abstract VisitVerbatim : StringParts:list<string> * Holes:list<Expression> * IsJSX:bool -> unit
     override this.VisitVerbatim (a, b, c) = (); List.iter this.VisitExpression b; ()
+    /// JavaScript generator or `async` function, `func` is a `Function`
+    abstract VisitFuncWithKind : Kind:FuncKind * Func:Expression -> unit
+    override this.VisitFuncWithKind (a, b) = (); this.VisitExpression b
+    /// JavaScript `yield` or `yield*` expression inside a generator function
+    abstract VisitYieldExpr : Value:option<Expression> * IsDelegating:bool -> unit
+    override this.VisitYieldExpr (a, b) = Option.iter this.VisitExpression a; ()
+    /// JavaScript spread `...x`, valid as an item of `Application` and `New` arguments and `NewArray`
+    abstract VisitSpread : Expression:Expression -> unit
+    override this.VisitSpread a = (this.VisitExpression a)
+    /// JavaScript template literal, `parts` has one more item than `holes`
+    abstract VisitTemplateString : Tag:option<Expression> * Parts:list<string> * Holes:list<Expression> -> unit
+    override this.VisitTemplateString (a, b, c) = Option.iter this.VisitExpression a; (); List.iter this.VisitExpression c
+    /// JavaScript optional chaining: `undefined` if `object` is null or undefined, otherwise `chain` evaluated with `variable` bound to `object`
+    abstract VisitOptionalChain : Object:Expression * Variable:Id * Chain:Expression -> unit
+    override this.VisitOptionalChain (a, b, c) = this.VisitExpression a; this.VisitId b; this.VisitExpression c
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -957,6 +1016,9 @@ type Visitor() =
     /// JavaScript `for ... in` loop
     abstract VisitForIn : Variable:Id * Object:Expression * Body:Statement -> unit
     override this.VisitForIn (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitStatement c
+    /// JavaScript `for ... of` loop
+    abstract VisitForOf : Variable:Id * Iterable:Expression * Body:Statement -> unit
+    override this.VisitForOf (a, b, c) = this.VisitId a; this.VisitExpression b; this.VisitStatement c
     /// JavaScript `switch` expression
     abstract VisitSwitch : Expression:Expression * Cases:list<option<Expression> * Statement> -> unit
     override this.VisitSwitch (a, b) = this.VisitExpression a; List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) b
@@ -1094,6 +1156,11 @@ type Visitor() =
         | ClassExpr (a, b, c, d, e) -> this.VisitClassExpr (a, b, c, d, e)
         | ObjectExpr (a, b, c) -> this.VisitObjectExpr (a, b, c)
         | Verbatim (a, b, c) -> this.VisitVerbatim (a, b, c)
+        | FuncWithKind (a, b) -> this.VisitFuncWithKind (a, b)
+        | YieldExpr (a, b) -> this.VisitYieldExpr (a, b)
+        | Spread a -> this.VisitSpread a
+        | TemplateString (a, b, c) -> this.VisitTemplateString (a, b, c)
+        | OptionalChain (a, b, c) -> this.VisitOptionalChain (a, b, c)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1110,6 +1177,7 @@ type Visitor() =
         | DoWhile (a, b) -> this.VisitDoWhile (a, b)
         | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
         | ForIn (a, b, c) -> this.VisitForIn (a, b, c)
+        | ForOf (a, b, c) -> this.VisitForOf (a, b, c)
         | Switch (a, b) -> this.VisitSwitch (a, b)
         | If (a, b, c) -> this.VisitIf (a, b, c)
         | Throw a -> this.VisitThrow a
@@ -1200,6 +1268,11 @@ module IgnoreSourcePos =
     let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Verbatim|_|) x = match ignoreExprSourcePos x with Verbatim (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|FuncWithKind|_|) x = match ignoreExprSourcePos x with FuncWithKind (a, b) -> Some (a, b) | _ -> None
+    let (|YieldExpr|_|) x = match ignoreExprSourcePos x with YieldExpr (a, b) -> Some (a, b) | _ -> None
+    let (|Spread|_|) x = match ignoreExprSourcePos x with Spread a -> Some a | _ -> None
+    let (|TemplateString|_|) x = match ignoreExprSourcePos x with TemplateString (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|OptionalChain|_|) x = match ignoreExprSourcePos x with OptionalChain (a, b, c) -> Some (a, b, c) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1217,6 +1290,7 @@ module IgnoreSourcePos =
     let (|DoWhile|_|) x = match ignoreStatementSourcePos x with DoWhile (a, b) -> Some (a, b) | _ -> None
     let (|For|_|) x = match ignoreStatementSourcePos x with For (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|ForIn|_|) x = match ignoreStatementSourcePos x with ForIn (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|ForOf|_|) x = match ignoreStatementSourcePos x with ForOf (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Switch|_|) x = match ignoreStatementSourcePos x with Switch (a, b) -> Some (a, b) | _ -> None
     let (|If|_|) x = match ignoreStatementSourcePos x with If (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Throw|_|) x = match ignoreStatementSourcePos x with Throw a -> Some a | _ -> None
@@ -1304,6 +1378,11 @@ module Debug =
         | ClassExpr (a, b, c, d, e) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ", " + "[" + String.concat "; " (List.map string e) + "]" + ")"
         | ObjectExpr (a, b, c) -> "ObjectExpr" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) c) + "]" + ")"
         | Verbatim (a, b, c) -> "Verbatim" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + string c + ")"
+        | FuncWithKind (a, b) -> "FuncWithKind" + "(" + string a + ", " + PrintExpression b + ")"
+        | YieldExpr (a, b) -> "YieldExpr" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + string b + ")"
+        | Spread a -> "Spread" + "(" + PrintExpression a + ")"
+        | TemplateString (a, b, c) -> "TemplateString" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | OptionalChain (a, b, c) -> "OptionalChain" + "(" + PrintExpression a + ", " + string b + ", " + PrintExpression c + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""
@@ -1319,6 +1398,7 @@ module Debug =
         | DoWhile (a, b) -> "DoWhile" + "(" + PrintStatement a + ", " + PrintExpression b + ")"
         | For (a, b, c, d) -> "For" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + defaultArg (Option.map PrintExpression c) "_" + ", " + PrintStatement d + ")"
         | ForIn (a, b, c) -> "ForIn" + "(" + string a + ", " + PrintExpression b + ", " + PrintStatement c + ")"
+        | ForOf (a, b, c) -> "ForOf" + "(" + string a + ", " + PrintExpression b + ", " + PrintStatement c + ")"
         | Switch (a, b) -> "Switch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintStatement b) b) + "]" + ")"
         | If (a, b, c) -> "If" + "(" + PrintExpression a + ", " + PrintStatement b + ", " + PrintStatement c + ")"
         | Throw a -> "Throw" + "(" + PrintExpression a + ")"
@@ -1372,6 +1452,7 @@ module ClassMethodInfo =
             IsPrivate = false
             IsAbstract = false
             Kind = MemberKind.Simple
+            FuncKind = FuncKind.Normal
         }
 
     let SimpleInstance = 
@@ -1380,6 +1461,7 @@ module ClassMethodInfo =
             IsPrivate = false
             IsAbstract = false
             Kind = MemberKind.Simple
+            FuncKind = FuncKind.Normal
         }
 
 [<AutoOpen>]
