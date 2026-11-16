@@ -131,11 +131,10 @@ type private SeqTransformer() =
     override this.TransformExpression e =
         let tr = this.TransformExpression
         match e with
-        | I.Call (None, td, m, [ SeqExpr body ]) 
-            when td.Entity.Value.FullName = "Microsoft.FSharp.Collections.SeqModule" 
-                && (m.Entity.Value.MethodName = "ToList" || m.Entity.Value.MethodName = "ToArray") ->
-            let conv = m.Entity.Value.MethodName
-            // [ ... ] and [| ... |]: push the items to an array
+        | I.Call (None, td, m, [ SeqExpr body ])
+            when td.Entity.Value.FullName = "Microsoft.FSharp.Collections.SeqModule"
+                && m.Entity.Value.MethodName = "ToArray" ->
+            // [| ... |]: push the items to an array
             let a = Id.New("a", mut = false)
             let push v = ExprStatement (Appl (ItemGet (Var a, Value (String "push"), NonPure), [ v ], NonPure, Some 1))
             let emit =
@@ -145,12 +144,43 @@ type private SeqTransformer() =
                         let x = Id.New("x", mut = false)
                         ForOf (x, iterable s, push (Var x))
                 }
-            let arr = Let (a, NewArray [], Sequential [ IgnoredStatementExpr (gen emit tr body); Var a ])
-            if conv = "ToArray" then arr
-            else
-                match e with
-                | I.Call (None, td, m, _) -> Call (None, td, m, [ arr ])
-                | _ -> failwith "impossible"
+            Let (a, NewArray [], Sequential [ IgnoredStatementExpr (gen emit tr body); Var a ])
+        | I.Call (None, td, m, [ SeqExpr body ])
+            when td.Entity.Value.FullName = "Microsoft.FSharp.Collections.SeqModule"
+                && m.Entity.Value.MethodName = "ToList" && m.Generics.Length = 1 ->
+            // [ ... ]: build the list from its head by setting the tail of the last cell,
+            // like the List module does internally. `head` is a sentinel cell before the first item.
+            let listType = Generic Definitions.FSharpList m.Generics
+            let cons h = NewUnionCase (listType, "Cons", [ h; Undefined ])
+            let head = Id.New("l", mut = false)
+            let last = Id.New("last")
+            let setTail t = ExprStatement (ItemSet (Var last, Value (String "$1"), t))
+            let add v =
+                let c = Id.New("c", mut = false)
+                Block [
+                    VarDeclaration (c, cons v)
+                    setTail (Var c)
+                    ExprStatement (VarSet (last, Var c))
+                ]
+            let emit =
+                {
+                    Item = add
+                    All = fun s ->
+                        let x = Id.New("x", mut = false)
+                        ForOf (x, iterable s, add (Var x))
+                }
+            Let (head, cons Undefined,
+                Sequential [
+                    IgnoredStatementExpr (
+                        Block [
+                            VarDeclaration (last, Var head)
+                            gen emit tr body
+                            setTail (NewUnionCase (listType, "Empty", []))
+                        ]
+                    )
+                    ItemGet (Var head, Value (String "$1"), NonPure)
+                ]
+            )
         | SeqExpr body ->
             // seq { ... }: a generator function enumerated by the runtime
             let emit =
