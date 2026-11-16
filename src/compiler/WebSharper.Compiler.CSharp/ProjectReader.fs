@@ -602,6 +602,44 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         else
             cls.BaseType |> sr.ReadNamedType |> Some
 
+    /// C# runs instance field initializers before the base constructor call.
+    /// JavaScript does not allow using `this` before super(), but initializers cannot
+    /// refer to `this` either, so their values are computed into variables before the
+    /// base constructor call and assigned after it. Constant values and classes deriving
+    /// from System.Object directly call the init method after the base constructor.
+    let withFieldInits (thisVar: Id) (chained: Statement) =
+        if not hasInit then chained else
+        let hasRealBase =
+            match baseCls with
+            | Some b -> b.Entity.Value.FullName <> "System.Object"
+            | None -> false
+        let isConstant e = 
+            match IgnoreExprSourcePos e with
+            | Value _ | Undefined -> true
+            | _ -> false
+        let needsReorder =
+            hasRealBase && inits |> Seq.exists (function FieldSet(_, _, _, e) -> not (isConstant e) | _ -> true)
+        if needsReorder then
+            let before, after =
+                inits |> List.ofSeq |> List.map (fun i ->
+                    match ReplaceId(initThisVar, thisVar).TransformExpression i with
+                    | FieldSet(Some o, t, n, e) when not (isConstant e) ->
+                        let v = Id.New(n, mut = false)
+                        Some (VarDeclaration(v, e)), FieldSet(Some o, t, n, Var v)
+                    | i -> None, i
+                )
+                |> List.unzip
+            CombineStatements [
+                yield! List.choose id before
+                yield chained
+                yield! after |> List.map ExprStatement
+            ]
+        else
+            CombineStatements [
+                chained
+                ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
+            ]
+
     let getDefImpl (meth: Method) =
         Method {
             meth.Value with
@@ -799,13 +837,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     match c.Initializer with
                                     | Some (CodeReader.ThisInitializer _) -> CombineStatements [ chained; c.Body ]
                                     | _ ->
-                                    if hasInit then 
-                                        CombineStatements [ 
-                                            chained;
-                                            ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
-                                            c.Body
-                                        ]
-                                    else CombineStatements [ chained; c.Body ]
+                                    CombineStatements [ withFieldInits thisVar chained; c.Body ]
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
@@ -1165,11 +1197,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         | Some bTyp ->
                                             ExprStatement <| ChainedCtor(true, bTyp, ConstructorInfo.Default(), [])
                                         | _ -> Empty
-                                    let i =
-                                        if hasInit then 
-                                            ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
-                                        else Empty
-                                    CombineStatements [ c; i ]
+                                    withFieldInits thisVar c
 
                             {
                                 IsStatic = meth.IsStatic

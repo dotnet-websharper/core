@@ -442,7 +442,7 @@ namespace WebSharper.CSharp.Tests
             Equal(StaticClass.StaticProp, 4);
         }
 
-        [Test("C# field initialization order", TestKind.Skip)]
+        [Test("C# field initialization order")]
         public void InitializationOrder()
         {
             _initializationOrder = "";
