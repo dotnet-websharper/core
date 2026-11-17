@@ -1000,8 +1000,38 @@ type RoslynTransformer(env: Environment) =
         | SimpleNameData.IdentifierName x -> this.TransformIdentifierName x |> withExprSourcePos x.Node
         | SimpleNameData.GenericName    x -> TODO x //this.TransformGenericName x
 
+    /// A method taking an interpolated string handler, like `StringBuilder.Append(ref AppendInterpolatedStringHandler)`,
+    /// is replaced by its overload taking a string, when there is one. Interpolated strings are translated to strings.
+    member this.WithoutInterpolatedStringHandlers (symbol: IMethodSymbol, args: ArgumentListData) =
+        if isNull symbol || symbol.IsGenericMethod then symbol else
+        let isHandlerArgument (a: ArgumentData) =
+            env.SemanticModel.GetConversion(a.Expression.Node).IsInterpolatedStringHandler
+        if not (args.Arguments |> Seq.exists isHandlerArgument) then symbol else
+        let isHandlerType (t: ITypeSymbol) =
+            t.GetAttributes() |> Seq.exists (fun a -> not (isNull a.AttributeClass) && a.AttributeClass.Name = "InterpolatedStringHandlerAttribute")
+        let ps = symbol.Parameters
+        let candidates =
+            let members =
+                if isNull symbol.ReducedFrom then symbol.ContainingType.GetMembers(symbol.Name)
+                else System.Collections.Immutable.ImmutableArray.Empty
+            members |> Seq.tryPick (function
+                | :? IMethodSymbol as m when
+                        m.IsStatic = symbol.IsStatic && not m.IsGenericMethod && m.Parameters.Length = ps.Length
+                        && Seq.forall2 (fun (p: IParameterSymbol) (q: IParameterSymbol) ->
+                            if isHandlerType p.Type then
+                                q.Type.SpecialType = SpecialType.System_String
+                            else
+                                SymbolEqualityComparer.Default.Equals(p.Type, q.Type) && p.RefKind = q.RefKind
+                        ) ps m.Parameters
+                        && ps |> Seq.exists (fun p -> isHandlerType p.Type) ->
+                    Some m
+                | _ -> None
+            )
+        defaultArg candidates symbol
+
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        let symbol = this.WithoutInterpolatedStringHandlers(symbol, x.ArgumentList)
         if isNull symbol then
             let isNameOf =
                 match x.Expression with
@@ -3382,9 +3412,22 @@ type RoslynTransformer(env: Environment) =
                     ":" + f.Node.FormatStringToken.ValueText
                 )
             let expr = x.Expression |> this.TransformExpression
-            match align, format with
-            | None, None -> expr
-            | _ -> 
+            // types whose ToString(string) proxy implements .NET format strings
+            let formatted =
+                match x.FormatClause, env.SemanticModel.GetTypeInfo(x.Expression.Node).Type with
+                | Some f, (:? INamedTypeSymbol as t) when t.ContainingNamespace.ToDisplayString() = "System" && (t.Name = "DateTime" || t.Name = "Guid") ->
+                    t.GetMembers("ToString") |> Seq.tryPick (function
+                        | :? IMethodSymbol as m when not m.IsStatic && m.Parameters.Length = 1 && m.Parameters[0].Type.SpecialType = SpecialType.System_String ->
+                            Some (call m (Some expr) [ Value (String f.Node.FormatStringToken.ValueText) ])
+                        | _ -> None
+                    )
+                | _ -> None
+            match formatted, align, format with
+            | Some s, None, _ -> s
+            | Some s, Some a, _ ->
+                Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String ("{0" + a + "}")); s ])
+            | None, None, None -> expr
+            | None, _, _ -> 
                 let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
                 Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])
 

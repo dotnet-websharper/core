@@ -478,11 +478,23 @@ x: Equal(a, 1);
             Equal(_introduction, "My name is Bond. James Bond.");
         }
 
-        [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787", TestKind.Skip)]
+        [Test("Date formatting")]
         public void DateFormatting()
         {
             var d = new DateTime(2010, 4, 8, 15, 5, 39);
             Equal($"format:{d:hh}", "format:03");
+            Equal($"{d:yyyy-MM-dd HH:mm:ss}", "2010-04-08 15:05:39");
+            Equal($"[{d,6:mm}]", "[    05]");
+            Equal($"[{d,-6:mm}]", "[05    ]");
+        }
+
+        [Test("Interpolated string handler argument")]
+        public void InterpolatedStringHandler()
+        {
+            var x = 42;
+            var sb = new StringBuilder();
+            sb.Append($"x = {x}").Append(", ").AppendLine($"y = {x + 1}");
+            Equal(sb.ToString(), "x = 42, y = 43\n");
         }
 
         public int OptionalTest(int x, int y = 2, int z = 0, int w = 0) => 100 * x + 10 * y + z - w;
