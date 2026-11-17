@@ -1050,18 +1050,21 @@ type RoslynTransformer(env: Environment) =
         let eSymbol = getExtensionOrigSymbol symbol
         let typ, meth = getTypeAndMethod symbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
+        // ordinals of the original method, including the `this` parameter of extension methods
+        let callerInfo = this.CallerInfoArguments x.Node
+        let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList @ callerInfo
         let argumentListWithThis =
             if symbol.MethodKind = MethodKind.LocalFunction then
-                argumentListWithParamsFix()    
+                argumentListWithParamsFix()
             elif not symbol.IsStatic then
                 if symbol <> eSymbol then
-                    fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
-                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
+                    (fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))
+                    @ callerInfo
                 else
-                    (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix() 
-                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
-            else argumentListWithParamsFix() 
+                    (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix()
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))
+            else argumentListWithParamsFix()
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
@@ -1074,6 +1077,31 @@ type RoslynTransformer(env: Environment) =
             Call(Some (List.head args), typ, meth, List.tail args)
         |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         |> withExprSourcePos x.Node
+
+    /// Values of omitted arguments for parameters with a caller info attribute
+    /// (CallerMemberName, CallerFilePath, CallerLineNumber, CallerArgumentExpression),
+    /// as named arguments by parameter ordinal. Roslyn computes the values.
+    member this.CallerInfoArguments (node: SyntaxNode) : list<int option * Expression> =
+        let arguments =
+            match env.SemanticModel.GetOperation(node) with
+            | :? IInvocationOperation as op -> op.Arguments
+            | :? IObjectCreationOperation as op -> op.Arguments
+            | _ -> System.Collections.Immutable.ImmutableArray.Empty
+        let isCallerInfo (p: IParameterSymbol) =
+            p.GetAttributes() |> Seq.exists (fun a ->
+                let c = a.AttributeClass
+                not (isNull c) && c.ContainingNamespace.ToDisplayString() = "System.Runtime.CompilerServices"
+                && (match c.Name with
+                    | "CallerMemberNameAttribute" | "CallerFilePathAttribute"
+                    | "CallerLineNumberAttribute" | "CallerArgumentExpressionAttribute" -> true
+                    | _ -> false)
+            )
+        [
+            for a in arguments do
+                if a.ArgumentKind = ArgumentKind.DefaultValue && not (isNull a.Parameter)
+                    && a.Value.ConstantValue.HasValue && isCallerInfo a.Parameter then
+                    yield Some a.Parameter.Ordinal, Value (ReadLiteral a.Value.ConstantValue.Value)
+        ]
 
     member this.TransformBoundArgumentValue (value: IOperation) : Expression =
         if value.IsImplicit && value.ConstantValue.HasValue then
@@ -2103,9 +2131,10 @@ type RoslynTransformer(env: Environment) =
         let typ = sr.ReadNamedType symbol.ContainingType
         let argumentList = defaultArg (x.ArgumentList |> Option.map (this.TransformArgumentList)) []
         let argumentListWithParamsFix = 
-            match x.ArgumentList with
-            | Some a -> fixParamArray symbol a argumentList
-            | _-> argumentList
+            (match x.ArgumentList with
+             | Some a -> fixParamArray symbol a argumentList
+             | _-> argumentList)
+            @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
             Ctor (typ, sr.ReadConstructor symbol, args)
@@ -2129,8 +2158,8 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let typ = sr.ReadNamedType symbol.ContainingType
         let argumentList = this.TransformArgumentList x.ArgumentList
-        let argumentListWithParamsFix = 
-            fixParamArray symbol x.ArgumentList argumentList
+        let argumentListWithParamsFix =
+            fixParamArray symbol x.ArgumentList argumentList @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
             Ctor (typ, sr.ReadConstructor symbol, args)
@@ -2219,7 +2248,7 @@ type RoslynTransformer(env: Environment) =
     member this.TransformConstructorInitializer (x: ConstructorInitializerData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList
+        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let initTempVars = List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         match x.Kind with

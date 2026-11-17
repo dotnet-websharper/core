@@ -860,18 +860,44 @@ x: Equal(a, 1);
             }
         }
 
-        [Test("CallerArgumentExpression attrribute", TestKind.Skip)]
+        [Test("CallerArgumentExpression attribute")]
         public void CallerArgumentExpressionTest()
         {
             try
             {
                 Validate(1 == 2);
+                IsTrue(false);
             }
-            catch (Exception e)
+            catch (InvalidOperationException e)
             {
                 Equal(e.Message, "Argument failed validation: <1 == 2>");
-                throw;
             }
+        }
+
+        public static string CallerInfo(
+            [CallerMemberName] string member = "",
+            [CallerLineNumber] int line = 0,
+            [CallerFilePath] string file = "")
+            => member + ":" + line + ":" + (file.EndsWith("Syntax.cs") ? "T" : "F");
+
+        public class CallerInfoObject
+        {
+            public string Member { get; }
+            public CallerInfoObject([CallerMemberName] string member = "") { Member = member; }
+        }
+
+        public class CallerInfoDerived : CallerInfoObject
+        {
+            public CallerInfoDerived() : base() { }
+        }
+
+        [Test("Caller info attributes")]
+        public void CallerInfoTest()
+        {
+            Equal(CallerInfo(), "CallerInfoTest:897:T");
+            Equal(CallerInfo("x"), "x:898:T");
+            Equal(new CallerInfoObject().Member, "CallerInfoTest");
+            Equal(new CallerInfoDerived().Member, ".ctor");
         }
 
         public delegate int LambdaWithDefault(int i = 1);
