@@ -3178,6 +3178,33 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformVarPattern (x: VarPatternData) : _ =
         let designation = x.Designation |> this.TransformVariableDesignation
+        match x.Designation with
+        | VariableDesignationData.ParenthesizedVariableDesignation _ ->
+            // var (a, b): deconstructs the value, which also has to be non-null
+            let inputType =
+                // the pattern operation is found from the closest ancestor that has an operation
+                let rec closestOperation (n: SyntaxNode) =
+                    if isNull n then null else
+                    match env.SemanticModel.GetOperation(n) with
+                    | null -> closestOperation n.Parent
+                    | op -> op
+                match closestOperation x.Node with
+                | null -> null
+                | op ->
+                    op.DescendantsAndSelf() |> Seq.tryPick (function
+                        // Roslyn gives the recursive pattern the syntax of the parenthesized designation
+                        | :? IPatternOperation as p when (p.Syntax = (x.Node :> SyntaxNode) || p.Syntax.Parent = (x.Node :> SyntaxNode)) && not (isNull p.InputType) -> Some p.InputType
+                        | _ -> None
+                    )
+                    |> Option.defaultWith (fun () -> env.SemanticModel.GetTypeInfo(x.Node).Type)
+            if not (inputType :? INamedTypeSymbol) then
+                fun v ->
+                    Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
+            else
+                fun v ->
+                    let set = Sequential [ this.PatternSet(designation, Var v, Some inputType); Value (Bool true) ]
+                    if inputType.IsReferenceType then (Var v ^!= Value Null) ^&& set else set
+        | _ ->
         fun v ->
             Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
 

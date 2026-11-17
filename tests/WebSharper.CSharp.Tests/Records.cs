@@ -145,15 +145,20 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test("C# positional record pattern matching with Deconstruct", TestKind.Skip)]
+        [Test("C# positional record pattern matching with Deconstruct")]
         public void PosPatternMatchDeconstruct()
         {
             var person = new PersonP("Bill", "Wagner");
+            var matched = false;
             if (person is var (firstName, lastName))
             {
+                matched = true;
                 Equal(firstName, "Bill");
                 Equal(lastName, "Wagner");
             }
+            IsTrue(matched);
+            PersonP nobody = null;
+            IsFalse(nobody is var (_, _));
         }
 
         [Test("C# init only setter")]
