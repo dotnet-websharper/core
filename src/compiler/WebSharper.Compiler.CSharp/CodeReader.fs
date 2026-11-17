@@ -1548,6 +1548,12 @@ type RoslynTransformer(env: Environment) =
             if Option.isSome env.Initializing then 
                 RoslynTransformer(env.WithNotInitializing())
             else this
+        match x.Right with
+        | ExpressionData.InitializerExpression init when Option.isSome env.Initializing ->
+            // nested member initializer `P = { ... }` initializes the current value of P
+            let m = Id.New("$m", mut = false)
+            Let (m, this.TransformExpression x.Left, RoslynTransformer(env.WithInitializing(m)).TransformInitializerExpression init)
+        | _ ->
         match leftSymbol with
         | :? IPropertySymbol as leftSymbol ->
             if leftSymbol.IsIndexer then
@@ -2810,8 +2816,19 @@ type RoslynTransformer(env: Environment) =
         this.TransformElementAccess(x.Node, None, x.ArgumentList)
 
     member this.TransformArrayCreationExpression (x: ArrayCreationExpressionData) : _ =
-        let initializer = x.Initializer |> Option.map (this.TransformInitializerExpression)
-        defaultArg initializer (NewArray [])
+        match x.Initializer with
+        | Some i -> this.TransformInitializerExpression i
+        | None ->
+            // new T[n]: n default values
+            match env.SemanticModel.GetTypeInfo(x.Node).Type with
+            | :? IArrayTypeSymbol as t when t.Rank = 1 && x.Node.Type.RankSpecifiers.Count > 0 ->
+                match List.ofSeq x.Node.Type.RankSpecifiers[0].Sizes with
+                | [ size ] when not (size :? OmittedArraySizeExpressionSyntax) ->
+                    let size = this.TransformExpression (ExpressionData.FromNode size)
+                    let arr = New(Global [ "Array" ], [], [ size ])
+                    Appl(ItemGet(arr, Value (String "fill"), NonPure), [ DefaultValueOf (sr.ReadType t.ElementType) ], NonPure, Some 1)
+                | _ -> NewArray []
+            | _ -> NewArray []
 
     member this.TransformImplicitArrayCreationExpression (x: ImplicitArrayCreationExpressionData) : _ =
         let initializer = x.Initializer |> this.TransformInitializerExpression
