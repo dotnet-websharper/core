@@ -81,6 +81,7 @@
     <Compile Include="../WebSharper.StdLib.Proxies/Task.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/TaskBuilder.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/TimeSpan.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/IndexRange.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Unchecked.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/ValueOption.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/ValueOptionModule.fs" />

@@ -1075,17 +1075,94 @@ type RoslynTransformer(env: Environment) =
         let arguments = operation.Property.Parameters |> Seq.map (fun p -> arguments[p.Ordinal]) |> List.ofSeq
         List.ofSeq bindings, target, arguments
 
-    member this.TransformElementAccess (node: ExpressionSyntax, expr, args) =
+    /// The System.Index or System.Range type
+    member this.IndexOrRangeType (name: string) =
+        env.SemanticModel.Compilation.GetTypeByMetadataName("System." + name)
+
+    /// `new Index(value, fromEnd)`
+    member this.NewIndex (value: Expression, fromEnd: bool) =
+        let t = this.IndexOrRangeType "Index"
+        let ctor = t.InstanceConstructors |> Seq.find (fun c -> c.Parameters.Length = 2)
+        Ctor(sr.ReadNamedType t, sr.ReadConstructor ctor, [ value; Value (Bool fromEnd) ])
+
+    /// The offset of a System.Index value in a collection of the given length.
+    /// `^n` gives `length - n` directly.
+    member this.IndexOffset (index: ExpressionSyntax, length: Expression) =
+        let rec skipParens (e: ExpressionSyntax) =
+            match e with
+            | :? ParenthesizedExpressionSyntax as p -> skipParens p.Expression
+            | _ -> e
+        match skipParens index with
+        | :? PrefixUnaryExpressionSyntax as p when p.Kind() = SyntaxKind.IndexExpression ->
+            length ^- this.TransformExpression (ExpressionData.FromNode p.Operand)
+        | _ ->
+            let getOffset = this.IndexOrRangeType("Index").GetMembers("GetOffset") |> Seq.exactlyOne :?> IMethodSymbol
+            call getOffset (Some (this.TransformExpression (ExpressionData.FromNode index))) [ length ]
+
+    /// `s[^1]`, `s[1..^1]` on a type with an int indexer (or `Slice`/`Substring`) and a `Length` or `Count`
+    member this.TransformImplicitIndexer (op: IImplicitIndexerReferenceOperation, instance: Expression, argument: ExpressionSyntax) =
+        let inst = Id.New("$i", mut = false)
+        let length =
+            match op.LengthSymbol with
+            | :? IPropertySymbol as p -> call p.GetMethod (Some (Var inst)) []
+            | s -> failwithf "Unexpected length symbol for implicit indexer: %O" s
+        let body =
+            match op.IndexerSymbol with
+            | :? IPropertySymbol as p ->
+                call p.GetMethod (Some (Var inst)) [ this.IndexOffset(argument, length) ]
+            | :? IMethodSymbol as m ->
+                let getOffsetAndLength = this.IndexOrRangeType("Range").GetMembers("GetOffsetAndLength") |> Seq.exactlyOne :?> IMethodSymbol
+                let range = this.TransformExpression (ExpressionData.FromNode argument)
+                let ol = Id.New("$r", mut = false)
+                Let (ol, call getOffsetAndLength (Some range) [ length ],
+                    call m (Some (Var inst)) [ ItemGet(Var ol, Value (Int 0), Pure); ItemGet(Var ol, Value (Int 1), Pure) ])
+            | s -> failwithf "Unexpected indexer symbol for implicit indexer: %O" s
+        Let (inst, instance, body)
+
+    member this.TransformElementAccess (node: ExpressionSyntax, expr, args: BracketedArgumentListData) =
         // TODO : static indexer?
-        let expression = 
+        let expression =
             match expr with
             | Some e -> this.TransformExpression e
             | None ->
                 match env.Initializing with
                 | Some i -> Var i
                 | None -> Var env.Conditional.Value
-        let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IPropertySymbol
-        // TODO: investigate that symbol is null only when it is an array
+        let symbol =
+            match env.SemanticModel.GetSymbolInfo(node).Symbol with
+            | :? IPropertySymbol as p -> p
+            | _ -> null
+        let isSystemType name (t: ITypeSymbol) =
+            not (isNull t) && t.Name = name && not (isNull t.ContainingNamespace) && t.ContainingNamespace.ToDisplayString() = "System"
+        let singleArgument () =
+            match List.ofSeq args.Node.Arguments with
+            | [ a ] -> Some a.Expression
+            | _ -> None
+        let singleArgumentOf name =
+            singleArgument () |> Option.filter (fun a -> env.SemanticModel.GetTypeInfo(a).Type |> isSystemType name)
+        match env.SemanticModel.GetOperation(node) with
+        | :? IImplicitIndexerReferenceOperation as op ->
+            this.TransformImplicitIndexer(op, expression, (singleArgument ()).Value)
+        | _ ->
+        match (if symbol = null then singleArgumentOf "Index" else None) with
+        | Some index ->
+            // array[^1]: the array expression is evaluated once, without a Let so that it stays assignable
+            let target, array =
+                match IgnoreExprSourcePos expression with
+                | Var _ | Value _ | FieldGet (Some (Var _), _, _) -> expression, expression
+                | _ ->
+                    let a = Id.New("$a")
+                    Sequential [ NewVar (a, expression); Var a ], Var a
+            ItemGet(target, this.IndexOffset(index, ItemGet(array, Value (String "length"), NoSideEffect)), NoSideEffect)
+        | None ->
+        match (if symbol = null then singleArgumentOf "Range" else None) with
+        | Some range ->
+            // array[1..^1]
+            let runtimeHelpers = env.SemanticModel.Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers")
+            let getSubArray = runtimeHelpers.GetMembers("GetSubArray") |> Seq.exactlyOne :?> IMethodSymbol
+            let elemType = (env.SemanticModel.GetTypeInfo(node).Type :?> IArrayTypeSymbol).ElementType
+            call (getSubArray.Construct(elemType)) None [ expression; this.TransformExpression (ExpressionData.FromNode range) ]
+        | None ->
         if symbol = null then
             let argumentList = args |> this.TransformBracketedArgumentList
             // TODO: make setter possible for 2-dim arrays
@@ -2360,9 +2437,12 @@ type RoslynTransformer(env: Environment) =
     member this.TransformPrefixUnaryExpression (x: PrefixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
         match x.Kind with
-        | PrefixUnaryExpressionKind.PreIncrementExpression 
+        | PrefixUnaryExpressionKind.PreIncrementExpression
         | PrefixUnaryExpressionKind.PreDecrementExpression ->
             this.TransformIncrOrDecr(x.Node, x.Operand.Node, operand, false)
+        | PrefixUnaryExpressionKind.IndexExpression ->
+            // ^n
+            this.NewIndex(operand, true)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let typ = sr.ReadNamedType symbol.ContainingType
@@ -3298,9 +3378,14 @@ type RoslynTransformer(env: Environment) =
         this.TransformExpression x.Expression
 
     member this.TransformRangeExpression (x: RangeExpressionData) : _ =
-        let leftOperand = x.LeftOperand |> Option.map this.TransformExpression
-        let rightOperand = x.RightOperand |> Option.map this.TransformExpression
-        TODO x
+        // a..b, a missing start is 0, a missing end is ^0
+        let operand fromEnd o =
+            match o with
+            | Some o -> this.TransformExpression o
+            | None -> this.NewIndex(Value (Int 0), fromEnd)
+        let t = this.IndexOrRangeType "Range"
+        let ctor = t.InstanceConstructors |> Seq.find (fun c -> c.Parameters.Length = 2)
+        Ctor(sr.ReadNamedType t, sr.ReadConstructor ctor, [ operand false x.LeftOperand; operand true x.RightOperand ])
 
     member this.TransformSwitchExpression (x: SwitchExpressionData) : _ =
         let governingExpression = x.GoverningExpression |> this.TransformExpression

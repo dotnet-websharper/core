@@ -776,7 +776,7 @@ x: Equal(a, 1);
             Equal(res, 3);
         }
 
-        [Test("C# Index", TestKind.Skip)]
+        [Test("C# Index")]
         public void IndexTest()
         {
             string[] strings = { "0", "1", "2", "3", "4" };
@@ -786,14 +786,58 @@ x: Equal(a, 1);
 
             Equal(strings[i], "2");
             Equal(strings[j], "3");
+            Equal(strings[^1], "4");
+            Equal(i.Value, 2);
+            IsFalse(i.IsFromEnd);
+            Equal(j.Value, 2);
+            IsTrue(j.IsFromEnd);
+            Equal(j.GetOffset(5), 3);
+            IsTrue(j.Equals(Index.FromEnd(2)));
+            IsFalse(j.Equals(i));
+            Equal(Index.End.GetOffset(5), 5);
+
+            strings[^1] = "last";
+            Equal(strings[4], "last");
+            calls = 0;
+            ArrayOnce(strings)[^2] = "x";
+            Equal(calls, 1);
+            Equal(strings[3], "x");
+            Equal(ArrayOnce(strings)[^5], "0");
+            Equal(calls, 2);
+
+            Equal("hello"[^1], 'o');
+            var list = new List<int> { 1, 2, 3 };
+            Equal(list[^1], 3);
+            Equal(list[j], 2);
         }
 
-        [Test("C# Range", TestKind.Skip)]
+        int calls;
+        string[] ArrayOnce(string[] a)
+        {
+            calls++;
+            return a;
+        }
+
+        [Test("C# Range")]
         public void RangeTest()
         {
             int[] someArray = new int[5] { 1, 2, 3, 4, 5 };
             Equal(someArray[0..2], new[] { 1, 2 });
             Equal(someArray[1..^0], new[] { 2, 3, 4, 5 });
+            Equal(someArray[..2], new[] { 1, 2 });
+            Equal(someArray[^2..], new[] { 4, 5 });
+            Equal(someArray[..], new[] { 1, 2, 3, 4, 5 });
+            Range r = 1..^1;
+            Equal(someArray[r], new[] { 2, 3, 4 });
+            Equal(r.Start.Value, 1);
+            IsTrue(r.End.IsFromEnd);
+            IsTrue(r.Equals(1..^1));
+            var (offset, length) = r.GetOffsetAndLength(5);
+            Equal(offset, 1);
+            Equal(length, 3);
+            Raises(() => someArray[3..2].ToString());
+            Equal("hello"[1..^1], "ell");
+            Equal("hello"[..2], "he");
         }
 
         public static void Validate(bool condition, [CallerArgumentExpression("condition")] string message = null)
