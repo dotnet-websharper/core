@@ -40,6 +40,9 @@ namespace WebSharper.CSharp.Tests
             var teacher = new Teacher("Bill", "Wagner", "English");
             IsTrue(person == person2);
             IsFalse(person == teacher);
+            IsFalse(person == new Person("Bill", "Gates"));
+            IsTrue(new PersonP("Bill", "Wagner") == new PersonP("Bill", "Wagner"));
+            IsFalse(new PersonP("Bill", "Wagner") == new PersonP("Bill", "Gates"));
         }
 
         [Test("C# record ToString")]

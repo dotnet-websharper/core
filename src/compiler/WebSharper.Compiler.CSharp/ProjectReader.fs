@@ -711,6 +711,50 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let mutable makeInline = false
             let getParsed() =                 
                 let thisVar = Id.NewThis()
+                // copy constructor of a record, used by `<Clone>$`
+                let recordCopyCtor (ri: CodeReader.CSharpRecord) =
+                    let o = CodeReader.CSharpParameter.New ("o", thisTyp)
+                    let baseCall =
+                        let bTyp, bCtor, _, _ = ri.BaseCall
+                        if isStruct then Empty
+                        elif bTyp.Entity = Definitions.Obj then
+                            ExprStatement (baseCtor bTyp bCtor thisVar [])
+                        else
+                            let bCtor = 
+                                Hashed {
+                                    CtorParameters = [ ConcreteType bTyp ]
+                                }
+                            ExprStatement (baseCtor bTyp bCtor thisVar [ Var o.ParameterId ])
+                    let copyProperty getter =
+                        let setter = CodeReader.setterOf (NonGeneric getter)
+                        Call(Some (Var thisVar), NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
+                    let isAutoProperty (p: IPropertySymbol) =
+                        p.DeclaringSyntaxReferences |> Seq.exists (fun r ->
+                            match r.GetSyntax() with
+                            | :? PropertyDeclarationSyntax as pd ->
+                                isNull pd.ExpressionBody && not (isNull pd.AccessorList)
+                                && pd.AccessorList.Accessors |> Seq.forall (fun a -> isNull a.Body && isNull a.ExpressionBody)
+                            | _ -> false)
+                    let b =
+                        [
+                            for (_, getter) in ri.PositionalFields do
+                                yield copyProperty getter
+                            for f in ri.OtherFields do
+                                match f with
+                                | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                                    if not pSymbol.IsStatic && isAutoProperty pSymbol then yield copyProperty getter
+                                | CodeReader.CSharpRecordField (fSymbol, _) ->
+                                    if not fSymbol.IsStatic && not fSymbol.IsConst then
+                                        yield FieldSet(Some (Var thisVar), NonGeneric def, fSymbol.Name, FieldGet(Some (Var o.ParameterId), NonGeneric def, fSymbol.Name))
+                        ] |> Sequential |> ExprStatement
+                    {
+                        IsStatic = false
+                        Parameters = [ o ]
+                        This = Some thisVar
+                        Body = CombineStatements [ baseCall; b ]
+                        IsAsync = false
+                        ReturnType = Unchecked.defaultof<Type>
+                    } : CodeReader.CSharpMethod
                 if decls.Length > 0 then
                     try
                         let syntax = decls.[0].GetSyntax()
@@ -874,16 +918,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | :? RecordDeclarationSyntax
                         | :? ClassDeclarationSyntax when Option.isSome recordInfo ->
                             let ri = recordInfo |> Option.get
-                            let useGetter getter = Call(Some (Var thisVar), NonGeneric def, NonGeneric getter, [])
+                            let getterOf o getter = Call(Some o, NonGeneric def, NonGeneric getter, [])
+                            let useGetter getter = getterOf (Var thisVar) getter
                             //let cString s = Value (String s) 
                             let getAllValues ofObj =
                                 seq {
                                     for (p, getter) in ri.PositionalFields do
-                                        yield p.Symbol.Name, useGetter getter
+                                        yield p.Symbol.Name, getterOf ofObj getter
                                     for p in ri.OtherFields do
                                         match p with 
                                         | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
-                                            yield pSymbol.Name, useGetter getter
+                                            yield pSymbol.Name, getterOf ofObj getter
                                         | CodeReader.CSharpRecordField (fSymbol, _) ->
                                             yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
                                 }    
@@ -982,7 +1027,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                             isObject o
                                             getPrototype (Var thisVar) ^=== getPrototype o
                                             for (_, v), (_, vo) in Seq.zip (getAllValues (Var thisVar)) (getAllValues o) do
-                                                v ^== vo     
+                                                // like EqualityComparer<T>.Default for each member
+                                                Call(None, NonGeneric uncheckedMdl, Generic uncheckedEquals [ NonGenericType Definitions.Obj ], [ v; vo ])
                                         } |> Seq.reduce (^&&)
                                         |> Return
                                     else
@@ -1022,6 +1068,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     IsAsync = false
                                     ReturnType = thisTyp
                                 } : CodeReader.CSharpMethod
+                            | ".ctor" when meth.Parameters.Length = 1 && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls) ->
+                                recordCopyCtor ri
                             | ".ctor" ->                                
                                 let baseCall =    
                                     let bTyp, bCtor, args, reorder = ri.BaseCall
@@ -1164,30 +1212,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         else
                         match recordInfo with
                         | Some ri ->
-                            let o = CodeReader.CSharpParameter.New ("o", thisTyp)
-                            let baseCall =
-                                let bTyp, bCtor, _, _ = ri.BaseCall
-                                if bTyp.Entity = Definitions.Obj then
-                                    ExprStatement (baseCtor bTyp bCtor thisVar [])
-                                else
-                                    let bCtor = 
-                                        Hashed {
-                                            CtorParameters = [ ConcreteType bTyp ]
-                                        }
-                                    ExprStatement (baseCtor bTyp bCtor thisVar [ Var o.ParameterId ])
-                            let b =
-                                ri.PositionalFields |> List.map (fun (_, getter) ->
-                                    let setter = CodeReader.setterOf (NonGeneric getter)
-                                    Call(Some (Var thisVar), NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
-                                ) |> Sequential |> ExprStatement
-                            {
-                                IsStatic = false
-                                Parameters = [ o ]
-                                This = Some thisVar
-                                Body = CombineStatements [ baseCall; b ]
-                                IsAsync = false
-                                ReturnType = Unchecked.defaultof<Type>
-                            } : CodeReader.CSharpMethod
+                            recordCopyCtor ri
                         | _ ->
                             let b = 
                                 if meth.IsStatic then

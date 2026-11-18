@@ -355,7 +355,7 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestRecordPos(1, 2);
             o = await CSharpServer.IncrementXYRecordPos(o);
-            IsTrue(o == new TestRecordPos(1, 2));
+            IsTrue(o == new TestRecordPos(2, 3));
         }
 
         [Test]
@@ -364,7 +364,7 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestRecord(1, 2);
             o = await CSharpServer.IncrementXYRecord(o);
-            IsTrue(o == new TestRecord(1, 2));
+            IsTrue(o == new TestRecord(2, 3));
         }
 
         [Test]
