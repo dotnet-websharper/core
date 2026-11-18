@@ -56,6 +56,7 @@ let RunTests runServerSide autoStart =
         Event.Tests
         Exception.Tests
         Inheritance.Tests
+        InlineSyntax.Tests
         Integers.Tests
         Interop.Tests
         KeyValuePair.Tests

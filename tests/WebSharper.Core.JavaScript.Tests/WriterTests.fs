@@ -36,4 +36,41 @@ let Run () =
         s.Trim() =? "(0).toString()"
     }
 
+    let v x = S.Var (S.Id.New x)
+    let n x = !~(S.Number x)
+    let w e = (W.ExpressionToString P.Compact e).Trim()
+    let ws s = (W.ProgramToString P.Compact [ s ]).Trim()
+
+    Test "Function kinds" {
+        w (S.Lambda (None, [ S.Id.New "x" ], [ S.Return (Some (S.Await (v "x"))) ], true, S.Async)) =? "async(x) => await x"
+        w (S.Lambda (Some (S.Id.New "g"), [], [ S.Ignore (S.Yield (Some (n "1"), false)) ], false, S.Generator)) =? "function* g(){ yield 1;}"
+        w (S.Lambda (None, [], [ S.Ignore (S.Yield (Some (v "xs"), true)) ], false, S.AsyncGenerator)) =? "async function*(){ yield*xs;}"
+        ws (S.Function (S.Id.New "f", [], Some [], S.Async)) =? "async function f(){ }"
+    }
+
+    Test "Template literals" {
+        w (S.TemplateLiteral (None, [ "a"; "b" ], [ v "x" ])) =? "`a${x}b`"
+        w (S.TemplateLiteral (None, [ "`\\${\n" ], [])) =? "`\\`\\\\\\${\\n`"
+        w (S.TemplateLiteral (Some (v "tag"), [ ""; "" ], [ v "x" ])) =? "tag`${x}`"
+    }
+
+    Test "Spread and optional chaining" {
+        w (S.Application (v "f", [], [ S.Spread (v "xs") ])) =? "f(...xs)"
+        w (S.NewArray [ Some (n "1"); Some (S.Spread (v "xs")) ]) =? "[1, ...xs]"
+        w (S.Binary (v "a", S.BinaryOperator.``?.``, !~(S.String "b"))) =? "a?.b"
+        w (S.Binary (v "a", S.BinaryOperator.``?.``, v "i")) =? "a?.[i]"
+        w (S.OptionalApplication (v "f", [ n "1" ])) =? "f?.(1)"
+    }
+
+    Test "Nullish coalescing is parenthesized next to && and ||" {
+        let b x op y = S.Binary (x, op, y)
+        w (b (b (v "a") S.BinaryOperator.``||`` (v "b")) S.BinaryOperator.``??`` (v "c")) =? "(a||b)??c"
+        w (b (v "a") S.BinaryOperator.``&&`` (b (v "b") S.BinaryOperator.``??`` (v "c"))) =? "a&&(b??c)"
+    }
+
+    Test "Default parameters and for...of" {
+        w (S.Lambda (None, [ S.Id.New("x", def = n "1") ], [ S.Return (Some (v "x")) ], true, S.Normal)) =? "(x=1) => x"
+        ws (S.ForDeclOf (S.ConstDecl, S.Id.New "x", v "xs", S.Ignore (v "x"))) =? "for(const x of xs)x;"
+    }
+
     Report ()

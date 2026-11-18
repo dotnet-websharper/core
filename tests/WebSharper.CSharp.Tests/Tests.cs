@@ -120,7 +120,7 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test("try/finally in iterators, known issue: https://github.com/intellifactory/websharper/issues/542", TestKind.Skip)]
+        [Test("try/finally in iterators")]
         public void DisposingGenerator()
         {
             foreach (var a in DisposingSeq().Take(2))
@@ -223,19 +223,25 @@ namespace WebSharper.CSharp.Tests
             Equal(WebSharper.JavaScript.JS.Inline<int>("1 + $0", 2), 3);
         }
 
-        //[Test]
-        //public async Task VariableScopingAsync()
-        //{
-        //    //var res = 0;
-        //var adders = new List<System.Action>();
-        //for (var i = 0; i <= 5; i++)
-        //{
-        //    var b = i + await GetOneAsync();
-        //    adders.Add(() => res += b);
-        //}
-        //foreach (var adder in adders) adder();
-        //Equal(res, 21, "variable inside loop");
-        //}
+        static async Task<int> GetOneAsync()
+        {
+            await Task.Delay(0);
+            return 1;
+        }
+
+        [Test]
+        public async Task VariableScopingAsync()
+        {
+            var res = 0;
+            var adders = new List<System.Action>();
+            for (var i = 0; i <= 5; i++)
+            {
+                var b = i + await GetOneAsync();
+                adders.Add(() => res += b);
+            }
+            foreach (var adder in adders) adder();
+            Equal(res, 21, "variable inside loop");
+        }
 
         [Test]
         public void VariableScoping()
@@ -276,7 +282,7 @@ namespace WebSharper.CSharp.Tests
             Equal(Guid.Empty.ToString(), "00000000-0000-0000-0000-000000000000");
         }
 
-        [Test("goto and variable scoping, known issue: https://github.com/intellifactory/websharper/issues/542", TestKind.Skip)]
+        [Test("goto and variable scoping")]
         public void VariableScopingGoto()
         {
             var res = 0;
@@ -291,7 +297,33 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 15, "goto from inside loop");
         }
 
-        [Test("break and variable scoping, known issue: https://github.com/intellifactory/websharper/issues/542", TestKind.Skip)]
+        [Test("forward goto out of nested loops")]
+        public void ForwardGotoNested()
+        {
+            var res = 0;
+            var adders = new List<System.Action>();
+            int found;
+            for (var i = 0; i < 5; i++)
+            {
+                for (var j = 0; j < 5; j++)
+                {
+                    var p = i * j;
+                    adders.Add(() => res += p);
+                    if (p == 6) goto done;
+                }
+            }
+            var skipped = 1;
+            found = -1 + skipped;
+            done:
+            found = adders.Count;
+            skipped = 5;
+            Equal(skipped, 5, "variable declared in skipped part");
+            foreach (var adder in adders) adder();
+            Equal(found, 14, "jumped out of both loops");
+            Equal(res, 1 + 2 + 3 + 4 + 2 + 4 + 6, "captured values");
+        }
+
+        [Test("break and variable scoping")]
         public void VariableScopingBreak()
         {
             var res = 0;

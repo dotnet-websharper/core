@@ -164,6 +164,82 @@ export function DelegateEqual(d1, d2) {
   return true;
 }
 
+export function CompileError(msg) {
+  throw new Error("WebSharper compile error: " + msg);
+}
+
+// IEnumerator over a JavaScript generator object, Dispose runs pending finally blocks
+class GeneratorEnumerator {
+  constructor(g) {
+    this.g = g;
+    this.s = 0;
+    this.c = void 0;
+  }
+  MoveNext() {
+    if (this.s === 2) return false;
+    const r = this.g.next();
+    if (r.done) {
+      this.s = 2;
+      this.c = void 0;
+      return false;
+    }
+    this.c = r.value;
+    this.s = 1;
+    return true;
+  }
+  get Current() {
+    if (this.s === 1) return this.c;
+    throw new Error(this.s === 0 ? "Enumeration has not started. Call MoveNext." : "Enumeration already finished.");
+  }
+  get Current0() {
+    return this.Current;
+  }
+  Dispose() {
+    this.s = 2;
+    this.g.return();
+  }
+}
+
+// IEnumerable from a generator function, each enumeration calls it again
+class GeneratorEnumerable {
+  constructor(f) {
+    this.f = f;
+  }
+  GetEnumerator() {
+    return new GeneratorEnumerator(this.f());
+  }
+  GetEnumerator0() {
+    return new GeneratorEnumerator(this.f());
+  }
+  [Symbol.iterator]() {
+    return this.f();
+  }
+}
+
+export function Iterate(f) {
+  return new GeneratorEnumerable(f);
+}
+
+function* IterChars(s) {
+  for (let i = 0; i < s.length; i++) yield s[i];
+}
+
+function* IterEnumerable(s) {
+  const e = s.GetEnumerator();
+  try {
+    while (e.MoveNext()) yield e.Current;
+  } finally {
+    if (typeof e == "object" && "Dispose" in e) e.Dispose();
+  }
+}
+
+// A JavaScript iterable for a .NET sequence
+export function Iter(s) {
+  if (Array.isArray(s) || s instanceof GeneratorEnumerable) return s;
+  if (typeof s == "string") return IterChars(s);
+  return IterEnumerable(s);
+}
+
 export function ThisFunc(d) {
   return function (...args) {
     args.unshift(this);

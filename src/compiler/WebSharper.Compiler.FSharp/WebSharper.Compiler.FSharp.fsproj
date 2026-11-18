@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CodeReader.fs" />
+    <Compile Include="SeqGenerators.fs" />
     <Compile Include="ArgCurrying.fs" />
     <Compile Include="TailCalls.fs" />
     <Compile Include="ReadCache.fs" />
