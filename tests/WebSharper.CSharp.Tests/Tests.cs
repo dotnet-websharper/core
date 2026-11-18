@@ -223,19 +223,25 @@ namespace WebSharper.CSharp.Tests
             Equal(WebSharper.JavaScript.JS.Inline<int>("1 + $0", 2), 3);
         }
 
-        //[Test]
-        //public async Task VariableScopingAsync()
-        //{
-        //    //var res = 0;
-        //var adders = new List<System.Action>();
-        //for (var i = 0; i <= 5; i++)
-        //{
-        //    var b = i + await GetOneAsync();
-        //    adders.Add(() => res += b);
-        //}
-        //foreach (var adder in adders) adder();
-        //Equal(res, 21, "variable inside loop");
-        //}
+        static async Task<int> GetOneAsync()
+        {
+            await Task.Delay(0);
+            return 1;
+        }
+
+        [Test]
+        public async Task VariableScopingAsync()
+        {
+            var res = 0;
+            var adders = new List<System.Action>();
+            for (var i = 0; i <= 5; i++)
+            {
+                var b = i + await GetOneAsync();
+                adders.Add(() => res += b);
+            }
+            foreach (var adder in adders) adder();
+            Equal(res, 21, "variable inside loop");
+        }
 
         [Test]
         public void VariableScoping()

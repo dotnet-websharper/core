@@ -18,12 +18,15 @@
 //
 // $end{copyright}
 
-/// Translates F# sequence expressions to JavaScript generator functions, and
-/// list and array comprehensions to building an array with a loop.
+/// Translates F# sequence expressions to JavaScript generator functions,
+/// list and array comprehensions to building an array with a loop, and
+/// task expressions to JavaScript async functions.
 /// F# gives sequence expressions as nested calls of Seq.delay, Seq.append,
 /// Seq.collect and similar combinators. The recognized combinators become
 /// statements, any other sub-sequence is enumerated with `yield*`, so the
 /// translation applies to every `seq { ... }`.
+/// Task expressions are calls of TaskBuilder methods. The recognized ones become
+/// statements and `await`, any other part runs as a task of its own and is awaited.
 module internal WebSharper.Compiler.FSharp.SeqGenerators
 
 open WebSharper.Core
@@ -124,6 +127,100 @@ and private trSt (tr: Expression -> Expression) (s: Statement) =
         override this.TransformExpression e = tr e
     }.TransformStatement s
 
+let private isTaskBuilder (td: TypeDefinition) =
+    match td.Value.FullName with
+    | "Microsoft.FSharp.Control.TaskBuilder"
+    | "Microsoft.FSharp.Control.TaskBuilderBase" -> true
+    | _ -> false
+
+/// A method of the task builder
+let private (|TaskCall|_|) name e =
+    match e with
+    | I.Call (Some _, td, m, args) when isTaskBuilder td.Entity && m.Entity.Value.MethodName = name -> Some args
+    | _ -> None
+
+/// An extension method of the task builder, `priority` is HighPriority (tasks), MediumPriority (F# async)
+/// or LowPriority (IDisposable)
+let private (|TaskExtCall|_|) (priority: string, name: string) e =
+    match e with
+    | I.Call (None, td, m, _ :: args)
+        when td.Entity.Value.FullName = "Microsoft.FSharp.Control.TaskBuilderExtensions." + priority
+            && m.Entity.Value.MethodName = name -> Some args
+    | _ -> None
+
+let private asyncDisposableType, disposeAsyncMethod =
+    match <@ (null: System.IAsyncDisposable).DisposeAsync() @> with
+    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
+        Reflection.ReadTypeDefinition mi.DeclaringType,
+        Reflection.ReadMethod mi
+    | _ -> failwith "Expecting a Call pattern"
+
+/// Statements of a task expression, `tail`: the value of the code is the result of the task
+/// (`return` is only for tail positions, F# allows a value only there).
+/// `run` makes a task of any other resumable code, which is then awaited.
+let rec private genTask (run: Expression -> Expression) (tr: Expression -> Expression) (tail: bool) (e: Expression) : Statement =
+    let g = genTask run tr
+    let result v = if tail then Return v else ExprStatement v
+    let bindTo (cont: Expression) (value: Expression) =
+        match cont with
+        | I.Function ([ x ], None, _, I.Return body) -> Some (Block [ VarDeclaration (x, value); g tail body ])
+        | I.Function ([], None, _, I.Return body) -> Some (Block [ ExprStatement value; g tail body ])
+        | _ -> None
+    let fallback () = result (Await (run (tr e)))
+    match e with
+    | ExprSourcePos (p, e) -> StatementSourcePos (p, g tail e)
+    | TaskCall "Delay" [ I.Function ([], None, _, I.Return body) ] -> g tail body
+    | TaskCall "Return" [ v ] -> result (tr v)
+    | TaskCall "Zero" [] -> Empty
+    | TaskCall "Combine" [ a; b ] -> Block [ g false a; g tail b ]
+    | TaskCall "While" [ I.Function ([], None, _, I.Return cond); body ] ->
+        While (tr cond, g false body)
+    | TaskCall "For" [ src; I.Function ([ x ], None, _, I.Return body) ] ->
+        ForOf (x, iterable (tr src), g false body)
+    | TaskCall "TryWith" [ body; I.Function ([ x ], None, _, I.Return handler) ] ->
+        TryWith (g tail body, Some x, g tail handler)
+    | TaskCall "TryFinally" [ body; I.Function ([], None, _, fin) ] ->
+        TryFinally (g tail body, trSt tr fin)
+    | TaskCall "Using" [ res; I.Function ([ x ], None, _, I.Return body) ] ->
+        // IAsyncDisposable
+        Block [
+            VarDeclaration (x, tr res)
+            TryFinally (
+                g tail body,
+                If (Binary (Var x, BinaryOperator.``!=``, Value Null),
+                    ExprStatement (Await (Call (Some (Var x), NonGeneric asyncDisposableType, NonGeneric disposeAsyncMethod, []))),
+                    Empty)
+            )
+        ]
+    | TaskExtCall ("LowPriority", "TaskBuilderBase.Using") [ res; I.Function ([ x ], None, _, I.Return body) ] ->
+        Block [
+            VarDeclaration (x, tr res)
+            TryFinally (
+                g tail body,
+                If (Binary (Var x, BinaryOperator.``!=``, Value Null),
+                    ExprStatement (Call (Some (Var x), NonGeneric disposableType, NonGeneric disposeMethod, [])),
+                    Empty)
+            )
+        ]
+    | TaskExtCall ("HighPriority", "TaskBuilderBase.Bind") [ t; cont ] ->
+        bindTo cont (Await (tr t)) |> Option.defaultWith fallback
+    | TaskExtCall ("HighPriority", "TaskBuilderBase.ReturnFrom") [ t ] ->
+        result (Await (tr t))
+    | I.Conditional (c, a, b) -> If (tr c, g tail a, g tail b)
+    | I.Let (x, v, body) -> Block [ VarDeclaration (x, tr v); g tail body ]
+    | I.Sequential es ->
+        match List.rev es with
+        | last :: restRev ->
+            Block [
+                for r in List.rev restRev do
+                    match r with
+                    | I.NewVar (x, v) -> yield VarDeclaration (x, tr v)
+                    | _ -> yield ExprStatement (tr r)
+                yield g tail last
+            ]
+        | [] -> Empty
+    | _ -> fallback ()
+
 /// Translates sequence expressions to generators and list/array comprehensions to loops
 type private SeqTransformer() =
     inherit Transformer()
@@ -181,6 +278,15 @@ type private SeqTransformer() =
                     ItemGet (Var head, Value (String "$1"), NonPure)
                 ]
             )
+        | I.Call (Some builder, td, m, [ body ])
+            when td.Entity.Value.FullName = "Microsoft.FSharp.Control.TaskBuilder" && m.Entity.Value.MethodName = "Run" ->
+            // task { ... }: a JavaScript async function
+            let run code = Call (Some builder, td, m, [ code ])
+            let boxed =
+                match m.Generics with
+                | [ t ] -> WebSharper.Compiler.CompilationHelpers.AsyncTask.resultMayBeThenable t
+                | _ -> true
+            WebSharper.Compiler.CompilationHelpers.AsyncTask.ofBody boxed (genTask run tr true body)
         | SeqExpr body ->
             // seq { ... }: a generator function enumerated by the runtime
             let emit =

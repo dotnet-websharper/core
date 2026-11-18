@@ -407,6 +407,22 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Continuation.ReturnsResultTask
         else Continuation.ReturnsTask
 
+    /// The result of an async method may be a thenable value at runtime (a task, a promise, or an unknown type),
+    /// which JavaScript promise resolution would unwrap
+    member this.AsyncResultMayBeThenable (x: IMethodSymbol) =
+        match x.ReturnType with
+        | :? INamedTypeSymbol as t when t.IsGenericType && t.TypeArguments.Length = 1 ->
+            let r = t.TypeArguments[0]
+            match r.TypeKind with
+            | TypeKind.TypeParameter | TypeKind.Dynamic | TypeKind.Interface -> true
+            | _ ->
+                r.SpecialType = SpecialType.System_Object
+                || (not (isNull r.ContainingNamespace)
+                    && (let ns = r.ContainingNamespace.ToDisplayString()
+                        (ns = "System.Threading.Tasks" && (r.Name = "Task" || r.Name = "ValueTask"))
+                        || (ns = "WebSharper.JavaScript" && r.Name = "Promise")))
+        | _ -> false
+
     member this.ReadMethod (x: IMethodSymbol) =
         let x  = x.OriginalDefinition
         Hashed {
@@ -1103,6 +1119,19 @@ type RoslynTransformer(env: Environment) =
                     yield Some a.Parameter.Ordinal, Value (ReadLiteral a.Value.ConstantValue.Value)
         ]
 
+    /// Body of an async lambda or local function: a native async function, or a state machine when needed
+    member this.AsyncBody (symbol: IMethodSymbol, body: Statement) =
+        match Continuation.asyncToNative (sr.ReadAsyncReturnKind symbol) (sr.AsyncResultMayBeThenable symbol) body with
+        | Some b -> b
+        | None ->
+            let b = 
+                body |> Continuation.addLastReturnIfNeeded Undefined
+                |> Continuation.AwaitTransformer().TransformStatement 
+                |> BreakStatement
+                |> Continuation.FreeNestedGotos().TransformStatement
+            let labels = Continuation.CollectLabels.Collect b
+            Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
+
     member this.TransformBoundArgumentValue (value: IOperation) : Expression =
         if value.IsImplicit && value.ConstantValue.HasValue then
             ReadLiteral value.ConstantValue.Value |> Value
@@ -1353,16 +1382,7 @@ type RoslynTransformer(env: Environment) =
             | Some b -> Return b
             | _ -> body.Value
         let b =
-            if symbol.IsAsync then
-                let b = 
-                    b |> Continuation.addLastReturnIfNeeded Undefined
-                    |> Continuation.AwaitTransformer().TransformStatement 
-                    |> BreakStatement
-                    |> Continuation.FreeNestedGotos().TransformStatement
-                let labels = Continuation.CollectLabels.Collect b
-                Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
-            else
-                b
+            if symbol.IsAsync then this.AsyncBody(symbol, b) else b
  
         // TODO : optional?
         // TODO : generics?
@@ -2737,16 +2757,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> block
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function(ids, None, ret, body)
+        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -2760,16 +2771,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> block.Value
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function([id], None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function([id], None, ret, body)
+        Function([id], None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2788,16 +2790,7 @@ type RoslynTransformer(env: Environment) =
             | Some b -> Return b
             | _ -> block.Value
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function(ids, None, ret, body)
+        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with

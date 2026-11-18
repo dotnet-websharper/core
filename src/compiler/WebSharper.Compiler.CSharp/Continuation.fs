@@ -49,6 +49,15 @@ module TaskMethod =
             ReturnType = VoidType
             Generics = 0
         } |> NonGeneric 
+
+    // This is a method on the Task proxy only
+    let AwaitResult =
+        Method {
+            MethodName = "AwaitResult"
+            Parameters = []
+            ReturnType = NonGenericType Definitions.Obj
+            Generics = 0
+        } |> NonGeneric 
     
 type CollectLabels() =
     inherit StatementVisitor()
@@ -72,16 +81,12 @@ type AwaitTransformer() =
     override this.TransformAwait(a) =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
-        let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
-        let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
-        let exc = ItemGet(Var awaited, Value (String "exc"), NoSideEffect)
+        // OnCompleted starts the task if it was not started yet
         Sequential [
             NewVar(awaited, this.TransformExpression a)
-            Conditional (setStatus 0, start, Undefined)
             IgnoredStatementExpr <| Continuation(doneLabel, Var awaited)
             IgnoredStatementExpr <| Labeled(doneLabel, Empty)
-            IgnoredStatementExpr <| If (exc, Throw exc, Empty)
-            ItemGet(Var awaited, Value (String "result"), NoSideEffect)                 
+            Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.AwaitResult, [])
         ]
 
 type HasGotos() =
@@ -702,6 +707,22 @@ type HasJumps() =
         let vis = HasJumps()
         vis.VisitStatement s
         vis.Found    
+
+/// Translates a C# async method body to a JavaScript async function, `await` works on tasks
+/// as they are thenable. The method returns `Task.FromAsync(async () => { ... })`, an async void
+/// method ignores the task. Returns None when the body has jumps that need the state machine.
+/// `boxed`: the result may be thenable itself, which `await` and promise resolution would unwrap,
+/// so it is returned in an array.
+let asyncToNative (returns: TaskReturn) (boxed: bool) (s: Statement) =
+    let s = Scoping.forwardGotosToBreaks s
+    if HasJumps.Check s || HasGotos.Check s then None else
+    match returns with
+    | ReturnsVoid ->
+        Some (ExprStatement (CompilationHelpers.AsyncTask.ofBody false s))
+    | ReturnsTask ->
+        Some (Return (CompilationHelpers.AsyncTask.ofBody false s))
+    | ReturnsResultTask ->
+        Some (Return (CompilationHelpers.AsyncTask.ofBody boxed s))
 
 /// Translates a C# iterator method body to a JavaScript generator function
 /// enumerated by the runtime: yield return becomes yield, yield break return.

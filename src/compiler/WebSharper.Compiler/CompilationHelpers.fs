@@ -638,6 +638,53 @@ let funcFromLambda(funcId, thisVar, isRec, args, body, ts) =
     else
         FuncDeclaration(funcId, args, thisVar, body, ts)
         
+/// Wraps return values in an array, outside nested functions
+type BoxReturns() =
+    inherit Transformer()
+
+    override this.TransformReturn(a) = Return (NewArray [ this.TransformExpression a ])
+    override this.TransformFunction(ps, t, r, b) = Function(ps, t, r, b)
+    override this.TransformFuncDeclaration(f, ps, t, b, g) = FuncDeclaration(f, ps, t, b, g)
+    override this.TransformClassExpr(c, b, m, g, bg) = ClassExpr(c, b, m, g, bg)
+    override this.TransformClass(c, b, i, m, g, bg) = Class(c, b, i, m, g, bg)
+
+/// Tasks of JavaScript async functions, for C# async methods and F# task expressions.
+/// Tasks are thenable, so `await` works on them.
+module AsyncTask =
+    let private fromAsync name =
+        Method {
+            MethodName = name
+            Parameters = [ FSharpFuncType (VoidType, NonGenericType Definitions.Obj) ]
+            ReturnType = NonGenericType Definitions.Task
+            Generics = 0
+        } |> NonGeneric
+
+    /// Static method on the Task proxy only
+    let FromAsync = fromAsync "FromAsync"
+    /// Static method on the Task proxy only, the async function returns `[result]`
+    let FromAsyncBoxed = fromAsync "FromAsyncBoxed"
+
+    /// `Task.FromAsync(async () => { body })`.
+    /// `boxed`: the result may be thenable itself, which promise resolution would unwrap,
+    /// so returned values are wrapped in an array.
+    let ofBody (boxed: bool) (body: Statement) =
+        let body = if boxed then BoxReturns().TransformStatement body else body
+        let f = FuncWithKind (FuncKind.Async, Function ([], None, None, body))
+        Call (None, NonGeneric Definitions.Task, (if boxed then FromAsyncBoxed else FromAsync), [ f ])
+
+    /// A task result of this type may be thenable at runtime
+    let resultMayBeThenable (t: Type) =
+        match t with
+        | TypeParameter _ | StaticTypeParameter _ | LocalTypeParameter _ -> true
+        | ConcreteType ct ->
+            match ct.Entity.Value.FullName with
+            | "System.Object"
+            | "System.Threading.Tasks.Task" | "System.Threading.Tasks.Task`1"
+            | "System.Threading.Tasks.ValueTask" | "System.Threading.Tasks.ValueTask`1"
+            | "WebSharper.JavaScript.Promise`1" -> true
+            | _ -> false
+        | _ -> false
+
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
         SubstituteVars(vars |> Seq.mapi (fun i a -> a, Hole i) |> dict).TransformExpression(expr)

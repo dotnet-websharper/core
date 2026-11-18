@@ -766,6 +766,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.GeneratorTransformer(labels).TransformMethodBody(b)
                                 elif m.IsAsync then
+                                    match Continuation.asyncToNative (sr.ReadAsyncReturnKind meth) (sr.AsyncResultMayBeThenable meth) b1 with
+                                    | Some b -> b
+                                    | None ->
                                     let b = 
                                         b1 |> Continuation.addLastReturnIfNeeded Undefined
                                         |> Continuation.AwaitTransformer().TransformStatement 
