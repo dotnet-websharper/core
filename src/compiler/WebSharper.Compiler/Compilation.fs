@@ -163,6 +163,8 @@ type Compilation(meta: Info, ?hasGraph) =
             | CompilationAction.AddClass (typ, cls) -> this.AddClass(typ, cls)
 
     member val UseLocalMacros = true with get, set
+    /// Variables of `VarField` fields (generated code caches), declared at module level by the packager
+    member val VarFieldIds = HashSet<Id>() with get
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
@@ -369,6 +371,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let rname = Resolve.getRenamedFunctionForClass name c
             let typ = if obj.ReferenceEquals(typ, null) then None else Some typ
             let fvar = Id.New(rname, ?typ = typ)
+            this.VarFieldIds.Add fvar |> ignore
             let _, _, cls = classes[td]
             cls.Value.Fields.Add(rname, { CompiledForm = VarField fvar; ReadOnly = false; Type = defaultArg typ (TSType TSType.Any); Order = 0 })
             fvar

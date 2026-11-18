@@ -32,15 +32,53 @@ module I = WebSharper.Core.AST.IgnoreSourcePos
 
 /// Debug-only checker for invalid forms after transformation to have localized error.
 /// Otherwise error is thrown when writing to JavaScript after packaging.
-type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
+/// Collects the variables that are declared (as parameters, with declarations, in loops or catch clauses)
+type CollectDeclaredIds() =
+    inherit Visitor()
+
+    let declared = System.Collections.Generic.HashSet<Id>()
+
+    member this.Declared = declared
+
+    // uses of variables, every other place of an Id declares it
+    override this.VisitVar(_) = ()
+    override this.VisitVarSet(_, e) = this.VisitExpression e
+    override this.VisitId(i) = declared.Add i |> ignore
+
+type CheckNoInvalidJSForms(comp: Compilation, isInline, name, declared: System.Collections.Generic.HashSet<Id>) as this =
     inherit TransformerWithSourcePos(comp)
 
     let invalidForm f = 
         this.Error("Invalid form after JavaScript translation in " + name() + ": " + f)
 
+    /// A variable that is read or assigned but not declared, this is a compiler bug
+    /// that would be a ReferenceError when the code runs
+    let isUndeclared (v: Id) =
+        not isInline && not v.HasStrongName && not (declared.Contains v) && not (comp.VarFieldIds.Contains v)
+
+    let undeclared (v: Id) =
+        this.Error(sprintf "Variable '%s' is used but not declared in %s, this is a WebSharper compiler bug" (defaultArg v.Name "_") (name()))
+
     let mutable insideLoop = false
     let mutable insideAsync = false
     let mutable nextFunctionIsAsync = false
+
+    override this.TransformVar v =
+        if isUndeclared v then undeclared v else base.TransformVar v
+
+    override this.TransformVarSet(v, e) =
+        if isUndeclared v then undeclared v else base.TransformVarSet(v, e)
+
+    override this.TransformMutatingUnary(op, e) =
+        match IgnoreExprSourcePos e with
+        | Var v when isUndeclared v -> undeclared v
+        | _ -> base.TransformMutatingUnary(op, e)
+
+    override this.TransformMutatingBinary(a, op, b) =
+        match IgnoreExprSourcePos a with
+        | Var v when isUndeclared v -> undeclared v
+        | _ -> base.TransformMutatingBinary(a, op, b)
+
 
     //override this.TransformSelf () = invalidForm "Self"
     //override this.TransformBase () = invalidForm "Base"
@@ -520,11 +558,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.CheckResult (res) =
         if hasDelayedTransform then res else
-            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformExpression res
+            let d = CollectDeclaredIds()
+            d.VisitExpression res
+            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName, d.Declared).TransformExpression res
      
     member this.CheckResult (res) =
         if hasDelayedTransform then res else
-            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformStatement res
+            let d = CollectDeclaredIds()
+            d.VisitStatement res
+            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName, d.Declared).TransformStatement res
      
     member this.Generate(g, p, m, cm, e) =
         match comp.GetGeneratorInstance(g) with
@@ -2073,6 +2115,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.IndexedField i ->
                 this.TransformExpression expr.Value |> getIndexRO i ro
             | M.VarField v ->
+                comp.VarFieldIds.Add v |> ignore
                 Var v
         | CustomTypeField ct ->
             match ct with
@@ -2132,6 +2175,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.IndexedField i ->
                 ItemSet(this.TransformExpression expr.Value, Value (Int i), this.TransformExpression value) 
             | M.VarField v ->
+                comp.VarFieldIds.Add v |> ignore
                 VarSet(v, this.TransformExpression value)
         | CustomTypeField ct ->
             match ct with
