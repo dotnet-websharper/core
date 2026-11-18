@@ -588,6 +588,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
+    // default(S) of a struct with its own parameterless constructor must not run it:
+    // `$default` creates an instance with the default values of the fields
+    if isStruct && cls.InstanceConstructors |> Seq.exists (fun c -> c.Parameters.IsEmpty && not c.IsImplicitlyDeclared) then
+        let r = Id.New("r", mut = false)
+        Function([], None, None,
+            Block [
+                VarDeclaration(r, CopyCtor(def, Object []))
+                if hasInit then ExprStatement (Call(Some (Var r), thisType, NonGeneric initDef, []))
+                Return (Var r)
+            ])
+        |> addMethod None A.MemberAnnotation.BasicJavaScript CompilationHelpers.Definitions.StructDefault N.Static false
+
     let staticInit =
         if staticInits.Count = 0 then None else
         ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
@@ -1016,7 +1028,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         match m.Value.Parameters with
                                         | [ p ] -> p = thisTyp
                                         | _ -> false
-                                    | _ -> false
+                                    | _ ->
+                                        // record structs: Equals(T) implements IEquatable<T>
+                                        isStruct && meth.Parameters.Length = 1
+                                        && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls)
                                 let b =
                                     let o = Var p.ParameterId
                                     if isEqualsImpl then
@@ -1072,6 +1087,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 recordCopyCtor ri
                             | ".ctor" ->                                
                                 let baseCall =    
+                                    if isStruct then Empty else
                                     let bTyp, bCtor, args, reorder = ri.BaseCall
                                     ExprStatement (baseCtor bTyp bCtor thisVar args |> reorder)
                                 let b =
@@ -1451,8 +1467,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IFieldSymbol) do
         let f = f :?> IFieldSymbol
-        if isStruct && not f.IsReadOnly then
-            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")      
         //if not cls.IsRecord && recordInfo |> Option.isSome then
         //    failwith $"IsImplicitlyDeclared={f.IsImplicitlyDeclared}, Name={f.Name}"
         let isImplicitParameterField = 

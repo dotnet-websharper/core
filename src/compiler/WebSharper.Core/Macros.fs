@@ -1692,7 +1692,19 @@ type DefaultOf() =
         | ConcreteType td -> 
             match c.Compilation.GetCustomTypeInfo td.Entity with
             | M.StructInfo ->
-                MacroOk (Ctor(td, ConstructorInfo.Default(), []))
+                // C# structs with a parameterless constructor have a `$default` method for the default value
+                let structDefault =
+                    Method {
+                        MethodName = "$default"
+                        Parameters = []
+                        ReturnType = NonGenericType Definitions.Obj
+                        Generics = 0
+                    }
+                match c.Compilation.GetClassInfo td.Entity with
+                | Some ci when ci.Methods.ContainsKey structDefault ->
+                    MacroOk (Call(None, td, NonGeneric structDefault, []))
+                | _ ->
+                    MacroOk (Ctor(td, ConstructorInfo.Default(), []))
             | _ ->
                 MacroOk (Value (Null))
         | _ ->

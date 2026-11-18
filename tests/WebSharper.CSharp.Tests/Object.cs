@@ -363,13 +363,94 @@ namespace WebSharper.CSharp.Tests
             Equal(s1.Sum, 3);
         }
 
-        [Test("struct default with custom parameterless constructor", TestKind.Skip)]
+        [Test("struct default with custom parameterless constructor")]
         public void StructDefaults()
         {
             var s1 = new MyStruct();
             var s2 = default(MyStruct);
             Equal($"{s1.X}, {s1.Y}", "1, 0");
             Equal($"{s2.X}, {s2.Y}", "0, 0");
+            var arr = new MyStruct[2];
+            Equal(arr[1].X, 0);
+        }
+
+        public struct MutPoint
+        {
+            public int X;
+            public int Y;
+            public MutPoint(int x, int y) { X = x; Y = y; }
+            public void Move(int dx) { X += dx; }
+        }
+
+        public struct MutLine
+        {
+            public MutPoint A;
+            public MutPoint B;
+        }
+
+        public class PointHolder
+        {
+            public MutPoint P;
+        }
+
+        static void SetXOfCopy(MutPoint p) { p.X = 100; }
+        static void SetXByRef(ref MutPoint p) { p.X = 100; }
+        static MutPoint Same(MutPoint p) => p;
+
+        [Test("Mutable structs are copied")]
+        public void MutableStructs()
+        {
+            var p1 = new MutPoint(1, 2);
+            var p2 = p1;
+            p2.X = 10;
+            Equal(p1.X, 1, "assignment");
+            Equal(p2.X, 10);
+            p2 = p1;
+            p2.Move(5);
+            Equal(p1.X, 1, "mutating method on copy");
+            Equal(p2.X, 6);
+            SetXOfCopy(p1);
+            Equal(p1.X, 1, "argument");
+            SetXByRef(ref p1);
+            Equal(p1.X, 100, "ref argument");
+            var p3 = Same(p1);
+            p3.X = 0;
+            Equal(p1.X, 100, "return value");
+            object boxed = p1;
+            p1.X = 7;
+            Equal(((MutPoint)boxed).X, 100, "boxing");
+            var unboxed = (MutPoint)boxed;
+            unboxed.X = 8;
+            Equal(((MutPoint)boxed).X, 100, "unboxing");
+
+            var l1 = new MutLine { A = new MutPoint(1, 1), B = new MutPoint(2, 2) };
+            var l2 = l1;
+            l2.A.X = 5;
+            Equal(l1.A.X, 1, "nested struct field");
+            Equal(l2.A.X, 5);
+
+            var h = new PointHolder();
+            h.P.X = 3;
+            Equal(h.P.X, 3, "struct field of a class");
+            var hp = h.P;
+            hp.X = 4;
+            Equal(h.P.X, 3);
+
+            var arr = new MutPoint[3];
+            arr[0].X = 1;
+            Equal(arr[1].X, 0, "array elements are separate values");
+            var e = arr[0];
+            e.X = 2;
+            Equal(arr[0].X, 1, "array element");
+
+            MutPoint s;
+            s.X = 1;
+            s.Y = 2;
+            Equal(s.X + s.Y, 3, "uninitialized local");
+
+            var list = new List<MutPoint> { p1 };
+            p1.X = 9;
+            Equal(list[0].X, 7, "collection initializer");
         }
 
         [JavaScript]

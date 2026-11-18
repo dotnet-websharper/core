@@ -706,6 +706,15 @@ let isFunctionMethodForInterface (t: TypeDefinition) =
 
 module Definitions =
 
+    /// Static method of C# structs with a parameterless constructor, creates the default value
+    let StructDefault =
+        Method {
+            MethodName = "$default"
+            Parameters = []
+            ReturnType = NonGenericType WebSharper.Core.AST.Definitions.Obj
+            Generics = 0
+        }
+
     // Private static field for single-case unions.
     let SingletonUnionCase name typ =
         Method {

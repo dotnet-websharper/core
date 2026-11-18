@@ -673,6 +673,106 @@ module Definitions =
             FullName = "System.ReadOnlySpan`1"
         }
 
+/// The assembly of a .NET library type, WebSharper translates these with proxies
+let private isLibraryAssembly (a: IAssemblySymbol) =
+    not (isNull a) &&
+        match a.Name with
+        | "netstandard" | "mscorlib" | "System.Runtime" | "System.Private.CoreLib" | "FSharp.Core" -> true
+        | n -> n.StartsWith "System."
+
+/// A struct with fields that can change: its values are copied when assigned, like in .NET.
+/// Value tuples and library structs are not included.
+let rec isMutableStruct (t: ITypeSymbol) =
+    not (isNull t) && t.TypeKind = TypeKind.Struct && not t.IsReadOnly && not t.IsTupleType
+    && not (isLibraryAssembly t.ContainingAssembly)
+    && t.GetMembers() |> Seq.exists (function
+        | :? IFieldSymbol as f -> not f.IsStatic && not f.IsReadOnly && not f.IsConst
+        | _ -> false)
+
+/// The expression gives a new struct value, which does not need copying
+let rec isNewStructValue (node: ExpressionSyntax) =
+    match node with
+    | :? ParenthesizedExpressionSyntax as p -> isNewStructValue p.Expression
+    | :? BaseObjectCreationExpressionSyntax
+    | :? DefaultExpressionSyntax
+    | :? LiteralExpressionSyntax
+    | :? WithExpressionSyntax
+    | :? TupleExpressionSyntax
+    | :? InvocationExpressionSyntax -> true
+    | :? ConditionalExpressionSyntax as c -> isNewStructValue c.WhenTrue && isNewStructValue c.WhenFalse
+    | _ -> false
+
+/// Index of a value tuple element (named, or Item1, Item2, ...) in the array of the tuple
+let tupleElementIndex (f: IFieldSymbol) =
+    match f.ContainingType.TupleElements |> Seq.tryFindIndex (fun e -> SymbolEqualityComparer.Default.Equals(e, f)) with
+    | Some i -> Some i
+    | None ->
+        if f.Name.StartsWith "Item" then
+            match System.Int32.TryParse(f.Name.Substring 4) with
+            | true, i when i >= 1 -> Some (i - 1)
+            | _ -> None
+        else None
+
+/// The local or parameter at the root of a value tuple element access (`t.Item1`, `t.a.b`)
+let rec private tupleElementRoot (model: SemanticModel) (e: ExpressionSyntax) : ISymbol =
+    match e with
+    | :? ParenthesizedExpressionSyntax as p -> tupleElementRoot model p.Expression
+    | :? MemberAccessExpressionSyntax as m ->
+        match model.GetSymbolInfo(m).Symbol with
+        | :? IFieldSymbol as f when f.ContainingType.IsTupleType ->
+            match m.Expression with
+            | :? IdentifierNameSyntax as i -> model.GetSymbolInfo(i).Symbol
+            | inner -> tupleElementRoot model inner
+        | _ -> null
+    | _ -> null
+
+let private mutatedTupleVarCache = System.Runtime.CompilerServices.ConditionalWeakTable<ISymbol, obj>()
+
+/// A local or parameter of a value tuple type that has elements changed in place (assigned, incremented,
+/// passed by reference) or is passed by reference itself, in the member that declares it.
+/// Values stored into and read from these variables are copied, other tuples are shared, as only
+/// changes in place could show the difference.
+let isMutatedTupleVar (model: SemanticModel) (s: ISymbol) =
+    let typ =
+        match s with
+        | :? ILocalSymbol as l when not l.IsRef -> l.Type
+        | :? IParameterSymbol as p when p.RefKind = RefKind.None -> p.Type
+        | _ -> null
+    if isNull typ || not typ.IsTupleType || s.DeclaringSyntaxReferences.Length = 0 then false else
+    let compute (s: ISymbol) =
+        let decl = s.DeclaringSyntaxReferences[0].GetSyntax()
+        let scope =
+            match decl.FirstAncestorOrSelf<MemberDeclarationSyntax>() with
+            | null -> decl.SyntaxTree.GetRoot()
+            | m -> m :> SyntaxNode
+        let isS (x: ISymbol) = not (isNull x) && SymbolEqualityComparer.Default.Equals(x, s)
+        let isTarget (e: ExpressionSyntax) =
+            isS (tupleElementRoot model e)
+        let isRefToVar (e: ExpressionSyntax) =
+            match e with
+            | :? IdentifierNameSyntax as i -> isS (model.GetSymbolInfo(i).Symbol)
+            | _ -> isTarget e
+        let rec isAssignTarget (e: ExpressionSyntax) =
+            match e with
+            | :? TupleExpressionSyntax as t -> t.Arguments |> Seq.exists (fun a -> isAssignTarget a.Expression)
+            | _ -> isTarget e
+        let res =
+            model.SyntaxTree = decl.SyntaxTree &&
+            scope.DescendantNodes() |> Seq.exists (fun n ->
+                match n with
+                | :? AssignmentExpressionSyntax as a -> isAssignTarget a.Left
+                | :? PrefixUnaryExpressionSyntax as u ->
+                    (u.IsKind SyntaxKind.PreIncrementExpression || u.IsKind SyntaxKind.PreDecrementExpression) && isTarget u.Operand
+                | :? PostfixUnaryExpressionSyntax as u ->
+                    (u.IsKind SyntaxKind.PostIncrementExpression || u.IsKind SyntaxKind.PostDecrementExpression) && isTarget u.Operand
+                | :? ArgumentSyntax as a ->
+                    (a.RefKindKeyword.IsKind SyntaxKind.RefKeyword || a.RefKindKeyword.IsKind SyntaxKind.OutKeyword) && isRefToVar a.Expression
+                | :? RefExpressionSyntax as r -> isRefToVar r.Expression
+                | _ -> false
+            )
+        res
+    unbox<bool> (mutatedTupleVarCache.GetValue(s, System.Runtime.CompilerServices.ConditionalWeakTable<ISymbol, obj>.CreateValueCallback(fun s -> box (compute s))))
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
         let l =
@@ -982,6 +1082,9 @@ type RoslynTransformer(env: Environment) =
                 //let fromTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.Parameters.[0].Type :?> INamedTypeSymbol)
                 //let toTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.ReturnType :?> INamedTypeSymbol)
                 NumericConversion fromTyp toTyp expr
+            elif conversion.IsBoxing then
+                let t = env.SemanticModel.GetTypeInfo(x.Node).Type
+                if isMutableStruct t && not (isNewStructValue x.Node) then this.CopyStruct(t, expr) else expr
             //elif conversion.IsImplicit then
             //    let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
             //    let fromTyp = typInfo.Type |> sr.ReadType
@@ -1132,6 +1235,82 @@ type RoslynTransformer(env: Environment) =
             let labels = Continuation.CollectLabels.Collect b
             Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
 
+    /// Copies a value of a mutable struct type: a shallow clone, and copies of the nested mutable
+    /// struct values in fields that can be changed in place (explicit fields that are not readonly)
+    member this.CopyStruct (t: ITypeSymbol, e: Expression) : Expression =
+        let nested =
+            t.GetMembers() |> Seq.choose (function
+                | :? IFieldSymbol as f when not f.IsStatic && not f.IsReadOnly && not f.IsConst && not f.IsImplicitlyDeclared && isMutableStruct f.Type -> Some f
+                | _ -> None
+            ) |> List.ofSeq
+        let c = JSRuntime.Clone e
+        if List.isEmpty nested then c else
+        let v = Id.New("$c", mut = false)
+        let td = sr.ReadNamedType (t :?> INamedTypeSymbol)
+        Let (v, c,
+            Sequential [
+                for f in nested ->
+                    FieldSet(Some (Var v), td, f.Name, this.CopyStruct(f.Type, FieldGet(Some (Var v), td, f.Name)))
+                yield Var v
+            ]
+        )
+
+    /// Copies a value tuple (an array), and the nested tuples and mutable structs in it
+    member this.CopyTuple (t: ITypeSymbol, e: Expression) : Expression =
+        let elements = (t :?> INamedTypeSymbol).TupleElements
+        if elements |> Seq.exists (fun f -> f.Type.IsTupleType || isMutableStruct f.Type) then
+            let v = Id.New("$t", mut = false)
+            Let (v, e,
+                NewArray [
+                    for i, f in Seq.indexed elements ->
+                        let item = ItemGet(Var v, Value (Int i), NoSideEffect)
+                        if f.Type.IsTupleType then this.CopyTuple(f.Type, item)
+                        elif isMutableStruct f.Type then this.CopyStruct(f.Type, item)
+                        else item
+                ]
+            )
+        else
+            Appl(ItemGet(e, Value (String "slice"), NonPure), [], NonPure, Some 0)
+
+    /// The expression reads a tuple variable that is changed in place
+    member this.ReadsMutatedTuple (node: ExpressionSyntax) =
+        match node with
+        | :? ParenthesizedExpressionSyntax as p -> this.ReadsMutatedTuple p.Expression
+        | :? IdentifierNameSyntax as i -> isMutatedTupleVar env.SemanticModel (env.SemanticModel.GetSymbolInfo(i).Symbol)
+        | _ -> false
+
+    /// Copies a value of a mutable struct type that is stored into a variable, field, array element or parameter,
+    /// returned or boxed, unless the expression gives a new value anyway.
+    /// Tuples are copied when read from a variable that is changed in place.
+    member this.CopyIfMutableStruct (node: ExpressionSyntax) (e: Expression) : Expression =
+        let info = env.SemanticModel.GetTypeInfo(node)
+        let t = if isNull info.ConvertedType then info.Type else info.ConvertedType
+        if isNull t || isNewStructValue node then e
+        elif t.IsTupleType then
+            if this.ReadsMutatedTuple node then this.CopyTuple(t, e) else e
+        elif isMutableStruct t then this.CopyStruct(t, e)
+        else e
+
+    /// Copies a tuple stored into a variable that is changed in place, if it was not copied already
+    member this.CopyIntoMutatedTuple (target: ISymbol, node: ExpressionSyntax, e: Expression) : Expression =
+        if not (isNull target) && isMutatedTupleVar env.SemanticModel target
+            && not (isNewStructValue node) && not (this.ReadsMutatedTuple node) then
+            let t = match target with :? ILocalSymbol as l -> l.Type | :? IParameterSymbol as p -> p.Type | _ -> null
+            this.CopyTuple(t, e)
+        else e
+
+    /// A parameter of tuple type changed in place gets its own copy of the argument
+    member this.WithTupleParameterCopies (ps: seq<IParameterSymbol>, body: Statement) =
+        let copies =
+            [
+                for p in ps do
+                    if isMutatedTupleVar env.SemanticModel p then
+                        match env.Parameters.TryGetValue(p) with
+                        | true, (id, _) -> yield ExprStatement (VarSet(id, this.CopyTuple(p.Type, Var id)))
+                        | _ -> ()
+            ]
+        if List.isEmpty copies then body else CombineStatements (copies @ [ body ])
+
     member this.TransformBoundArgumentValue (value: IOperation) : Expression =
         if value.IsImplicit && value.ConstantValue.HasValue then
             ReadLiteral value.ConstantValue.Value |> Value
@@ -1280,9 +1459,7 @@ type RoslynTransformer(env: Environment) =
             | Some ArgumentRefKindKeyword.InKeyword ->
                 createRef expression
             | None ->
-                // TODO: copy struct values, if support for mutable structs on the client-side is added
-                //if env.SemanticModel.GetTypeInfo(x.Node).Type.IsValueType then ...
-                expression
+                this.CopyIfMutableStruct x.Expression.Node expression
         namedParamOrdinal, value
 
     member this.TransformArgumentList (x: ArgumentListData) =
@@ -1357,7 +1534,7 @@ type RoslynTransformer(env: Environment) =
         |> withStatementSourcePos x.Node
 
     member this.TransformEqualsValueClause (x: EqualsValueClauseData) : Expression =
-        x.Value |> this.TransformExpression
+        x.Value |> this.TransformExpression |> this.CopyIfMutableStruct x.Value.Node
 
     member this.TransformNameColon (x: NameColonData) : Expression =
         x.Name |> this.TransformIdentifierName
@@ -1381,6 +1558,7 @@ type RoslynTransformer(env: Environment) =
             match expressionBody with
             | Some b -> Return b
             | _ -> body.Value
+        let b = this.WithTupleParameterCopies(symbol.Parameters, b)
         let b =
             if symbol.IsAsync then this.AsyncBody(symbol, b) else b
  
@@ -1467,6 +1645,10 @@ type RoslynTransformer(env: Environment) =
                     )
                 )
             | Undefined -> Undefined
+            | FieldGet(o, td, f) ->
+                FieldSet(o, td, f, v)
+            | ItemGet(o, i, _) ->
+                ItemSet(o, i, v)
             | Call(t, td, g, []) ->
                 Call(t, td, setterOf g, [ v ])
             | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
@@ -1490,12 +1672,17 @@ type RoslynTransformer(env: Environment) =
             | :? IFieldSymbol as s ->
                 Id.New(s.Name), Some s.Type
             | _ -> failwithf "this.TransformVariableDeclarator: invalid symbol type %A" symbol
-        let initializer = 
+        let initializer =
             match x.Initializer with
-            | Some i -> i |> this.TransformEqualsValueClause
-            | _ -> 
+            | Some i -> i |> this.TransformEqualsValueClause |> fun e -> this.CopyIntoMutatedTuple(symbol, i.Value.Node, e)
+            | _ ->  
             match ftyp with
             | Some t -> DefaultValueOf (sr.ReadType t)
+            | _ ->
+            match symbol with
+            | :? ILocalSymbol as s when isMutableStruct s.Type ->
+                // fields of a struct local can be assigned before the whole value
+                DefaultValueOf (sr.ReadType s.Type)
             | _ -> Undefined
         id, initializer
 
@@ -1645,7 +1832,7 @@ type RoslynTransformer(env: Environment) =
                         | None -> Var env.Conditional.Value
                 let bindings, target, arguments = this.ReadIndexerTarget(x.Left.Node, expression)
                 let set value = call leftSymbol.SetMethod (Some target) (arguments @ [ value ])
-                let right = x.Right |> trR.TransformExpression
+                let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                 let result =
                     match x.Kind with
                     | AssignmentExpressionKind.SimpleAssignmentExpression -> withResultValue right set
@@ -1662,7 +1849,7 @@ type RoslynTransformer(env: Environment) =
             elif leftSymbol.IsReadOnly then
                 // init property
                 let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
-                let right = x.Right |> trR.TransformExpression
+                let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                 if leftSymbol.IsStatic then
                     withResultValue right <| fun rv -> FieldSet(None, NonGeneric td, leftSymbol.Name, rv)
                 else
@@ -1672,7 +1859,7 @@ type RoslynTransformer(env: Environment) =
                 //if leftSymbol.IsIndexer // TODO property indexers
                 match x.Kind with
                 | AssignmentExpressionKind.SimpleAssignmentExpression ->
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     if leftSymbol.IsStatic then
                         withResultValue right <| fun rv -> Call(None, typ, setter, [rv])
                     else
@@ -1684,7 +1871,7 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | AssignmentExpressionKind.CoalesceAssignmentExpression ->
                     let left = x.Left |> this.TransformExpression
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     let coalesced = Binary(left, BinaryOperator.``??``, right)
                     if leftSymbol.IsStatic then
                         withResultValue coalesced <| fun rv -> Call(None, typ, setter, [rv])
@@ -1696,7 +1883,7 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | _ ->
                     let left = x.Left |> this.TransformExpression
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
                     let opTyp, operator = getTypeAndMethod symbol
                     if leftSymbol.IsStatic then
@@ -1722,7 +1909,11 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
         | _ ->
         let left = x.Left |> this.TransformExpression
-        let right = x.Right |> trR.TransformExpression
+        let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
+        let right =
+            if x.Kind = AssignmentExpressionKind.SimpleAssignmentExpression then
+                this.CopyIntoMutatedTuple(leftSymbol, x.Right.Node, right)
+            else right
         match x.Kind with
         | AssignmentExpressionKind.SimpleAssignmentExpression ->
             match IgnoreExprSourcePos left with
@@ -1948,8 +2139,8 @@ type RoslynTransformer(env: Environment) =
         {
             IsStatic = symbol.IsStatic
             Parameters = parameterList
-            This = if symbol.IsStatic then None else env.This 
-            Body = body
+            This = if symbol.IsStatic then None else env.This
+            Body = this.WithTupleParameterCopies(symbol.Parameters, body)
             IsAsync = symbol.IsAsync
             ReturnType = returnType
         }
@@ -2108,7 +2299,7 @@ type RoslynTransformer(env: Environment) =
         typ, Some (bCtor, args, initTempVars)
 
     member this.TransformArrowExpressionClause (x: ArrowExpressionClauseData) : Expression =
-        x.Expression |> this.TransformExpression
+        x.Expression |> this.TransformExpression |> this.CopyIfMutableStruct x.Expression.Node
 
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
         let symbol =
@@ -2120,7 +2311,7 @@ type RoslynTransformer(env: Environment) =
         let parameterList = Option.toList extParam @ (sr.ReadParameters symbol)
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
-        let body = x.Expression |> this.TransformExpression
+        let body = x.Expression |> this.TransformExpression |> this.CopyIfMutableStruct x.Expression.Node
         let rTyp = sr.ReadType meth.ReturnType
         {
             IsStatic = meth.IsStatic
@@ -2132,7 +2323,7 @@ type RoslynTransformer(env: Environment) =
         }
 
     member this.TransformReturnStatement (x: ReturnStatementData) : Statement =
-        defaultArg (x.Expression |> Option.map (this.TransformExpression)) Undefined |> Return
+        defaultArg (x.Expression |> Option.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node)) Undefined |> Return
 
     member this.TransformBaseObjectCreationExpression (x: BaseObjectCreationExpressionData) : _ =
         match x with
@@ -2199,7 +2390,7 @@ type RoslynTransformer(env: Environment) =
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> Sequential
         | InitializerExpressionKind.CollectionInitializerExpression -> 
             x.Expressions |> Seq.map (fun e -> 
-                let item = this.TransformExpression e
+                let item = this.TransformExpression e |> this.CopyIfMutableStruct e.Node
                 let addSymbol = 
                     let s = env.SemanticModel.GetCollectionInitializerSymbolInfo(e.Node).Symbol :?> IMethodSymbol
                     // workaround for implicit object creation expression's collection initializer 
@@ -2750,7 +2941,7 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let block = x.Block |> this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
@@ -2764,7 +2955,7 @@ type RoslynTransformer(env: Environment) =
         let id = Id.New parameter.ParameterId.Name.Value              
         env.Parameters.Add(parameter.Symbol, (id, false))
         let block = x.Block |> Option.map this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
@@ -2784,7 +2975,7 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let block = x.Block |> Option.map this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
@@ -2832,6 +3023,10 @@ type RoslynTransformer(env: Environment) =
                 | f -> f
             if Option.isSome expr && field.IsConst then
                 getConstantValueOfExpression node 
+            elif symbol.ContainingType.IsTupleType && Option.isSome (tupleElementIndex symbol) then
+                // value tuples are arrays, reading an element as an array item keeps it assignable
+                let expression = getExpression()
+                ItemGet(expression.Value, Value (Int (tupleElementIndex symbol).Value), NoSideEffect)
             else
                 let expression = getExpression()
                 let typ = sr.ReadNamedType field.ContainingType
@@ -2877,8 +3072,13 @@ type RoslynTransformer(env: Environment) =
                 match List.ofSeq x.Node.Type.RankSpecifiers[0].Sizes with
                 | [ size ] when not (size :? OmittedArraySizeExpressionSyntax) ->
                     let size = this.TransformExpression (ExpressionData.FromNode size)
-                    let arr = New(Global [ "Array" ], [], [ size ])
-                    Appl(ItemGet(arr, Value (String "fill"), NonPure), [ DefaultValueOf (sr.ReadType t.ElementType) ], NonPure, Some 1)
+                    let def = DefaultValueOf (sr.ReadType t.ElementType)
+                    if isMutableStruct t.ElementType then
+                        // a separate value for each element
+                        Appl(Global [ "Array"; "from" ], [ Object [ "length", MemberKind.Simple, size ]; Function([], None, None, Return def) ], NonPure, Some 2)
+                    else
+                        let arr = New(Global [ "Array" ], [], [ size ])
+                        Appl(ItemGet(arr, Value (String "fill"), NonPure), [ def ], NonPure, Some 1)
                 | _ -> NewArray []
             | _ -> NewArray []
 
@@ -2912,7 +3112,7 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos x.Node
 
     member this.TransformYieldStatement (x: YieldStatementData) : _ =
-        let expression = x.Expression |> Option.map (this.TransformExpression)
+        let expression = x.Expression |> Option.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node)
         Yield expression
         |> withStatementSourcePos x.Node
 
@@ -3525,7 +3725,9 @@ type RoslynTransformer(env: Environment) =
         let expression = x.Expression |> this.TransformExpression
         let o = Id.New()
         let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
-        Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
+        let t = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type
+        let copy = if isMutableStruct t then this.CopyStruct(t, expression) else JSRuntime.Clone(expression)
+        Let(o, copy, Sequential [initializer; Var o])
 
     member this.TransformExpressionElement (x: ExpressionElementData) : _ =
         let expression = x.Expression |> this.TransformExpression

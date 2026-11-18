@@ -54,13 +54,23 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher.ToString(), "Teacher { LastName = Wagner, FirstName = Bill, Subject = English }");
         }
 
-        [Test("C# record struct", TestKind.Skip)]
+        [Test("C# record struct")]
         public void RecordStruct()
         {
-            //var person = new PersonStruct("Bill", "Wagner");
-            //var person2 = new PersonStruct("Bill", "Wagner");
-            //IsTrue(person == person2);
-            //Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            var person = new PersonStruct("Bill", "Wagner");
+            var person2 = new PersonStruct("Bill", "Wagner");
+            IsTrue(person == person2);
+            IsTrue(person.Equals(person2));
+            Equal(person.ToString(), "PersonStruct { LastName = Wagner, FirstName = Bill }");
+            var pos = new PersonStructPos("Bill", "Wagner");
+            var copy = pos;
+            copy.FirstName = "William";
+            Equal(pos.FirstName, "Bill");
+            Equal(copy.FirstName, "William");
+            IsFalse(pos == copy);
+            var changed = pos with { LastName = "W" };
+            Equal(pos.LastName, "Wagner");
+            Equal(changed.LastName, "W");
         }
 
         [Test("C# record inheritance")]
@@ -212,14 +222,17 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; set; }
     }
 
-    //[JavaScript]
-    //public record struct PersonStruct
-    //{
-    //    public readonly string LastName;
-    //    public readonly string FirstName;
+    [JavaScript]
+    public record struct PersonStruct
+    {
+        public readonly string LastName;
+        public readonly string FirstName;
 
-    //    public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
-    //}
+        public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
+    }
+
+    [JavaScript]
+    public record struct PersonStructPos(string FirstName, string LastName);
 
     [JavaScript]
     public class InitOnlyTest
