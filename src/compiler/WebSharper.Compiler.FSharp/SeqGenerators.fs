@@ -56,11 +56,8 @@ let private (|SeqExpr|_|) e =
     | _ -> None
 
 let private disposableType, disposeMethod =
-    match <@ (null: System.IDisposable).Dispose() @> with
-    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
-        Reflection.ReadTypeDefinition mi.DeclaringType,
-        Reflection.ReadMethod mi
-    | _ -> failwith "Expecting a Call pattern"
+    let mi = typeof<System.IDisposable>.GetMethod("Dispose")
+    Reflection.ReadTypeDefinition mi.DeclaringType, Reflection.ReadMethod mi
 
 /// A JavaScript iterable for a .NET sequence, arrays are used directly
 let private iterable (e: Expression) =
@@ -148,12 +145,11 @@ let private (|TaskExtCall|_|) (priority: string, name: string) e =
             && m.Entity.Value.MethodName = name -> Some args
     | _ -> None
 
-let private asyncDisposableType, disposeAsyncMethod =
-    match <@ (null: System.IAsyncDisposable).DisposeAsync() @> with
-    | FSharp.Quotations.Patterns.Call (_, mi, _) ->
-        Reflection.ReadTypeDefinition mi.DeclaringType,
-        Reflection.ReadMethod mi
-    | _ -> failwith "Expecting a Call pattern"
+/// lazy, as it needs an extra assembly on .NET Standard
+let private asyncDispose =
+    lazy
+        let mi = typeof<System.IAsyncDisposable>.GetMethod("DisposeAsync")
+        Reflection.ReadTypeDefinition mi.DeclaringType, Reflection.ReadMethod mi
 
 /// Statements of a task expression, `tail`: the value of the code is the result of the task
 /// (`return` is only for tail positions, F# allows a value only there).
@@ -188,7 +184,7 @@ let rec private genTask (run: Expression -> Expression) (tr: Expression -> Expre
             TryFinally (
                 g tail body,
                 If (Binary (Var x, BinaryOperator.``!=``, Value Null),
-                    ExprStatement (Await (Call (Some (Var x), NonGeneric asyncDisposableType, NonGeneric disposeAsyncMethod, []))),
+                    ExprStatement (Await (Call (Some (Var x), NonGeneric (fst asyncDispose.Value), NonGeneric (snd asyncDispose.Value), []))),
                     Empty)
             )
         ]
