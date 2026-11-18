@@ -625,9 +625,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             match baseCls with
             | Some b -> b.Entity.Value.FullName <> "System.Object"
             | None -> false
-        let isConstant e = 
+        let rec isConstant e = 
             match IgnoreExprSourcePos e with
-            | Value _ | Undefined -> true
+            | Value _ | Undefined | DefaultValueOf _ -> true
+            | Cast (_, e) | Coerce (e, _, _) -> isConstant e
             | _ -> false
         let needsReorder =
             hasRealBase && inits |> Seq.exists (function FieldSet(_, _, _, e) -> not (isConstant e) | _ -> true)

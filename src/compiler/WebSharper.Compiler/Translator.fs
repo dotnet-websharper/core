@@ -495,6 +495,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> runtimeCleaner.TransformExpression
             |> breaker.TransformExpression
             |> removeEmptyVarsExpr
+            |> Cleanup.cleanupVars
             |> runtimeCleanerForced.TransformExpression
             //|> collectCurried isCtor
     
@@ -504,6 +505,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         |> runtimeCleaner.TransformStatement
         |> breaker.TransformStatement
         |> removeEmptyVarsSt
+        |> Cleanup.cleanupVarsSt
         |> runtimeCleanerForced.TransformStatement
         //|> collectCurriedTr.TransformStatement
 

@@ -69,6 +69,8 @@ let rec removePureParts expr =
         -> Let (v, a, removePureParts b)
     | Unary (_, a) 
     | TypeCheck(a, _)
+    | Cast (_, a)
+    | Coerce (a, _, _)
         -> removePureParts a     
     | ExprSourcePos (p, a)
         -> ExprSourcePos (p, removePureParts a)     
@@ -315,8 +317,10 @@ type CollectUnusedVars(vs : HashSet<Id>) =
 
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
-/// between then, then extra Let forms and variables for them are not needed
-let varEvalOrder (vars : Id list) expr =
+/// between then, then extra Let forms and variables for them are not needed.
+/// With `relaxed`, looking up a method to call on an object is not treated as a
+/// side effect, and variables for which `isConst` holds can be read in any order.
+let varEvalOrderWith (relaxed: bool) (isConst: Id -> bool) (vars : Id list) expr =
     let watchedVars = HashSet vars
     let varsNotUsed = VarsNotUsed watchedVars
         
@@ -388,7 +392,7 @@ let varEvalOrder (vars : Id list) expr =
                         if a = hv then
                             vars <- tv
                         else fail() 
-                else if a.IsMutable then 
+                else if a.IsMutable && not (isConst a) then 
                     stop()
             | VarSet(a, b) ->
                 if watchedVars.Contains a then
@@ -417,7 +421,13 @@ let varEvalOrder (vars : Id list) expr =
                 eval c
                 stop()                 
             | Application(a, b, c) ->
-                eval a
+                match IgnoreExprSourcePos a with
+                | ItemGet(o, I.Value (String _), _) when relaxed ->
+                    // the method is looked up before the arguments are evaluated,
+                    // the arguments are not expected to change it
+                    eval o
+                | _ ->
+                    eval a
                 List.iter eval b
                 if c.Purity = NonPure then stop()
             | New(a, _, b) ->
@@ -524,6 +534,9 @@ let varEvalOrder (vars : Id list) expr =
                
     eval expr
     ok && List.isEmpty vars   
+
+let varEvalOrder (vars : Id list) expr =
+    varEvalOrderWith false (fun _ -> false) vars expr
 
 let sameVars vars args =
     args |> List.forall (function I.Var _ -> true | _ -> false)
