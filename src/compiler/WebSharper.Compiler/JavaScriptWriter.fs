@@ -354,6 +354,9 @@ let extractParamDefaults (args: Id list) (body: Statement) : Dictionary<Id, Expr
         match s with
         | Block ss -> ss |> List.collect flatten
         | ExprStatement (IgnoreSourcePos.Sequential es) -> es |> List.map ExprStatement
+        | Return (IgnoreSourcePos.Sequential (_ :: _ :: _ as es)) ->
+            let r = List.rev es
+            (List.rev r.Tail |> List.map ExprStatement) @ [ Return r.Head ]
         | _ -> [ s ]
     let tryDefault (s: Statement) =
         match s with

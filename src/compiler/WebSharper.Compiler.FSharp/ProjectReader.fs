@@ -797,20 +797,26 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                                     )
                                     |> List.ofSeq
                                 let vars = 
-                                    if List.isEmpty defValues then
+                                    if List.isEmpty defValues || isInline then
                                         vars
                                     else
                                         // mark vars with default value setters mutable
                                         vars |> List.map (fun v -> if defValues |> List.exists (fun (i, _) -> i = v) then v.ToMutable() else v)
-                                let b =
-                                    if List.isEmpty defValues then b else
-                                        Sequential [
-                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
-                                            yield b
-                                        ]
                                 if isInline then
+                                    // inlined arguments are not variables to assign, the value with the default is a new one
+                                    let b =
+                                        List.foldBack (fun (i: Id, v) body ->
+                                            let d = Id.New(?name = i.Name, mut = false)
+                                            Let(d, Conditional (Var i ^=== Undefined, v, Var i), ReplaceId(i, d).TransformExpression body)
+                                        ) defValues b
                                     makeExprInline (Option.toList thisVar @ vars) b
                                 else 
+                                    let b =
+                                        if List.isEmpty defValues then b else
+                                            Sequential [
+                                                for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
+                                                yield b
+                                            ]
                                     let returnType =
                                         match memdef with
                                         | Member.Method (_, mdef)  

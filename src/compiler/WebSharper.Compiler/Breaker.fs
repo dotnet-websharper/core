@@ -152,7 +152,7 @@ type MarkApplicationsPure(v, purity) =
 
     override this.TransformLet(id, value, body) =
         match value with
-        | I.Var x when x = v ->
+        | I.Var x when x = v && notMutated id body ->
             ReplaceId(id, v).TransformExpression(body) |> this.TransformExpression        
         | _ -> base.TransformLet(id, value, body)
 
@@ -304,12 +304,16 @@ let rec removeLets expr =
     | Let (var, value, I.Function ([x], None, _, (I.ExprStatement(I.Application (I.Var f, [I.Var y], _)) | I.Return(I.Application (I.Var f, [I.Var y], _)))))
         when f = var && x = y ->
             value
-    | Let (var, I.Value Null, c) ->
+    // default value of an inlined optional argument, when the argument is a known value
+    | Let (a, (I.Value _ as v), I.Let (d, I.Conditional (I.Binary (I.Var a2, BinaryOperator.``===``, I.Undefined), _, I.Var a3), body))
+        when a = a2 && a = a3 && CountVarOccurence(a).Get(body) = 0 ->
+        Let (d, v, body) |> removeLets
+    | Let (var, I.Value Null, c) when notMutated var c ->
         SubstituteVar(var, Value Null).TransformExpression(c)
     | Let(a, b, I.Var c) when a = c ->
         b
     | Let(a, I.Var b, c) 
-        when (not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c) -> // TODO: maybe weaker check is enough
+        when notMutated a c && ((not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c)) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c)            
     | Let(var, value, I.Application(func, [I.Var v], info))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
@@ -340,7 +344,7 @@ let rec removeLets expr =
                 match b with
                 | I.Function _ -> notMutatedOrCapturedExceptAppl a c
                 | _ -> notMutatedOrCaptured a c
-            if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
+            if isStronglyPureExpr b && notMutated a c && (isTrivialValue b || notmut()) then 
                 SubstituteVar(a, b).TransformExpression(c)
             else
                 let accVars = HashSet [a]
@@ -361,6 +365,15 @@ let rec removeLets expr =
 
 let optimize expr =
     match expr with
+    // a literal is never undefined
+    | Binary (I.Value _, (BinaryOperator.``===`` | BinaryOperator.``!==`` as op), I.Undefined)
+    | Binary (I.Undefined, (BinaryOperator.``===`` | BinaryOperator.``!==`` as op), I.Value _) ->
+        Value (Bool (op = BinaryOperator.``!==``))
+    // null is only equal to null (and undefined) in JavaScript
+    | Binary (I.Value Null, (BinaryOperator.``==`` | BinaryOperator.``===`` | BinaryOperator.``!=`` | BinaryOperator.``!==`` as op), I.Value v)
+    | Binary (I.Value v, (BinaryOperator.``==`` | BinaryOperator.``===`` | BinaryOperator.``!=`` | BinaryOperator.``!==`` as op), I.Value Null) ->
+        let eq = (v = Null)
+        Value (Bool (if op = BinaryOperator.``==`` || op = BinaryOperator.``===`` then eq else not eq))
     // eta-reduction
     | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i }) | I.Cast (_, I.Application (f, args, { KnownLength = Some i }))))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
@@ -822,7 +835,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                         match aUses with
                         | 0 -> Some c
                         | 1 -> 
-                            if isTrivialValue brB.Body || notMutatedOrCaptured a c then
+                            if notMutated a c && (isTrivialValue brB.Body || notMutatedOrCaptured a c) then
                                 Some (SubstituteVar(a, brB.Body).TransformExpression(c))
                             else None
                         | _ -> None

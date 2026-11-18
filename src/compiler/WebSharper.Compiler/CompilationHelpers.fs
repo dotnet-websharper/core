@@ -264,6 +264,40 @@ type private NotMutatedOrCaptured(v, ?allowApplication) =
         this.VisitExpression(a)
         ok
 
+/// Checks if a specific Id is assigned or changed by an increment or a compound assignment
+type private Mutated(v) =
+    inherit Visitor()
+
+    let mutable found = false
+
+    override this.VisitVarSet (a, b) =
+        if a = v then found <- true
+        this.VisitExpression b
+
+    override this.VisitMutatingUnary (op, a) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v -> found <- true
+        | _ -> ()
+        this.VisitExpression a
+
+    override this.VisitMutatingBinary (a, op, b) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v -> found <- true
+        | _ -> ()
+        this.VisitExpression a
+        this.VisitExpression b
+
+    override this.VisitExpression(a) =
+        if not found then base.VisitExpression(a)
+
+    member this.Check(a) =
+        this.VisitExpression(a)
+        found
+
+/// The variable is not assigned in the expression, so its uses can be replaced with its value
+let notMutated (v: Id) expr =
+    not (Mutated(v).Check(expr))
+
 let notMutatedOrCaptured (v: Id)  expr =
     NotMutatedOrCaptured(v).Check(expr)   
 
