@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Tests.fs" />
+    <Compile Include="BoosterTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>

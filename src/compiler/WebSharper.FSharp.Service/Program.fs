@@ -17,6 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
+module WebSharper.FSharp.Service.Program
 #nowarn "44"
 
 open System
@@ -61,8 +62,20 @@ let (|Exit|FullCompile|PostCompile|) (args: ArgsType) =
             |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
             |> Option.bind (fun x -> x.Split(':') |> Array.tail |> joinTailIfSome)
         FullCompile (args.args, projectOption)
-        
-        
+
+/// Parses the options of a compile request. A failure is printed like in a standalone compilation,
+/// and the caller sends the returned exit code: the client reads exactly one per request.
+let parseCompileOptions (args: string[]) (logger: LoggerBase) =
+    try
+        Ok (ParseOptions args logger)
+    with
+    | ArgumentError msg ->
+        PrintGlobalError logger msg
+        Error 1
+    | e ->
+        PrintGlobalError logger (sprintf "Global error: %A" e)
+        Error 1
+
 let startListening() =
     let nLogger = 
         let callerType = 
@@ -217,41 +230,37 @@ let startListening() =
                     match projectDirOption with
                     | Some project -> System.Environment.CurrentDirectory <- project
                     | None -> ()
-                    let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
-                    try
-                        parsedOptions <- ParseOptions argsDict.[project].Args logger
-                    with
-                    | _ ->
-                        do! sendFinished (int ErrorCode.UnexpectedFinish)
-                    // use the same differentiation as --standalone
-                    match parsedOptions with
-                    | HelpOrCommand r ->
-                        do! sendFinished r // unexpected, wsfsc.exe should handle this
-                    | ParsedOptions (wsConfig, warnSettings) ->
-                        // https://developers.websharper.com/docs/v4.x/fs/project-variables
-                        // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
-                        match defaultArg wsConfig.ProjectType Website with
-                        // TODO: this needs to be revisited with .NET 6
-                        | WIG | Proxy ->
-                            do! sendFinished (int ErrorCode.ProjectTypeNotPermitted)
-                        | Bundle | BundleOnly | Html | Website | Service ->
-                            do! processCompileMessage (project |> Some) wsConfig warnSettings argsDict.[project].Args
+                    match argsDict.TryGetValue project with
+                    | false, _ ->
+                        do! sendFinished (int ErrorCode.ProjectNotCached)
+                    | true, cached ->
+                        // use the same differentiation as --standalone
+                        match parseCompileOptions cached.Args logger with
+                        | Error exitCode ->
+                            do! sendFinished exitCode
+                        | Ok (HelpOrCommand r) ->
+                            do! sendFinished r // unexpected, wsfsc.exe should handle this
+                        | Ok (ParsedOptions (wsConfig, warnSettings)) ->
+                            // https://developers.websharper.com/docs/v4.x/fs/project-variables
+                            // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
+                            match defaultArg wsConfig.ProjectType Website with
+                            // TODO: this needs to be revisited with .NET 6
+                            | WIG | Proxy ->
+                                do! sendFinished (int ErrorCode.ProjectTypeNotPermitted)
+                            | Bundle | BundleOnly | Html | Website | Service ->
+                                do! processCompileMessage (project |> Some) wsConfig warnSettings cached.Args
                 | FullCompile (args, projectOption) ->
                     let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
                     match projectDirOption with
                     | Some project -> System.Environment.CurrentDirectory <- project
                     | None -> ()
-                    let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
-                    try
-                        parsedOptions <- ParseOptions args logger
-                    with
-                    | _ ->
-                        do! sendFinished (int ErrorCode.UnexpectedFinish)
                     // use the same differentiation like --standalone
-                    match parsedOptions with
-                    | HelpOrCommand r ->
+                    match parseCompileOptions args logger with
+                    | Error exitCode ->
+                        do! sendFinished exitCode
+                    | Ok (HelpOrCommand r) ->
                         do! sendFinished r // unexpected, wsfsc.exe should handle this
-                    | ParsedOptions (wsConfig, warnSettings) ->
+                    | Ok (ParsedOptions (wsConfig, warnSettings)) ->
                         do! processCompileMessage projectOption wsConfig warnSettings args
             with 
             | ex -> 
