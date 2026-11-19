@@ -1,0 +1,107 @@
+# The WebSharper booster as an MCP server for AI agents
+
+The WebSharper booster (`wsfscservice`) is the long-running process that compiles WebSharper F# projects
+quickly. After each compilation it keeps what it learned about the project in memory: the F# type check,
+WebSharper's translation, and the metadata of the references. AI agents (Claude Code, Copilot, Cursor and
+other [Model Context Protocol](https://modelcontextprotocol.io) clients) can ask it about boosted projects,
+instead of reading sources, decompiling references or running full builds to find out the same things.
+
+## Connecting an agent
+
+The simplest way is `dotnet ws mcp`, from the [dotnet-ws](https://github.com/dotnet-websharper/dotnet-ws) tool.
+Configure it as a stdio MCP server started in the project's folder, for example in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "websharper": { "command": "dotnet", "args": [ "ws", "mcp" ] }
+  }
+}
+```
+
+It runs the booster of the WebSharper.FSharp version the projects in the folder reference, so it talks to the booster
+that compiles them. `--project`, `--version` and `--booster` (a path, for example a local build of the compiler) choose
+another one.
+
+Without dotnet-ws, run the booster with `--mcp`: `wsfscservice.dll` is in the `tools/net11.0` folder of the
+`WebSharper.FSharp` package (or of the `WebSharper.FSharp.Booster` tool, when the project uses it):
+
+```json
+{
+  "mcpServers": {
+    "websharper": {
+      "command": "dotnet",
+      "args": [ "/Users/me/.nuget/packages/websharper.fsharp/<version>/tools/net11.0/wsfscservice.dll", "--mcp" ]
+    }
+  }
+}
+```
+
+`wsfscservice --mcp` talks to the booster of the same package
+version over the booster's named pipe. It does not start the booster: build the project once (`dotnet build` or
+`dotnet ws build`) to start it and record the project. Projects built with `WebSharperStandalone=true` do not go
+through the booster.
+
+Tool calls are answered from the last compilation of each project, while compilations of other projects can run.
+After editing source files, `build_project` compiles again in a fraction of a `dotnet build`.
+
+## Tools
+
+All tools take an optional `project`: a project file path, file name or assembly name. It defaults to the most
+recently compiled project.
+
+| Tool | What it answers |
+|---|---|
+| `list_projects` | The projects compiled since the booster started: type, last compilation time, exit code, error and warning counts. |
+| `get_diagnostics` | Errors and warnings of the last compilation, F# and WebSharper, as printed by the build. The first errors come with their source line and the signatures of the functions and values used on it, and common ones with a hint. Filter by `file`, leave out warnings with `include_warnings: false`. |
+| `get_signature` | The F# signature of a type, module, member, record field or union case, by full or partial name (`List.map`, `WebSharper.UI.Doc.Element`, `System.String.Split`), from the project or any reference, with its XML doc summary, declaration location, WebSharper attributes and deprecation. Extension members are found on the type they extend (`attr.classDynPred`), template types show their generated members (`Templates.Main.MainForm`). A name in the wrong namespace still finds the member (`WebSharper.UI.Doc.EmbedView`), and misses suggest close names. A namespace (`WebSharper.UI.Client`) lists its types and modules. |
+| `search_symbols` | Types, modules and members whose name contains a text, project symbols first. Members are searched in the project and in WebSharper libraries. |
+| `get_js_translation` | How WebSharper translates a type or member: its JavaScript address and the compiled form of each member (instance or static method, function, inline, macro, RPC), or that it has no translation and can't be used in `[<JavaScript>]` code. |
+| `find_usages` | Where a type, module or member is used in the project, with its definition. |
+| `get_file_signature` | The `.fsi` signature of a source file: every type, module and value it declares. |
+| `list_rpc_methods` | The project's RPC methods with their remoting paths, and its Website (sitelet) definition. |
+| `build_project` | Compiles the project again with the arguments of its last build, like the fast path of `dotnet ws build`, and returns the exit code and diagnostics. It does not run MSBuild: after changing the project file or references, use `dotnet build`. |
+
+The server's instructions tell agents to prefer these tools over web searches, and online to use
+[docs.websharper.com](https://docs.websharper.com), never the superseded 4.x documentation
+(developers.websharper.com/docs/v4.x). `get_diagnostics` adds hints for common WebSharper errors and warnings.
+
+## Extensions
+
+Other packages can add tools. An extension is a .NET assembly with a public class that implements
+`WebSharper.FSharp.Service.AgentTools.IAgentExtension` and has a constructor without arguments:
+
+* `Tools`: the tools it adds. A tool with the name of one of the tools above replaces it.
+* `Instructions`: added to the server instructions.
+* `Decorate`: can add to the answers of the other tools, for example pointers to its own tools.
+* `LocalTools`: its tools that need no booster, such as static content: `wsfscservice --mcp` answers them itself, also
+  before the first build.
+
+Both sides load it into the default load context, next to the compiler, with its dependencies from its own folder:
+
+* the booster, from the `WebSharperAgentExtensions` MSBuild property of the project (paths separated by semicolons),
+  which the compiler gets as `--agentextension:<path>`; a package sets it in its `.props` or `.targets`;
+* `wsfscservice --mcp`, from `--extension <path>` arguments and the `WebSharperAgentExtensions` environment variable
+  (paths separated by `:`, `;` on Windows).
+
+`wsfscservice --mcp` sends the paths of its extensions with each tool call, and the booster loads them too: an
+extension given only to the front end works without the MSBuild property.
+
+An extension must be built against the same WebSharper version as the booster that loads it.
+
+## Logging tool calls
+
+With the `WebSharperMcpLog` environment variable set to a file path, `wsfscservice --mcp` appends a JSON line to it
+for each tool call: the tool, its arguments, the duration, whether it answered (`ok`) and the start of the answer.
+Misses (`"ok": false`) show what agents look for and don't find. For example, in `.mcp.json`:
+
+```json
+{ "mcpServers": { "websharper": { "command": "dotnet", "args": [ "ws", "mcp" ], "env": { "WebSharperMcpLog": "/tmp/websharper-mcp.jsonl" } } } }
+```
+
+## Memory
+
+The booster keeps the last compilation of the 10 most recently compiled projects for these tools. Set the
+`WebSharperAgentProjects` environment variable of the booster to keep more or fewer, or to `0` to keep none (the tools
+then have nothing to answer from). The booster inherits the environment of the build that starts it: stop it with
+`dotnet ws stop` for a change to apply.
