@@ -46,12 +46,7 @@ let argsDict = Dictionary<string, CachedProjInfo>(StringComparer.InvariantCultur
 
 /// The booster's pipe, derived from the location of this executable: one booster per installation.
 let pipeName () =
-    let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
-    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-        pipeNameRaw  // Windows uses simple pipe names
-    else
-        Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
+    boosterPipeName (System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location))
 
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
     if args = {args= [|"exit"|]} then
