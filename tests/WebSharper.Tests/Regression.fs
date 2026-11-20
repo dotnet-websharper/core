@@ -1272,4 +1272,38 @@ let Tests =
             equal (ExtensionWitnessRegression.repeat 3) "hahaha"
             equal (ExtensionWitnessRegression.repeat 0) ""
         }
+
+        Test "#1623 use and try in a computation expression from a proxy project" {
+            let disposed = ref 0
+            let makeDisposable () =
+                { new System.IDisposable with
+                    member this.Dispose() = disposed.Value <- disposed.Value + 1
+                }
+            let data = 42
+            let actual =
+                ProxyProjectTest.Functions.resource {
+                    use d = makeDisposable ()
+                    return data
+                }
+            equal actual (Result.Ok data : Result<int, string>)
+            let nested =
+                ProxyProjectTest.Functions.resource {
+                    use d1 = makeDisposable ()
+                    use d2 = makeDisposable ()
+                    try
+                        return data + 1
+                    finally
+                        disposed.Value <- disposed.Value + 10
+                }
+            equal nested (Result.Ok (data + 1) : Result<int, string>)
+            let caught =
+                ProxyProjectTest.Functions.resource {
+                    try
+                        return failwith "boom"
+                    with e ->
+                        return e.Message.Length
+                }
+            equal caught (Result.Ok 4 : Result<int, string>)
+            equal disposed.Value 13
+        }
     }

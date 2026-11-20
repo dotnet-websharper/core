@@ -599,6 +599,28 @@ type Substitution(args, ?thisObj) =
     override this.TransformFuncDeclaration(i, a, t, b, ty) =
         FuncDeclaration(this.RefreshVar i, a, t, this.TransformStatement b, ty)
 
+    // Variables bound by statements, such as the result of a `try`/`finally`
+    // in expression position, need fresh ids too: inline bodies read from
+    // another assembly's metadata keep that assembly's id numbers, which can
+    // collide with ids of the current compilation (#1623).
+    member private this.RefreshBound(i: Id) =
+        match refresh.TryFind i with
+        | Some n -> n
+        | _ -> this.RefreshVar i
+
+    override this.TransformStatementExpr(st, res) =
+        let res = res |> Option.map this.RefreshBound
+        StatementExpr(this.TransformStatement st, res)
+
+    override this.TransformTryWith(body, var, catch) =
+        let body = this.TransformStatement body
+        let var = var |> Option.map this.RefreshBound
+        TryWith(body, var, this.TransformStatement catch)
+
+    override this.TransformForIn(var, obj, body) =
+        let obj = this.TransformExpression obj
+        ForIn(this.RefreshBound var, obj, this.TransformStatement body)
+
     override this.TransformId i =
         match refresh.TryFind i with
         | Some n -> n
