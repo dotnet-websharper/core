@@ -570,7 +570,7 @@ type Substitution(args, ?thisObj) =
     inherit Transformer()
     
     let args = 
-        Array.ofList (Option.toList thisObj @ if List.isEmpty args then [ Value Null ] else args)
+        Array.ofList (Option.toList thisObj @ if List.isEmpty args then [ Undefined ] else args)
     let refresh = System.Collections.Generic.Dictionary()
 
     override this.TransformHole i = 
@@ -1631,7 +1631,7 @@ let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
         | Application(func, [], { Purity = p; KnownLength = Some _ }) ->
-            appl ((true, Value Null) :: args) func 
+            appl ((true, Undefined) :: args) func 
         | Application(func, [a], { Purity = p; KnownLength = Some _ }) ->
             // TODO : what if a has type unit but has side effect?
             appl ((false, a) :: args) func 
