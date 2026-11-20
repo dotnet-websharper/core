@@ -321,3 +321,44 @@ let ``Tool calls are counted and timed by source`` () =
     AgentTools.callTool ctx "list_projects" "{}" |> ignore
     Stats.store.CounterValue "tool.core.list_projects.not_answered" + Stats.store.CounterValue "tool.core.list_projects.ok" |> should equal (before + 1L)
     Stats.store.TimingCount "tool.core.list_projects_ms" |> should be (greaterThan 0L)
+
+// ---------------------------------------------------------------------------------------------
+// Several names in one call
+
+let private argsOf (json: string) = AgentTools.ToolArgs(JsonNode.Parse json)
+let private noBooster : AgentTools.BoosterContext = { IsOutdated = (fun _ -> None); Build = (fun _ -> -1) }
+
+/// A tool that knows the names starting with "Known".
+let private lookup (_: AgentTools.BoosterContext) (a: AgentTools.ToolArgs) =
+    let n = a.Required "name"
+    if n.StartsWith "Known" then "signature of " + n else AgentTools.fail ("nothing named " + n)
+
+[<Test>]
+let ``Names come from names, from name, or from both`` () =
+    (argsOf """{"names":["A","B"]}""").Names |> should equal [ "A"; "B" ]
+    (argsOf """{"name":"A"}""").Names |> should equal [ "A" ]
+    (argsOf """{"name":"A","names":["B","A"]}""").Names |> should equal [ "B"; "A" ]
+    (argsOf """{"names":"A, B"}""").Names |> should equal [ "A"; "B" ]
+    (fun () -> (argsOf "{}").Names |> ignore) |> should throw typeof<AgentTools.ToolError>
+
+[<Test>]
+let ``A call with several names answers each, and lists the misses`` () =
+    let text = AgentTools.batched lookup noBooster (argsOf """{"names":["KnownA","Missing","KnownB"],"project":"P"}""")
+    text |> should haveSubstring "=== KnownA\nsignature of KnownA"
+    text |> should haveSubstring "=== KnownB\nsignature of KnownB"
+    text |> should haveSubstring "=== Missing: not found\nnothing named Missing"
+    text.IndexOf "KnownB" |> should be (lessThan (text.IndexOf "Missing: not found"))
+    // one name: the tool's own answer, unchanged
+    AgentTools.batched lookup noBooster (argsOf """{"name":"KnownA"}""") |> should equal "signature of KnownA"
+    // nothing found: an error with all the misses
+    (fun () -> AgentTools.batched lookup noBooster (argsOf """{"names":["X","Y"]}""") |> ignore) |> should throw typeof<AgentTools.ToolError>
+
+[<Test>]
+let ``get_signature and get_js_translation offer names as an array of strings`` () =
+    let tools = AgentTools.toolsJsonOf AgentTools.freeTools
+    for name in [ "get_signature"; "get_js_translation" ] do
+        let t = tools |> Seq.find (fun t -> t.["name"].GetValue<string>() = name)
+        let names = t.["inputSchema"].["properties"].["names"]
+        names.["type"].GetValue<string>() |> should equal "array"
+        names.["items"].["type"].GetValue<string>() |> should equal "string"
+        t.["inputSchema"].["required"].AsArray().Count |> should equal 0

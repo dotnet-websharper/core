@@ -50,6 +50,10 @@ After editing source files, `build_project` compiles again in a fraction of a `d
 All tools take an optional `project`: a project file path, file name or assembly name. It defaults to the most
 recently compiled project.
 
+`get_signature` and `get_js_translation` also take `names`, a list of names, instead of `name`: one call answers for
+all of them, a section per name, with the names that found nothing at the end. The answer size is shared between the
+names. Extensions can do the same for their tools with `AgentTools.batched` and `AgentTools.namesParam`.
+
 | Tool | What it answers |
 |---|---|
 | `list_projects` | The projects compiled since the booster started: type, last compilation time, exit code, error and warning counts. |

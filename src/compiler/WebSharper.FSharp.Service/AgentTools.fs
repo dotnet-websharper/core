@@ -915,6 +915,63 @@ type ToolArgs(args: JsonNode) =
             | null -> def
             | v -> try v.GetValue<int>() with _ -> (match Int32.TryParse(defaultArg (this.String name) "") with | true, i -> i | _ -> def)
     member this.Project = findProject (this.String "project")
+    /// The names of a tool that takes several: the "names" array, else "name".
+    member this.Names =
+        let fromArray =
+            match args with
+            | null -> []
+            | a ->
+                match a.["names"] with
+                | :? JsonArray as arr ->
+                    [ for v in arr do
+                        match (try v.GetValue<string>() with _ -> null) with
+                        | null -> ()
+                        | s when String.IsNullOrWhiteSpace s -> ()
+                        | s -> yield s.Trim() ]
+                | null -> []
+                | v ->
+                    // a single string given as names
+                    match (try v.GetValue<string>() with _ -> null) with
+                    | null -> []
+                    | s -> s.Split([| ','; '\n' |], StringSplitOptions.RemoveEmptyEntries) |> Array.map (fun x -> x.Trim()) |> Array.filter ((<>) "") |> List.ofArray
+        match fromArray, this.String "name" with
+        | [], None -> fail "Missing argument: name (or names, a list of names)"
+        | [], Some n -> [ n ]
+        | names, Some n when not (List.contains n names) -> n :: names
+        | names, _ -> List.distinct names
+    /// The arguments with "name" set to one name and "names" removed, for running a tool once per name.
+    member this.WithName(name: string) =
+        let o = match args with :? JsonObject as o -> o.DeepClone().AsObject() | _ -> JsonObject()
+        o.Remove "names" |> ignore
+        o.["name"] <- JsonValue.Create name
+        ToolArgs(o)
+
+/// The answer of a tool budget for one call; a call with several names shares it.
+let maxResultChars = 60000
+
+/// Runs a tool that answers for one name ("name") for each of the names of a call ("names" or "name"): one section
+/// per name, then the names that found nothing with why. A call answers when one of its names does.
+let batched (run: BoosterContext -> ToolArgs -> string) (ctx: BoosterContext) (a: ToolArgs) =
+    match a.Names with
+    | [ name ] -> run ctx (a.WithName name)
+    | names ->
+        Stats.value "tool.names_per_call" (float names.Length)
+        let budget = max 4000 (maxResultChars / names.Length)
+        let results =
+            names |> List.map (fun n ->
+                try
+                    let text = run ctx (a.WithName n)
+                    Ok (n, (if text.Length > budget then text.Substring(0, budget) + "\n... (truncated: ask for this name alone for all of it)" else text))
+                with ToolError msg -> Error (n, msg))
+        let found = results |> List.choose (function Ok r -> Some r | Error _ -> None)
+        let missed = results |> List.choose (function Error r -> Some r | Ok _ -> None)
+        if not missed.IsEmpty then Stats.countBy "tool.names_missed" (int64 missed.Length)
+        let missedText =
+            missed |> List.map (fun (n, msg) -> sprintf "=== %s: not found\n%s" n msg) |> String.concat "\n\n"
+        if found.IsEmpty then fail missedText
+        else
+            (found |> List.map (fun (n, text) -> sprintf "=== %s\n%s" n text) |> String.concat "\n\n")
+            + (if missed.IsEmpty then "" else "\n\n" + missedText)
 
 let private errorLines (p: ProjectState) = p.Log |> Array.filter fst |> Array.map snd
 let private isErrorLine (l: string) = l.Contains ": error " || l.Contains "error WS" || l.StartsWith "error "
@@ -1276,6 +1333,9 @@ type Tool =
         Run : BoosterContext -> ToolArgs -> string
     }
 
+/// The names parameter of the tools that answer for several names at once (see batched).
+let namesParam = "names", "string[]", "Several names at once, instead of name: one call answers for all of them.", false
+
 /// The optional project parameter of the tools.
 let projectParam = "project", "string", "Project file path, file name or assembly name. Defaults to the most recently compiled project.", false
 
@@ -1298,10 +1358,10 @@ let freeTools : Tool list =
         }
         {
             Name = "get_signature"
-            Description = "F# signature of a type, module, member, record field or union case, by full or partial name (System.Collections.Generic.List, List.map, WebSharper.UI.Doc.Element), from the project or any of its references, with its XML doc summary, declaration location and WebSharper attributes."
-            Parameters = [ projectParam; "name", "string", "Name of the type, module or member, e.g. Namespace.Type, Module.function, Type.Member.", true ]
+            Description = "F# signature of a type, module, member, record field or union case, by full or partial name (System.Collections.Generic.List, List.map, WebSharper.UI.Doc.Element), from the project or any of its references, with its XML doc summary, declaration location and WebSharper attributes. Pass several names with names to get them all in one call."
+            Parameters = [ projectParam; "name", "string", "Name of the type, module or member, e.g. Namespace.Type, Module.function, Type.Member.", false; namesParam ]
             ReadOnly = true
-            Run = getSignature
+            Run = batched getSignature
         }
         {
             Name = "search_symbols"
@@ -1312,10 +1372,10 @@ let freeTools : Tool list =
         }
         {
             Name = "get_js_translation"
-            Description = "How WebSharper translates a type or member to JavaScript: its JavaScript address and the compiled form of each member (instance/static method, inline, macro, RPC), from the metadata of the project and its references. Tells whether the type or member can be used in client-side ([<JavaScript>]) code at all."
-            Parameters = [ projectParam; "name", "string", "Type (System.Collections.Generic.Dictionary, List) or Type.Member (System.String.Split).", true ]
+            Description = "How WebSharper translates a type or member to JavaScript: its JavaScript address and the compiled form of each member (instance/static method, inline, macro, RPC), from the metadata of the project and its references. Tells whether the type or member can be used in client-side ([<JavaScript>]) code at all. Pass several names with names to check them all in one call."
+            Parameters = [ projectParam; "name", "string", "Type (System.Collections.Generic.Dictionary, List) or Type.Member (System.String.Split).", false; namesParam ]
             ReadOnly = true
-            Run = getJsTranslation
+            Run = batched getJsTranslation
         }
         {
             Name = "find_usages"
@@ -1352,7 +1412,11 @@ let toolsJsonOf (tools: Tool list) =
     for t in tools do
         let props = JsonObject()
         for (name, typ, desc, _) in t.Parameters do
-            props.[name] <- JsonObject(dict [ "type", JsonValue.Create(typ) :> JsonNode; "description", JsonValue.Create(desc) :> JsonNode ])
+            props.[name] <-
+                if typ = "string[]" then
+                    JsonObject(dict [ "type", JsonValue.Create("array") :> JsonNode; "items", JsonObject(dict [ "type", JsonValue.Create("string") :> JsonNode ]) :> JsonNode; "description", JsonValue.Create(desc) :> JsonNode ])
+                else
+                    JsonObject(dict [ "type", JsonValue.Create(typ) :> JsonNode; "description", JsonValue.Create(desc) :> JsonNode ])
         let required = JsonArray(t.Parameters |> List.filter (fun (_, _, _, r) -> r) |> List.map (fun (n, _, _, _) -> JsonValue.Create(n) :> JsonNode) |> Array.ofList)
         let schema = JsonObject(dict [ "type", JsonValue.Create("object") :> JsonNode; "properties", props :> JsonNode; "required", required :> JsonNode ])
         let annotations = JsonObject(dict [ "readOnlyHint", JsonValue.Create(t.ReadOnly) :> JsonNode ])
@@ -1473,7 +1537,8 @@ let baseInstructions =
     + "These tools answer from the exact WebSharper versions the project uses: prefer them over web searches and over reading package files. "
     + "For online documentation use docs.websharper.com; never use developers.websharper.com/docs/v4.x or other 4.x pages, they are superseded and their APIs differ. "
     + "For APIs use get_signature (partial names work: Doc.BindView; a namespace lists its contents), search_symbols, find_usages, "
-    + "and get_js_translation before using a .NET API in client code."
+    + "and get_js_translation before using a .NET API in client code. "
+    + "get_signature and get_js_translation take several names at once (names): ask for all the names you need in one call."
 
 /// What `wsfscservice --mcp` offers: the free tools, with the loaded extensions' tools, instructions and pointers.
 type Edition =
@@ -1496,8 +1561,6 @@ let edition () =
             Decorate = fun name args text -> exts |> List.fold (fun t e -> e.Decorate name args t) text
             LocalTools = exts |> List.collect (fun e -> e.LocalTools)
         }
-
-let maxResultChars = 60000
 
 /// Runs a tool, Ok with its text result or Error with a message for the agent.
 let callTool (ctx: BoosterContext) (name: string) (arguments: string) : Result<string, string> =
