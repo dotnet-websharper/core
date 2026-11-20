@@ -103,16 +103,21 @@ let handle (version: string) (instructions: string) (toolsJson: unit -> JsonArra
     | m ->
         Some (errorResponse id -32601 (sprintf "Method not found: %s" m))
 
-/// Serves MCP over the given reader and writer until the input ends.
-let serve (version: string) (instructions: string) (toolsJson: unit -> JsonArray) (callTool: string -> string -> Result<string, string>) (input: TextReader) (output: TextWriter) =
+/// Serves MCP over the given reader and writer until the input ends. handled is called after each message has
+/// been answered, with the message, the response (None for notifications) and the time it took.
+let serve (version: string) (instructions: string) (toolsJson: unit -> JsonArray) (callTool: string -> string -> Result<string, string>)
+          (handled: string -> JsonNode option -> TimeSpan -> unit) (input: TextReader) (output: TextWriter) =
     let mutable line = input.ReadLine()
     while not (isNull line) do
         if not (String.IsNullOrWhiteSpace line) then
-            match handle version instructions toolsJson callTool line with
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let response = handle version instructions toolsJson callTool line
+            match response with
             | Some r ->
                 // one message per line: the serializer writes no line breaks
                 output.Write(r.ToJsonString(jsonOptions))
                 output.Write('\n')
                 output.Flush()
             | None -> ()
+            handled line response sw.Elapsed
         line <- input.ReadLine()

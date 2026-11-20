@@ -89,6 +89,11 @@ extension given only to the front end works without the MSBuild property.
 
 An extension must be built against the same WebSharper version as the booster that loads it.
 
+An extension that also implements `IAgentExtensionWithHost` gets an `IAgentHost` in `Initialize` when it is loaded:
+its statistics (`Stats`, see below), the process's log (`Log`), the booster's `WebSharperVersion`, and `IsBooster`
+(false in `wsfscservice --mcp`, where its local tools and pointers run). Members are only added to `IAgentHost`, so
+extensions built for an earlier version keep working.
+
 ## Logging tool calls
 
 With the `WebSharperMcpLog` environment variable set to a file path, `wsfscservice --mcp` appends a JSON line to it
@@ -98,6 +103,36 @@ Misses (`"ok": false`) show what agents look for and don't find. For example, in
 ```json
 { "mcpServers": { "websharper": { "command": "dotnet", "args": [ "ws", "mcp" ], "env": { "WebSharperMcpLog": "/tmp/websharper-mcp.jsonl" } } } }
 ```
+
+## Statistics
+
+The booster keeps statistics of what it does, and they stay on the machine: in memory, in a file next to its
+`websharper-boosters` record (`websharper-boosters/stats/`, written every minute when they change and when the booster
+exits), and for `dotnet ws stats`, which asks the running boosters through their pipe (the `stats` message) and
+reads the files of stopped ones. They hold counts, durations and sizes under names chosen by the code that records
+them, never source, symbol names, paths, project names or the arguments of tool calls.
+
+* Every message the booster handles: `msg.<kind>.wait_ms` in the queue (compilations are serialized),
+  `msg.<kind>_ms` processing and `msg.<kind>.total_ms`, how it ended (`msg.<kind>.exit.<code>`) and the size of the
+  reply, for compilations (`compile`), replays of `dotnet ws build` (`replay`), `exit` and agent tool calls (`mcp`).
+* Compilations: each stage `logger.TimedStage` reports (`compile.stage.<stage>_ms`, without the file and assembly
+  names some stages print), and errors and warnings by code (`compile.error.FS0001`, `compile.warning.WS9002`).
+* Agent tools, core's and extensions' alike: `tool.<source>.<tool>_ms`, how they ended (`ok`, `not_answered`,
+  `failed`) and the size of the answer. `wsfscservice --mcp` adds each MCP request end to end
+  (`mcp.request.<method>_ms`, `mcp.call.<source>.<tool>_ms`), the pipe and process overhead of booster calls
+  (`.overhead_ms`, from the booster's time in its reply), calls made while no booster runs, the client name and
+  protocol version from `initialize`, session lengths and call counts, consecutive tools (`mcp.sequence.*`), the
+  same call failing twice in a row (`.repeated_failure`), and pointers that extensions add to answers
+  (`mcp.pointer.shown.<tool>`) and whether the agent called that tool within the next three calls
+  (`mcp.pointer.followed.<tool>`). It sends them to the booster after each request, and keeps them for later while
+  no booster runs.
+* The booster: uptime, memory, projects kept for the tools and evicted, extensions loaded or failed.
+* Extensions, through `IAgentHost.Stats` (`Count`, `Time`, `Value`, `Event`): under `ext.<extension name>.`. Names
+  must be lower case and fixed by the extension's code, event fields numbers or booleans; anything else is dropped
+  and counted as `stats.dropped`.
+
+Durations keep their count, total and maximum since the booster started, and the median, p90 and p99 of the last
+1000 samples.
 
 ## Memory
 

@@ -80,6 +80,9 @@ let parseCompileOptions (args: string[]) (logger: LoggerBase) =
         PrintGlobalError logger (sprintf "Global error: %A" e)
         Error 1
 
+/// Error and warning codes in compilation output, for the statistics.
+let private diagnosticCode = System.Text.RegularExpressions.Regex(@"\b(error|warning) ((?:FS|WSB|WS|NU|MSB)\d+)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+
 let startListening() =
     let nLogger = 
         let callerType = 
@@ -88,6 +91,9 @@ let startListening() =
                 .GetMethod()
                 .DeclaringType
         NLog.LogManager.GetLogger(callerType.Name)
+    AgentTools.hostLog <- fun msg -> nLogger.Info msg
+    AgentTools.hostVersion <- AssemblyVersionInformation.WSVersion
+    AgentTools.hostIsBooster <- true
     // one shared checker per mode, so a project opting out of the TransparentCompiler
     // still benefits from the IncrementalBuilder's caching across compilations
     let transparentChecker = lazy FSharpChecker.Create(keepAssemblyContents = true, useTransparentCompiler = true)
@@ -166,7 +172,21 @@ let startListening() =
             // a compilation failing because a client disconnects can still process the next compilation
             try
                 // read a message, reply sends one message to its client (a pipe, or the agent tools' build_project)
-                let! (deserializedMessage: ArgsType, reply: string -> unit, token: CancellationToken) = inbox.Receive()
+                let! (deserializedMessage: ArgsType, clientReply: string -> unit, token: CancellationToken, received: int64) = inbox.Receive()
+                // statistics: msg.<kind>.wait_ms in the queue, msg.<kind>_ms processing, how it ended, reply size
+                let kind = match deserializedMessage with | Exit -> "exit" | PostCompile _ -> "replay" | FullCompile _ -> "compile"
+                Stats.ms (sprintf "msg.%s.wait_ms" kind) (System.Diagnostics.Stopwatch.GetElapsedTime received)
+                if kind = "exit" then Stats.count "msg.exit"
+                let processing = System.Diagnostics.Stopwatch.StartNew()
+                let replyChars = ref 0L
+                let reply (message: string) =
+                    replyChars.Value <- replyChars.Value + int64 message.Length
+                    if message.StartsWith "x: " then
+                        Stats.ms (sprintf "msg.%s_ms" kind) processing.Elapsed
+                        Stats.ms (sprintf "msg.%s.total_ms" kind) (System.Diagnostics.Stopwatch.GetElapsedTime received)
+                        Stats.count (sprintf "msg.%s.exit.%s" kind (Stats.part (message.Substring 3)))
+                        Stats.value (sprintf "msg.%s.reply_chars" kind) (float replyChars.Value)
+                    clientReply message
                 let sendFinished (code: int) = async { reply (sprintf "x: %i" code) }
                 // the printed output, kept for the agent tools' diagnostics
                 let log = ResizeArray<bool * string>()
@@ -185,6 +205,7 @@ let startListening() =
                             token.ThrowIfCancellationRequested()
                             reply ("e: " + s)
                     }
+                logger.StageObserver <- Action<string, TimeSpan>(fun stage elapsed -> Stats.ms ("compile.stage." + Stats.stageName stage + "_ms") elapsed)
 
                 let processCompileMessage (projectOption: string option) (wsConfig: WsConfig) warnSettings args = async {
                     let nLogger = nLogger.WithProperty("wsdir", wsConfig.ProjectDir)
@@ -210,9 +231,13 @@ let startListening() =
                             PrintGlobalError logger (sprintf "Global error: %A" e)
                             1
                     let returnValue = compilationResultForDebugOrRelease()
+                    let logLines = lock log (fun () -> log.ToArray())
+                    for (_, line) in logLines do
+                        let m = diagnosticCode.Match line
+                        if m.Success then
+                            Stats.count (sprintf "compile.%s.%s" (m.Groups.[1].Value.ToLowerInvariant()) (m.Groups.[2].Value.ToUpperInvariant()))
                     match projectOption |> Option.orElse (Option.ofObj wsConfig.ProjectFile) with
                     | Some project ->
-                        let logLines = lock log (fun () -> log.ToArray())
                         AgentTools.record (AgentTools.createState project lastSnapshot.Value returnValue stopwatch.Elapsed logLines)
                     | None -> ()
                     lastSnapshot.Value <- None
@@ -298,6 +323,14 @@ let startListening() =
             |> Some
         | None -> None
 
+    // the statistics with the booster's state, for `dotnet ws stats` and their file
+    let statsSnapshot () =
+        Stats.snapshot AssemblyVersionInformation.WSVersion [
+            "projects_kept", System.Text.Json.Nodes.JsonValue.Create(AgentTools.projectCount ()) :> System.Text.Json.Nodes.JsonNode
+            "projects_max", System.Text.Json.Nodes.JsonValue.Create(AgentTools.maxProjects) :> System.Text.Json.Nodes.JsonNode
+            "extensions", System.Text.Json.Nodes.JsonArray(AgentTools.loadedExtensions () |> List.map (fun e -> System.Text.Json.Nodes.JsonValue.Create(e.Name) :> System.Text.Json.Nodes.JsonNode) |> Array.ofList) :> System.Text.Json.Nodes.JsonNode
+        ]
+
     // the agent tools' build_project: a compilation like `dotnet ws build`, its output is recorded by the agent
     let boosterContext : AgentTools.BoosterContext =
         {
@@ -307,7 +340,7 @@ let startListening() =
                 let reply (message: string) =
                     if message.StartsWith "x: " then
                         finished.TrySetResult(int (message.Substring 3)) |> ignore
-                agent.Post ({ args = [| "compile:" + project |] }, reply, CancellationToken.None)
+                agent.Post ({ args = [| "compile:" + project |] }, reply, CancellationToken.None, System.Diagnostics.Stopwatch.GetTimestamp())
                 if finished.Task.Wait(TimeSpan.FromMinutes 30.) then finished.Task.Result
                 else int ErrorCode.UnexpectedFinish
         }
@@ -319,8 +352,24 @@ let startListening() =
                 let reply = writeMessage serverPipe
                 let handleMessage (message: obj) = 
                     async {
+                        let received = System.Diagnostics.Stopwatch.GetTimestamp()
                         let message = System.Text.Json.JsonSerializer.Deserialize<ArgsType>(string message)
-                        if message.args.Length >= 3 && message.args.[0] = "mcp" then
+                        if message.args = [| "stats" |] then
+                            // `dotnet ws stats`
+                            Stats.count "msg.stats"
+                            reply ("j: " + (statsSnapshot ()).ToJsonString())
+                            reply "x: 0"
+                        elif message.args.Length = 2 && message.args.[0] = "stats-report" then
+                            // what a `wsfscservice --mcp` recorded
+                            let ok =
+                                try
+                                    match System.Text.Json.Nodes.JsonNode.Parse message.args.[1] with
+                                    | :? System.Text.Json.Nodes.JsonArray as events -> Stats.apply events; true
+                                    | _ -> false
+                                with _ -> false
+                            Stats.ms "msg.stats_report_ms" (System.Diagnostics.Stopwatch.GetElapsedTime received)
+                            reply (if ok then "x: 0" else "x: 1")
+                        elif message.args.Length >= 3 && message.args.[0] = "mcp" then
                             // agent tools: answered here from the recorded compilations, not queued behind compilations.
                             // After the tool: the extensions the front end loaded, so that their tools run here too
                             let loadErrors =
@@ -328,24 +377,28 @@ let startListening() =
                                     match AgentTools.loadExtensions path with
                                     | Ok _ -> None
                                     | Error msg -> Some msg)
-                            match (if loadErrors.Length > 0 then Error (String.concat "\n" loadErrors) else AgentTools.callTool boosterContext message.args.[1] message.args.[2]) with
-                            | Ok text ->
-                                reply ("j: " + text)
-                                reply "x: 0"
-                            | Error text ->
-                                reply ("j: " + text)
-                                reply "x: 1"
+                            let result = if loadErrors.Length > 0 then Error (String.concat "\n" loadErrors) else AgentTools.callTool boosterContext message.args.[1] message.args.[2]
+                            let elapsed = System.Diagnostics.Stopwatch.GetElapsedTime received
+                            Stats.ms "msg.mcp_ms" elapsed
+                            let text, code = match result with Ok t -> t, 0 | Error t -> t, 1
+                            Stats.value "msg.mcp.reply_chars" (float text.Length)
+                            reply ("j: " + text)
+                            // the booster's time, for the front end's statistics (it subtracts it from its own)
+                            reply ("t: " + elapsed.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                            reply (sprintf "x: %i" code)
                         elif message.args.Length = 1 && message.args.[0].StartsWith "compile:" then
                             let project = message.args.[0].Substring(8) 
                             match isOutdated project with
                             | Some true ->
+                                Stats.count "msg.replay.outdated"
                                 do! sendFinished serverPipe (int ErrorCode.ProjectOutdated)
                             | Some false ->
-                                agent.Post (message, reply, token)
+                                agent.Post (message, reply, token, received)
                             | None ->
+                                Stats.count "msg.replay.not_cached"
                                 do! sendFinished serverPipe (int ErrorCode.ProjectNotCached)
                         else
-                            agent.Post (message, reply, token)
+                            agent.Post (message, reply, token, received)
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
@@ -388,9 +441,12 @@ let startListening() =
 
     let tokenSource = new CancellationTokenSource()
     Async.Start (pipeListener tokenSource.Token)
+    // the statistics file, every minute when they changed, and when the booster exits
+    use statsTimer = new System.Threading.Timer((fun _ -> Stats.save location statsSnapshot), null, 60000, 60000)
     locker.WaitOne() |> ignore
 
     tokenSource.Cancel()
+    Stats.save location statsSnapshot
 
 /// `wsfscservice --mcp`: an MCP server over stdio for AI agents, it forwards tool calls to the running booster
 /// of this installation, which answers from the compilations it recorded.
@@ -414,12 +470,13 @@ module McpClient =
                 with :? System.Net.Sockets.SocketException -> false
         with _ -> true
 
-    let callBooster (name: string) (arguments: string) : Result<string, string> =
+    /// Sends one message to the booster: Ok (exit code, the text of its j: replies, its t: time in ms), or why not.
+    let private send (args: string[]) (connectTimeoutMs: int) : Result<int * string * float option, string> =
         if not (pipeExists ()) then Error (notRunning "its pipe does not exist") else
         use pipe = new NamedPipeClientStream(".", pipeName (), PipeDirection.InOut, PipeOptions.Asynchronous)
         let connectError =
             try
-                pipe.Connect(2000)
+                pipe.Connect(connectTimeoutMs)
                 if pipe.IsConnected then None else Some "could not connect"
             with
             | :? TimeoutException -> Some "no answer on its pipe"
@@ -431,19 +488,24 @@ module McpClient =
             pipe.ReadMode <- PipeTransmissionMode.Byte
             let options = System.Text.Json.JsonSerializerOptions()
             options.Encoder <- System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            let message = Array.append [| "mcp"; name; arguments |] (AgentTools.loadedExtensionPaths () |> Array.ofList)
-            let bytes = System.Text.Json.JsonSerializer.Serialize({ args = message }, options) |> System.Text.Encoding.UTF8.GetBytes
+            let bytes = System.Text.Json.JsonSerializer.Serialize({ args = args }, options) |> System.Text.Encoding.UTF8.GetBytes
             pipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
             pipe.Write(bytes, 0, bytes.Length)
             pipe.Flush()
             if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
                 pipe.WaitForPipeDrain()
             let text = System.Text.StringBuilder()
+            let mutable boosterMs = None
             let handle (message: obj) =
                 async {
                     let s = (message :?> System.Text.Json.JsonElement).GetString()
                     if s.StartsWith "j: " then
                         text.Append(s.Substring 3) |> ignore
+                        return None
+                    elif s.StartsWith "t: " then
+                        match Double.TryParse(s.Substring 3, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                        | true, v -> boosterMs <- Some v
+                        | _ -> ()
                         return None
                     elif s.StartsWith "x: " then
                         return Some (int (s.Substring 3))
@@ -452,11 +514,30 @@ module McpClient =
                 }
             let disconnected () = if not pipe.IsConnected then raise (PipeException ())
             match Async.RunSynchronously (readingMessages pipe handle disconnected) with
-            | Some 0 -> Ok (text.ToString())
-            | Some _ -> Error (text.ToString())
+            | Some code -> Ok (code, text.ToString(), boosterMs)
             | None -> Error "The WebSharper booster closed the connection without answering."
         with _ ->
             Error "The WebSharper booster closed the connection without answering, it may have stopped."
+
+    /// Calls a tool in the booster: its answer, and the booster's time in ms.
+    let callBooster (name: string) (arguments: string) : Result<string, string> * float option =
+        let message = Array.append [| "mcp"; name; arguments |] (AgentTools.loadedExtensionPaths () |> Array.ofList)
+        match send message 2000 with
+        | Ok (0, text, ms) -> Ok text, ms
+        | Ok (_, text, ms) -> Error text, ms
+        | Error e -> Error e, None
+
+    /// What this process recorded (Stats.sink in run), sent to the booster after each message.
+    let forwarding = Stats.Forwarding()
+
+    /// Sends the recorded statistics to the booster. Kept for the next time when it does not answer, so statistics
+    /// of tools answered here (guides) before the first build are not lost.
+    let sendStats () =
+        let events = forwarding.Take()
+        if events.Count > 0 then
+            match send [| "stats-report"; events.ToJsonString() |] 500 with
+            | Ok (0, _, _) -> ()
+            | _ -> forwarding.Return events
 
     /// With WebSharperMcpLog set to a file path, each tool call is appended to it as a JSON line: the tool, its
     /// arguments, the duration, whether it answered, and the start of the answer. For finding what agents miss.
@@ -478,10 +559,17 @@ module McpClient =
         with _ -> ()
         result
 
+    let private notRunningPrefix = "No WebSharper booster is running"
+
     let run (extensionPaths: string list) =
         let utf8 = System.Text.UTF8Encoding(false)
         use input = new StreamReader(Console.OpenStandardInput(), utf8)
         use output = new StreamWriter(Console.OpenStandardOutput(), utf8)
+        // statistics go to the booster (sendStats), extensions log to stderr: stdout belongs to the protocol
+        Stats.sink <- forwarding
+        AgentTools.hostLog <- fun msg -> eprintfn "wsfscservice --mcp: %s" msg
+        AgentTools.hostVersion <- AssemblyVersionInformation.WSVersion
+        AgentTools.hostIsBooster <- false
         // extensions: --extension <path> arguments and WebSharperAgentExtensions (separated like PATH)
         let fromEnv =
             match Environment.GetEnvironmentVariable "WebSharperAgentExtensions" with
@@ -492,24 +580,92 @@ module McpClient =
             | Ok _ -> ()
             | Error msg -> eprintfn "wsfscservice --mcp: %s" msg
         let edition = AgentTools.edition ()
+        let extensionTools =
+            AgentTools.loadedExtensions () |> List.collect (fun e -> e.Tools |> List.map (fun t -> t.Name))
+        // the session, for the statistics: calls, the previous call, pointers to extension tools in answers
+        let sessionClock = System.Diagnostics.Stopwatch.StartNew()
+        let mutable calls = 0
+        let mutable previous : (string * string * bool) option = None   // tool, arguments, ok
+        let pointers = Dictionary<string, int>()                          // pointed tool -> calls left to follow it
         // the edition decides what is offered and adds its pointers; the booster runs the tools
         let editionCall (name: string) (arguments: string) =
-            if not (edition.Tools |> List.exists (fun t -> t.Name = name)) then Error (sprintf "Unknown tool: %s" name)
-            else
-                let result =
-                    // tools with static content (guides) need no booster, also before the first build
-                    if List.contains name edition.LocalTools then AgentTools.callTool { IsOutdated = (fun _ -> None); Build = (fun _ -> -1) } name arguments
-                    else callBooster name arguments
-                match result with
-                | Ok text ->
-                    let args = AgentTools.ToolArgs(if String.IsNullOrWhiteSpace arguments then null else (try System.Text.Json.Nodes.JsonNode.Parse arguments with _ -> null))
-                    Ok (edition.Decorate name args text)
-                | e -> e
+            calls <- calls + 1
+            // only names of tools offered go into the statistics, not whatever an agent asked for
+            let known = edition.Tools |> List.exists (fun t -> t.Name = name)
+            let statName = if known then Stats.part name else "unknown"
+            let key = sprintf "mcp.call.%s.%s" (if known then Stats.part (AgentTools.toolSource name) else "none") statName
+            // a pointer followed within the next 3 calls
+            if pointers.Remove name then Stats.count ("mcp.pointer.followed." + Stats.part name)
+            for p in pointers.Keys |> List.ofSeq do
+                if pointers.[p] <= 1 then pointers.Remove p |> ignore else pointers.[p] <- pointers.[p] - 1
+            match previous with
+            | Some (prevName, _, _) -> Stats.count (sprintf "mcp.sequence.%s.%s" prevName statName)
+            | None -> ()
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let result =
+                if not known then
+                    Error (sprintf "Unknown tool: %s" name)
+                else
+                    let result =
+                        // tools with static content (guides) need no booster, also before the first build
+                        if List.contains name edition.LocalTools then
+                            Stats.count (key + ".local")
+                            AgentTools.callTool { IsOutdated = (fun _ -> None); Build = (fun _ -> -1) } name arguments
+                        else
+                            let result, boosterMs = callBooster name arguments
+                            match boosterMs with
+                            | Some ms -> Stats.value (key + ".overhead_ms") (sw.Elapsed.TotalMilliseconds - ms)
+                            | None -> ()
+                            match result with
+                            | Error text when text.StartsWith notRunningPrefix -> Stats.count (key + ".booster_not_running")
+                            | _ -> ()
+                            result
+                    match result with
+                    | Ok text ->
+                        let args = AgentTools.ToolArgs(if String.IsNullOrWhiteSpace arguments then null else (try System.Text.Json.Nodes.JsonNode.Parse arguments with _ -> null))
+                        let dsw = System.Diagnostics.Stopwatch.StartNew()
+                        let decorated = edition.Decorate name args text
+                        Stats.ms "mcp.decorate_ms" dsw.Elapsed
+                        if decorated.Length > text.Length then
+                            let added = decorated.Substring(text.Length)
+                            for t in extensionTools do
+                                if t <> name && added.Contains t then
+                                    Stats.count ("mcp.pointer.shown." + Stats.part t)
+                                    pointers.[t] <- 3
+                        Ok decorated
+                    | e -> e
+            Stats.ms (key + "_ms") sw.Elapsed
+            let ok = match result with Ok _ -> true | Error _ -> false
+            Stats.count (key + (if ok then ".ok" else ".error"))
+            // the same call failing again: an agent stuck on something the tools don't answer
+            match previous with
+            | Some (n, a, false) when not ok && n = statName && a = arguments -> Stats.count (key + ".repeated_failure")
+            | _ -> ()
+            previous <- Some (statName, arguments, ok)
+            result
         let call =
             match Environment.GetEnvironmentVariable "WebSharperMcpLog" with
             | null | "" -> editionCall
             | path -> logged path editionCall
-        Mcp.serve AssemblyVersionInformation.WSVersion edition.Instructions (fun () -> AgentTools.toolsJsonOf edition.Tools) call input output
+        // every message: its time, and for initialize the client; then the statistics go to the booster
+        let handled (line: string) (response: System.Text.Json.Nodes.JsonNode option) (elapsed: TimeSpan) =
+            try
+                let msg = System.Text.Json.Nodes.JsonNode.Parse line
+                let methodName = try msg.["method"].GetValue<string>() with _ -> null
+                if not (isNull methodName) then
+                    Stats.ms (sprintf "mcp.request.%s_ms" (Stats.part methodName)) elapsed
+                    if methodName = "initialize" then
+                        Stats.count "mcp.sessions"
+                        let pars = msg.["params"]
+                        let clientName = try pars.["clientInfo"].["name"].GetValue<string>() with _ -> null
+                        Stats.count ("mcp.client." + Stats.part clientName)
+                        Stats.count ("mcp.protocol." + Stats.part (try pars.["protocolVersion"].GetValue<string>() with _ -> null))
+                if response.IsSome then sendStats ()
+            with _ -> ()
+        Mcp.serve AssemblyVersionInformation.WSVersion edition.Instructions (fun () -> AgentTools.toolsJsonOf edition.Tools) call handled input output
+        Stats.value "mcp.session.duration_s" sessionClock.Elapsed.TotalSeconds
+        Stats.value "mcp.session.calls" (float calls)
+        sendStats ()
         0
 
 [<assembly: System.Reflection.AssemblyTitleAttribute("WebSharper Booster (" + AssemblyVersionInformation.WSVersion + ")")>]

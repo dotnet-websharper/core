@@ -67,10 +67,13 @@ let ``MCP unknown methods and bad JSON are JSON-RPC errors`` () =
 let ``MCP serve answers one line per request`` () =
     let input = new StringReader("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}\n")
     let output = new StringWriter()
-    Mcp.serve "1.0" "instructions" noTools echoTool input output
+    let handled = ResizeArray()
+    Mcp.serve "1.0" "instructions" noTools echoTool (fun _ response _ -> handled.Add response.IsSome) input output
     let lines = output.ToString().Split('\n', System.StringSplitOptions.RemoveEmptyEntries)
     lines.Length |> should equal 2
     (JsonNode.Parse lines.[1]).["id"].GetValue<int>() |> should equal 2
+    // every message is reported, notifications without a response
+    List.ofSeq handled |> should equal [ true; false; true ]
 
 // ---------------------------------------------------------------------------------------------
 // Tools
@@ -240,3 +243,81 @@ let ``Extensions add tools, instructions and pointers`` () =
     let ctx : AgentTools.BoosterContext = { IsOutdated = (fun _ -> None); Build = (fun _ -> -1) }
     AgentTools.callTool ctx "echo" """{"text":"hi"}""" |> should equal (Ok "hi" : Result<string, string>)
     AgentTools.loadExtensions "/no/such/extension.dll" |> Result.isError |> should equal true
+
+
+// ---------------------------------------------------------------------------------------------
+// Statistics
+
+[<Test>]
+let ``Timings keep count, total, maximum and percentiles of recent samples`` () =
+    let t = Stats.Timing()
+    for i in 1 .. 100 do t.Add (float i)
+    let j = t.ToJson()
+    j.["count"].GetValue<int64>() |> should equal 100L
+    j.["total"].GetValue<float>() |> should equal 5050.
+    j.["p50"].GetValue<float>() |> should equal 50.
+    j.["p90"].GetValue<float>() |> should equal 90.
+    j.["max"].GetValue<float>() |> should equal 100.
+    // only the recent samples count for percentiles, all of them for the count and maximum
+    for _ in 1 .. Stats.recentSamples do t.Add 1.
+    let j = t.ToJson()
+    j.["count"].GetValue<int64>() |> should equal (100L + int64 Stats.recentSamples)
+    j.["p99"].GetValue<float>() |> should equal 1.
+    j.["max"].GetValue<float>() |> should equal 100.
+
+[<Test>]
+let ``Names from values and compilation stages hold no paths`` () =
+    Stats.part "Get_Signature" |> should equal "get_signature"
+    Stats.part "a/b c" |> should equal "a_b_c"
+    Stats.part null |> should equal "none"
+    Stats.stageName "Writing code files to /home/me/project/bin/x.dll" |> should equal "writing_code_files"
+    Stats.stageName "Total compilation time" |> should equal "total_compilation_time"
+    Stats.stageName "Writing MyCompany.Secret.Client.js" |> should equal "writing"
+    Stats.stageName "Parsing with FCS (3 of 7 files from the read cache)" |> should equal "parsing_with_fcs"
+    Stats.stageName "Waiting for F# output (reflection)" |> should equal "waiting_for_f_output_reflection"
+    Stats.stageName "Prebundle admin.js (packaging 0.20 s, JS conversion 0.10 s, writing)" |> should equal "prebundle"
+    Stats.stageName "Unpacking from MyCompany" |> should equal "unpacking"
+
+[<Test>]
+let ``Extension statistics are prefixed, and only fixed lower case names and numbers or booleans are kept`` () =
+    let stats = Stats.forExtension "Pro"
+    let dropped () = Stats.store.CounterValue "stats.dropped"
+    let before = dropped ()
+    stats.Count "sidecar.hit"
+    stats.Count("sidecar.hit", 2)
+    Stats.store.CounterValue "ext.pro.sidecar.hit" |> should equal 3L
+    stats.Event("lookup", [ "found", box true; "candidates", box 4; "symbol", box "MyApp.Secret" ])
+    Stats.store.CounterValue "ext.pro.lookup" |> should equal 1L
+    Stats.store.CounterValue "ext.pro.lookup.found.true" |> should equal 1L
+    Stats.store.TimingCount "ext.pro.lookup.candidates" |> should equal 1L
+    (using (stats.Time "read") ignore)
+    Stats.store.TimingCount "ext.pro.read_ms" |> should equal 1L
+    // a string field, and names that could hold a symbol or a path, are dropped
+    stats.Count "MyApp.Secret"
+    stats.Count "a/b"
+    dropped () - before |> should equal 3L
+
+[<Test>]
+let ``Statistics forwarded by wsfscservice --mcp are applied to the booster's`` () =
+    let f = Stats.Forwarding()
+    let sink = f :> Stats.ISink
+    sink.Count("forwarded.count", 2L)
+    sink.Value("forwarded.value_ms", 12.5)
+    let events = f.Take()
+    events.Count |> should equal 2
+    f.Take().Count |> should equal 0
+    // not sent: they go back to the queue
+    f.Return events
+    let events = f.Take()
+    events.Count |> should equal 2
+    Stats.apply (JsonNode.Parse(events.ToJsonString()) :?> JsonArray)
+    Stats.store.CounterValue "forwarded.count" |> should equal 2L
+    Stats.store.TimingCount "forwarded.value_ms" |> should equal 1L
+
+[<Test>]
+let ``Tool calls are counted and timed by source`` () =
+    let ctx : AgentTools.BoosterContext = { IsOutdated = (fun _ -> None); Build = (fun _ -> -1) }
+    let before = Stats.store.CounterValue "tool.core.list_projects.not_answered" + Stats.store.CounterValue "tool.core.list_projects.ok"
+    AgentTools.callTool ctx "list_projects" "{}" |> ignore
+    Stats.store.CounterValue "tool.core.list_projects.not_answered" + Stats.store.CounterValue "tool.core.list_projects.ok" |> should equal (before + 1L)
+    Stats.store.TimingCount "tool.core.list_projects_ms" |> should be (greaterThan 0L)

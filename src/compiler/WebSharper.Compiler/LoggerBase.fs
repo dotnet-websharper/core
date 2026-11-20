@@ -40,6 +40,7 @@ type LoggerBase() =
     let mutable timeStamps = [ Stopwatch.GetTimestamp() ]
     let mutable projectFile = ""
     let mutable timingLogPath = ""
+    let mutable stageObserver : Action<string, TimeSpan> = null
     static let timingLock = obj()
 
     static let jsonString (value: string) =
@@ -93,6 +94,11 @@ type LoggerBase() =
         with get() = timingLogPath
         and set value = timingLogPath <- value
 
+    /// Called with each stage TimedStage and TimedStageElapsed report (the booster's statistics).
+    member _.StageObserver
+        with get() = stageObserver
+        and set value = stageObserver <- value
+
     abstract Error : string -> unit
     abstract Out : string -> unit
     
@@ -109,6 +115,7 @@ type LoggerBase() =
         sprintf "%s: %O" name elapsed
         |> x.Out
         writeTimingRecord name elapsed (timeStamps.Length - 1)
+        if not (isNull stageObserver) then (try stageObserver.Invoke(name, elapsed) with _ -> ())
         timeStamps <- now :: timeStamps.Tail        
 
     /// Reports a stage timed by the caller, without touching the sequential stage timestamps.
@@ -118,6 +125,7 @@ type LoggerBase() =
         sprintf "%s: %O" name elapsed
         |> x.Out
         writeTimingRecord name elapsed (timeStamps.Length - 1)
+        if not (isNull stageObserver) then (try stageObserver.Invoke(name, elapsed) with _ -> ())
 
     [<System.Diagnostics.Conditional "DEBUG">]
     member x.DebugWrite s =

@@ -843,7 +843,10 @@ let record (state: ProjectState) =
         projects.[state.ProjectFile] <- state
         while projects.Count > maxProjects do
             let oldest = projects.Values |> Seq.minBy (fun p -> p.Finished)
-            projects.TryRemove(oldest.ProjectFile) |> ignore
+            if projects.TryRemove(oldest.ProjectFile) |> fst then Stats.count "agent.projects_evicted"
+
+/// How many compilations the agent tools keep now.
+let projectCount () = projects.Count
 
 /// What the booster provides to the tools besides the recorded compilations.
 type BoosterContext =
@@ -1372,6 +1375,36 @@ type IAgentExtension =
     /// Tools that need no booster (static content): `wsfscservice --mcp` answers them itself.
     abstract LocalTools : string list
 
+/// What the booster (or `wsfscservice --mcp`) gives an extension that implements IAgentExtensionWithHost.
+/// Members are only added here, so extensions built against an earlier version keep working.
+type IAgentHost =
+    /// The extension's statistics, under "ext.<extension name>.", kept with the booster's (Stats.fs).
+    abstract Stats : Stats.IAgentStats
+    /// Writes to the log of the process (the booster's log, or stderr of `wsfscservice --mcp`).
+    abstract Log : string -> unit
+    /// The WebSharper version of the booster.
+    abstract WebSharperVersion : string
+    /// True in the booster, false in `wsfscservice --mcp`.
+    abstract IsBooster : bool
+
+/// An extension that gets an IAgentHost when it is loaded, before its tools are used.
+type IAgentExtensionWithHost =
+    inherit IAgentExtension
+    abstract Initialize : host: IAgentHost -> unit
+
+/// Set by the process: its log, its WebSharper version, and whether it is the booster.
+let mutable hostLog : string -> unit = ignore
+let mutable hostVersion = ""
+let mutable hostIsBooster = true
+
+let private hostFor (e: IAgentExtension) =
+    let stats = Stats.forExtension e.Name
+    { new IAgentHost with
+        member _.Stats = stats
+        member _.Log msg = hostLog (sprintf "[%s] %s" e.Name msg)
+        member _.WebSharperVersion = hostVersion
+        member _.IsBooster = hostIsBooster }
+
 let private extensions = ConcurrentDictionary<string, IAgentExtension list>(StringComparer.OrdinalIgnoreCase)
 let private extensionFolders = ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
 
@@ -1400,9 +1433,17 @@ let loadExtensions (path: string) : Result<IAgentExtension list, string> =
                 with :? System.Reflection.ReflectionTypeLoadException as e -> e.Types |> Array.filter (isNull >> not)
             types
             |> Array.filter (fun t -> typeof<IAgentExtension>.IsAssignableFrom t && not t.IsAbstract && not t.IsInterface)
-            |> Array.map (fun t -> Activator.CreateInstance t :?> IAgentExtension)
+            |> Array.map (fun t ->
+                let e = Activator.CreateInstance t :?> IAgentExtension
+                match e with
+                | :? IAgentExtensionWithHost as h -> h.Initialize (hostFor e)
+                | _ -> ()
+                Stats.count ("extensions.loaded." + Stats.part e.Name)
+                e)
             |> List.ofArray))
-    with e -> Error (sprintf "Could not load the agent extension %s: %s" path e.Message)
+    with e ->
+        Stats.count "extensions.failed"
+        Error (sprintf "Could not load the agent extension %s: %s" path e.Message)
 
 /// The paths of the assemblies loadExtensions loaded.
 let loadedExtensionPaths () = extensions.Keys |> List.ofSeq
@@ -1416,6 +1457,12 @@ let allTools () =
     (freeTools |> List.filter (fun t -> not (fromExtensions |> List.exists (fun x -> x.Name = t.Name)))) @ fromExtensions
 
 let toolsJson () = toolsJsonOf (allTools ())
+
+/// Where a tool comes from: "core" or the name of the extension that has it.
+let toolSource (name: string) =
+    match loadedExtensions () |> List.tryFind (fun e -> e.Tools |> List.exists (fun t -> t.Name = name)) with
+    | Some e -> e.Name
+    | None -> "core"
 
 let baseInstructions =
     "Answers questions about the WebSharper projects compiled by the WebSharper booster (wsfscservice) "
@@ -1460,11 +1507,19 @@ let callTool (ctx: BoosterContext) (name: string) (arguments: string) : Result<s
             Error (sprintf "Unknown tool: %s. If it comes from an agent extension, build the project (dotnet build) so that the booster loads it." name)
         else Error (sprintf "Unknown tool: %s" name)
     | Some tool ->
-        try
-            let args = if String.IsNullOrWhiteSpace arguments then null else JsonNode.Parse arguments
-            let text = tool.Run ctx (ToolArgs args)
-            let text = if text.Length > maxResultChars then text.Substring(0, maxResultChars) + "\n... (truncated)" else text
-            Ok text
-        with
-        | ToolError msg -> Error msg
-        | e -> Error (sprintf "%s failed: %s" name e.Message)
+        // statistics: tool.<source>.<name>: its duration, how it ended, the size of its answer
+        let key = sprintf "tool.%s.%s" (Stats.part (toolSource name)) (Stats.part name)
+        let sw = Diagnostics.Stopwatch.StartNew()
+        let result, outcome =
+            try
+                let args = if String.IsNullOrWhiteSpace arguments then null else JsonNode.Parse arguments
+                let text = tool.Run ctx (ToolArgs args)
+                let text = if text.Length > maxResultChars then text.Substring(0, maxResultChars) + "\n... (truncated)" else text
+                Ok text, "ok"
+            with
+            | ToolError msg -> Error msg, "not_answered"
+            | e -> Error (sprintf "%s failed: %s" name e.Message), "failed"
+        Stats.ms (key + "_ms") sw.Elapsed
+        Stats.count (key + "." + outcome)
+        Stats.value (key + ".chars") (float (match result with Ok t | Error t -> t.Length))
+        result
