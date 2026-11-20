@@ -331,12 +331,46 @@ let startListening() =
 [<assembly: System.Reflection.AssemblyDescriptionAttribute("WebSharper Booster (" + AssemblyVersionInformation.WSVersion + ")")>]
 do ()
 
+/// Writes the BoosterRecord of this booster for dotnet ws. Best effort: the booster works without it.
+let registerBooster (folder: string) (log: string -> unit) =
+    try
+        use proc = System.Diagnostics.Process.GetCurrentProcess()
+        let record =
+            {
+                Pid = proc.Id
+                Version = AssemblyVersionInformation.WSVersion
+                Folder = folder
+                Started = proc.StartTime.ToUniversalTime()
+                Pipe = boosterPipeName folder
+            }
+        let path = boosterRecordPath folder
+        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+        let tmp = sprintf "%s.%i.tmp" path proc.Id
+        File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize record)
+        File.Move(tmp, path, true)
+    with ex ->
+        log (sprintf "Could not register the booster for dotnet ws: %s" ex.Message)
+
+let unregisterBooster (folder: string) (log: string -> unit) =
+    try
+        let path = boosterRecordPath folder
+        if File.Exists path then
+            let record = System.Text.Json.JsonSerializer.Deserialize<BoosterRecord>(File.ReadAllText path)
+            // only remove the record of this process
+            if isNull (box record) || record.Pid = Environment.ProcessId then
+                File.Delete path
+    with ex ->
+        log (sprintf "Could not unregister the booster for dotnet ws: %s" ex.Message)
+
 [<EntryPoint>]
 let main args =
     let initialLogLocation = if args.Length > 1 then Some (args[0]) else None
+    let log (msg: string) =
+        initialLogLocation |> Option.iter (fun loc -> try System.IO.File.AppendAllLines(loc, [msg]) with _ -> ())
     try
         // One service should serve all compilations in a folder. Protect it with a global Mutex.
         let location = System.Reflection.Assembly.GetEntryAssembly().Location
+        let folder = Path.GetDirectoryName location
         let mutexName =
             (location, "WsFscServiceMutex")
             |> System.IO.Path.Combine
@@ -349,8 +383,13 @@ let main args =
         mutex <- new Mutex(false, mutexName)
         mutex.WaitOne() |> ignore // should always instantly continue
         System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+        registerBooster folder log
         try
-            startListening()
+            try
+                startListening()
+            finally
+                // before releasing the mutex, so a new booster of this folder writes its record after this
+                unregisterBooster folder log
             try
                 mutex.ReleaseMutex()
             finally

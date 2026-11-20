@@ -34,7 +34,7 @@ System.Environment.GetCommandLineArgs()
 
 open WebSharper.Fake
 let version = "11.0"
-let pre = Some "preview.1"
+let pre = Some "preview.1.booster-packaging"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -42,27 +42,124 @@ let baseVersion =
 
 let computedVersion = ComputeVersion (Some baseVersion)
 
+/// Platforms of the Booster tools, each a ReadyToRun publish of the compilers: the 64-bit platforms .NET
+/// supports for development machines and CI. 32-bit hosts (win-x86, linux-arm, linux-musl-arm) use the
+/// portable compiler of WebSharper.FSharp / WebSharper.CSharp. Same list as RuntimeIdentifiers in the
+/// compiler projects.
+let boosterRids =
+    [
+        "win-x64"; "win-arm64"
+        "linux-x64"; "linux-arm64"
+        "linux-musl-x64"; "linux-musl-arm64"
+        "osx-x64"; "osx-arm64"
+    ]
+
+/// Compiler executables, in the order they publish for one platform: wsfsc references wsfscservice.
+let compilerExes =
+    [
+        "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj", "FSharp"
+        "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj", "FSharp"
+        "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj", "CSharp"
+    ]
+
+/// Runs dotnet with its output in a log file, printed when it fails.
+let runDotnetLogged (args: string list) (logFile: string) =
+    let psi = ProcessStartInfo(DotNet.Options.Create().DotNetCliPath)
+    for a in args do psi.ArgumentList.Add a
+    psi.WorkingDirectory <- __SOURCE_DIRECTORY__
+    psi.UseShellExecute <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    use p = new Process(StartInfo = psi)
+    let output = System.Text.StringBuilder()
+    let add (e: DataReceivedEventArgs) = if not (isNull e.Data) then lock output (fun () -> output.AppendLine e.Data |> ignore)
+    p.OutputDataReceived.Add add
+    p.ErrorDataReceived.Add add
+    p.Start() |> ignore
+    p.BeginOutputReadLine()
+    p.BeginErrorReadLine()
+    p.WaitForExit()
+    let text = lock output (fun () -> output.ToString())
+    Directory.CreateDirectory(Path.GetDirectoryName logFile) |> ignore
+    File.WriteAllText(logFile, text)
+    if p.ExitCode <> 0 then
+        Trace.traceError text
+    p.ExitCode
+
+/// Publishes the compilers to build/<mode>/<FSharp|CSharp>/net11.0/[<rid>/]deploy: None is the portable
+/// compiler, Some rid a ReadyToRun build. The platforms publish in parallel after one restore with
+/// ReadyToRun (which brings the runtime and crossgen packs of every platform), without restoring or
+/// building the referenced libraries again (the portable publish or the solution build did): each platform
+/// has its own obj/ and bin/ folders, so the parallel publishes share no output.
 let publish rids (mode: BuildMode) =
-    let publishExe (mode: BuildMode) fw input output =
-        for rid in rids do
-            let outputPath =
-                __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
-            DotNet.publish (fun p ->
-                { p with
-                    Framework = Some fw
-                    OutputPath = Some outputPath
-                    SelfContained = false |> Some
-                    Runtime = rid
-                    Configuration = mode.AsDotNet
-                    MSBuildParams =
-                        { p.MSBuildParams with
-                            NodeReuse = true
-                            DisableInternalBinLog = true
+    let fw = "net11.0"
+    let logDir = __SOURCE_DIRECTORY__ </> "build" </> string mode </> "publish-logs"
+    let deploy output (rid: string option) =
+        __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
+    let publishArgs (proj: string) output (rid: string option) extra =
+        [
+            yield "publish"; yield proj
+            yield "-f"; yield fw
+            yield "-c"; yield string mode
+            yield "-o"; yield deploy output rid
+            yield "--self-contained"; yield "false"
+            yield "-nr:false"
+            match rid with
+            | Some r -> yield "-r"; yield r
+            | None -> ()
+            yield! extra
+        ]
+    let check what code = if code <> 0 then failwithf "%s failed (exit code %d), see %s" what code logDir
+    // portable compiler first: it also builds the referenced libraries if needed
+    if rids |> List.contains None then
+        for (proj, output) in compilerExes do
+            let name = Path.GetFileNameWithoutExtension proj
+            Trace.log (sprintf "Publishing %s (portable)" name)
+            runDotnetLogged (publishArgs proj output None []) (logDir </> sprintf "%s.portable.log" name)
+            |> check (sprintf "Publishing %s" name)
+    let platforms = rids |> List.choose id
+    if not platforms.IsEmpty then
+        for (proj, _) in compilerExes do
+            let name = Path.GetFileNameWithoutExtension proj
+            Trace.log (sprintf "Restoring %s for %s" name (String.concat ", " platforms))
+            runDotnetLogged [ "restore"; proj; "-p:PublishReadyToRun=true"; "-nr:false" ] (logDir </> sprintf "%s.restore.log" name)
+            |> check (sprintf "Restoring %s" name)
+        // one job per platform and output folder: the F# job publishes wsfscservice, then wsfsc
+        let jobs =
+            [
+                for rid in platforms do
+                    for output in compilerExes |> List.map snd |> List.distinct do
+                        yield async {
+                            for (proj, _) in compilerExes |> List.filter (fun (_, o) -> o = output) do
+                                let name = Path.GetFileNameWithoutExtension proj
+                                let sw = Stopwatch.StartNew()
+                                let code =
+                                    runDotnetLogged
+                                        (publishArgs proj output (Some rid) [ "--no-restore"; "--no-dependencies" ])
+                                        (logDir </> sprintf "%s.%s.log" name rid)
+                                Trace.log (sprintf "Published %s for %s in %.0f s (exit code %d)" name rid sw.Elapsed.TotalSeconds code)
+                                check (sprintf "Publishing %s for %s" name rid) code
                         }
-                }) input
-    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
-    publishExe mode "net11.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp"
-    publishExe mode "net11.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+            ]
+        Async.Parallel(jobs, maxDegreeOfParallelism = max 2 System.Environment.ProcessorCount)
+        |> Async.RunSynchronously
+        |> ignore
+
+/// msbuild/WebSharper.CompilerVersion.props, packed next to the props of WebSharper.FSharp and
+/// WebSharper.CSharp: the WebSharper task uses a Booster tool only at exactly this version
+let writeVersionProps (version: string) =
+    let versionProps = "msbuild/WebSharper.CompilerVersion.props"
+    let vp =
+        String.concat "\r\n" [
+            "<Project>"
+            "  <PropertyGroup>"
+            sprintf "    <WebSharperCompilerVersion>%s</WebSharperCompilerVersion>" version
+            "  </PropertyGroup>"
+            "</Project>"
+            ""
+        ]
+    if not (File.Exists(versionProps) && vp = File.ReadAllText(versionProps)) then
+        File.WriteAllText(versionProps, vp)
 
 Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
@@ -103,6 +200,8 @@ Target.create "Prepare" <| fun _ ->
         ]
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
+
+    writeVersionProps computedVersion.AsString
 
     //// make minified scripts
     //let needsBuilding input output =
@@ -148,7 +247,8 @@ let targets =
                 BuildAction.Multiple [
                     BuildAction.Projects ["WebSharper.Compiler.sln"]
                     //BuildAction.Custom (publish [ Some "win-x64" ])
-                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64"; Some "osx-arm64" ])
+                    // portable compiler for WebSharper.FSharp / WebSharper.CSharp, ReadyToRun builds for the Booster tools (PackBoosters)
+                    BuildAction.Custom (publish (None :: List.map Some boosterRids))
                     BuildAction.Projects ["WebSharper.sln"]
                     BuildAction.Custom (fun _ -> stopService())
                 ]
@@ -324,48 +424,127 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     runMainTestsRelease()
 
 
-//region ** Custom Build Target for compiler packages **
-type RID =
-    | WIN_X64
-    | LINUX_X64
-    | LINUX_MUSL_X64
-    | OSX_X64
-    | OSX_ARM64
+//region ** Booster tool packages **
+// WebSharper.FSharp.Booster and WebSharper.CSharp.Booster: the ReadyToRun compilers as RID-specific .NET tools
+// (SDK 10+). A pointer package (type DotnetTool) lists one <id>.<rid> package (type DotnetToolRidPackage) per
+// platform, the CLI downloads only the one for the current platform. The WebSharper targets use an installed
+// Booster of the same version instead of the portable compiler of WebSharper.FSharp / WebSharper.CSharp.
 
-    static member OfString (s: string) =
-        match s.ToLower() with
-        | "win-x64" -> WIN_X64
-        | "linux-x64" -> LINUX_X64
-        | "linux_musl-x64" -> LINUX_MUSL_X64
-        | "osx-x64" -> OSX_X64
-        | "osx-arm64" -> OSX_ARM64
-        | _ ->
-            printfn "Invalid RID, defaulting to win-x64"
-            WIN_X64
 
-    override this.ToString() =
-        match this with
-        | WIN_X64 -> "win-x64"
-        | LINUX_X64 -> "linux-x64"
-        | LINUX_MUSL_X64 -> "linux-musl-x64"
-        | OSX_X64 -> "osx-x64"
-        | OSX_ARM64 -> "osx-arm64"
+type BoosterTool =
+    {
+        Id: string
+        Command: string
+        Folder: string
+        Executables: string list
+        Description: string
+    }
 
+let boosterTools =
+    [
+        {
+            Id = "WebSharper.FSharp.Booster"
+            Command = "wsfsc"
+            Folder = "FSharp"
+            Executables = [ "wsfsc"; "wsfscservice" ]
+            Description = "ReadyToRun build of the WebSharper F# compiler and its booster service for the current platform. Install it as a .NET tool at the version of WebSharper.FSharp to use it instead of the portable compiler."
+        }
+        {
+            Id = "WebSharper.CSharp.Booster"
+            Command = "wscsc"
+            Folder = "CSharp"
+            Executables = [ "wscsc" ]
+            Description = "ReadyToRun build of the WebSharper C# compiler for the current platform. Install it as a .NET tool at the version of WebSharper.CSharp to use it instead of the portable compiler."
+        }
+    ]
+
+let packBoosters (mode: BuildMode) (rids: string list) (version: string) (outputPath: string) =
+    let workDir = __SOURCE_DIRECTORY__ </> "build" </> string mode </> "booster"
+    Directory.CreateDirectory outputPath |> ignore
+    let save (b: NuGet.Packaging.PackageBuilder) =
+        let path = outputPath </> sprintf "%s.%s.nupkg" b.Id (b.Version.ToNormalizedString())
+        use fs = File.Create path
+        b.Save fs
+        Trace.log (sprintf "Created %s" path)
+    let builder (id: string) (description: string) (packageType: string) =
+        let b = NuGet.Packaging.PackageBuilder()
+        b.Id <- id
+        b.Version <- NuGet.Versioning.NuGetVersion.Parse version
+        b.Authors.Add "IntelliFactory" |> ignore
+        b.Description <- description
+        b.ProjectUrl <- System.Uri "https://websharper.com/"
+        b.Repository <- NuGet.Packaging.Core.RepositoryMetadata("git", "https://github.com/dotnet-websharper/core/", null, null)
+        b.LicenseMetadata <-
+            NuGet.Packaging.LicenseMetadata(
+                NuGet.Packaging.LicenseType.Expression, "Apache-2.0",
+                NuGet.Packaging.Licenses.NuGetLicenseExpression.Parse "Apache-2.0", null,
+                NuGet.Packaging.LicenseMetadata.CurrentVersion)
+        b.Tags.Add "WebSharper" |> ignore
+        b.PackageTypes.Add(NuGet.Packaging.Core.PackageType(packageType, NuGet.Packaging.Core.PackageType.EmptyVersion))
+        b
+    let addFile (b: NuGet.Packaging.PackageBuilder) (src: string) (target: string) =
+        b.Files.Add(NuGet.Packaging.PhysicalPackageFile(SourcePath = src, TargetPath = target.Replace('\\', '/')))
+    let writeSettings (path: string) (lines: string list) =
+        Directory.CreateDirectory(Path.GetDirectoryName path) |> ignore
+        File.WriteAllLines(path, "<?xml version=\"1.0\" encoding=\"utf-8\"?>" :: lines)
+    for tool in boosterTools do
+        // platform packages first, see https://learn.microsoft.com/dotnet/core/tools/rid-specific-tools
+        for rid in rids do
+            let deploy = __SOURCE_DIRECTORY__ </> "build" </> string mode </> tool.Folder </> "net11.0" </> rid </> "deploy"
+            if not (Directory.Exists deploy) then
+                failwithf "%s is missing: publish the compiler for %s first" deploy rid
+            let exe name = if rid.StartsWith "win-" then name + ".exe" else name
+            let target = sprintf "tools/net11.0/%s" rid
+            let b = builder (tool.Id + "." + rid) tool.Description "DotnetToolRidPackage"
+            let settings = workDir </> tool.Id </> rid </> "DotnetToolSettings.xml"
+            writeSettings settings [
+                "<DotNetCliTool Version=\"2\">"
+                "  <Commands>"
+                sprintf "    <Command Name=\"%s\" EntryPoint=\"%s\" Runner=\"executable\" />" tool.Command (exe tool.Command)
+                "  </Commands>"
+                "</DotNetCliTool>"
+            ]
+            addFile b settings (target + "/DotnetToolSettings.xml")
+            for file in Directory.EnumerateFiles(deploy, "*.dll", SearchOption.AllDirectories) do
+                addFile b file (target + "/" + Path.GetRelativePath(deploy, file))
+            for name in tool.Executables do
+                for file in [ exe name; name + ".runtimeconfig.json"; name + ".dll.config" ] do
+                    if File.Exists(deploy </> file) then
+                        addFile b (deploy </> file) (target + "/" + file)
+            if File.Exists(deploy </> "NLog.config") then
+                addFile b (deploy </> "NLog.config") (target + "/NLog.config")
+            // fsc looks for it next to the compiler when compiling an executable
+            addFile b (__SOURCE_DIRECTORY__ </> "src/compiler/WebSharper.FSharp/default.win32manifest") (target + "/default.win32manifest")
+            save b
+        let b = builder tool.Id tool.Description "DotnetTool"
+        let settings = workDir </> tool.Id </> "any" </> "DotnetToolSettings.xml"
+        writeSettings settings [
+            yield "<DotNetCliTool Version=\"2\">"
+            yield "  <Commands>"
+            yield sprintf "    <Command Name=\"%s\" />" tool.Command
+            yield "  </Commands>"
+            yield "  <RuntimeIdentifierPackages>"
+            for rid in rids do
+                yield sprintf "    <RuntimeIdentifierPackage RuntimeIdentifier=\"%s\" Id=\"%s.%s\" />" rid tool.Id rid
+            yield "  </RuntimeIdentifierPackages>"
+            yield "</DotNetCliTool>"
+        ]
+        addFile b settings "tools/any/any/DotnetToolSettings.xml"
+        save b
+
+Target.create "PackBoosters" <| fun _ ->
+    let outputPath = Environment.environVarOrNone "WSPackageFolder" |> Option.defaultValue "build"
+    packBoosters Release boosterRids computedVersion.AsString outputPath
+
+// Local compiler packages (version x.y.z.999) in build/: WebSharper.FSharp and WebSharper.CSharp with the
+// portable compiler, and with --runtimeID:<rid> also the Booster tools for that platform.
 let RUNTIMEIDPARAM = "--runtimeID:"
 
 let obtainRuntimeId () =
     fsi.CommandLineArgs
     |> Array.tryPick (fun arg ->
-        if arg.StartsWith RUNTIMEIDPARAM then
-            arg.Substring RUNTIMEIDPARAM.Length |> RID.OfString |> Some
-        else
-            None
+        if arg.StartsWith RUNTIMEIDPARAM then Some (arg.Substring RUNTIMEIDPARAM.Length) else None
     )
-    |> function
-        | None ->
-            printfn "RID not provided, defaulting to win-x64"
-            RID.WIN_X64
-        | Some x -> x
 
 let buildProjectPrerequisites (mode: BuildMode) =
     let build =
@@ -385,65 +564,46 @@ let buildProjectPrerequisites (mode: BuildMode) =
     build "src/compiler/WebSharper.MSBuild.CSharp/WebSharper.MSBuild.CSharp.csproj"
     build "src/compiler/WebSharper.MSBuild.FSharp/WebSharper.MSBuild.FSharp.csproj"
 
-
-let buildPackage (mode: BuildMode) (rid: RID) (version: Paket.SemVerInfo) =
+let buildPackage (mode: BuildMode) (rid: string option) (version: Paket.SemVerInfo) =
     printfn "%A %A" mode rid
-    publish [Some (rid.ToString())] mode
+    publish [ yield None; if rid.IsSome then yield rid ] mode
+    // the next Prepare writes the version of regular builds again
+    writeVersionProps version.AsString
     let package (tp: string) =
-        let tempTemplatePath =
-            let basePath = tp.Substring(0, tp.Length - 1 - ("paket.template".Length))
-            basePath + rid.ToString() + ".paket.template"
-        let targetFramework =
-            let projectName = (tp.Split('/')[1]).Replace(".paket.template", "")
-            let projectPath = $"src/compiler/{projectName}/{projectName}.fsproj"
-            System.Xml.XPath.XPathDocument(projectPath).CreateNavigator().Evaluate "string(//Project/PropertyGroup/TargetFramework/text())" |> string
-        let tempTemplate =
-            File.ReadAllLines tp
-            |> Array.choose (fun line ->
-                if line.EndsWith $"tools/{targetFramework}" then
-                    None
-                elif line.EndsWith "osx-arm64" && rid <> RID.OSX_ARM64 then
-                    None
-                elif line.EndsWith "osx-x64" && rid <> RID.OSX_X64 then
-                    None
-                elif line.EndsWith "linux-musl-x64" && rid <> RID.LINUX_MUSL_X64 then
-                    None
-                elif line.EndsWith "linux-x64" && rid <> RID.LINUX_X64 then
-                    None
-                elif line.EndsWith "win-x64" && rid <> RID.WIN_X64 then
-                    None
-                else
-                    line.Replace("Release", mode.ToString()) |> Some
-            )
-        File.WriteAllLines(tempTemplatePath, tempTemplate)
-        Paket.pack <| fun p ->
-            { p with
-                ToolType = ToolType.CreateLocalTool()
-                OutputPath = "build"
-                Version = version.AsString
-                TemplateFile = tempTemplatePath
-            }
-        File.Delete tempTemplatePath
+        let tempTemplatePath = tp.Replace(".paket.template", ".local.paket.template")
+        File.WriteAllLines(tempTemplatePath, File.ReadAllLines tp |> Array.map (fun line -> line.Replace("Release", mode.ToString())))
+        try
+            Paket.pack <| fun p ->
+                { p with
+                    ToolType = ToolType.CreateLocalTool()
+                    OutputPath = "build"
+                    Version = version.AsString
+                    TemplateFile = tempTemplatePath
+                }
+        finally
+            File.Delete tempTemplatePath
     [
         "tools/WebSharper.FSharp.paket.template"
         "tools/WebSharper.CSharp.paket.template"
     ]
     |> List.iter package
-
+    rid |> Option.iter (fun rid -> packBoosters mode [ rid ] version.AsString "build")
 
 Target.create "WS-CompileDebugPackage" <| fun args ->
     let versionToBuild = { computedVersion with Build = bigint 999 }
-    let rid = obtainRuntimeId ()
     buildProjectPrerequisites Debug
-    buildPackage Debug rid versionToBuild
+    buildPackage Debug (obtainRuntimeId ()) versionToBuild
 
 Target.create "WS-CompileReleasePackage" <| fun args ->
     let versionToBuild = { computedVersion with Build = bigint 999 }
-    let rid = obtainRuntimeId ()
     buildProjectPrerequisites Release
-    buildPackage Release rid versionToBuild
+    buildPackage Release (obtainRuntimeId ()) versionToBuild
 
 //endregion
+
+"WS-BuildRelease"
+    ==> "PackBoosters"
+    ==> "WS-Package"
 
 "WS-BuildRelease"
 //    ?=> "RunSPATestsRelease"
