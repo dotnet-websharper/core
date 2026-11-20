@@ -86,6 +86,9 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperStandalone { get; set; } = "";
         public string WebSharperTransparentCompiler { get; set; } = "";
         public string WebSharperParallelCompilation { get; set; } = "";
+
+        /// Assemblies with agent tools for the booster, separated by semicolons (set by agent extension packages).
+        public string WebSharperAgentExtensions { get; set; } = "";
         /// The reference assembly to write (@(IntermediateRefAssembly)), the Fsc task does not pass it in FscCommandLineArgs.
         public string RefAssembly { get; set; } = "";
         /// The implementation assemblies of references (@(ReferencePath)), the Fsc task passes reference assemblies when there are.
@@ -160,6 +163,10 @@ namespace WebSharper.MSBuild.FSharp
 
             if (bool.TryParse(WebSharperParallelCompilation, out bool parallelCompilation))
                 w.WriteLine("--parallelcompilation" + (parallelCompilation ? "+" : "-"));
+
+            foreach (var extension in (WebSharperAgentExtensions ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                if (!string.IsNullOrWhiteSpace(extension))
+                    w.WriteLine("--agentextension:" + extension.Trim());
 
             if (TryParseBool(WebSharperDownloadResources))
                 w.WriteLine("--dlres");

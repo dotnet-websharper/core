@@ -49,6 +49,9 @@ type WebSharperFSharpCompiler(?checker) =
     /// Diagnostics of the last type check, when it had errors not printed by Compile, which returned None.
     member val CheckDiagnostics : FSharpDiagnostic[] = [||] with get, set
 
+    /// The project options and results of the last F# type check, kept for the booster's agent tools.
+    member val LastCheck : (FSharpProjectOptions * FSharpCheckProjectResults) option = None with get, set
+
     /// wrapTranslation runs around the WebSharper translation only, not the F# type check:
     /// type providers must not be loaded while an AssemblyResolver is installed, otherwise
     /// their dependencies can be loaded a second time into its collectible context.
@@ -84,6 +87,8 @@ type WebSharperFSharpCompiler(?checker) =
             |> Async.RunSynchronously
 
         logger.TimedStage "Checking project"
+
+        this.LastCheck <- Some (projectOptions, checkProjectResults)
 
         // GetResult rethrows the task's exception preserving its stack trace
         prevMeta.GetAwaiter().GetResult()

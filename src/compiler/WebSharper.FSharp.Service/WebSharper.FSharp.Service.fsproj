@@ -25,6 +25,9 @@
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <Compile Include="Stats.fs" />
+    <Compile Include="AgentTools.fs" />
+    <Compile Include="Mcp.fs" />
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />

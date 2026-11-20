@@ -934,6 +934,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     if exitCode = 0 then
         FileSystem.OutputFiles.Finish config.AssemblyFile
+    AgentSnapshot.Publish (fun () ->
+        {
+            Config = config
+            ExitCode = exitCode
+            Checker = checker
+            Check = compiler.LastCheck
+            Compilation = comp
+            ReferenceMetadata =
+                if wsRefsMeta.Status = System.Threading.Tasks.TaskStatus.RanToCompletion then
+                    match wsRefsMeta.Result with
+                    | Some (_, _, m) -> Some m
+                    | None -> None
+                else None
+        }
+    )
     fullTime logger
     exitCode
 
