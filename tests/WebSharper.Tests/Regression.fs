@@ -630,6 +630,16 @@ type InlineOptionalArgs() =
         if isNull y then x else x + y
 
 [<JavaScript>]
+module Bug1621 =
+    // the shape of FsToolkit.ErrorHandling's ValueOption.tryGetValue
+    [<Inline>]
+    let inline tryGetValue (key: 'key) (dictionary: ^Dictionary) : ^value voption =
+        let mutable output = Unchecked.defaultof< ^value>
+        let found =
+            (^Dictionary: (member TryGetValue: 'key * byref< ^value> -> bool) (dictionary, key, &output))
+        if found then ValueSome output else ValueNone
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1287,6 +1297,23 @@ let Tests =
             equal (o.Add(1, 2)) 3
             equal (o.Describe("a")) "a"
             equal (o.Describe("a", "b")) "ab"
+        }
+
+        Test "#1621 Dictionary members through member constraints and interfaces" {
+            equal (Bug1621.tryGetValue "a" (dict [ ("a", 1) ])) (ValueSome 1)
+            equal (Bug1621.tryGetValue "b" (dict [ ("a", 1) ])) ValueNone
+            equal (Bug1621.tryGetValue "a" (readOnlyDict [ ("a", 1) ])) (ValueSome 1)
+            let d = dict [ ("a", 1) ]
+            isTrue (d.ContainsKey "a")
+            equal d.["a"] 1
+            equal (Array.ofSeq d.Keys) [| "a" |]
+            equal (Array.ofSeq d.Values) [| 1 |]
+            let r = readOnlyDict [ ("a", 1) ]
+            isTrue (r.ContainsKey "a")
+            equal r.["a"] 1
+            equal r.Count 1
+            equal (Array.ofSeq r.Keys) [| "a" |]
+            equal (Array.ofSeq r.Values) [| 1 |]
         }
 
         Test "#1623 use and try in a computation expression from a proxy project" {
