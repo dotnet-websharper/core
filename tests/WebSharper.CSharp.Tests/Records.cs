@@ -45,6 +45,22 @@ namespace WebSharper.CSharp.Tests
             IsFalse(new PersonP("Bill", "Wagner") == new PersonP("Bill", "Gates"));
         }
 
+        [Test("C# record GetHashCode")]
+        public void HashCode()
+        {
+            // GetHashCode used to call Unchecked.Hash(this), which calls GetHashCode
+            // again: a stack overflow in any hashing collection (dotnet-websharper/ui#314).
+            Equal(new PersonP("Bill", "Wagner").GetHashCode(), new PersonP("Bill", "Wagner").GetHashCode());
+            NotEqual(new PersonP("Bill", "Wagner").GetHashCode(), new PersonP("Bill", "Gates").GetHashCode());
+            Equal(new Person("Bill", "Wagner").GetHashCode(), new Person("Bill", "Wagner").GetHashCode());
+            Equal(new Teacher("Bill", "Wagner", "English").GetHashCode(), new Teacher("Bill", "Wagner", "English").GetHashCode());
+            Equal(new PersonStructPos("Bill", "Wagner").GetHashCode(), new PersonStructPos("Bill", "Wagner").GetHashCode());
+            var set = new HashSet<PersonP> { new("Bill", "Wagner"), new("Bill", "Wagner"), new("Bill", "Gates") };
+            Equal(set.Count, 2);
+            var dict = new Dictionary<PersonP, int> { [new PersonP("Bill", "Wagner")] = 1 };
+            Equal(dict[new PersonP("Bill", "Wagner")], 1);
+        }
+
         [Test("C# record ToString")]
         public void ToStringTest()
         {
