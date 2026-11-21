@@ -478,11 +478,23 @@ x: Equal(a, 1);
             Equal(_introduction, "My name is Bond. James Bond.");
         }
 
-        [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787", TestKind.Skip)]
+        [Test("Date formatting")]
         public void DateFormatting()
         {
             var d = new DateTime(2010, 4, 8, 15, 5, 39);
             Equal($"format:{d:hh}", "format:03");
+            Equal($"{d:yyyy-MM-dd HH:mm:ss}", "2010-04-08 15:05:39");
+            Equal($"[{d,6:mm}]", "[    05]");
+            Equal($"[{d,-6:mm}]", "[05    ]");
+        }
+
+        [Test("Interpolated string handler argument")]
+        public void InterpolatedStringHandler()
+        {
+            var x = 42;
+            var sb = new StringBuilder();
+            sb.Append($"x = {x}").Append(", ").AppendLine($"y = {x + 1}");
+            Equal(sb.ToString(), "x = 42, y = 43\n");
         }
 
         public int OptionalTest(int x, int y = 2, int z = 0, int w = 0) => 100 * x + 10 * y + z - w;
@@ -694,6 +706,28 @@ x: Equal(a, 1);
             IsTrue(d1 == d1);
             IsTrue(d1 != d2);
             IsTrue(d1 < d2);
+            IsFalse(d1 == d2);
+            IsFalse(d1 != d1);
+            IsFalse(d2 < d1);
+            IsTrue(d2 >= d1);
+            IsTrue(d1 <= d1);
+            Equal(d2 - d1, 3);
+            Equal(d1 + 2, Days.Mon);
+            var d3 = d1;
+            d3++;
+            Equal(d3, Days.Sun);
+            Days? n = null;
+            IsFalse(n == d1);
+            IsTrue(n != d1);
+            IsTrue((Days?)d2 == d2);
+            int? i1 = null, i2 = null, i3 = 1;
+            IsTrue(i1 == i2, "lifted == both null");
+            IsFalse(i1 != i2, "lifted != both null");
+            IsTrue(i1 != i3, "lifted != left null");
+            IsTrue(i3 != i1, "lifted != right null");
+            IsFalse(i1 <= i2, "lifted <= both null");
+            IsFalse(i1 >= i2, "lifted >= both null");
+            IsFalse(i1 < i3, "lifted < left null");
             Equal(d1.CompareTo(d2), -1);
             IsTrue(d1.HasFlag(Days.Sat));
             IsTrue(d1.GetHashCode() == d1.GetHashCode());
@@ -754,7 +788,7 @@ x: Equal(a, 1);
             Equal(res, 3);
         }
 
-        [Test("C# Index", TestKind.Skip)]
+        [Test("C# Index")]
         public void IndexTest()
         {
             string[] strings = { "0", "1", "2", "3", "4" };
@@ -764,14 +798,58 @@ x: Equal(a, 1);
 
             Equal(strings[i], "2");
             Equal(strings[j], "3");
+            Equal(strings[^1], "4");
+            Equal(i.Value, 2);
+            IsFalse(i.IsFromEnd);
+            Equal(j.Value, 2);
+            IsTrue(j.IsFromEnd);
+            Equal(j.GetOffset(5), 3);
+            IsTrue(j.Equals(Index.FromEnd(2)));
+            IsFalse(j.Equals(i));
+            Equal(Index.End.GetOffset(5), 5);
+
+            strings[^1] = "last";
+            Equal(strings[4], "last");
+            calls = 0;
+            ArrayOnce(strings)[^2] = "x";
+            Equal(calls, 1);
+            Equal(strings[3], "x");
+            Equal(ArrayOnce(strings)[^5], "0");
+            Equal(calls, 2);
+
+            Equal("hello"[^1], 'o');
+            var list = new List<int> { 1, 2, 3 };
+            Equal(list[^1], 3);
+            Equal(list[j], 2);
         }
 
-        [Test("C# Range", TestKind.Skip)]
+        int calls;
+        string[] ArrayOnce(string[] a)
+        {
+            calls++;
+            return a;
+        }
+
+        [Test("C# Range")]
         public void RangeTest()
         {
             int[] someArray = new int[5] { 1, 2, 3, 4, 5 };
             Equal(someArray[0..2], new[] { 1, 2 });
             Equal(someArray[1..^0], new[] { 2, 3, 4, 5 });
+            Equal(someArray[..2], new[] { 1, 2 });
+            Equal(someArray[^2..], new[] { 4, 5 });
+            Equal(someArray[..], new[] { 1, 2, 3, 4, 5 });
+            Range r = 1..^1;
+            Equal(someArray[r], new[] { 2, 3, 4 });
+            Equal(r.Start.Value, 1);
+            IsTrue(r.End.IsFromEnd);
+            IsTrue(r.Equals(1..^1));
+            var (offset, length) = r.GetOffsetAndLength(5);
+            Equal(offset, 1);
+            Equal(length, 3);
+            Raises(() => someArray[3..2].ToString());
+            Equal("hello"[1..^1], "ell");
+            Equal("hello"[..2], "he");
         }
 
         public static void Validate(bool condition, [CallerArgumentExpression("condition")] string message = null)
@@ -782,18 +860,44 @@ x: Equal(a, 1);
             }
         }
 
-        [Test("CallerArgumentExpression attrribute", TestKind.Skip)]
+        [Test("CallerArgumentExpression attribute")]
         public void CallerArgumentExpressionTest()
         {
             try
             {
                 Validate(1 == 2);
+                IsTrue(false);
             }
-            catch (Exception e)
+            catch (InvalidOperationException e)
             {
                 Equal(e.Message, "Argument failed validation: <1 == 2>");
-                throw;
             }
+        }
+
+        public static string CallerInfo(
+            [CallerMemberName] string member = "",
+            [CallerLineNumber] int line = 0,
+            [CallerFilePath] string file = "")
+            => member + ":" + line + ":" + (file.EndsWith("Syntax.cs") ? "T" : "F");
+
+        public class CallerInfoObject
+        {
+            public string Member { get; }
+            public CallerInfoObject([CallerMemberName] string member = "") { Member = member; }
+        }
+
+        public class CallerInfoDerived : CallerInfoObject
+        {
+            public CallerInfoDerived() : base() { }
+        }
+
+        [Test("Caller info attributes")]
+        public void CallerInfoTest()
+        {
+            Equal(CallerInfo(), "CallerInfoTest:897:T");
+            Equal(CallerInfo("x"), "x:898:T");
+            Equal(new CallerInfoObject().Member, "CallerInfoTest");
+            Equal(new CallerInfoDerived().Member, ".ctor");
         }
 
         public delegate int LambdaWithDefault(int i = 1);
@@ -803,10 +907,14 @@ x: Equal(a, 1);
             return f();
         }
 
-        [Test("lambda with default parameter", TestKind.Skip)]
+        [Test("lambda with default parameter")]
         public void TestDefaultLambdaParameter()
         {
             Equal(DefaultLambdaParameter(x => x + 2), 3);
+            var f = (int i = 1, string s = "a") => s + i;
+            Equal(f(), "a1", "natural type lambda, all defaults");
+            Equal(f(2), "a2", "natural type lambda, one default");
+            Equal(f(3, "b"), "b3", "natural type lambda, no defaults");
         }
 
         [Test("Extension syntax")]

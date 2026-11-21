@@ -987,7 +987,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 NewTuple ((items |> List.map tr), ts)    
             | _ -> failwith "Expecting a tuple type for NewTuple"
         | P.WhileLoop (cond, body, _) ->
-            IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
+            IgnoredStatementExpr(While(tr cond, Capturing().CaptureValueIfNeeded(tr body)))
         | P.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
                 let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity var)
@@ -1024,7 +1024,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 Some (Sequential [NewVar(i, tr start); NewVar (j, tr end_)]), 
                 Some (if up then Binary(Var i, BinaryOperator.``<=``, Var j) else Binary(Var i, BinaryOperator.``>=``, Var j)), 
                 Some (if up then MutatingUnary(MutatingUnaryOperator.``()++``, Var i)  else MutatingUnary(MutatingUnaryOperator.``()--``, Var i)), 
-                ExprStatement (Capturing(i).CaptureValueIfNeeded(trBody))
+                Capturing(i).CaptureValueIfNeeded(trBody)
             ) |> IgnoredStatementExpr
         | P.TypeTest (typ, expr) ->
             TypeCheck (tr expr, sr.ReadType env.TParams typ)
@@ -1448,7 +1448,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | ParseError m -> m
             | _ -> "Error while reading F# code: " + e.Message + " " + e.StackTrace
         env.Compilation.AddError(Some (getSourcePos expr), WebSharper.Compiler.SourceError msg)
-        errorPlaceholder        
+        errorPlaceholderWith msg        
     |> withSourcePos expr
 
 type FSharp.Compiler.Text.Range with

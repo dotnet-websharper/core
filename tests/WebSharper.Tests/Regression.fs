@@ -620,6 +620,15 @@ module ExtensionWitnessRegression =
     [<Inline>]
     let repeat n = multiply "ha" n
 
+/// Default value assignments to omitted optional arguments must stay declared after inlining
+[<JavaScript>]
+type InlineOptionalArgs() =
+    [<Inline>]
+    member this.Add(x: int, [<System.Runtime.InteropServices.Optional>] y: int) = x + y
+    [<Inline>]
+    member this.Describe(x: string, [<System.Runtime.InteropServices.Optional>] y: string) =
+        if isNull y then x else x + y
+
 [<JavaScript>]
 module Bug1621 =
     // the shape of FsToolkit.ErrorHandling's ValueOption.tryGetValue
@@ -1281,6 +1290,13 @@ let Tests =
         Test "Extension operator witnesses through WebSharper inline calls" {
             equal (ExtensionWitnessRegression.repeat 3) "hahaha"
             equal (ExtensionWitnessRegression.repeat 0) ""
+        }
+        Test "Inline member with omitted optional arguments" {
+            let o = InlineOptionalArgs()
+            equal (o.Add(1)) 1
+            equal (o.Add(1, 2)) 3
+            equal (o.Describe("a")) "a"
+            equal (o.Describe("a", "b")) "ab"
         }
 
         Test "#1621 Dictionary members through member constraints and interfaces" {

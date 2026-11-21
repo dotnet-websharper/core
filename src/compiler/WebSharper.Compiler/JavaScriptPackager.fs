@@ -849,6 +849,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             IsPrivate = false // TODO
                             IsAbstract = modifier = M.Modifier.Abstract
                             Kind = mkind
+                            FuncKind = FuncKind.Normal
                         }
                     let baseGen =
                         match modifier with
@@ -884,6 +885,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             IsPrivate = false // TODO
                             IsAbstract = false
                             Kind = mkind
+                            FuncKind = FuncKind.Normal
                         }
                     if isTakingSingleGenericArg && output <> O.JavaScript then
                         members.Add <| ClassMethod(info, mname, [], thisVar, None, getSignature intfGen fromInst |> transformSingleGenericArgToEmpty |> addGenerics (cgen @ mgen))
@@ -1045,6 +1047,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             IsPrivate = false
                             IsAbstract = false
                             Kind = kind
+                            FuncKind = FuncKind.Normal
                         }
                     members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false None |> addGenerics cgen))
                 | _ ->
@@ -1421,6 +1424,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                             IsPrivate = false
                             IsAbstract = false
                             Kind = k
+                            FuncKind = FuncKind.Normal
                         }
                     ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc)) |> Some   
                 ) |> List.ofSeq
