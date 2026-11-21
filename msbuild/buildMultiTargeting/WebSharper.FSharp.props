@@ -25,4 +25,5 @@ $end{copyright}
   <PropertyGroup>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.websharper</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)WebSharper.CompilerVersion.props" Condition="Exists('$(MSBuildThisFileDirectory)WebSharper.CompilerVersion.props')" />
 </Project>

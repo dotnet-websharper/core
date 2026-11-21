@@ -17,21 +17,17 @@
     <ProjectReference Include="..\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
+  <!-- the compilers load it for offline sitelets (html projects): copied next to the built compilers, and into
+       every published compiler folder (portable and each Booster platform, published before WebSharper.sln builds) -->
   <Target Name="_CopyToDeploy" AfterTargets="Build">
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\win-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\linux-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\linux-musl-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\osx-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\osx-arm64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net11.0" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\win-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\linux-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\linux-musl-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\osx-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\osx-arm64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net11.0" />
+    <ItemGroup>
+      <_WebSharperCompilerFolder Include="$(OutputPath)\..\FSharp\net11.0" />
+      <_WebSharperCompilerFolder Include="$(OutputPath)\..\CSharp\net11.0" />
+      <_WebSharperPublishedCompiler Include="$(OutputPath)\..\FSharp\net11.0\deploy\wsfsc.dll;$(OutputPath)\..\FSharp\net11.0\*\deploy\wsfsc.dll" />
+      <_WebSharperPublishedCompiler Include="$(OutputPath)\..\CSharp\net11.0\deploy\wscsc.dll;$(OutputPath)\..\CSharp\net11.0\*\deploy\wscsc.dll" />
+      <_WebSharperCompilerFolder Include="@(_WebSharperPublishedCompiler->'%(RootDir)%(Directory)')" />
+    </ItemGroup>
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="%(_WebSharperCompilerFolder.Identity)" />
   </Target>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

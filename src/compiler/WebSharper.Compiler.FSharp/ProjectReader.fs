@@ -729,7 +729,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
 
                         let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr, recMembers)  
                         let res =
-                            let b = CodeReader.transformExpression env expr 
+                            let b = CodeReader.transformExpression env expr |> SeqGenerators.transform
                             match env.RecMemberUsed with
                             | Some (i, expr) ->
                                 let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
@@ -756,7 +756,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                                             | ExprSourcePos (p, _) -> Some p
                                             | _ -> None
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
-                                        errorPlaceholder
+                                        errorPlaceholderWith e.Message
                                 | _ -> b
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
@@ -797,20 +797,26 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                                     )
                                     |> List.ofSeq
                                 let vars = 
-                                    if List.isEmpty defValues then
+                                    if List.isEmpty defValues || isInline then
                                         vars
                                     else
                                         // mark vars with default value setters mutable
                                         vars |> List.map (fun v -> if defValues |> List.exists (fun (i, _) -> i = v) then v.ToMutable() else v)
-                                let b =
-                                    if List.isEmpty defValues then b else
-                                        Sequential [
-                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
-                                            yield b
-                                        ]
                                 if isInline then
+                                    // inlined arguments are not variables to assign, the value with the default is a new one
+                                    let b =
+                                        List.foldBack (fun (i: Id, v) body ->
+                                            let d = Id.New(?name = i.Name, mut = false)
+                                            Let(d, Conditional (Var i ^=== Undefined, v, Var i), ReplaceId(i, d).TransformExpression body)
+                                        ) defValues b
                                     makeExprInline (Option.toList thisVar @ vars) b
                                 else 
+                                    let b =
+                                        if List.isEmpty defValues then b else
+                                            Sequential [
+                                                for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
+                                                yield b
+                                            ]
                                     let returnType =
                                         match memdef with
                                         | Member.Method (_, mdef)  
@@ -830,7 +836,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                         curriedArgs, TailCalls.optimize currentMethod inlinesOfClass res
                     with e ->
                         error (sprintf "Error reading definition: %s at %s" e.Message e.StackTrace)
-                        None, errorPlaceholder
+                        None, errorPlaceholderWith ("Error reading definition: " + e.Message)
 
                 let getImport() =
                     mAnnot.Import |> Option.map comp.JSImport

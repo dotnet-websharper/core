@@ -90,7 +90,7 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test("Local async function")]
-        public async void LocalAsync()
+        public async Task LocalAsync()
         {
             async Task<int> GetOneAsyncLocal()
             {
@@ -100,6 +100,122 @@ namespace WebSharper.CSharp.Tests
 
             var one = await GetOneAsyncLocal();
             Equal(one, 1);
+        }
+
+        class MyException : Exception
+        {
+            public MyException(string message) : base(message) { }
+        }
+
+        async Task<int> ThrowAfterAwait(string message)
+        {
+            await Task.Delay(0);
+            throw new MyException(message);
+        }
+
+        async Task<Task<int>> NestedTask()
+        {
+            await Task.Delay(0);
+            return Task.FromResult(2);
+        }
+
+        async Task<T> Identity<T>(T x)
+        {
+            await Task.Delay(0);
+            return x;
+        }
+
+        int syncPart = 0;
+
+        async Task<int> SyncPartFirst()
+        {
+            syncPart = 1;
+            await Task.Delay(0);
+            syncPart = 2;
+            return syncPart;
+        }
+
+        [Test("Exceptions in async methods")]
+        public async Task AsyncExceptions()
+        {
+            var task = ThrowAfterAwait("x");
+            try
+            {
+                await task;
+                IsTrue(false, "should throw");
+            }
+            catch (MyException e)
+            {
+                Equal(e.Message, "x");
+            }
+            IsTrue(task.IsFaulted);
+            IsTrue(task.Exception is AggregateException);
+            Equal(task.Exception.InnerExceptions[0].Message, "x");
+            try
+            {
+                await Task.Run(new Action(() => { throw new MyException("run"); }));
+                IsTrue(false, "should throw");
+            }
+            catch (MyException e)
+            {
+                Equal(e.Message, "run");
+            }
+            var tcs = new TaskCompletionSource<int>();
+            tcs.SetCanceled();
+            try
+            {
+                await tcs.Task;
+                IsTrue(false, "should throw");
+            }
+            catch (OperationCanceledException)
+            {
+                IsTrue(tcs.Task.IsCanceled);
+            }
+        }
+
+        [Test("try/finally around await")]
+        public async Task AwaitInTryFinally()
+        {
+            var log = "";
+            try
+            {
+                log += "a";
+                await Task.Delay(0);
+                log += "b";
+            }
+            finally
+            {
+                log += "c";
+            }
+            Equal(log, "abc");
+        }
+
+        [Test("Async results that are tasks")]
+        public async Task AsyncTaskResults()
+        {
+            var inner = await NestedTask();
+            Equal(await inner, 2);
+            var t = await Identity(Task.FromResult(3));
+            Equal(await t, 3);
+            Equal(await Identity("s"), "s");
+        }
+
+        [Test("Async lambdas")]
+        public async Task AsyncLambdas()
+        {
+            Func<int, Task<int>> add1 = async x => { await Task.Delay(0); return x + 1; };
+            Func<Task> nothing = async () => await Task.Delay(0);
+            Equal(await add1(1), 2);
+            await nothing();
+            IsTrue(true);
+        }
+
+        [Test("Synchronous part of async method")]
+        public async Task AsyncSyncPart()
+        {
+            var t = SyncPartFirst();
+            Equal(syncPart, 1);
+            Equal(await t, 2);
         }
 
         [Test("Result")]

@@ -115,7 +115,7 @@ namespace WebSharper.CSharp.Tests
             public int[] buffer { get; set; } = new int[10];
         }
 
-        [Test("Collection construction with implicit from the end indexing", TestKind.Skip)]
+        [Test("Collection construction with implicit from the end indexing")]
         public void ImplicitFromTheEnd()
         {
             var countdown = new TimerRemaining()
@@ -136,6 +136,21 @@ namespace WebSharper.CSharp.Tests
             };
 
             Equal(countdown.buffer[0], 9);
+            Equal(countdown.buffer[9], 0);
+        }
+
+        [Test("Array creation with a size")]
+        public void ArrayCreationWithSize()
+        {
+            var a = new int[3];
+            Equal(a, new[] { 0, 0, 0 });
+            var n = 2;
+            var s = new string[n];
+            Equal(s.Length, 2);
+            IsTrue(s[0] == null);
+            var j = new int[2][];
+            Equal(j.Length, 2);
+            IsTrue(j[1] == null);
         }
     }
 }

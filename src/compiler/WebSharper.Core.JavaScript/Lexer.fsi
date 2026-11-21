@@ -53,6 +53,9 @@ type Keyword =
     | ``while`` = 27
     | ``with`` = 28
     | ``import`` = 29
+    | ``const`` = 30
+    | ``class`` = 31
+    | ``super`` = 32
 
 /// Represents symbolic keywords.
 type Symbol =
@@ -105,6 +108,14 @@ type Symbol =
     | ``|=`` = 46
     | ``^=`` = 47
     | ``**`` = 48
+    | ``=>`` = 49
+    | ``??`` = 50
+    | ``??=`` = 51
+    | ``?.`` = 52
+    | ``...`` = 53
+    | ``**=`` = 54
+    | ``&&=`` = 55
+    | ``||=`` = 56
 
 /// Represents lexemes: identifiers, literals, keywords and so on.
 type Lexeme =
@@ -115,6 +126,8 @@ type Lexeme =
     | RegexLiteral of string
     | ReservedWord of Keyword
     | StringLiteral of string
+    /// Part of a template literal, cooked value and if it is the end of the literal
+    | TemplateString of string * bool
 
 /// Represents the column number, starting from 1.
 type Column = int
@@ -155,3 +168,6 @@ val InputElementDiv : State -> IToken
 
 /// Retrieves the next token using the RegExp lexical grammar.
 val InputElementRegExp : State -> IToken
+
+/// Retrieves the next template literal part, after the `}` closing a substitution.
+val TemplateContinuation : State -> IToken
