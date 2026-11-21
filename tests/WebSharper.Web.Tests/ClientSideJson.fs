@@ -515,7 +515,7 @@ module ClientSideJson =
             }
 
             Test "deserialize obj" {
-                equalMsg (Json.Deserialize<obj> "null") (box ()) "null"
+                equalMsg (Json.Deserialize<obj> "null") null "null"
                 equalMsg (Json.Deserialize<obj> "123") (box 123) "int"
                 equalMsg (Json.Deserialize<obj> "123.456") (box 123.456) "float"
                 equalMsg (Json.Deserialize<obj> "\"test\"") (box "test") "string"

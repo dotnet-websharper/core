@@ -1660,6 +1660,10 @@ type DefaultOf() =
         let t = c.Method.Generics.[0]
         if t.IsParameter then MacroNeedsResolvedTypeArg t else
         match t with
+        | VoidType -> MacroOk Undefined
+        | ConcreteType td when td.Entity = Definitions.Unit || td.Entity = Definitions.Void ->
+            // unit values are undefined everywhere else, keep them equal (#1622)
+            MacroOk Undefined
         | ConcreteType td when
             (td.Entity.Value.Assembly.StartsWith "netstandard" &&
                 match td.Entity.Value.FullName with
