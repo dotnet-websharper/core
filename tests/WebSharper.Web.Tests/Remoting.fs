@@ -545,6 +545,35 @@ module Server =
     [<Remote>]
     let countM2 () = async.Return counterM2.Value
 
+    /// #1629: decimal and 64-bit integer JSON is written and read with the
+    /// invariant culture, also when the server culture uses a decimal comma.
+    [<Remote>]
+    let JsonNumbersUnderCommaCulture () =
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        let culture = System.Globalization.CultureInfo.CurrentCulture
+        try
+            System.Globalization.CultureInfo.CurrentCulture <- System.Globalization.CultureInfo "de-DE"
+            let jP = WebSharper.Core.Json.Provider.Create()
+            let enc (e: WebSharper.Core.Json.Encoder<'T>) (x: 'T) = e.Encode x |> WebSharper.Core.Json.Stringify
+            let parse (s: string) = WebSharper.Core.Json.Parse s
+            async.Return (
+                [|
+                    enc (jP.GetEncoder<decimal>()) 1234.5m
+                    enc (jP.GetEncoder<int64>()) -9007199254740993L
+                    enc (jP.GetEncoder<uint64>()) 18446744073709551615UL
+                    enc (jP.GetEncoder<bigint>()) 12345678901234567890I
+                |],
+                [|
+                    jP.GetDecoder<decimal>().Decode(parse "\"1234.5\"").ToString(inv)
+                    jP.GetDecoder<int64>().Decode(parse "\"-9007199254740993\"").ToString(inv)
+                    jP.GetDecoder<uint64>().Decode(parse "\"18446744073709551615\"").ToString(inv)
+                    jP.GetDecoder<bigint>().Decode(parse "\"12345678901234567890\"").ToString(inv)
+                    (jP.GetDecoder<obj>().Decode(parse "1.5") :?> float).ToString(inv)
+                |]
+            )
+        finally
+            System.Globalization.CultureInfo.CurrentCulture <- culture
+
 module Remoting =
 
     open WebSharper.Testing
@@ -587,6 +616,12 @@ module Remoting =
                 equal x 0
                 let! x = Server.f5 (Some -40)
                 equal x -39
+            }
+
+            Test "#1629 decimal and 64-bit JSON under a decimal-comma server culture" {
+                let! (encoded: string[]), (decoded: string[]) = Server.JsonNumbersUnderCommaCulture()
+                equal encoded [| "\"1234.5\""; "\"-9007199254740993\""; "\"18446744073709551615\""; "\"12345678901234567890\"" |]
+                equal decoded [| "1234.5"; "-9007199254740993"; "18446744073709551615"; "12345678901234567890"; "1.5" |]
             }
 
             Test "string -> string -> Async<string>" {

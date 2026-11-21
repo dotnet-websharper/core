@@ -883,7 +883,13 @@ module Macro =
                                         k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
                                 <| []
                     | _ ->
-                        fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
+                        let fullName = t.TypeDefinition.Value.FullName
+                        match fullName with
+                        | "System.Decimal" | "System.Numerics.Complex" ->
+                            // proxied by WebSharper.MathJS, which also supplies EncodeJson/DecodeJson
+                            fail (name + ": Type not supported: " + fullName + ". Reference the WebSharper.MathJS package for client-side support of this type.")
+                        | _ ->
+                            fail (name + ": Type not supported: " + fullName)
             encode t
 
         let isIdentLambda (e: Expression) =
