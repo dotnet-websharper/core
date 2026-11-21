@@ -61,6 +61,20 @@ namespace WebSharper.CSharp.Tests
             Equal(dict[new PersonP("Bill", "Wagner")], 1);
         }
 
+        [Test("C# record EqualityContract")]
+        public void EqualityContract()
+        {
+            // The EqualityContract getter used to read a field of its own name,
+            // which called the getter again and overflowed the stack.
+            var bill = new ContractP("Bill");
+            IsTrue(bill.SameContract(new ContractP("Ann")));
+            IsFalse(bill.SameContract(new ContractDerived("Bill", 1)));
+            IsTrue(new ContractDerived("Bill", 1).SameContract(new ContractDerived("Ann", 2)));
+            // a user-defined Equals that relies on EqualityContract
+            IsTrue(new CaseInsensitive("Bill").Equals(new CaseInsensitive("BILL")));
+            IsFalse(new CaseInsensitive("Bill").Equals(new CaseInsensitive("Ann")));
+        }
+
         [Test("C# record ToString")]
         public void ToStringTest()
         {
@@ -236,6 +250,24 @@ namespace WebSharper.CSharp.Tests
         public string MiddleName { get => middleName; set => middleName = value; }
 
         public string LastName { get; set; }
+    }
+
+    [JavaScript]
+    public record ContractP(string Name)
+    {
+        public bool SameContract(ContractP other) => ReferenceEquals(EqualityContract, other.EqualityContract);
+    }
+
+    [JavaScript]
+    public record ContractDerived(string Name, int Year) : ContractP(Name);
+
+    [JavaScript]
+    public record CaseInsensitive(string Name)
+    {
+        public virtual bool Equals(CaseInsensitive other) =>
+            other is not null && ReferenceEquals(EqualityContract, other.EqualityContract) && Name.ToLower() == other.Name.ToLower();
+
+        public override int GetHashCode() => Name.ToLower().GetHashCode();
     }
 
     [JavaScript]

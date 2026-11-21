@@ -42,7 +42,7 @@ open Microsoft.CodeAnalysis.CSharp
 
 let wsRefs =
     let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", x + ".dll")
+        Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "build", "Release", "netstandard2.0", x + ".dll")
     List.map wsLib [
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
