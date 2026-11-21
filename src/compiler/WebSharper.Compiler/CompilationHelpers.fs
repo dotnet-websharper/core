@@ -686,6 +686,14 @@ type Substitution(args, ?thisObj) =
         let obj = this.TransformExpression obj
         ForIn(this.RefreshBound var, obj, this.TransformStatement body)
 
+    override this.TransformForOf(var, iterable, body) =
+        let iterable = this.TransformExpression iterable
+        ForOf(this.RefreshBound var, iterable, this.TransformStatement body)
+
+    override this.TransformOptionalChain(obj, var, chain) =
+        let obj = this.TransformExpression obj
+        OptionalChain(obj, this.RefreshBound var, this.TransformExpression chain)
+
     override this.TransformId i =
         match refresh.TryFind i with
         | Some n -> n

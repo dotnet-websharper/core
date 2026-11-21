@@ -70,3 +70,27 @@ let ``Inlining refreshes variables bound by statements`` () =
         Assert.AreEqual(e1, e2)
         Assert.AreEqual(k1, k2)
     | e -> Assert.Fail(sprintf "Unexpected shape: %s" (Debug.PrintExpression e))
+
+// The same for the variables of `for...of` loops and optional chains.
+[<Test>]
+let ``Inlining refreshes for...of and optional chain variables`` () =
+    let item = Id.New("x")
+    let chained = Id.New("o")
+    // { for (x of $0) { x?.length } }
+    let body =
+        StatementExpr(
+            ForOf(item, Hole 0, ExprStatement (OptionalChain(Var item, chained, ItemGet(Var chained, Value (String "length"), Pure)))),
+            None
+        )
+    let original = idsOf body
+    let inline1 = Substitution([ Value (Int 1) ]).TransformExpression body
+    let inline2 = Substitution([ Value (Int 2) ]).TransformExpression body
+    let ids1 = idsOf inline1
+    Assert.AreEqual(2, ids1.Count, "each bound variable stays a single Id within one inlined copy")
+    Assert.IsFalse(ids1.Overlaps original, "inlined copy reuses an Id of the inline body")
+    Assert.IsFalse(ids1.Overlaps (idsOf inline2), "two inlined copies share an Id")
+    match inline1 with
+    | StatementExpr (ForOf (x1, _, ExprStatement (OptionalChain (Var x2, o1, ItemGet (Var o2, _, _)))), None) ->
+        Assert.AreEqual(x1, x2)
+        Assert.AreEqual(o1, o2)
+    | e -> Assert.Fail(sprintf "Unexpected shape: %s" (Debug.PrintExpression e))
