@@ -280,6 +280,32 @@ let rec rev_map_acc f l acc =
     | h :: t -> rev_map_acc f t (f h :: acc)
 
 [<JavaScript>]
+let variableCleanup () =
+    // mutable variables captured by closures are ref cells in F#, plain variables in JavaScript
+    let mutable count = 0
+    let incr () = count <- count + 1
+    incr ()
+    incr ()
+    let fs = ResizeArray()
+    for i in 1 .. 3 do
+        let mutable x = i
+        fs.Add(fun () -> x <- x * 10; x)
+    let inLoop1 = [ for f in fs -> f() ]
+    let inLoop2 = [ for f in fs -> f() ]
+    let mutable c = 1
+    let d = c
+    let getD () = d
+    c <- 2
+    let swap (a, b) =
+        let mutable a = a
+        let mutable b = b
+        let t = a
+        a <- b
+        b <- t
+        a, b
+    count, inLoop1, inLoop2, (getD(), c), swap (1, 2)
+
+[<JavaScript>]
 let Tests =
 
     let LocalTupled (a, b) =
@@ -385,6 +411,15 @@ let Tests =
             tailRecMultipleNoReturn 5
             moduleTailRecMultipleNoReturn 5
             o.TailRecSingleNoReturn [ 1 .. 5 ]
+        }
+
+        Test "Variable cleanup" {
+            let count, inLoop1, inLoop2, copy, swapped = variableCleanup ()
+            equalMsg count 2 "captured mutable variable"
+            equalMsg inLoop1 [ 10; 20; 30 ] "captured mutable variable in loop"
+            equalMsg inLoop2 [ 100; 200; 300 ] "captured mutable variable in loop, again"
+            equalMsg copy (1, 2) "copy of a mutable variable captured before change"
+            equalMsg swapped (2, 1) "swap with a copy"
         }
     }
 

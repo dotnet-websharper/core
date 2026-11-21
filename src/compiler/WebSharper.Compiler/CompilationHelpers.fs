@@ -57,6 +57,11 @@ let rec removePureParts expr =
         -> CombineExpressions (a |> List.map removePureParts) 
     | Conditional (a, b, c) 
         -> Conditional (a, removePureParts b, removePureParts c) 
+    | Binary (a, (BinaryOperator.``&&`` | BinaryOperator.``||`` | BinaryOperator.``??`` as op), b) ->
+        // the right side runs only depending on the left side
+        match removePureParts b with
+        | Undefined -> removePureParts a
+        | rb -> Binary (a, op, rb)
     | ItemGet(a, b, (NoSideEffect | Pure))
     | Binary (a, _, b)
         -> CombineExpressions [removePureParts a; removePureParts b]
@@ -64,6 +69,8 @@ let rec removePureParts expr =
         -> Let (v, a, removePureParts b)
     | Unary (_, a) 
     | TypeCheck(a, _)
+    | Cast (_, a)
+    | Coerce (a, _, _)
         -> removePureParts a     
     | ExprSourcePos (p, a)
         -> ExprSourcePos (p, removePureParts a)     
@@ -100,6 +107,7 @@ let rec isPureExpr expr =
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
     | Coerce (a, _, _)
+    | Cast (_, a)
         -> isPureExpr a     
     | Object a 
         -> List.forall (fun (_, _, v) -> isPureExpr v) a 
@@ -131,12 +139,17 @@ let rec isTrivialValue expr =
         -> true
     | Var v  ->
         not v.IsMutable
-    | ExprSourcePos (_, a) ->
+    | ExprSourcePos (_, a) 
+    | Cast (_, a) ->
         isTrivialValue a
     //| Function (args, _, _, (I.Empty | I.Block [])) -> true
     //| Function (args, _, _, (I.Return body)) ->
     //    isTrivialValue body || isTrivialFunction args body
     | _ -> false
+
+/// Checks if a list of arguments or array items contains a spread
+let hasSpread (xs: Expression list) =
+    xs |> List.exists (function I.Spread _ -> true | _ -> false)
 
 /// Determine if expression has no side effect and value does not depend on execution order
 let rec isStronglyPureExpr expr =
@@ -172,6 +185,7 @@ let rec isStronglyPureExpr expr =
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
     | Coerce (a, _, _)
+    | Cast (_, a)
         -> isStronglyPureExpr a     
     | Object a 
         -> List.forall (fun (_, _, v) -> isStronglyPureExpr v) a 
@@ -250,6 +264,40 @@ type private NotMutatedOrCaptured(v, ?allowApplication) =
         this.VisitExpression(a)
         ok
 
+/// Checks if a specific Id is assigned or changed by an increment or a compound assignment
+type private Mutated(v) =
+    inherit Visitor()
+
+    let mutable found = false
+
+    override this.VisitVarSet (a, b) =
+        if a = v then found <- true
+        this.VisitExpression b
+
+    override this.VisitMutatingUnary (op, a) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v -> found <- true
+        | _ -> ()
+        this.VisitExpression a
+
+    override this.VisitMutatingBinary (a, op, b) =
+        match IgnoreExprSourcePos a with
+        | Var av when av = v -> found <- true
+        | _ -> ()
+        this.VisitExpression a
+        this.VisitExpression b
+
+    override this.VisitExpression(a) =
+        if not found then base.VisitExpression(a)
+
+    member this.Check(a) =
+        this.VisitExpression(a)
+        found
+
+/// The variable is not assigned in the expression, so its uses can be replaced with its value
+let notMutated (v: Id) expr =
+    not (Mutated(v).Check(expr))
+
 let notMutatedOrCaptured (v: Id)  expr =
     NotMutatedOrCaptured(v).Check(expr)   
 
@@ -303,8 +351,10 @@ type CollectUnusedVars(vs : HashSet<Id>) =
 
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
-/// between then, then extra Let forms and variables for them are not needed
-let varEvalOrder (vars : Id list) expr =
+/// between then, then extra Let forms and variables for them are not needed.
+/// With `relaxed`, looking up a method to call on an object is not treated as a
+/// side effect, and variables for which `isConst` holds can be read in any order.
+let varEvalOrderWith (relaxed: bool) (isConst: Id -> bool) (vars : Id list) expr =
     let watchedVars = HashSet vars
     let varsNotUsed = VarsNotUsed watchedVars
         
@@ -376,7 +426,7 @@ let varEvalOrder (vars : Id list) expr =
                         if a = hv then
                             vars <- tv
                         else fail() 
-                else if a.IsMutable then 
+                else if a.IsMutable && not (isConst a) then 
                     stop()
             | VarSet(a, b) ->
                 if watchedVars.Contains a then
@@ -405,7 +455,13 @@ let varEvalOrder (vars : Id list) expr =
                 eval c
                 stop()                 
             | Application(a, b, c) ->
-                eval a
+                match IgnoreExprSourcePos a with
+                | ItemGet(o, I.Value (String _), _) when relaxed ->
+                    // the method is looked up before the arguments are evaluated,
+                    // the arguments are not expected to change it
+                    eval o
+                | _ ->
+                    eval a
                 List.iter eval b
                 if c.Purity = NonPure then stop()
             | New(a, _, b) ->
@@ -449,6 +505,11 @@ let varEvalOrder (vars : Id list) expr =
             | ObjectExpr _
             | ClassExpr _
             | Verbatim _
+            | FuncWithKind _
+            | YieldExpr _
+            | Spread _
+            | TemplateString _
+            | OptionalChain _
                 -> fail()
     
     and evalSt s =
@@ -484,6 +545,7 @@ let varEvalOrder (vars : Id list) expr =
             | DoWhile _
             | For _
             | ForIn _
+            | ForOf _
             | Goto _
             | GotoCase _
             | Switch _
@@ -506,6 +568,9 @@ let varEvalOrder (vars : Id list) expr =
                
     eval expr
     ok && List.isEmpty vars   
+
+let varEvalOrder (vars : Id list) expr =
+    varEvalOrderWith false (fun _ -> false) vars expr
 
 let sameVars vars args =
     args |> List.forall (function I.Var _ -> true | _ -> false)
@@ -620,6 +685,53 @@ let funcFromLambda(funcId, thisVar, isRec, args, body, ts) =
     else
         FuncDeclaration(funcId, args, thisVar, body, ts)
         
+/// Wraps return values in an array, outside nested functions
+type BoxReturns() =
+    inherit Transformer()
+
+    override this.TransformReturn(a) = Return (NewArray [ this.TransformExpression a ])
+    override this.TransformFunction(ps, t, r, b) = Function(ps, t, r, b)
+    override this.TransformFuncDeclaration(f, ps, t, b, g) = FuncDeclaration(f, ps, t, b, g)
+    override this.TransformClassExpr(c, b, m, g, bg) = ClassExpr(c, b, m, g, bg)
+    override this.TransformClass(c, b, i, m, g, bg) = Class(c, b, i, m, g, bg)
+
+/// Tasks of JavaScript async functions, for C# async methods and F# task expressions.
+/// Tasks are thenable, so `await` works on them.
+module AsyncTask =
+    let private fromAsync name =
+        Method {
+            MethodName = name
+            Parameters = [ FSharpFuncType (VoidType, NonGenericType Definitions.Obj) ]
+            ReturnType = NonGenericType Definitions.Task
+            Generics = 0
+        } |> NonGeneric
+
+    /// Static method on the Task proxy only
+    let FromAsync = fromAsync "FromAsync"
+    /// Static method on the Task proxy only, the async function returns `[result]`
+    let FromAsyncBoxed = fromAsync "FromAsyncBoxed"
+
+    /// `Task.FromAsync(async () => { body })`.
+    /// `boxed`: the result may be thenable itself, which promise resolution would unwrap,
+    /// so returned values are wrapped in an array.
+    let ofBody (boxed: bool) (body: Statement) =
+        let body = if boxed then BoxReturns().TransformStatement body else body
+        let f = FuncWithKind (FuncKind.Async, Function ([], None, None, body))
+        Call (None, NonGeneric Definitions.Task, (if boxed then FromAsyncBoxed else FromAsync), [ f ])
+
+    /// A task result of this type may be thenable at runtime
+    let resultMayBeThenable (t: Type) =
+        match t with
+        | TypeParameter _ | StaticTypeParameter _ | LocalTypeParameter _ -> true
+        | ConcreteType ct ->
+            match ct.Entity.Value.FullName with
+            | "System.Object"
+            | "System.Threading.Tasks.Task" | "System.Threading.Tasks.Task`1"
+            | "System.Threading.Tasks.ValueTask" | "System.Threading.Tasks.ValueTask`1"
+            | "WebSharper.JavaScript.Promise`1" -> true
+            | _ -> false
+        | _ -> false
+
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
         SubstituteVars(vars |> Seq.mapi (fun i a -> a, Hole i) |> dict).TransformExpression(expr)
@@ -640,6 +752,15 @@ let isFunctionMethodForInterface (t: TypeDefinition) =
     }
 
 module Definitions =
+
+    /// Static method of C# structs with a parameterless constructor, creates the default value
+    let StructDefault =
+        Method {
+            MethodName = "$default"
+            Parameters = []
+            ReturnType = NonGenericType WebSharper.Core.AST.Definitions.Obj
+            Generics = 0
+        }
 
     // Private static field for single-case unions.
     let SingletonUnionCase name typ =
@@ -1317,7 +1438,7 @@ type Capturing(?var) =
                 match captVal with
                 | Some c -> c
                 | _ ->
-                    let c = i.Clone()
+                    let c = Id.New(?name = i.Name, mut = false, ?typ = i.VarType)
                     captVal <- Some c
                     c
             | _ ->
@@ -1332,53 +1453,17 @@ type Capturing(?var) =
         scope <- scope - 1
         res
 
+    /// Creates a loop body statement. Variables declared inside the body are
+    /// block scoped, so closures capture a new binding on each iteration.
+    /// The loop variable itself is copied to a new constant if it is captured.
     member this.CaptureValueIfNeeded expr =
         let res = this.TransformExpression expr  
-        if capture then
-            match captVal with
-            | None -> Appl (Function ([], None, None, Return res), [], NonPure, None)
-            | Some c -> Appl (Function ([c], None, None, Return res), [Var var.Value], NonPure, None)        
-        else expr
+        match captVal with
+        | Some c when capture -> 
+            Block [ VarDeclaration(c, Var var.Value); ExprStatement res ]
+        | _ -> 
+            ExprStatement expr
 
-type NeedsScoping() =
-    inherit Visitor()
-
-    let defined = HashSet()
-    let mutable needed = false
-    let mutable scope = 0
-
-    override this.VisitNewVar(var, value) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-
-    override this.VisitVarDeclaration(var, value) =
-        if scope = 0 then
-            defined.Add var |> ignore
-        this.VisitExpression value
-    
-    override this.VisitId i =
-        if scope > 0 && defined.Contains i then 
-            needed <- true
-
-    override this.VisitFunction (args, thisVar, typ, body) =
-        scope <- scope + 1
-        this.VisitStatement body
-        scope <- scope - 1
-
-    override this.VisitExpression expr =
-        if not needed then
-            base.VisitExpression expr
-
-    member this.Check(args: seq<Id>, values, expr) =
-        for a, v in Seq.zip args values do
-            if a.IsMutable && not (isTrivialValue v) then
-                defined.Add a |> ignore
-        this.VisitExpression expr  
-        needed
-
-let needsScoping args values body =
-    NeedsScoping().Check(args, values, body)    
     
 //type HasNoThisVisitor() =
 //    inherit Visitor()
@@ -1398,8 +1483,19 @@ let needsScoping args values body =
 
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
-let errorPlaceholder = 
-    Cast(TSType.Any, Value (String "$$ERROR$$"))
+/// Projects compiled with WarnOnly still get output, so the placeholder
+/// throws when evaluated, showing the error message at the failure point.
+let errorPlaceholderWith (msg: string) =
+    let msg =
+        let lines = msg.Split([| '\r'; '\n' |], System.StringSplitOptions.RemoveEmptyEntries)
+        let m = if lines.Length > 0 then lines.[0] else msg
+        if m.Length > 300 then m.Substring(0, 300) + "..." else m
+    Cast(TSType.Any, Appl(GlobalAccess (Address.Runtime "CompileError"), [ Value (String msg) ], NonPure, Some 1))
+
+/// A placeholder expression when encountering a translation error
+/// with no message available at the creation site.
+let errorPlaceholder =
+    errorPlaceholderWith "translation failed"
 
 /// A transformer that tracks current source position
 type TransformerWithSourcePos(comp: Metadata.ICompilation) =
@@ -1417,7 +1513,7 @@ type TransformerWithSourcePos(comp: Metadata.ICompilation) =
             failwithf "Experimental compilation failed"
         else
             comp.AddError(currentSourcePos, msg)
-            errorPlaceholder
+            errorPlaceholderWith msg
 
     member this.Warning msg =
         if not this.FailOnError then

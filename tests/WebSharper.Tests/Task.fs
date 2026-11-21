@@ -126,6 +126,41 @@ let Tests =
             equal task4Res 3
         }
 
+        Test "Task expressions with loops and exceptions" {
+            let t =
+                task {
+                    let sum = ref 0
+                    let i = ref 0
+                    while i.Value < 3 do
+                        let! x = Task.FromResult i.Value
+                        sum.Value <- sum.Value + x
+                        i.Value <- i.Value + 1
+                    for j in [ 10; 20 ] do
+                        let! y = Task.FromResult j
+                        sum.Value <- sum.Value + y
+                    try
+                        failwith "err"
+                    with
+                    | e -> sum.Value <- sum.Value + e.Message.Length
+                    return sum.Value
+                }
+            let! r = Async.AwaitTask t
+            equal r 36
+            let failing =
+                task {
+                    let! x = Task.FromResult 1
+                    if x = 1 then failwith "boom"
+                    return x
+                }
+            let! res = Async.Catch (Async.AwaitTask failing)
+            isTrue (match res with Choice2Of2 _ -> true | _ -> false)
+            isTrue failing.IsFaulted
+            let nested = task { return Task.FromResult 5 }
+            let! inner = Async.AwaitTask nested
+            let! v = Async.AwaitTask inner
+            equal v 5
+        }
+
         Test "Async interop" {
             let async1 = async { return 1 }
             let task1 = task { return! async1 }

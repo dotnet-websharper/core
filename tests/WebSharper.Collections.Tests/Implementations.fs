@@ -27,7 +27,8 @@ open WebSharper.Testing
 module R = WebSharper.Testing.RandomValues
         
 [<JavaScript>]
-let Tests =
+module private Helpers =
+
     let TestIEnumerable (x: System.Collections.IEnumerable) expectedItem1 expectedItem2 =
         let e = x.GetEnumerator()
         Do {
@@ -52,6 +53,8 @@ let Tests =
             raisesMsg (e.Current) "IEnumerator<T>.Current throws after finishing enumeration"
         }
 
+    // Inline, as these use the default value of a type parameter (Array.zeroCreate, out parameter)
+    [<Inline>]
     let TestICollection (x: System.Collections.ICollection) (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
@@ -60,6 +63,8 @@ let Tests =
             equalMsg a expectedArray "ICollection.CopyTo"
         }
 
+    // Inline, as these use the default value of a type parameter (Array.zeroCreate, out parameter)
+    [<Inline>]
     let TestICollectionGeneric (x: System.Collections.Generic.ICollection<'T>) newItem (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
@@ -76,6 +81,8 @@ let Tests =
             equalMsg x.Count 0 "ICollection<T>.Clear"
         }
 
+    // Inline, as these use the default value of a type parameter (Array.zeroCreate, out parameter)
+    [<Inline>]
     let TestICollectionGenericReadOnly (x: System.Collections.Generic.ICollection<'T>) missingItem (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
@@ -192,6 +199,8 @@ let Tests =
             isTrueMsg (x.SetEquals(startingItems)) "ISet<T>.UnionWith/SetEquals"
         }
 
+    // Inline, as it calls TestICollection with generic arrays
+    [<Inline>]
     let TestIDictionary1 (x: System.Collections.IDictionary) firstKey firstValue newFirstValue expectedKeys expectedValues missingKey =
         Do {
             isFalseMsg (x.IsFixedSize) "IDictionary.IsFixedSize false"
@@ -234,6 +243,8 @@ let Tests =
             equalMsg x.Count 0 "IDictionary.Clear"
         }
 
+    // Inline, as these use the default value of a type parameter (Array.zeroCreate, out parameter)
+    [<Inline>]
     let TestIDictionaryGeneric (x: System.Collections.Generic.IDictionary<'K, 'V>) firstKey firstValue newFirstValue (expectedKeys: 'K[]) (expectedValues: 'V[]) missingKey =
         Do {
             equalMsg (x[firstKey]) firstValue "IDictionary<K, V>.Item"
@@ -253,6 +264,8 @@ let Tests =
             isFalseMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.ContainsKey after remove"
         }
         
+    // Inline, as these use the default value of a type parameter (Array.zeroCreate, out parameter)
+    [<Inline>]
     let TestIReadOnlyDictionaryGeneric (x: System.Collections.Generic.IReadOnlyDictionary<'K, 'V>) (expectedKeys: 'K[]) (expectedValues: 'V[]) missingKey =
         let firstKey = expectedKeys[0]
         let firstValue = expectedValues[0]
@@ -267,6 +280,10 @@ let Tests =
             isTrueMsg (x.ContainsKey(firstKey)) "IDictionary<K, V>.ContainsKey true"
         }
 
+open Helpers
+
+[<JavaScript>]
+let Tests =
     TestCategory "Collection interface implementations" {
         Test "Array" {
             let arr = [| 1; 3 |]
