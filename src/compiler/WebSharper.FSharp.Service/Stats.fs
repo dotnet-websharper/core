@@ -23,7 +23,12 @@
 /// tools, its own and those of extensions. They stay on this machine: in memory, in a file next to the booster's
 /// record (see save), and for `dotnet ws stats` through the `stats` message. They hold no source, symbol names,
 /// paths or project names, only names chosen by the code that records them.
+#if CSHARP_BOOSTER
+// linked into the C# booster (wscscservice)
+module WebSharper.CSharp.Service.Stats
+#else
 module WebSharper.FSharp.Service.Stats
+#endif
 
 open System
 open System.IO
@@ -230,7 +235,11 @@ let snapshot (version: string) (health: (string * JsonNode) list) =
 /// records (dotnet ws reads every .json file of the records' folder as a record).
 let pathFor (folder: string) =
     Path.Combine(WebSharper.Compiler.WsFscServiceCommon.boosterRecordFolder (), "stats",
+#if CSHARP_BOOSTER
+                 Path.GetFileNameWithoutExtension(WebSharper.Compiler.WsFscServiceCommon.cscBoosterRecordPath folder) + ".json")
+#else
                  Path.GetFileNameWithoutExtension(WebSharper.Compiler.WsFscServiceCommon.boosterRecordPath folder) + ".json")
+#endif
 
 /// Writes the statistics to their file, if they changed. Best effort.
 let save (folder: string) (getSnapshot: unit -> JsonObject) =

@@ -21,7 +21,12 @@
 /// A minimal Model Context Protocol server over stdio (newline-delimited JSON-RPC 2.0), for
 /// `wsfscservice --mcp`: AI agents start it as an MCP server, it forwards tool calls to the running
 /// booster of the same installation over its named pipe.
+#if CSHARP_BOOSTER
+// linked into the C# booster (wscscservice)
+module WebSharper.CSharp.Service.Mcp
+#else
 module WebSharper.FSharp.Service.Mcp
+#endif
 
 open System
 open System.IO
@@ -31,7 +36,11 @@ open System.Text.Json.Nodes
 /// Protocol versions this server implements; the newest is offered when the client asks for another.
 let supportedProtocolVersions = [ "2025-11-25"; "2025-06-18"; "2025-03-26"; "2024-11-05" ]
 
+#if CSHARP_BOOSTER
+let serverName = "websharper-csharp-booster"
+#else
 let serverName = "websharper-booster"
+#endif
 
 let private jsonOptions =
     let o = JsonSerializerOptions()

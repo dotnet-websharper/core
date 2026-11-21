@@ -456,68 +456,15 @@ module McpClient =
         sprintf "No WebSharper booster is running for this installation (%s): %s. It starts with the first build of a WebSharper F# project (dotnet build or dotnet ws build) unless WebSharperStandalone is set, or with dotnet ws start."
             (Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)) reason
 
-    /// Whether a booster listens on the pipe: without one, connecting would only wait for the timeout. On Linux and
-    /// macOS the pipe is a socket file that stays when the booster is killed, so a refused connection tells.
-    let pipeExists () =
-        try
-            if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then File.Exists(@"\\.\pipe\" + pipeName ())
-            elif not (File.Exists(pipeName ())) then false
-            else
-                use probe = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.Unix, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Unspecified)
-                try
-                    probe.Connect(System.Net.Sockets.UnixDomainSocketEndPoint(pipeName ()))
-                    true
-                with :? System.Net.Sockets.SocketException -> false
-        with _ -> true
+    /// Whether a booster listens on the pipe, see BoosterPipe.exists.
+    let pipeExists () = BoosterPipe.exists (pipeName ())
 
     /// Sends one message to the booster: Ok (exit code, the text of its j: replies, its t: time in ms), or why not.
     let private send (args: string[]) (connectTimeoutMs: int) : Result<int * string * float option, string> =
-        if not (pipeExists ()) then Error (notRunning "its pipe does not exist") else
-        use pipe = new NamedPipeClientStream(".", pipeName (), PipeDirection.InOut, PipeOptions.Asynchronous)
-        let connectError =
-            try
-                pipe.Connect(connectTimeoutMs)
-                if pipe.IsConnected then None else Some "could not connect"
-            with
-            | :? TimeoutException -> Some "no answer on its pipe"
-            | e -> Some e.Message
-        match connectError with
-        | Some reason -> Error (notRunning reason)
-        | None ->
-        try
-            pipe.ReadMode <- PipeTransmissionMode.Byte
-            let options = System.Text.Json.JsonSerializerOptions()
-            options.Encoder <- System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            let bytes = System.Text.Json.JsonSerializer.Serialize({ args = args }, options) |> System.Text.Encoding.UTF8.GetBytes
-            pipe.Write(System.BitConverter.GetBytes(bytes.Length), 0, 4) // prepend with message length
-            pipe.Write(bytes, 0, bytes.Length)
-            pipe.Flush()
-            if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-                pipe.WaitForPipeDrain()
-            let text = System.Text.StringBuilder()
-            let mutable boosterMs = None
-            let handle (message: obj) =
-                async {
-                    let s = (message :?> System.Text.Json.JsonElement).GetString()
-                    if s.StartsWith "j: " then
-                        text.Append(s.Substring 3) |> ignore
-                        return None
-                    elif s.StartsWith "t: " then
-                        match Double.TryParse(s.Substring 3, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                        | true, v -> boosterMs <- Some v
-                        | _ -> ()
-                        return None
-                    elif s.StartsWith "x: " then
-                        return Some (int (s.Substring 3))
-                    else
-                        return None
-                }
-            let disconnected () = if not pipe.IsConnected then raise (PipeException ())
-            match Async.RunSynchronously (readingMessages pipe handle disconnected) with
-            | Some code -> Ok (code, text.ToString(), boosterMs)
-            | None -> Error "The WebSharper booster closed the connection without answering."
-        with _ ->
-            Error "The WebSharper booster closed the connection without answering, it may have stopped."
+        match BoosterPipe.send (pipeName ()) args connectTimeoutMs with
+        | Ok r -> Ok r
+        | Error (BoosterPipe.NotRunning reason) -> Error (notRunning reason)
+        | Error (BoosterPipe.NoAnswer msg) -> Error msg
 
     /// Calls a tool in the booster: its answer, and the booster's time in ms.
     let callBooster (name: string) (arguments: string) : Result<string, string> * float option =

@@ -144,3 +144,48 @@ The booster keeps the last compilation of the 10 most recently compiled projects
 `WebSharperAgentProjects` environment variable of the booster to keep more or fewer, or to `0` to keep none (the tools
 then have nothing to answer from). The booster inherits the environment of the build that starts it: stop it with
 `dotnet ws stop` for a change to apply.
+
+## C# projects
+
+C# projects have a booster of their own, `wscscservice`, next to `wscsc` in the `tools/net11.0` folder of the
+`WebSharper.CSharp` package (or of the `WebSharper.CSharp.Booster` tool). It is a thinner resident layer than the F#
+booster: it does not compile, so it hosts no C# compiler. `wscsc` compiles as before and then reports the compilation
+to the booster of its installation, starting it when none runs: what it printed, the project file, the assembly it
+compiled and its references. The booster answers from these reports and from the WebSharper metadata of the project
+and its references, which it reads from their files when a tool needs them.
+
+Connect an agent to `wscscservice --mcp`, for example in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "websharper-csharp": {
+      "command": "dotnet",
+      "args": [ "/Users/me/.nuget/packages/websharper.csharp/<version>/tools/net11.0/wscscservice.dll", "--mcp" ]
+    }
+  }
+}
+```
+
+Its tools take the optional `project` like the F# booster's:
+
+| Tool | What it answers |
+|---|---|
+| `list_projects` | The C# projects reported since the booster started: type, last compilation time, exit code, WebSharper error and warning counts, whether the WebSharper outputs were up to date. |
+| `get_diagnostics` | WebSharper errors and warnings of the last compilation, with the source line of the first errors and hints for common ones. Filter by `file`, leave out warnings with `include_warnings: false`. |
+| `get_js_translation` | How WebSharper translates a type or member, as in the F# booster. C# type keywords (`string`, `int`) and partial names (`Dictionary`, `Doc.Element`) work, and misses suggest close names. Takes `names` for several at once. |
+| `search_symbols` | Types and members translated by WebSharper, so usable in client-side code, whose name contains a text. |
+| `list_rpc_methods` | The project's `[Remote]` methods with their remoting paths, and its Website (sitelet) definition. |
+
+What it can't answer without a C# compiler:
+
+* C# compiler errors: a build stopped by csc never runs `wscsc`, so the booster doesn't see it, and `get_diagnostics`
+  only has WebSharper's diagnostics.
+* C# signatures, usages and symbols that WebSharper does not translate (`get_signature`, `find_usages`,
+  `get_file_signature` of the F# booster).
+* `build_project`: compiling again needs csc, so build with `dotnet build`.
+
+A build with `WebSharperStandalone=True`, or with the `WebSharperBuildService` environment variable set to `false`,
+does not report to the booster. When the WebSharper outputs of a project were up to date, the booster keeps the
+diagnostics of the compilation before. `WebSharperAgentProjects` sets how many projects it keeps, and `dotnet ws stats`
+reads its statistics file like the F# booster's. It does not load agent extensions.

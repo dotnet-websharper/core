@@ -25,6 +25,7 @@
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <Compile Include="BoosterPipe.fs" />
     <Compile Include="Stats.fs" />
     <Compile Include="AgentTools.fs" />
     <Compile Include="Mcp.fs" />

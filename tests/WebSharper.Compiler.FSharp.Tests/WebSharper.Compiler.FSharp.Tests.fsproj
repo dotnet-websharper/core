@@ -20,6 +20,7 @@
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\wsfsc.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\wsfscservice.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\WebSharper.Core.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\WebSharper.Core.JavaScript.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <Import Project="..\..\msbuild\FSharp.targets" />
