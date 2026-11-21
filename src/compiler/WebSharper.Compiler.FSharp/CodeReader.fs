@@ -917,6 +917,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     getSeq (f :: acc) s   
                 | _ -> expr :: acc
             getSeq [] expr |> List.rev |> List.map tr |> Sequential
+        | P.Const (null, t) when isUnit t ->
+            // `()` is read as a null constant, but every other unit value
+            // (`ignore x`, unit-returning calls) is undefined; keep them equal.
+            Undefined
         | P.Const (value, _) ->
             Value(ReadLiteral value)
         | P.IfThenElse (cond, then_, else_) ->

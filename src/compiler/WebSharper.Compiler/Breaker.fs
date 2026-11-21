@@ -369,14 +369,14 @@ let optimize expr =
             if isReturn then
                 List.foldBack2 bind vars args body
             else 
-                List.foldBack2 bind vars args (Sequential [body; Value Null])
+                List.foldBack2 bind vars args (Sequential [body; Undefined])
         elif moreArgsCount > 0 then
             let args, moreArgs = args |> List.splitAt vars.Length
             let f =
                 if isReturn then
                     List.foldBack2 bind vars args body
                 else 
-                    List.foldBack2 bind vars args (Sequential [body; Value Null])
+                    List.foldBack2 bind vars args (Sequential [body; Undefined])
             curriedApplication f moreArgs
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
@@ -386,7 +386,7 @@ let optimize expr =
         if isReturn then
             List.foldBack2 bind vars args body
         else 
-            List.foldBack2 bind vars args (Sequential [body; Value Null])
+            List.foldBack2 bind vars args (Sequential [body; Undefined])
     | Application(I.ItemGet(I.Function (vars, None, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 

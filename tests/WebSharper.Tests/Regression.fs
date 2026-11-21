@@ -1277,4 +1277,21 @@ let Tests =
             equal (Array.ofSeq r.Keys) [| "a" |]
             equal (Array.ofSeq r.Values) [| 1 |]
         }
+
+        Test "#1622 Unit literal equals other unit values" {
+            equal (ignore 1) ()
+            equal (ignore "a") ()
+            equal (Result.Ok (ignore 1) : Result<unit, string>) (Result.Ok ())
+            equal (Some (ignore 1)) (Some ())
+            equal [ (); ignore 2 ] [ ignore 1; () ]
+            equal (Unchecked.defaultof<unit>) ()
+            let addIgnore (x: int) (y: int) = ignore (x + y)
+            equal (addIgnore 1 2) ()
+            let unitFirst () (y: int) = ignore y
+            equal (unitFirst () 3) ()
+            equal (Some (addIgnore 1 2)) (Some ())
+            equal (id ()) ()
+            isTrue (box (id ()) ===. JS.Undefined)
+            isTrue (box () ===. box (ignore 1))
+        }
     }
