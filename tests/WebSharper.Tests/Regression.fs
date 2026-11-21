@@ -614,6 +614,16 @@ module Bug1455 =
         v.Get()    
 
 [<JavaScript>]
+module Bug1621 =
+    // the shape of FsToolkit.ErrorHandling's ValueOption.tryGetValue
+    [<Inline>]
+    let inline tryGetValue (key: 'key) (dictionary: ^Dictionary) : ^value voption =
+        let mutable output = Unchecked.defaultof< ^value>
+        let found =
+            (^Dictionary: (member TryGetValue: 'key * byref< ^value> -> bool) (dictionary, key, &output))
+        if found then ValueSome output else ValueNone
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1249,5 +1259,22 @@ let Tests =
         Test "#1604 Internal union case of a friend assembly" {
             let (WebSharper.Collections.Tests.InternalProxy.FriendCase x) = WebSharper.Collections.Tests.InternalProxy.FriendCase 42
             equal x 42
+        }
+
+        Test "#1621 Dictionary members through member constraints and interfaces" {
+            equal (Bug1621.tryGetValue "a" (dict [ ("a", 1) ])) (ValueSome 1)
+            equal (Bug1621.tryGetValue "b" (dict [ ("a", 1) ])) ValueNone
+            equal (Bug1621.tryGetValue "a" (readOnlyDict [ ("a", 1) ])) (ValueSome 1)
+            let d = dict [ ("a", 1) ]
+            isTrue (d.ContainsKey "a")
+            equal d.["a"] 1
+            equal (Array.ofSeq d.Keys) [| "a" |]
+            equal (Array.ofSeq d.Values) [| 1 |]
+            let r = readOnlyDict [ ("a", 1) ]
+            isTrue (r.ContainsKey "a")
+            equal r.["a"] 1
+            equal r.Count 1
+            equal (Array.ofSeq r.Keys) [| "a" |]
+            equal (Array.ofSeq r.Values) [| 1 |]
         }
     }
