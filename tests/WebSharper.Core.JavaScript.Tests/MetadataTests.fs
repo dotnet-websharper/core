@@ -57,6 +57,18 @@ let private builtAssemblies () =
             |> Array.distinctBy Path.GetFileName
         else [||]
 
+/// Every copy of a built assembly in build/Release, outside the deploy and publish folders.
+let private builtAssemblyCopies (fileName: string) =
+    let rec findRoot (d: DirectoryInfo) =
+        if isNull d then None
+        elif File.Exists(Path.Combine(d.FullName, "WebSharper.sln")) then Some d.FullName
+        else findRoot d.Parent
+    match findRoot (DirectoryInfo(TestContext.CurrentContext.TestDirectory)) with
+    | Some root when Directory.Exists(Path.Combine(root, "build", "Release")) ->
+        Directory.GetFiles(Path.Combine(root, "build", "Release"), fileName, SearchOption.AllDirectories)
+        |> Array.filter (fun p -> not (p.Contains "deploy") && not (p.Contains (string Path.DirectorySeparatorChar + "publish")))
+    | _ -> [||]
+
 let private roundTrip (meta: M.Info) =
     let e1 = MetadataIO.EncodeToBytes meta
     let m2 = MetadataIO.DecodeBytes e1
@@ -293,9 +305,9 @@ let ``Runtime class info keeps addresses, static methods and anonymous record sh
 
 /// The dependency graph stored in the built WebSharper.StdLib metadata.
 let private builtStdLibGraph () =
-    builtAssemblies ()
-    |> Array.tryFind (fun p -> Path.GetFileName p = "WebSharper.StdLib.dll")
-    |> Option.bind WebSharper.Compiler.Sidecar.TryReadFor
+    // build/Release has several copies of the dll, only the one built in place has its sidecar
+    builtAssemblyCopies "WebSharper.StdLib.dll"
+    |> Array.tryPick WebSharper.Compiler.Sidecar.TryReadFor
     |> Option.bind (fun sc -> sc.TryGet WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA)
     |> Option.map (fun bytes -> DependencyGraph.Graph.FromData (MetadataIO.DecodeBytes bytes).Dependencies)
 
