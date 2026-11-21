@@ -724,6 +724,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let mutable makeInline = false
             let getParsed() =                 
                 let thisVar = Id.NewThis()
+                // `EqualityContract` of a record is `typeof(R)` in .NET. `typeof` has no
+                // translation, so use the runtime class: it compares the same way, by identity.
+                let recordEqualityContract () =
+                    {
+                        IsStatic = false
+                        Parameters = []
+                        This = Some thisVar
+                        Body = Return (ItemGet(Appl(Global [ "Object"; "getPrototypeOf" ], [ Var thisVar ], Purity.Pure, Some 1), Value (String "constructor"), Purity.Pure))
+                        IsAsync = false
+                        ReturnType = sr.ReadType meth.ReturnType
+                    } : CodeReader.CSharpMethod
                 // copy constructor of a record, used by `<Clone>$`
                 let recordCopyCtor (ri: CodeReader.CSharpRecord) =
                     let o = CodeReader.CSharpParameter.New ("o", thisTyp)
@@ -1113,14 +1124,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | :? ParameterSyntax as syntax ->
                             makeInline <- true
                             if meth.Name = "get_EqualityContract" then
-                                {
-                                    IsStatic = false
-                                    Parameters = []
-                                    This = Some thisVar
-                                    Body = Empty
-                                    IsAsync = false
-                                    ReturnType = VoidType
-                                } : CodeReader.CSharpMethod
+                                recordEqualityContract ()
                             else
                             let p =
                                 try
@@ -1199,6 +1203,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             IsAsync = false
                             ReturnType = sr.ReadType meth.ReturnType
                         } : CodeReader.CSharpMethod   
+                    | MethodKind.PropertyGet when meth.Name = "get_EqualityContract" && Option.isSome recordInfo ->
+                        // reading a field of the same name would call this getter again
+                        recordEqualityContract ()
                     | MethodKind.PropertyGet ->
                         // implicit property get inside positional records
                         let propSymbol = meth.AssociatedSymbol;
