@@ -31,3 +31,32 @@ let isJS() =
 #else
     false
 #endif
+
+/// #1623: inline members with `try`/`finally` and `try`/`with` in expression
+/// position, compiled in the proxy project and inlined into another assembly.
+type ResourceBuilder() =
+    member inline _.Return(x: 'T) : Result<'T, string> = Ok x
+
+    member inline _.Delay([<InlineIfLambda>] f: unit -> Result<'T, string>) = f
+
+    member inline _.Run([<InlineIfLambda>] f: unit -> Result<'T, string>) = f ()
+
+    member inline this.TryFinally([<InlineIfLambda>] body: unit -> Result<'T, string>, [<InlineIfLambda>] compensation: unit -> unit) =
+        try
+            this.Run body
+        finally
+            compensation ()
+
+    member inline this.TryWith([<InlineIfLambda>] body: unit -> Result<'T, string>, [<InlineIfLambda>] handler: exn -> Result<'T, string>) =
+        try
+            this.Run body
+        with e ->
+            handler e
+
+    member inline this.Using(resource: #System.IDisposable, binder: _ -> Result<'T, string>) =
+        this.TryFinally(
+            (fun () -> binder resource),
+            (fun () -> if not (obj.ReferenceEquals(resource, null)) then resource.Dispose())
+        )
+
+let resource = ResourceBuilder()
