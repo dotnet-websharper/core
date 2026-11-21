@@ -15,6 +15,7 @@
 /tools/packages/
 /tests/Web/downloads/
 /msbuild/AssemblyInfo.fs
+/msbuild/WebSharper.CompilerVersion.props
 /.hg
 .vs
 /msbuild.log

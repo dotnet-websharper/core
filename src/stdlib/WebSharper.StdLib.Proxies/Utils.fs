@@ -132,6 +132,14 @@ let nullableCmpE (a: obj) (b: obj) f =
     else f a b
 
 [<JavaScript>]
+let nullableCmpNE (a: obj) (b: obj) f =
+    if a ==. null then
+        b !=. null
+    elif b ==. null then 
+        true 
+    else f a b
+
+[<JavaScript>]
 let nullableCmpL (a: obj) (b: obj) f = if a ==. null then false else f a b
 
 [<JavaScript>]

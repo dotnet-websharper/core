@@ -69,6 +69,57 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         for c in continuations do
             c.StartContinuation()    
 
+    /// The exception `await` throws for a failed or canceled task: the first inner exception, as in .NET
+    member this.AwaitedException() : exn =
+        match As<obj> exc with
+        | :? System.AggregateException as a when a.InnerExceptions.Count > 0 -> a.InnerExceptions.[0]
+        | null when status = TaskStatus.Canceled -> TaskCanceledException() :> exn
+        | e -> As<exn> e
+
+    /// The result of a completed task, or throws its exception, used by `await` in C# state machines
+    member this.AwaitResult() : obj =
+        if status = TaskStatus.RanToCompletion then this?result
+        else raise (this.AwaitedException())
+
+    /// Makes tasks awaitable with JavaScript `await`, the callbacks run when the task completes
+    [<Name "then">]
+    member this.Then(onFulfilled: obj -> unit, onRejected: obj -> unit) =
+        this.OnCompleted(fun () ->
+            if status = TaskStatus.RanToCompletion then onFulfilled (this?result)
+            else onRejected (this.AwaitedException())
+        )
+
+    [<Inline "$p.then($onFulfilled, $onRejected)">]
+    static member private PromiseThen(p: obj, onFulfilled: obj -> unit, onRejected: obj -> unit) = ()
+
+    /// Only makes the dependency graph include a member that JavaScript calls (`then`)
+    [<Inline "void 0">]
+    static member private KeepMember(_: obj) = ()
+
+    static member private FromAsyncImpl<'T>(run: unit -> obj, boxed: bool) : Task =
+        // native async functions await tasks with `then`
+        TaskProxy.KeepMember(fun (t: TaskProxy) -> t.Then(ignore, ignore))
+        let task = TaskProxy<'T>(null, CT.None, TaskStatus.Running, null, As<'T> JS.Undefined)
+        TaskProxy.PromiseThen(run(),
+            (fun r ->
+                task?result <- (if boxed then (As<obj[]> r).[0] else r)
+                task?status <- TaskStatus.RanToCompletion
+                task.RunContinuations()
+            ),
+            (fun e ->
+                task?status <- (match e with :? OCE -> TaskStatus.Canceled | _ -> TaskStatus.Faulted)
+                task?exc <- System.AggregateException(As<exn> e)
+                task.RunContinuations()
+            )
+        )
+        As<Task> task
+
+    /// The task of a JavaScript async function, used for C# async methods
+    static member FromAsync(run: unit -> obj) : Task = TaskProxy.FromAsyncImpl<obj>(run, false)
+
+    /// Same as FromAsync, for results that may be thenable themselves, the async function returns `[result]`
+    static member FromAsyncBoxed(run: unit -> obj) : Task = TaskProxy.FromAsyncImpl<obj>(run, true)
+
     [<Inline>]
     member this.ContinueWith(action: System.Action<Task>) =
         this.ContinueWith(action, CT.None)

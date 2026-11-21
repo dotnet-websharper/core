@@ -26,4 +26,5 @@ $end{copyright}
     <!-- reference assemblies: dependent projects recompile when the WebSharper stamps they list in .websharper.deps change -->
     <ProduceReferenceAssembly Condition=" '$(ProduceReferenceAssembly)' == '' ">True</ProduceReferenceAssembly>
   </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)WebSharper.CompilerVersion.props" Condition="Exists('$(MSBuildThisFileDirectory)WebSharper.CompilerVersion.props')" />
 </Project>

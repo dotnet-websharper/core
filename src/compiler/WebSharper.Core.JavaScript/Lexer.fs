@@ -53,6 +53,9 @@ type Keyword =
     | ``while`` = 27
     | ``with`` = 28
     | ``import`` = 29
+    | ``const`` = 30
+    | ``class`` = 31
+    | ``super`` = 32
 
 type Symbol =
     | ``{`` = 0
@@ -105,6 +108,13 @@ type Symbol =
     | ``^=`` = 47
     | ``**`` = 48
     | ``=>`` = 49
+    | ``??`` = 50
+    | ``??=`` = 51
+    | ``?.`` = 52
+    | ``...`` = 53
+    | ``**=`` = 54
+    | ``&&=`` = 55
+    | ``||=`` = 56
 
 type Lexeme =
     | EndOfInput
@@ -114,6 +124,8 @@ type Lexeme =
     | RegexLiteral of string
     | ReservedWord of Keyword
     | StringLiteral of string
+    /// Part of a template literal, cooked value and if it is the end of the literal
+    | TemplateString of string * bool
 
     override this.ToString() =
         match this with
@@ -124,6 +136,7 @@ type Lexeme =
         | RegexLiteral x -> x
         | ReservedWord x -> string x
         | StringLiteral x -> System.String.Format("\"{0}\"", x)
+        | TemplateString (x, t) -> System.String.Format("`{0}{1}", x, if t then "`" else "${")
 
 type Column = int
 type Line = int
@@ -150,14 +163,29 @@ type State =
         mutable column : Column
         mutable line : Line
         mutable parsedLT : bool
+        /// A character read but given back, used for two character lookahead
+        mutable pushback : option<char>
     }
 
-let peek s = s.reader.Peek()
+let peek s =
+    match s.pushback with
+    | Some c -> int c
+    | None -> s.reader.Peek()
 let push s (c: char) = s.buffer.Append c |> ignore
 let isRegexAllowed s = s.allowRE
 let parseLine s = s.parsedLT <- true
 
+let unskip s (c: char) =
+    s.pushback <- Some c
+    s.column <- s.column - 1
+
 let skip s =
+    match s.pushback with
+    | Some c ->
+        s.pushback <- None
+        s.column <- s.column + 1
+        int c
+    | None ->
     match s.reader.Read() with
     | -1 ->
         -1
@@ -274,6 +302,7 @@ type Kind =
     | ``|`` = 30
     | ``}`` = 31
     | ``~`` = 32
+    | Backtick = 33
 
 let parseKind c =
     if c = -1 then Kind.EOF else
@@ -305,6 +334,7 @@ let parseKind c =
         | '|' -> Kind.``|``
         | '}' -> Kind.``}``
         | '~' -> Kind.``~``
+        | '`' -> Kind.Backtick
         | '\t' | '\v' | '\f' | ' ' ->
             Kind.Space
         | '\r' | '\n' ->
@@ -554,9 +584,40 @@ let lexAfterDot s =
         push s '.'
         read s |> ignore
         readManyDecimalDigits s
+        readExponentPart s
         NumericLiteral (pop s)
+    | i when i = int '.' ->
+        skip s |> ignore
+        match peek s with
+        | i when i = int '.' ->
+            skip s |> ignore
+            Punctuator Symbol.``...``
+        | _ ->
+            error s "Unexpected '..'."
     | _ ->
         Punctuator Symbol.``.``
+
+/// Reads a template literal part after "`" or after the "}" closing a substitution
+let lexTemplatePart s =
+    let rec loop () =
+        match skipChar s with
+        | '`' ->
+            TemplateString (pop s, true)
+        | '$' when peek s = int '{' ->
+            skip s |> ignore
+            TemplateString (pop s, false)
+        | '\\' ->
+            readEscapeSequence s
+            loop ()
+        | '\r' ->
+            // line terminators in templates are normalized to \n
+            if peek s = 10 then skip s |> ignore
+            push s '\n'
+            loop ()
+        | c ->
+            push s c
+            loop ()
+    loop ()
 
 let readRxEscape s =
     match readChar s with
@@ -651,6 +712,9 @@ let parseIdentifierName id =
     | "while" -> ReservedWord Keyword.``while``
     | "with" -> ReservedWord Keyword.``with``
     | "import" -> ReservedWord Keyword.``import``
+    | "const" -> ReservedWord Keyword.``const``
+    | "class" -> ReservedWord Keyword.``class``
+    | "super" -> ReservedWord Keyword.``super``
     | _ -> Identifier id
 
 let lexIdentifierName allowKeywords s =
@@ -741,7 +805,12 @@ let lexToken s =
                 Punctuator Symbol.``&=``
             | '&' ->
                 skip s |> ignore
-                Punctuator Symbol.``&&``
+                match peek s with
+                | i when i = int '=' ->
+                    skip s |> ignore
+                    Punctuator Symbol.``&&=``
+                | _ ->
+                    Punctuator Symbol.``&&``
             | _ ->
                 Punctuator Symbol.``&``
         | Kind.``'`` ->
@@ -761,7 +830,12 @@ let lexToken s =
                 Punctuator Symbol.``*=``
             | '*' ->
                 skip s |> ignore
-                Punctuator Symbol.``**``
+                match peek s with
+                | i when i = int '=' ->
+                    skip s |> ignore
+                    Punctuator Symbol.``**=``
+                | _ ->
+                    Punctuator Symbol.``**``
             | _ ->
                 Punctuator Symbol.``*``
         | Kind.``+`` ->
@@ -875,7 +949,26 @@ let lexToken s =
                 Punctuator Symbol.``>``
         | Kind.``?`` ->
             skip s |> ignore
-            Punctuator Symbol.``?``
+            match peek s with
+            | i when i = int '?' ->
+                skip s |> ignore
+                match peek s with
+                | i when i = int '=' ->
+                    skip s |> ignore
+                    Punctuator Symbol.``??=``
+                | _ ->
+                    Punctuator Symbol.``??``
+            | i when i = int '.' ->
+                skip s |> ignore
+                // `a?.5:b` is a conditional expression with the number .5
+                match peek s with
+                | i when i >= int '0' && i <= int '9' ->
+                    unskip s '.'
+                    Punctuator Symbol.``?``
+                | _ ->
+                    Punctuator Symbol.``?.``
+            | _ ->
+                Punctuator Symbol.``?``
         | Kind.``[`` ->
             skip s |> ignore
             Punctuator Symbol.``[``
@@ -903,7 +996,12 @@ let lexToken s =
             match peekChar s with
             | '|' ->
                 skip s |> ignore
-                Punctuator Symbol.``||``
+                match peek s with
+                | i when i = int '=' ->
+                    skip s |> ignore
+                    Punctuator Symbol.``||=``
+                | _ ->
+                    Punctuator Symbol.``||``
             | '=' ->
                 skip s |> ignore
                 Punctuator Symbol.``|=``
@@ -918,6 +1016,9 @@ let lexToken s =
         | Kind.``~`` ->
             skip s |> ignore
             Punctuator Symbol.``~``
+        | Kind.Backtick ->
+            skip s |> ignore
+            lexTemplatePart s
         | _ ->
             System.String.Format("Invalid character: \u{0:x4}", c)
             |> error s
@@ -931,6 +1032,7 @@ let FromTextReader (r: System.IO.TextReader) =
         column = 1
         allowRE = false
         parsedLT = false
+        pushback = None
     }
 
 let FromString (s: string) =
@@ -941,6 +1043,11 @@ let InputElementDiv s =
     s.parsedLT <- false
     s.allowRE  <- false
     let lexeme = lexToken s
+    Token(lexeme, s.line, s.column, s.parsedLT) :> IToken
+
+let TemplateContinuation s =
+    s.parsedLT <- false
+    let lexeme = lexTemplatePart s
     Token(lexeme, s.line, s.column, s.parsedLT) :> IToken
 
 let InputElementRegExp s =

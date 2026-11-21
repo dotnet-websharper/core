@@ -165,9 +165,9 @@ type private Environment =
             This = if isArrow then this.This else ref None
         }
 
-    member this.NewVar(id: S.Id) =
+    member this.NewVar(id: S.Id, ?mut) =
         let n = id.Name
-        let v = Id.New n
+        let v = Id.New(n, mut = defaultArg mut true)
         match this.Vars with
         | [] -> failwith "no scope"
         | h :: t ->
@@ -231,7 +231,7 @@ type private IsImmutable(v) =
 
 let makePossiblyImmutable expr (v: Id) =
     if IsImmutable(v).Check(expr) then 
-        let vi = Id.New(?name = v.Name, mut = false)
+        let vi = Id.New(?name = v.Name, mut = false, opt = v.IsOptional, rest = v.IsRest)
         ReplaceId(v, vi).TransformExpression(expr)
     else expr         
 
@@ -281,6 +281,9 @@ let wsRuntimeFunctions =
         "CreateDelegate"
         "CombineDelegates"
         "DelegateEqual"
+        "CompileError"
+        "Iterate"
+        "Iter"
         "ThisFunc"
         "ThisFuncOut"
         "ParamsFunc"
@@ -305,7 +308,84 @@ let (|JSGlobalAccess|_|) e =
         | _ -> None
     | _ -> None
 
-let inline private trI (jsId: S.Id) = Id.New(jsId.Name, opt = jsId.Optional)
+let inline private trI (jsId: S.Id) = Id.New(jsId.Name, opt = jsId.Optional, rest = jsId.Rest)
+
+let private trFuncKind (k: S.FuncKind) =
+    match k with
+    | S.Normal -> FuncKind.Normal
+    | S.Generator -> FuncKind.Generator
+    | S.Async -> FuncKind.Async
+    | S.AsyncGenerator -> FuncKind.AsyncGenerator
+
+/// An optional chain split at its outermost `?.` link
+type private OptionalSplit =
+    {
+        /// The value checked for null or undefined
+        Object : S.Expression
+        /// Stands for the value of Object in Chain
+        Placeholder : S.Id
+        /// The rest of the chain, evaluated when Object is not null or undefined
+        Chain : S.Expression
+        /// For a method call `x.m?.(args)`, `x` is evaluated once and passed as `this`
+        ThisBinding : option<S.Id * S.Expression>
+    }
+
+let mutable private optionalCounter = 0
+
+let rec private splitOptional (e: S.Expression) : option<OptionalSplit> =
+    let fresh () =
+        optionalCounter <- optionalCounter + 1
+        S.Id.New ("$opt" + string optionalCounter)
+    match e with
+    | S.ExprPos (x, _) -> splitOptional x
+    | S.Binary (x, SB.``?.``, m) ->
+        let v = fresh ()
+        Some { Object = x; Placeholder = v; Chain = S.Binary (S.Var v, SB.``.``, m); ThisBinding = None }
+    | S.OptionalApplication (S.IgnoreEPos (S.Binary (x, SB.``.``, m)), args) ->
+        let xv = fresh ()
+        let v = fresh ()
+        Some {
+            Object = S.Binary (S.Var xv, SB.``.``, m)
+            Placeholder = v
+            Chain = S.Application (S.Binary (S.Var v, SB.``.``, S.Constant (S.String "call")), [], S.Var xv :: args)
+            ThisBinding = Some (xv, x)
+        }
+    | S.OptionalApplication (x, args) ->
+        let v = fresh ()
+        Some { Object = x; Placeholder = v; Chain = S.Application (S.Var v, [], args); ThisBinding = None }
+    | S.Binary (x, SB.``.``, m) ->
+        splitOptional x |> Option.map (fun s -> { s with Chain = S.Binary (s.Chain, SB.``.``, m) })
+    | S.Application (x, ts, args) ->
+        splitOptional x |> Option.map (fun s -> { s with Chain = S.Application (s.Chain, ts, args) })
+    | S.TemplateLiteral (Some x, p, h) ->
+        splitOptional x |> Option.map (fun s -> { s with Chain = S.TemplateLiteral (Some s.Chain, p, h) })
+    | _ -> None
+
+/// Checks if `arguments` is used
+type private UsesArguments() =
+    inherit Visitor()
+    let mutable found = false
+    member this.Found = found
+    override this.VisitGlobalAccess a =
+        if a.Address = [ "arguments" ] then found <- true
+
+/// The `this` variable of a non-arrow function if its body uses `this` or `arguments`.
+/// Otherwise the function can be written as an arrow function.
+let private usedThis (env: Environment) (body: Statement) =
+    match env.This.Value with
+    | Some t ->
+        let usesArgs = UsesArguments()
+        usesArgs.VisitStatement body
+        if usesArgs.Found || CountVarOccurence(t).GetForStatement(body) > 0 then Some t else None
+    | None -> None
+
+/// Statements setting default values of parameters at the start of a function body
+let private defaultValueStatements (env: Environment) (pars: S.Id list) (vars: Id list) trE =
+    List.zip pars vars |> List.choose (fun (p, v) ->
+        p.DefaultValue |> Option.map (fun d ->
+            If (Binary (Var v, BinaryOperator.``===``, Undefined), ExprStatement (VarSet (v, trE d)), Empty)
+        )
+    )
 
 let rec private transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
@@ -317,7 +397,46 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         checkNotMutating (trE a) (fun ta -> MutatingBinary(ta, op, trE c)) 
     let mun a op =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
+    // a op= c, where op is a logical operator: a op (a = c), evaluating the target once
+    let logicalAssign a op c =
+        match trE a with
+        | ItemGet (o, k, p) ->
+            let ov = Id.New(mut = false)
+            let kv = Id.New(mut = false)
+            Let (ov, o, Let (kv, k, Binary (ItemGet (Var ov, Var kv, p), op, ItemSet (Var ov, Var kv, trE c))))
+        | ta ->
+            checkNotMutating ta (fun ta -> Binary (ta, op, setValue env ta (trE c)))
+    let optionalSplit =
+        match expr with
+        | S.Binary (_, (SB.``.`` | SB.``?.``), _)
+        | S.Application _
+        | S.OptionalApplication _
+        | S.TemplateLiteral (Some _, _, _) -> splitOptional expr
+        | _ -> None
+    match optionalSplit with
+    | Some s ->
+        let scope = env.Vars.Head
+        let thisBinding =
+            s.ThisBinding |> Option.map (fun (xv, x) ->
+                let tx = trE x
+                let v = Id.New(mut = false)
+                scope.[xv.Name] <- Var v
+                v, tx
+            )
+        let trO = trE s.Object
+        let pv = Id.New(mut = false)
+        scope.[s.Placeholder.Name] <- Var pv
+        let res = OptionalChain (trO, pv, trE s.Chain)
+        match thisBinding with
+        | Some (v, tx) -> Let (v, tx, res)
+        | None -> res
+    | None ->
     match expr with
+    | S.Yield (a, d) -> YieldExpr (Option.map trE a, d)
+    | S.Await a -> Await (trE a)
+    | S.Spread a -> Spread (trE a)
+    | S.TemplateLiteral (tag, parts, holes) -> TemplateString (Option.map trE tag, parts, List.map trE holes)
+    | S.ComputedMember _ -> failwith "Computed member name outside of object literal"
     | S.Application (a, [], b) ->
         let trA =
             match trE a with
@@ -394,6 +513,17 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``|``      -> Binary(trE a, BinaryOperator.``|``, trE c)
         | SB.``|=``     -> mbin a MutatingBinaryOperator.``|=`` c
         | SB.``||``     -> Binary(trE a, BinaryOperator.``||``, trE c)
+        | SB.``??``     -> Binary(trE a, BinaryOperator.``??``, trE c)
+        | SB.``??=``    -> mbin a MutatingBinaryOperator.``??=`` c
+        | SB.``&&=``    -> logicalAssign a BinaryOperator.``&&`` c
+        | SB.``||=``    -> logicalAssign a BinaryOperator.``||`` c
+        | SB.``**=``    ->
+            match trE a with
+            | ItemGet (o, k, p) ->
+                let ov = Id.New(mut = false)
+                let kv = Id.New(mut = false)
+                Let (ov, o, Let (kv, k, ItemSet (Var ov, Var kv, Binary (ItemGet (Var ov, Var kv, p), BinaryOperator.``**``, trE c))))
+            | ta -> checkNotMutating ta (fun ta -> setValue env ta (Binary (ta, BinaryOperator.``**``, trE c)))
         | _ -> failwith "unrecognized binary operator"
     | S.Conditional (a, b, c) ->
         Conditional (trE a, trE b, trE c)
@@ -405,25 +535,63 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.String x -> String x
         | S.True -> Bool true
         |> Value
-    | S.Lambda (a, b, c, d) ->
+    | S.Lambda (a, b, c, d, kind) ->
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), d)
+        // a non-arrow function has its own `this`, and stays a non-arrow function
+        if not d then innerEnv.This.Value <- Some (Id.NewThis())
         let body = S.Block c
+        let trBodyWithDefaults () =
+            let defaults = defaultValueStatements innerEnv b vars (transformExpression innerEnv)
+            let trBody = transformStatement innerEnv body
+            CombineStatements (defaults @ [ trBody ])
+        let thisOf b = if d then None else usedThis innerEnv b
         let fres =
-            match a with
-            | None -> 
-                let trBody = transformStatement innerEnv body
-                Function (vars, (if d then None else innerEnv.This.Value), None, trBody)
-            | Some a -> 
+            match a, kind with
+            | None, S.Normal -> 
+                let trBody = trBodyWithDefaults ()
+                Function (vars, thisOf trBody, None, trBody)
+            | None, _ -> 
+                let trBody = trBodyWithDefaults ()
+                FuncWithKind (trFuncKind kind, Function (vars, thisOf trBody, None, trBody))
+            | Some a, S.Normal -> 
                 let f = innerEnv.NewVar a
-                let trBody = transformStatement innerEnv body
-                StatementExpr(FuncDeclaration(f, vars, (if d then None else innerEnv.This.Value), trBody, []), Some f)
+                let trBody = trBodyWithDefaults ()
+                StatementExpr(FuncDeclaration(f, vars, thisOf trBody, trBody, []), Some f)
+            | Some a, _ -> 
+                let f = innerEnv.NewVar a
+                let trBody = trBodyWithDefaults ()
+                let func = FuncWithKind (trFuncKind kind, Function (vars, thisOf trBody, None, trBody))
+                StatementExpr(VarDeclaration(f, func), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
     | S.New (a, [], b) -> 
         New(trE a, [], List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
-    | S.NewObject a -> Object(a |> List.map (fun (b, _, c) -> b, MemberKind.Simple, trE c))
+    | S.NewObject a when a |> List.exists (fun (_, _, v) -> match S.IgnoreExprPos v with S.Spread _ | S.ComputedMember _ -> true | _ -> false) ->
+        // { a: 1, ...b, [c]: 2 } -> Object.assign({ a: 1 }, b), o[c] = 2
+        let isSpecial (_, _, v) = match S.IgnoreExprPos v with S.Spread _ | S.ComputedMember _ -> true | _ -> false
+        let first = a |> List.takeWhile (isSpecial >> not)
+        let rest = a |> List.skipWhile (isSpecial >> not)
+        let o = Id.New("o", mut = false)
+        let ops =
+            rest |> List.map (fun (n, k, v) ->
+                match S.IgnoreExprPos v, k with
+                | S.Spread x, _ ->
+                    Appl (ItemGet (Global [ "Object" ], Value (String "assign"), Pure), [ Var o; trE x ], NonPure, None)
+                | S.ComputedMember (key, value), S.Simple -> ItemSet (Var o, trE key, trE value)
+                | S.ComputedMember _, _ -> failwith "Currently unsupported: getter or setter with a computed name in inline object literal"
+                | _, S.Simple -> ItemSet (Var o, Value (String n), trE v)
+                | _ -> failwith "Currently unsupported: getter or setter after a spread or computed member in inline object literal"
+            )
+        Let (o, trE (S.NewObject first), Sequential (ops @ [ Var o ]))
+    | S.NewObject a ->
+        let trKind k =
+            match k with
+            | S.Accessor.Get -> MemberKind.Getter
+            | S.Accessor.Set -> MemberKind.Setter
+            | S.Accessor.Simple -> MemberKind.Simple
+        Object(a |> List.map (fun (b, k, c) -> b, trKind k, trE c))
     | S.NewRegex a -> 
         let closingSlash = a.LastIndexOf '/'
         let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq
@@ -541,8 +709,9 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         failwith "Currently unsupported: JS import in inline"   
     | S.Interface (a, b, c) ->
         failwith "Currently unsupported: TS interface in inline"   
-    | S.Labelled (a, b)  -> 
-        failwith "Currently unsupported: JS labels"
+    | S.Labelled (a, b)  ->
+        let l = Id.New a
+        Labeled (l, transformStatement { env with Labels = env.Labels.Add(a, l) } b)
     | S.Namespace (a, b) ->
         failwith "Currently unsupported: TS namespace in inline"   
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)
@@ -560,23 +729,42 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         | Some d -> TryFinally (tw, trS d)
     | S.TypeAlias (a, b) ->
         failwith "Currently unsupported: TS type alias in inline"   
-    | S.Vars (a, _) ->
+    | S.Vars (a, kind) ->
+        let decl (var, value) =
+            let value = match value with Some v -> trE v | None -> Undefined
+            VarDeclaration (env.NewVar(var, kind <> S.ConstDecl), value)
         match a with
-        | [var, value] -> 
-            VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)
-        | _ -> 
-            Block (a |> List.map (fun (var, value) -> VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)))
+        | [ d ] -> decl d
+        | _ -> Block (a |> List.map decl)
     | S.While (a, b) -> While (trE a, trS b)
     | S.With (a, b) -> failwith "Unsupported: JS with statement"
-    | S.Function (a, b, c) ->
+    | S.ForOf (a, b, c) ->
+        let v = Id.New "x"
+        ForOf (v, trE b, Block [ ExprStatement (setValue env (trE a) (Var v)); trS c ])
+    | S.ForDeclOf (kind, a, b, c) ->
+        let trB = trE b
+        let v = env.NewVar(a, kind <> S.ConstDecl)
+        ForOf (v, trB, trS c)
+    | S.ForDeclIn (kind, a, b, c) ->
+        let trB = trE b
+        let v = env.NewVar(a, kind <> S.ConstDecl)
+        ForIn (v, trB, trS c)
+    | S.Function (a, b, c, kind) ->
         let f = env.NewVar a
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), false)
-        let trBody = 
-            match c with 
-            | Some c -> transformStatement innerEnv (S.Block c)
+        innerEnv.This.Value <- Some (Id.NewThis())
+        let trBody =
+            match c with
+            | Some c ->
+                let defaults = defaultValueStatements innerEnv b vars (transformExpression innerEnv)
+                CombineStatements (defaults @ [ transformStatement innerEnv (S.Block c) ])
             | _ -> Empty
-        FuncDeclaration(f, vars, innerEnv.This.Value, trBody, [])
+        match kind with
+        | S.Normal ->
+            FuncDeclaration(f, vars, usedThis innerEnv trBody, trBody, [])
+        | _ ->
+            VarDeclaration(f, FuncWithKind (trFuncKind kind, Function (vars, usedThis innerEnv trBody, None, trBody)))
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 type InlinedStatementsTransformer() =

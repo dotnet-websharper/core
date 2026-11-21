@@ -167,7 +167,7 @@ namespace WebSharper.CSharp.Tests
             Equal(comb.GetInvocationList().Length, 2);
         }
 
-        [Test("Delegate with default value, known issue: https://github.com/intellifactory/websharper/issues/788", TestKind.Skip)]
+        [Test("Delegate with default value")]
         public void DelegateWithOptional()
         {
             var f = new FuncWithOptional(x => x);
@@ -248,6 +248,52 @@ namespace WebSharper.CSharp.Tests
             MyExplicitEvent -= IncrEventTester;
             Equal(EventTester, 13, "explicit remove handler");
             Equal(MyEvent, null, "empty event is null");
+        }
+
+        [Test]
+        public void DelegateSubtraction()
+        {
+            var log = "";
+            Action a = () => log += "a";
+            Action b = () => log += "b";
+            Action c = () => log += "c";
+
+            Action abcab = a + b + c + a + b;
+            Action d = abcab - b;
+            d();
+            Equal(log, "abca", "removes last occurrence of single delegate");
+
+            log = "";
+            d = abcab - (a + b);
+            d();
+            Equal(log, "abc", "removes last occurrence of invocation list");
+
+            log = "";
+            d = abcab - (c + a);
+            d();
+            Equal(log, "abb", "removes contiguous invocation list from the middle");
+
+            log = "";
+            d = abcab - (a + c);
+            d();
+            Equal(log, "abcab", "non-contiguous invocation list is not removed");
+
+            d = a - a;
+            Equal(d, null, "removing all results in null");
+
+            Action n = null;
+            d = n - a;
+            Equal(d, null, "removing from null is null");
+
+            log = "";
+            d = a - n;
+            d();
+            Equal(log, "a", "removing null returns source");
+
+            log = "";
+            d = (Action)Delegate.RemoveAll(abcab, a);
+            d();
+            Equal(log, "bcb", "RemoveAll");
         }
     }
 }

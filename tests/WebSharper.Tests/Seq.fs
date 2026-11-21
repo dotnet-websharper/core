@@ -907,4 +907,48 @@ let Tests =
             isTrue (Seq.head rsh2 >= 1 && Seq.head rsh2 <= 10)
             equal (Seq.length (Seq.distinct rsh2)) 10
         }
+
+        Test "Sequence expressions" {
+            let log = ResizeArray()
+            let s n =
+                seq {
+                    log.Add "start"
+                    try
+                        for i in 1 .. n do
+                            if i % 2 = 0 then yield i * 10
+                        yield! [ 100; 200 ]
+                        let mutable j = 0
+                        while j < 2 do
+                            yield j
+                            j <- j + 1
+                        use d = { new System.IDisposable with member _.Dispose() = log.Add "dispose" }
+                        yield -1
+                    finally
+                        log.Add "finally"
+                }
+            let s4 = s 4
+            equalMsg (log.ToArray()) [||] "lazy"
+            equalMsg (Seq.toArray s4) [| 20; 40; 100; 200; 0; 1; -1 |] "items"
+            equalMsg (log.ToArray()) [| "start"; "dispose"; "finally" |] "completed"
+            log.Clear()
+            equalMsg (Seq.toArray (Seq.truncate 2 s4)) [| 20; 40 |] "restarted"
+            equalMsg (log.ToArray()) [| "start"; "finally" |] "early dispose runs finally"
+            let e = (s 0).GetEnumerator()
+            raisesMsg (e.Current) "Current before MoveNext"
+            e.Dispose()
+            let nested = seq { for x in [ 1; 2 ] do for y in seq { yield x; yield x * 10 } do yield y + 1 }
+            equalMsg (List.ofSeq nested) [ 2; 11; 3; 21 ] "nested"
+        }
+
+        Test "List and array comprehensions" {
+            let xs = [ 1; 2; 3; 4 ]
+            equalMsg [ for x in xs do if x > 2 then yield x * 2 ] [ 6; 8 ] "list with filter"
+            equalMsg [| for x in [| 1; 2 |] -> x + 1 |] [| 2; 3 |] "array map"
+            equalMsg [ for x in xs do yield! [ x; -x ] ] [ 1; -1; 2; -2; 3; -3; 4; -4 ] "yield!"
+            let i = ref 0
+            equalMsg [| while i.Value < 3 do yield i.Value; i.Value <- i.Value + 1 |] [| 0; 1; 2 |] "while"
+            equalMsg [ for c in "ab" -> string c ] [ "a"; "b" ] "string source"
+            equalMsg [ for x in Seq.empty<int> -> x ] [] "empty"
+            equalMsg [| for x in seq { 1 .. 3 } do for y in [ 10 ] -> x * y |] [| 10; 20; 30 |] "nested"
+        }
     }
