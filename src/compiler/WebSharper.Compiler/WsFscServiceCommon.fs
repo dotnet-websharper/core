@@ -16,6 +16,36 @@ let hashPath (fullPath: string) =
     ||> Array.fold (fun sb b -> sb.Append(b.ToString("x2")))
     |> string
 
+/// The pipe of the booster running from a folder: a hash of the folder on Windows, a file in the temp folder elsewhere.
+let boosterPipeName (folder: string) =
+    let raw = System.IO.Path.Combine(folder, "WsFscServicePipe") |> hashPath
+    if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+        raw
+    else
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), raw)
+
+/// A running booster registers itself for dotnet ws, which can't tell a booster started as
+/// `dotnet wsfscservice.dll` from any other dotnet process. One file per booster folder,
+/// written on start and removed on exit, see boosterRecordPath.
+[<CLIMutable>]
+type BoosterRecord =
+    {
+        Pid: int
+        /// The WebSharper package version, e.g. 11.0.0.756-preview.1
+        Version: string
+        /// The folder of wsfscservice.dll
+        Folder: string
+        /// The UTC start time of the process, to tell it from a later process with the same pid
+        Started: System.DateTime
+        Pipe: string
+    }
+
+let boosterRecordFolder () =
+    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "websharper-boosters")
+
+let boosterRecordPath (folder: string) =
+    System.IO.Path.Combine(boosterRecordFolder (), hashPath (System.IO.Path.Combine(folder, "WsFscServicePipe")) + ".json")
+
 exception PipeException of unit
 
 let readingMessages (pipe: PipeStream) (handleMessage: obj -> Async<'a option>) (clientError: unit -> unit) = 
