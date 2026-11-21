@@ -933,8 +933,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod
                             | "GetHashCode" ->
+                                // Hash the members, consistently with Equals above. Hashing `this`
+                                // would call back into this GetHashCode and never return.
                                 let b =
-                                    Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedHash, [ (Var thisVar) ]) |> Return
+                                    let values = getAllValues (Var thisVar) |> Seq.map snd |> List.ofSeq
+                                    Call(None, NonGeneric uncheckedMdl, Generic uncheckedHash [ NonGenericType Definitions.Obj ], [ NewArray values ]) |> Return
                                 {
                                     IsStatic = false
                                     Parameters = []
