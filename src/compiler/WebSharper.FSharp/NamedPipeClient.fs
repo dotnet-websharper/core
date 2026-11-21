@@ -101,17 +101,63 @@ module private DetachedProcess =
 
     let CREATE_NO_WINDOW = 0x08000000u
 
-    let start (exePath: string) (args: string list) =
+    let start (exePath: string) (args: string list) (workingDir: string) =
         let quote (s: string) = "\"" + s + "\""
         let commandLine = StringBuilder(exePath :: args |> List.map quote |> String.concat " ")
         let mutable startupInfo = StartupInfo()
         startupInfo.cb <- Marshal.SizeOf<StartupInfo>()
         let mutable processInfo = ProcessInformation()
-        let workingDir = Path.GetDirectoryName exePath
-        if not (CreateProcess(exePath, commandLine, 0n, 0n, false, CREATE_NO_WINDOW, 0n, workingDir, &startupInfo, &processInfo)) then
+        // a bare name (dotnet) is looked up on PATH from the command line
+        let appName = if Path.IsPathRooted exePath then exePath else null
+        if not (CreateProcess(appName, commandLine, 0n, 0n, false, CREATE_NO_WINDOW, 0n, workingDir, &startupInfo, &processInfo)) then
             raise (System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()))
         CloseHandle processInfo.hThread |> ignore
         CloseHandle processInfo.hProcess |> ignore
+
+/// The dotnet host to start the booster with when it has no runnable apphost: the host running
+/// this process (the portable compiler runs as dotnet wsfsc.dll), then $(DOTNET_HOST_PATH) set by
+/// MSBuild, then dotnet from PATH.
+let dotnetHost () =
+    let isDotnet (p: string) =
+        not (isNull p) && Path.GetFileNameWithoutExtension(p).Equals("dotnet", System.StringComparison.OrdinalIgnoreCase) && File.Exists p
+    let processPath = System.Environment.ProcessPath
+    let hostPath = System.Environment.GetEnvironmentVariable "DOTNET_HOST_PATH"
+    if isDotnet processPath then processPath
+    elif isDotnet hostPath then hostPath
+    else "dotnet"
+
+/// The booster's apphost, if it can be started directly. Packages extracted on Linux and macOS
+/// may not have the executable bit set, those boosters run with the dotnet host.
+let tryBoosterAppHost (location: string) =
+    let isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+    let path = Path.Combine(location, if isWindows then "wsfscservice.exe" else "wsfscservice")
+    if not (File.Exists path) then None
+    elif isWindows then Some path
+    else
+        try
+            if File.GetUnixFileMode(path).HasFlag(UnixFileMode.UserExecute) then Some path else None
+        with _ -> None
+
+/// Starts a detached booster from the folder of this compiler.
+let startBooster (location: string) (logArgs: string list) =
+    let fileName, args =
+        match tryBoosterAppHost location with
+        | Some appHost -> appHost, logArgs
+        | None -> dotnetHost (), Path.Combine(location, "wsfscservice.dll") :: logArgs
+    if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+        DetachedProcess.start fileName args location
+    else
+        // the booster's output goes to /dev/null, so it doesn't keep our pipes open
+        let startInfo = ProcessStartInfo("/bin/sh")
+        startInfo.ArgumentList.Add "-c"
+        startInfo.ArgumentList.Add "nohup \"$0\" \"$@\" </dev/null >/dev/null 2>&1 &"
+        startInfo.ArgumentList.Add fileName
+        for a in args do startInfo.ArgumentList.Add a
+        startInfo.WorkingDirectory <- location
+        startInfo.CreateNoWindow <- true
+        startInfo.UseShellExecute <- false
+        use p = Process.Start(startInfo)
+        p.WaitForExit()
 
 let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
@@ -122,45 +168,44 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
             pipeNameRaw  // Windows uses simple pipe names
         else
             Path.Combine(Path.GetTempPath(), pipeNameRaw) // Linux/macOS require 
-    let exeName =
-        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
-            "wsfscservice.exe"
-        else 
-            "wsfscservice"
-    let fileNameOfService = (location, exeName) |> System.IO.Path.Combine
-    let runningServers =
-        try
-            Process.GetProcessesByName("wsfscservice")
-            |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
-        with
-        | e ->
-            // If the processes cannot be queried, because of insufficient rights, the Mutex in service will handle
-            // not running 2 instances
-            [||]
 
-    let isServerNeeded =
-        runningServers |> Array.isEmpty
-
-    if isServerNeeded then
-        // start a detached wsfscservice.exe. Platform specific.
-        let logArgs = if useLogs then [ Path.Combine(projectDir, "websharper.log") ] else []
-        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-            DetachedProcess.start fileNameOfService logArgs
-        else
-            // the script redirects the booster's output to /dev/null, so it doesn't keep our pipes open
-            let startInfo = ProcessStartInfo(Path.Combine(location, "wsfscservice_start.sh"))
-            startInfo.Arguments <- String.concat " " logArgs
-            startInfo.CreateNoWindow <- true
-            startInfo.UseShellExecute <- false
-            Process.Start(startInfo) |> ignore
-
-    // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
-    // Call that with the compilation args for compilation.
-    use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
+    let newClientPipe () =
+        new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+
+    // A running booster of this folder listens on its pipe. Probing the pipe finds it whether it runs
+    // as an apphost or as dotnet wsfscservice.dll, which looks like any other dotnet process.
+    let tryConnect (timeout: int) =
+        let pipe = newClientPipe ()
+        try
+            pipe.Connect(timeout)
+            Some pipe
+        with _ ->
+            pipe.Dispose()
+            None
+
+    // the singleton wsfscservice collects cache about metadata, and have the compiler in memory.
+    // Call that with the compilation args for compilation.
+    use clientPipe =
+        match tryConnect 300 with
+        | Some pipe -> pipe
+        | None ->
+            // start a detached booster. If another client started one meanwhile, the new one exits
+            // (one booster per folder, guarded by a named mutex) and we connect to the other.
+            let logArgs = if useLogs then [ Path.Combine(projectDir, "websharper.log") ] else []
+            try
+                startBooster location logArgs
+            with e ->
+                cLogger.Error (sprintf "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build. Could not start the booster: %s" e.Message)
+                raise <| PipeException()
+            match tryConnect 10000 with
+            | Some pipe -> pipe
+            | None ->
+                cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+                raise <| PipeException()
     let Write (ms: byte []) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let unexpectedFinishErrorCode = -12211
@@ -219,7 +264,6 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     try
-        clientPipe.Connect(2000)
         if clientPipe.IsConnected then
             clientPipe.ReadMode <- PipeTransmissionMode.Byte
             let options = System.Text.Json.JsonSerializerOptions()

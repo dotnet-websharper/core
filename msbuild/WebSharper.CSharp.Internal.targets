@@ -32,7 +32,7 @@ $end{copyright}
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net11.0/wscsc.exe</WebSharperToolPath>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net11.0/wscsc.sh</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(Root)/build/$(Configuration)/CSharp/net11.0/wscsc.dll</WebSharperToolPath>
     <WebSharperSourceMap Condition=" '$(WebSharperSourceMap)' == '' ">True</WebSharperSourceMap>
     <!-- WebSharperCompile runs after CoreCompile (not in TargetsTriggeredByCompilation, called from inside it): it needs @(CscCommandLineArgs) -->
     <WebSharperTypeScriptOutput Condition=" '$(WebSharperTypeScriptOutput)' == '' ">True</WebSharperTypeScriptOutput>
@@ -73,7 +73,7 @@ $end{copyright}
   </ItemGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile" BeforeTargets="PreComputeCompileTypeScript;PreComputeCompileTypeScriptWithTSConfig">
-    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT' AND '$(WebSharperToolPath.EndsWith(`.dll`))' != 'True'" />
     <ItemGroup Condition="$(CompilerGeneratedFilesOutputPath) != ''">
       <Compile Include="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />
     </ItemGroup>
@@ -108,6 +108,7 @@ $end{copyright}
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperToolPath="$(WebSharperToolPath)"
+      DotnetHostPath="$(DOTNET_HOST_PATH)"
       TargetType="$(OutputType)"
       NoConfig="true"
       DebugType="$(DebugType)"
