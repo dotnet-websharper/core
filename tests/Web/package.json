@@ -3,7 +3,7 @@
     "bundle": "esbuild wwwroot/Scripts/WebSharper/Web/root.js --bundle --outfile=wwwroot/Scripts/WebSharper/bundle.js --minify --format=iife --global-name=wsbundle"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "esbuild-css-modules-plugin": "^3.1.5"
   },
   "dependencies": {
