@@ -54,6 +54,8 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperJsOutput { get; set; }
         public string WebSharperMinJsOutput { get; set; }
         public string WebSharperTimingLog { get; set; }
+        /// True: do not report the compilation to the C# booster (wscscservice) for its agent tools.
+        public string WebSharperStandalone { get; set; } = "";
         public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
         /// $(DOTNET_HOST_PATH), runs WebSharperToolPath when it is a .dll
@@ -157,6 +159,9 @@ namespace WebSharper.MSBuild.CSharp
                 WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
                 WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
                 WriteIfSet(w, "--wstimings:", WebSharperTimingLog);
+
+                if (TryParseBool(WebSharperStandalone))
+                    w.WriteLine("--standalone");
 
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");

@@ -20,6 +20,7 @@
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="BoosterProcess.fs" />
     <Compile Include="NamedPipeClient.fs" />
     <Compile Include="Program.fs" />
     <Content Include="wsfscservice_start.cmd" CopyToOutputDirectory="PreserveNewest" />

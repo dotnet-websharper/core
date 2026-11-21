@@ -37,15 +37,23 @@ let formatArgv (argv: string[]) =
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssemblyWith
-    let logger = ConsoleLogger()
-    try
-        compileMain (formatArgv argv) tryGetMetadata logger 
-    with
-    | ArgumentError "" -> 
-        1    
-    | ArgumentError msg -> 
-        PrintGlobalError logger msg
-        1    
-    | e -> 
-        PrintGlobalError logger (sprintf "Global error: %A" e)
-        1
+    let logger = BoosterReport.RecordingLogger()
+    let mutable skipped = false
+    logger.StageObserver <- System.Action<string, System.TimeSpan>(fun stage _ -> if stage = BoosterReport.skippedStage then skipped <- true)
+    let mutable config = None
+    let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+    let exitCode =
+        try
+            compileMainWith (formatArgv argv) tryGetMetadata logger (fun c -> config <- Some c)
+        with
+        | ArgumentError "" ->
+            1
+        | ArgumentError msg ->
+            PrintGlobalError logger msg
+            1
+        | e ->
+            PrintGlobalError logger (sprintf "Global error: %A" e)
+            1
+    // the C# booster's agent tools answer from this compilation
+    config |> Option.iter (fun c -> BoosterReport.send c exitCode stopwatch.Elapsed skipped logger.Lines)
+    exitCode

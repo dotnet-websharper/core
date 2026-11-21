@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <Name>wscscservice</Name>
+    <AssemblyName>wscscservice</AssemblyName>
+    <CSharpTool>True</CSharpTool>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <Signed>False</Signed>
+    <!-- Stats.fs and Mcp.fs are shared with the F# booster, compiled as WebSharper.CSharp.Service modules -->
+    <DefineConstants>$(DefineConstants);CSHARP_BOOSTER</DefineConstants>
+    <!-- the platforms of the Booster tools (boosterRids in build.fsx) -->
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;linux-musl-x64;linux-musl-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <RollForward>LatestMajor</RollForward>
+    <ApplicationIcon>../../../tools/WebSharper.ico</ApplicationIcon>
+  </PropertyGroup>
+  <!-- ReadyToRun for every platform publish, the portable publish (no RuntimeIdentifier) stays IL only -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\WebSharper.FSharp.Service\BoosterPipe.fs" Link="BoosterPipe.fs" />
+    <Compile Include="..\WebSharper.FSharp.Service\Stats.fs" Link="Stats.fs" />
+    <Compile Include="..\WebSharper.FSharp.Service\Mcp.fs" Link="Mcp.fs" />
+    <Compile Include="AgentTools.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
+    <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>
