@@ -512,9 +512,21 @@ type BundleCss =
         member this.Render ctx =
             let fileName = this.BundleName + ".css"
             let scriptBaseUrl = ctx.ScriptBaseUrl |> Option.defaultValue "/Scripts/WebSharper/"
-            let url = scriptBaseUrl + fileName + ScriptVersion this.WebRootFolder fileName
-            fun writer ->
-                link ctx.DefaultToHttp (writer Styles) url
+            // esbuild only writes <bundle>.css when the bundle imports CSS.
+            // ScriptVersion is empty when the file is missing (cached lookup);
+            // link anyway when the web root is unknown, or offline, where the
+            // web root is the project folder, not the output folder.
+            let version = ScriptVersion this.WebRootFolder fileName
+            let exists =
+                version <> ""
+                || String.IsNullOrEmpty this.WebRootFolder
+                || ctx.GetSetting "IsOffline" = Some "true"
+            if exists then
+                let url = scriptBaseUrl + fileName + version
+                fun writer ->
+                    link ctx.DefaultToHttp (writer Styles) url
+            else
+                ignore
 
 [<Sealed>]
 type Runtime() =
