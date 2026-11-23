@@ -346,6 +346,30 @@ Target.create "CheckGeneratedSerializer" <| fun _ ->
 "RunCompilerTestsRelease"
     ==> "CI-Release"
 
+// C# conformance: the cases of tests/WebSharper.CSharp.Conformance run on .NET and as WebSharper JavaScript under Node,
+// checked against its baseline.json. Fails on regressions (a case that passed no longer does) and on cases missing from
+// the baseline; fixes only print a reminder to run `node check.mjs --update`. Both projects are built by WebSharper.sln.
+Target.create "RunCSharpConformanceRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "C# conformance check skipped"
+    else
+
+    let node =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+            @"C:\Program Files\nodejs\node.exe"
+        else
+            "node"
+    let res = Shell.Exec(node, "check.mjs", "tests/WebSharper.CSharp.Conformance")
+    if res <> 0 then
+        failwith "C# conformance check failed, see tests/WebSharper.CSharp.Conformance/README.md"
+
+"WS-BuildRelease"
+    ?=> "RunCSharpConformanceRelease"
+    ?=> "WS-Package"
+
+"RunCSharpConformanceRelease"
+    ==> "CI-Release"
+
 Target.create "RunSPATestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "QUnit Puppeteer testing for SPA skipped"

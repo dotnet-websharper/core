@@ -1,0 +1,1203 @@
+{
+  "int.overflow.wraps": {
+    "status": "mismatch",
+    "net": "-2147483648",
+    "js": "2147483648"
+  },
+  "int.multiply.wraps": {
+    "status": "mismatch",
+    "net": "-2",
+    "js": "4294967294"
+  },
+  "int.division.truncates": {
+    "status": "pass"
+  },
+  "int.remainder.sign": {
+    "status": "pass"
+  },
+  "int.divide.by.zero": {
+    "status": "mismatch",
+    "net": "EXN DivideByZero",
+    "js": "0"
+  },
+  "int.checked.overflow": {
+    "status": "unsupported",
+    "net": "EXN Overflow",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "uint.wraps": {
+    "status": "mismatch",
+    "net": "4294967295",
+    "js": "-1"
+  },
+  "byte.wraps": {
+    "status": "mismatch",
+    "net": "0",
+    "js": "256"
+  },
+  "short.cast.truncates": {
+    "status": "pass"
+  },
+  "long.max": {
+    "status": "pass"
+  },
+  "long.overflow.wraps": {
+    "status": "mismatch",
+    "net": "-9223372036854775808",
+    "js": "9223372036854775808"
+  },
+  "long.multiply": {
+    "status": "pass"
+  },
+  "double.tostring": {
+    "status": "mismatch",
+    "net": "0.30000000000000004|1|1E+21|1.5E-07|NaN|Infinity",
+    "js": "0.30000000000000004|1|1e+21|1.5e-7|NaN|Infinity"
+  },
+  "double.to.int.truncates": {
+    "status": "pass"
+  },
+  "double.to.int.nan": {
+    "status": "pass"
+  },
+  "math.round.bankers": {
+    "status": "mismatch",
+    "net": "2,4,-2",
+    "js": "3,4,-2"
+  },
+  "math.round.digits": {
+    "status": "unsupported",
+    "net": "1,2.35",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "math.round.awayfromzero": {
+    "status": "unsupported",
+    "net": "3",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "math.floor.ceiling": {
+    "status": "pass"
+  },
+  "math.clamp.sign": {
+    "status": "unsupported",
+    "net": "10,-1,4",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "math.max.min.int": {
+    "status": "pass"
+  },
+  "format.N2": {
+    "status": "mismatch",
+    "net": "1,234,567.89",
+    "js": "1234567.891"
+  },
+  "format.F3": {
+    "status": "mismatch",
+    "net": "3.142",
+    "js": "3.14159"
+  },
+  "format.P1": {
+    "status": "mismatch",
+    "net": "25.6 %",
+    "js": "0.256"
+  },
+  "format.D5": {
+    "status": "mismatch",
+    "net": "00042",
+    "js": "42"
+  },
+  "format.X": {
+    "status": "mismatch",
+    "net": "FF,00ff",
+    "js": "255,255"
+  },
+  "format.E2": {
+    "status": "mismatch",
+    "net": "1.23E+004",
+    "js": "12345.678"
+  },
+  "format.interp.align": {
+    "status": "pass"
+  },
+  "format.interp.spec": {
+    "status": "mismatch",
+    "net": "3.14|50 %|1,234",
+    "js": "3.14159|0.5|1234"
+  },
+  "format.custom": {
+    "status": "mismatch",
+    "net": "1,234.50|.5",
+    "js": "1234.5|0.5"
+  },
+  "string.format": {
+    "status": "mismatch",
+    "net": "1-2.2-1",
+    "js": "1-2.25-1"
+  },
+  "parse.int": {
+    "status": "pass"
+  },
+  "parse.int.invalid": {
+    "status": "pass"
+  },
+  "parse.int.overflow": {
+    "status": "pass"
+  },
+  "tryparse.int": {
+    "status": "mismatch",
+    "net": "false,0",
+    "js": "false,undefined"
+  },
+  "parse.double": {
+    "status": "unsupported",
+    "net": "1500",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "tryparse.double": {
+    "status": "mismatch",
+    "net": "false,0",
+    "js": "false,undefined"
+  },
+  "convert.toint32.rounds": {
+    "status": "mismatch",
+    "net": "2,4",
+    "js": "2,3"
+  },
+  "int.tostring.negative.zero": {
+    "status": "mismatch",
+    "net": "-0",
+    "js": "0"
+  },
+  "char.arith": {
+    "status": "unsupported",
+    "net": "b,65,B",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "char.isdigit.letter": {
+    "status": "pass"
+  },
+  "bitwise.shift": {
+    "status": "unsupported",
+    "net": "2,-4,1073741820,1099511627776",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "bitwise.ops": {
+    "status": "pass"
+  },
+  "compound.assign.ops": {
+    "status": "pass"
+  },
+  "nullable.arith": {
+    "status": "mismatch",
+    "net": "|3|false",
+    "js": "null|3|false"
+  },
+  "nullable.compare": {
+    "status": "pass"
+  },
+  "int.minvalue.negate": {
+    "status": "mismatch",
+    "net": "-2147483648",
+    "js": "2147483648"
+  },
+  "double.equality.nan": {
+    "status": "mismatch",
+    "net": "false,true",
+    "js": "false,false"
+  },
+  "float.precision": {
+    "status": "mismatch",
+    "net": "0.1|0.10000000149011612",
+    "js": "0.1|0.1"
+  },
+  "int.compareto": {
+    "status": "pass"
+  },
+  "split.basic": {
+    "status": "pass"
+  },
+  "split.removeempty": {
+    "status": "pass"
+  },
+  "split.trimentries": {
+    "status": "mismatch",
+    "net": "[a,b,c]",
+    "js": "[ a , b ,c ]"
+  },
+  "split.chars": {
+    "status": "pass"
+  },
+  "split.string": {
+    "status": "unsupported",
+    "net": "[a,b,c]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "split.count": {
+    "status": "unsupported",
+    "net": "[a,b,c,d]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "trim.chars": {
+    "status": "pass"
+  },
+  "pad": {
+    "status": "pass"
+  },
+  "substring": {
+    "status": "pass"
+  },
+  "substring.outofrange": {
+    "status": "mismatch",
+    "net": "EXN ArgumentOutOfRange",
+    "js": "lo"
+  },
+  "indexof": {
+    "status": "pass"
+  },
+  "indexof.startindex": {
+    "status": "pass"
+  },
+  "contains.comparison": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "startswith.endswith": {
+    "status": "unsupported",
+    "net": "true,true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "equals.ignorecase": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "compare.ordinal": {
+    "status": "unsupported",
+    "net": "1,-1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "upper.lower.invariant": {
+    "status": "unsupported",
+    "net": "MIXED|mixed",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "replace": {
+    "status": "pass"
+  },
+  "insert.remove": {
+    "status": "unsupported",
+    "net": "heXXllo|hlo|hel",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "join.concat": {
+    "status": "unsupported",
+    "net": "1-2-3|a1True",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "join.null": {
+    "status": "pass"
+  },
+  "isnullorwhitespace": {
+    "status": "pass"
+  },
+  "char.indexer": {
+    "status": "pass"
+  },
+  "string.range": {
+    "status": "pass"
+  },
+  "string.ctor.repeat": {
+    "status": "pass"
+  },
+  "tochararray.reverse": {
+    "status": "pass"
+  },
+  "string.equality.ref": {
+    "status": "mismatch",
+    "net": "true,false,true",
+    "js": "true,true,true"
+  },
+  "stringbuilder": {
+    "status": "pass"
+  },
+  "stringbuilder.remove.replace": {
+    "status": "pass"
+  },
+  "interp.nested": {
+    "status": "pass"
+  },
+  "interp.null": {
+    "status": "mismatch",
+    "net": "[][]",
+    "js": "[null][null]"
+  },
+  "interp.adjacent.numbers": {
+    "status": "mismatch",
+    "net": "12",
+    "js": "3"
+  },
+  "interp.single.number.is.string": {
+    "status": "mismatch",
+    "net": "true",
+    "js": "false"
+  },
+  "interp.bool": {
+    "status": "mismatch",
+    "net": "True|False",
+    "js": "true|false"
+  },
+  "raw.literal": {
+    "status": "pass"
+  },
+  "verbatim": {
+    "status": "pass"
+  },
+  "escape.unicode": {
+    "status": "pass"
+  },
+  "char.tostring.concat": {
+    "status": "pass"
+  },
+  "char.plus.char": {
+    "status": "pass"
+  },
+  "format.string.braces": {
+    "status": "mismatch",
+    "net": "{5}",
+    "js": "{{5}}"
+  },
+  "string.compareto.culture": {
+    "status": "pass"
+  },
+  "tostring.object.null": {
+    "status": "pass"
+  },
+  "string.split.empty": {
+    "status": "pass"
+  },
+  "trim.unicode.ws": {
+    "status": "pass"
+  },
+  "lastindexof.string": {
+    "status": "pass"
+  },
+  "string.contains.char": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "string.equals.null": {
+    "status": "pass"
+  },
+  "record.tostring": {
+    "status": "pass"
+  },
+  "record.tostring.nested": {
+    "status": "pass"
+  },
+  "record.tostring.derived": {
+    "status": "pass"
+  },
+  "record.tostring.body": {
+    "status": "mismatch",
+    "net": "WithBody { A = x, B = 2 }",
+    "js": "EXN Exception :: Cannot read properties of undefined (reading 'A')"
+  },
+  "record.equality": {
+    "status": "pass"
+  },
+  "record.equality.object": {
+    "status": "pass"
+  },
+  "record.equality.derived": {
+    "status": "pass"
+  },
+  "record.equality.nested": {
+    "status": "pass"
+  },
+  "record.equality.array.member": {
+    "status": "mismatch",
+    "net": "true,false",
+    "js": "true,true"
+  },
+  "record.hash.equal": {
+    "status": "pass"
+  },
+  "record.with": {
+    "status": "mismatch",
+    "net": "Person { Name = Ann, Age = 31, Greeting = Hi Ann }",
+    "js": "Person { Name = Ann, Age = 31 }"
+  },
+  "record.with.derived": {
+    "status": "pass"
+  },
+  "record.with.unchanged.original": {
+    "status": "pass"
+  },
+  "record.deconstruct": {
+    "status": "pass"
+  },
+  "record.computed.member": {
+    "status": "pass"
+  },
+  "record.in.hashset": {
+    "status": "pass"
+  },
+  "record.as.dict.key": {
+    "status": "pass"
+  },
+  "record.distinct": {
+    "status": "pass"
+  },
+  "record.groupby": {
+    "status": "pass"
+  },
+  "record.struct.tostring": {
+    "status": "pass"
+  },
+  "record.struct.equality": {
+    "status": "pass"
+  },
+  "record.struct.copy": {
+    "status": "pass"
+  },
+  "record.struct.with": {
+    "status": "pass"
+  },
+  "record.struct.default": {
+    "status": "mismatch",
+    "net": "Vec { X = 0, Y = 0 }",
+    "js": "EXN Exception :: Cannot read properties of undefined (reading 'X')"
+  },
+  "record.equals.null": {
+    "status": "mismatch",
+    "net": "true,false",
+    "js": "EXN Exception :: Cannot read properties of null (reading 'Equals_1')"
+  },
+  "record.reference.equals": {
+    "status": "pass"
+  },
+  "record.init.props": {
+    "status": "mismatch",
+    "net": "a,0",
+    "js": "EXN Exception :: Cannot read properties of undefined (reading 'A')"
+  },
+  "record.list.contains": {
+    "status": "pass"
+  },
+  "record.indexof": {
+    "status": "pass"
+  },
+  "switch.type.patterns": {
+    "status": "mismatch",
+    "net": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|long array 7|other",
+    "js": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|other|int 1.5"
+  },
+  "switch.property.positional": {
+    "status": "pass"
+  },
+  "switch.throw.arm": {
+    "status": "pass"
+  },
+  "switch.relational": {
+    "status": "pass"
+  },
+  "switch.list.patterns": {
+    "status": "pass"
+  },
+  "switch.list.slice": {
+    "status": "unsupported",
+    "net": "3,short",
+    "js": "WS-COMPILE-ERROR,WS-COMPILE-ERROR"
+  },
+  "switch.tuple": {
+    "status": "pass"
+  },
+  "switch.nomatch": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "undefined"
+  },
+  "is.not.null": {
+    "status": "pass"
+  },
+  "is.type.var": {
+    "status": "pass"
+  },
+  "as.cast": {
+    "status": "mismatch",
+    "net": "x|null",
+    "js": "EXN Exception :: Cannot read properties of null (reading 'Equals_1')"
+  },
+  "cast.invalid": {
+    "status": "mismatch",
+    "net": "EXN InvalidCast",
+    "js": "x"
+  },
+  "switch.statement.goto": {
+    "status": "pass"
+  },
+  "switch.string": {
+    "status": "pass"
+  },
+  "enum.tostring": {
+    "status": "mismatch",
+    "net": "Green|Blue|6|42",
+    "js": "5|6|6|42"
+  },
+  "enum.flags.tostring": {
+    "status": "mismatch",
+    "net": "Read, Write|None",
+    "js": "3|0"
+  },
+  "enum.hasflag": {
+    "status": "pass"
+  },
+  "enum.parse": {
+    "status": "unsupported",
+    "net": "Blue|5",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "enum.tryparse": {
+    "status": "unsupported",
+    "net": "false,Red",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "enum.getvalues": {
+    "status": "unsupported",
+    "net": "[Red,Green,Blue]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "enum.switch": {
+    "status": "pass"
+  },
+  "list.ops": {
+    "status": "pass"
+  },
+  "list.sort.default": {
+    "status": "pass"
+  },
+  "list.sort.strings": {
+    "status": "unsupported",
+    "net": "[A,B,a,b]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "list.sort.comparison": {
+    "status": "pass"
+  },
+  "list.removeall.findindex": {
+    "status": "pass"
+  },
+  "list.indexer.outofrange": {
+    "status": "mismatch",
+    "net": "EXN ArgumentOutOfRange",
+    "js": "EXN Exception :: Index was outside the bounds of the array."
+  },
+  "list.getrange.reverse": {
+    "status": "pass"
+  },
+  "list.binarysearch": {
+    "status": "pass"
+  },
+  "list.modify.during.foreach": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: Invalid array length"
+  },
+  "array.outofrange": {
+    "status": "mismatch",
+    "net": "EXN IndexOutOfRange",
+    "js": "undefined"
+  },
+  "array.default.values": {
+    "status": "pass"
+  },
+  "array.sort.reverse": {
+    "status": "pass"
+  },
+  "array.resize.copy": {
+    "status": "pass"
+  },
+  "array.2d": {
+    "status": "unsupported",
+    "net": "2,3,5,6",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "array.jagged": {
+    "status": "pass"
+  },
+  "array.equality.ref": {
+    "status": "mismatch",
+    "net": "false,true",
+    "js": "true,true"
+  },
+  "array.fill.indexof": {
+    "status": "unsupported",
+    "net": "[7,7,7],0,-1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "array.range.slice": {
+    "status": "pass"
+  },
+  "array.covariance": {
+    "status": "pass"
+  },
+  "dict.insertion.order": {
+    "status": "mismatch",
+    "net": "[b,d,c]",
+    "js": "[b,c,d]"
+  },
+  "dict.int.keys.order": {
+    "status": "mismatch",
+    "net": "[10,2,1]",
+    "js": "[1,2,10]"
+  },
+  "dict.missing.key": {
+    "status": "pass"
+  },
+  "dict.add.duplicate": {
+    "status": "pass"
+  },
+  "dict.trygetvalue": {
+    "status": "mismatch",
+    "net": "false,0,true",
+    "js": "false,undefined,true"
+  },
+  "dict.kvp.tostring": {
+    "status": "mismatch",
+    "net": "[a, 1]",
+    "js": "[object Object]"
+  },
+  "dict.tryadd.getordefault": {
+    "status": "unsupported",
+    "net": "false,1,9",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "dict.comparer.ignorecase": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "dict.tuple.key": {
+    "status": "pass"
+  },
+  "hashset.ops": {
+    "status": "pass"
+  },
+  "hashset.string.order": {
+    "status": "mismatch",
+    "net": "[z,a,m]",
+    "js": "[a,m,z]"
+  },
+  "stack.queue": {
+    "status": "pass"
+  },
+  "stack.pop.empty": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "undefined"
+  },
+  "sorteddictionary": {
+    "status": "unsupported",
+    "net": "[a,b]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "sortedset": {
+    "status": "unsupported",
+    "net": "[1,3,5]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linkedlist": {
+    "status": "pass"
+  },
+  "collection.expression": {
+    "status": "pass"
+  },
+  "span.sum": {
+    "status": "unsupported",
+    "net": "6",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "readonly.wrapper": {
+    "status": "mismatch",
+    "net": "2",
+    "js": "1"
+  },
+  "list.capacity.tostring": {
+    "status": "mismatch",
+    "net": "System.Collections.Generic.List`1[System.Int32]",
+    "js": ""
+  },
+  "tuple.tostring": {
+    "status": "mismatch",
+    "net": "(1, a, True)|(1, 2)",
+    "js": "1,a,true|1,2"
+  },
+  "tuple.equality": {
+    "status": "pass"
+  },
+  "tuple.named": {
+    "status": "pass"
+  },
+  "tuple.swap": {
+    "status": "pass"
+  },
+  "linq.where.select": {
+    "status": "pass"
+  },
+  "linq.select.index": {
+    "status": "pass"
+  },
+  "linq.orderby.stable": {
+    "status": "pass"
+  },
+  "linq.orderby.thenby": {
+    "status": "pass"
+  },
+  "linq.orderby.strings.culture": {
+    "status": "pass"
+  },
+  "linq.order": {
+    "status": "unsupported",
+    "net": "[1,2,3]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.groupby": {
+    "status": "pass"
+  },
+  "linq.groupby.resultselector": {
+    "status": "pass"
+  },
+  "linq.tolookup": {
+    "status": "unsupported",
+    "net": "2,0,2",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.todictionary.dup": {
+    "status": "pass"
+  },
+  "linq.first.empty": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "linq.firstordefault": {
+    "status": "unsupported",
+    "net": "0,null,-1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.single.many": {
+    "status": "pass"
+  },
+  "linq.last.elementat": {
+    "status": "pass"
+  },
+  "linq.aggregate": {
+    "status": "pass"
+  },
+  "linq.sum.average": {
+    "status": "pass"
+  },
+  "linq.average.empty": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: The input sequence was empty."
+  },
+  "linq.sum.overflow": {
+    "status": "mismatch",
+    "net": "EXN Overflow",
+    "js": "2147483648"
+  },
+  "linq.min.max": {
+    "status": "unsupported",
+    "net": "1,3,bb,a",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.min.empty": {
+    "status": "pass"
+  },
+  "linq.distinctby.unionby": {
+    "status": "unsupported",
+    "net": "[a,b][1,2,3]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.except.intersect": {
+    "status": "mismatch",
+    "net": "[1,3][2,3]",
+    "js": "[1,3][3,2]"
+  },
+  "linq.zip": {
+    "status": "unsupported",
+    "net": "[1,a,2,b][1,x,2,y]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.skip.take": {
+    "status": "unsupported",
+    "net": "[3,4,5][3,4][4,5][1,2]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.take.range": {
+    "status": "unsupported",
+    "net": "[3,4]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.chunk": {
+    "status": "pass"
+  },
+  "linq.selectmany": {
+    "status": "pass"
+  },
+  "linq.join": {
+    "status": "pass"
+  },
+  "linq.groupjoin": {
+    "status": "pass"
+  },
+  "linq.any.all.contains": {
+    "status": "pass"
+  },
+  "linq.count.predicate": {
+    "status": "pass"
+  },
+  "linq.repeat.empty.concat": {
+    "status": "unsupported",
+    "net": "[w,x,x,x,y]",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.reverse.defaultifempty": {
+    "status": "pass"
+  },
+  "linq.sequenceequal": {
+    "status": "pass"
+  },
+  "linq.cast.oftype": {
+    "status": "mismatch",
+    "net": "[1,2][a,b]",
+    "js": "[1,a,2,][a,b]"
+  },
+  "linq.cast.invalid": {
+    "status": "mismatch",
+    "net": "EXN InvalidCast",
+    "js": "[1,a]"
+  },
+  "linq.deferred": {
+    "status": "pass"
+  },
+  "linq.query.syntax": {
+    "status": "pass"
+  },
+  "linq.query.group": {
+    "status": "pass"
+  },
+  "linq.toarray.tolist.tohashset": {
+    "status": "unsupported",
+    "net": "2,1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "linq.range.negative": {
+    "status": "mismatch",
+    "net": "EXN ArgumentOutOfRange",
+    "js": "EXN Exception :: The input must be non-negative."
+  },
+  "linq.index": {
+    "status": "pass"
+  },
+  "linq.countby.aggregateby": {
+    "status": "pass"
+  },
+  "closure.loop.capture.for": {
+    "status": "pass"
+  },
+  "closure.loop.capture.foreach": {
+    "status": "pass"
+  },
+  "closure.mutation": {
+    "status": "pass"
+  },
+  "local.function.recursive": {
+    "status": "pass"
+  },
+  "static.local.function": {
+    "status": "pass"
+  },
+  "optional.named.args": {
+    "status": "pass"
+  },
+  "params": {
+    "status": "pass"
+  },
+  "out.ref": {
+    "status": "pass"
+  },
+  "ref.local": {
+    "status": "pass"
+  },
+  "iterator.lazy.infinite": {
+    "status": "pass"
+  },
+  "iterator.finally.on.dispose": {
+    "status": "pass"
+  },
+  "iterator.yield.break": {
+    "status": "pass"
+  },
+  "iterator.reenumerate": {
+    "status": "pass"
+  },
+  "exception.custom": {
+    "status": "pass"
+  },
+  "exception.message": {
+    "status": "pass"
+  },
+  "exception.filter": {
+    "status": "pass"
+  },
+  "exception.finally.order": {
+    "status": "pass"
+  },
+  "exception.rethrow": {
+    "status": "pass"
+  },
+  "exception.inner": {
+    "status": "pass"
+  },
+  "exception.null.deref": {
+    "status": "mismatch",
+    "net": "EXN NullReference",
+    "js": "EXN Exception :: Cannot read properties of null (reading 'length')"
+  },
+  "exception.tostring.prefix": {
+    "status": "pass"
+  },
+  "using.dispose.order": {
+    "status": "pass"
+  },
+  "using.declaration": {
+    "status": "mismatch",
+    "net": "[body,dispose a]",
+    "js": "[body]"
+  },
+  "events": {
+    "status": "pass"
+  },
+  "operator.overload.implicit": {
+    "status": "pass"
+  },
+  "static.field": {
+    "status": "pass"
+  },
+  "delegate.multicast": {
+    "status": "pass"
+  },
+  "delegate.multicast.return": {
+    "status": "pass"
+  },
+  "func.compose": {
+    "status": "pass"
+  },
+  "struct.copy.semantics": {
+    "status": "mismatch",
+    "net": "0,1,1,0",
+    "js": "1,1,1,1"
+  },
+  "struct.default.equality": {
+    "status": "pass"
+  },
+  "null.conditional": {
+    "status": "mismatch",
+    "net": "none,-1",
+    "js": "null,null"
+  },
+  "null.coalescing.assign": {
+    "status": "pass"
+  },
+  "conditional.chain": {
+    "status": "pass"
+  },
+  "goto.labels": {
+    "status": "unsupported",
+    "net": "3",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "while.dowhile.continue": {
+    "status": "pass"
+  },
+  "lazy": {
+    "status": "pass"
+  },
+  "default.literal": {
+    "status": "pass"
+  },
+  "nameof": {
+    "status": "mismatch",
+    "net": "ValueLanguage",
+    "js": "Counter.ValueLanguage"
+  },
+  "checked.unchecked.block": {
+    "status": "mismatch",
+    "net": "-2147483648",
+    "js": "2147483648"
+  },
+  "discard.assign": {
+    "status": "pass"
+  },
+  "lambda.static.default.params": {
+    "status": "pass"
+  },
+  "interface.default.method": {
+    "status": "pass"
+  },
+  "virtual.dispatch": {
+    "status": "pass"
+  },
+  "new.hiding": {
+    "status": "pass"
+  },
+  "generic.constraint": {
+    "status": "mismatch",
+    "net": "true,false",
+    "js": "EXN Exception :: this.Value.CompareTo is not a function"
+  },
+  "generic.default": {
+    "status": "mismatch",
+    "net": "0|null",
+    "js": "null|null"
+  },
+  "generic.method.max": {
+    "status": "mismatch",
+    "net": "9,b",
+    "js": "EXN Exception :: a.CompareTo is not a function"
+  },
+  "generic.tostring": {
+    "status": "unsupported",
+    "net": "1,null,1.5",
+    "js": "WS-COMPILE-ERROR,WS-COMPILE-ERROR,WS-COMPILE-ERROR"
+  },
+  "ctor.chaining.order": {
+    "status": "pass"
+  },
+  "required.init": {
+    "status": "pass"
+  },
+  "primary.ctor": {
+    "status": "pass"
+  },
+  "override.equals": {
+    "status": "mismatch",
+    "net": "true,false,1",
+    "js": "true,true,1"
+  },
+  "override.equals.dictionary": {
+    "status": "pass"
+  },
+  "override.tostring": {
+    "status": "pass"
+  },
+  "object.tostring.default": {
+    "status": "mismatch",
+    "net": "Conformance.Plain",
+    "js": "[object Object]"
+  },
+  "gettype.name": {
+    "status": "unsupported",
+    "net": "Dog",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "typeof.name": {
+    "status": "unsupported",
+    "net": "Dog|List`1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "is.base.interface": {
+    "status": "pass"
+  },
+  "boxing.equality": {
+    "status": "mismatch",
+    "net": "false,true,true",
+    "js": "true,true,true"
+  },
+  "boxing.int.long": {
+    "status": "pass"
+  },
+  "anonymous.type": {
+    "status": "mismatch",
+    "net": "{ X = 1, Y = y }|true",
+    "js": "[object Object]|true"
+  },
+  "datetime.basic": {
+    "status": "unsupported",
+    "net": "2024-2-29 13:5:9 Thursday 60",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "datetime.arith": {
+    "status": "mismatch",
+    "net": "2024-02-29|2024-02-01|30",
+    "js": "2024-03-02|2024-02-01|30"
+  },
+  "datetime.format": {
+    "status": "pass"
+  },
+  "datetime.iso": {
+    "status": "unsupported",
+    "net": "2024-07-04T09:03:00.0000000Z",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "datetime.parse": {
+    "status": "pass"
+  },
+  "timespan": {
+    "status": "mismatch",
+    "net": "01:30:30|1.5083333333333333|1|30",
+    "js": "EXN Exception :: Cannot mix BigInt and other types, use explicit conversions"
+  },
+  "timespan.format": {
+    "status": "unsupported",
+    "net": "01:02:03.004",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "dateonly": {
+    "status": "unsupported",
+    "net": "2024-03-01",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "guid.parse.format": {
+    "status": "mismatch",
+    "net": "0f8fad5b-d9cb-469f-a165-70867728950e|0f8fad5bd9cb469fa16570867728950e|true",
+    "js": "0f8fad5b-d9cb-469f-a165-70867728950e|0f8fad5bd9cb469fa16570867728950e|false"
+  },
+  "guid.empty": {
+    "status": "pass"
+  },
+  "random.seeded.range": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "nullable.struct.getvalueordefault": {
+    "status": "pass"
+  },
+  "nullable.value.null": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: Nullable object must have a value."
+  },
+  "convert.tostring.bool": {
+    "status": "mismatch",
+    "net": "True|True",
+    "js": "true|true"
+  },
+  "string.gethashcode.stable": {
+    "status": "pass"
+  },
+  "valuetuple.compare": {
+    "status": "pass"
+  },
+  "comparer.default": {
+    "status": "pass"
+  },
+  "equalitycomparer.default": {
+    "status": "pass"
+  }
+}

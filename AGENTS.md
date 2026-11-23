@@ -181,3 +181,12 @@ If a fix is found for a bug, move it as proper code to `core/tests/WebSharper.Te
 5. Add focused tests near the affected suite. Bug-fix/regression tests go in `tests/WebSharper.Tests/Regression.fs` or `tests/WebSharper.CSharp.Tests/Regression.cs`; other tests should go in dedicated files such as `Task.fs`/`Task.cs`, or in generic feature files such as `Basis.fs`/`Syntax.cs` when that matches the surrounding context. Examine nearby tests before choosing.
 6. Rebuild the affected test project or `tests/Web/Web.csproj` in Release, then run `.\build.cmd RunMainTestsNoBuildRelease` for QUnit/Puppeteer without another compiler rebuild.
 7. Before finishing, run the appropriate broader verification: `.\build.cmd RunCompilerTestsRelease` for compiler test coverage, `.\build.cmd RunMainTestsRelease` when a rebuild plus browser tests is needed, or `.\build.cmd CI-Release` for the full final pass.
+
+### C# conformance check (.NET vs JavaScript)
+
+`tests/WebSharper.CSharp.Conformance` runs the same C# cases on .NET (`Net/`) and as WebSharper-compiled JavaScript under Node (`Js/`, built with this repository's `wscsc`), and compares the outputs against `baseline.json`. It is the first stop for C# translation bugs: tracking issue #1654, tickets #1643–#1653.
+
+1. Build both projects in Release (`WebSharper.sln` includes them, or `dotnet build tests/WebSharper.CSharp.Conformance/Js -c Release` and `…/Net -c Release` after `.\build.cmd Build`).
+2. `node check.mjs` in `tests/WebSharper.CSharp.Conformance` (or `.\build.cmd RunCSharpConformanceRelease`; part of `CI-Release`). It fails on regressions (a case that passed no longer does) and on cases missing from the baseline.
+3. When a fix turns cases into `pass`, run `node check.mjs --update` and commit `baseline.json` with the fix; for a compile-time gap, also remove the case's `#if !JS … #else … "WS-COMPILE-ERROR" … #endif` fence. Reference the ticket in the commit.
+4. A C# bug that the existing QUnit suites don't cover gets a case here (see the folder's `README.md` for the conventions), in addition to any `Regression.cs` test.
