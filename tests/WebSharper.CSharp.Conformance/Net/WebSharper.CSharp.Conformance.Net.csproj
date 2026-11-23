@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The .NET side of the conformance harness: the same cases as ../Js, run as a plain .NET console app. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1998;CS0659;CS0660;CS0661;CS8509;CS1718</NoWarn>
+    <Tests>True</Tests>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Signed>False</Signed>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Cases\*.cs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\CSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>
