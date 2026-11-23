@@ -48,7 +48,7 @@ type B = S.BinaryOperator
 
 let BinaryOperatorPrecedence operator =
     match operator with
-    | B.``.`` -> 1
+    | B.``.`` | B.``?.`` -> 1
     | B.``**`` -> 4
     | B.``*`` | B.``/`` | B.``%`` -> 5
     | B.``+`` | B.``-`` -> 6
@@ -68,7 +68,8 @@ let BinaryOperatorPrecedence operator =
 let BinaryOperatorAssociativity operator =
     match operator with
     | B.``=`` | B.``+=`` | B.``-=`` | B.``*=`` | B.``/=`` | B.``%=``
-    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` | B.``**`` | B.``??=`` ->
+    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` | B.``**`` | B.``??=``
+    | B.``&&=`` | B.``||=`` | B.``**=`` ->
         RightAssociative
     | _ ->
         LeftAssociative
@@ -93,18 +94,23 @@ let PostfixOperatorAssociativity =
 let Precedence expression =
     match S.IgnoreExprPos expression with
     | S.Cast _
-    | S.Lambda(_, _, _, true)
-    | S.Application _ -> 2
+    | S.Lambda(_, _, _, true, _)
+    | S.Application _
+    | S.OptionalApplication _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
     | S.Conditional _ -> 15
     | S.New _ -> 1
+    | S.TemplateLiteral (Some _, _, _) -> 1
     | S.Postfix (_, op) -> PostfixOperatorPrecedence
-    | S.Unary (op, _) -> PrefixOperatorPrecedence
+    | S.Unary _
+    | S.Await _ -> PrefixOperatorPrecedence
+    | S.Yield _ -> 16
     | _ -> 0
 
 let Associativity expression =
     match S.IgnoreExprPos expression with
-    | S.Application _ -> LeftAssociative
+    | S.Application _
+    | S.OptionalApplication _ -> LeftAssociative
     | S.Binary (_, op, _) -> BinaryOperatorAssociativity op
     | S.Conditional _ -> RightAssociative
     | S.New _ -> RightAssociative
@@ -256,7 +262,8 @@ let inline Label (l: S.Label) =
 
 let rec startsWithObjectExpression = function
     | S.IgnoreEPos (S.NewObject _) -> true
-    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _)) -> startsWithObjectExpression e
+    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _) | S.OptionalApplication(e, _) | S.TemplateLiteral(Some e, _, _) | S.Postfix(e, _)) -> 
+        startsWithObjectExpression e
     | _ -> false
 
 module Seq =
@@ -276,6 +283,30 @@ let rec Id (id: S.Id) =
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
+    ++ Optional (fun d -> Token "=" ++ AssignmentExpression d) id.DefaultValue
+
+and FuncKindPrefix (k: S.FuncKind) =
+    if k.HasAsync then Word "async" else Empty
+
+and TemplateLiteralLayout (parts: list<string>) (holes: list<S.Expression>) =
+    let escape (s: string) =
+        let buf = StringBuilder()
+        for i in 0 .. s.Length - 1 do
+            match s.[i] with
+            | '`' -> buf.Append "\\`" |> ignore
+            | '\\' -> buf.Append "\\\\" |> ignore
+            | '$' when i + 1 < s.Length && s.[i + 1] = '{' -> buf.Append "\\$" |> ignore
+            | '\r' -> buf.Append "\\r" |> ignore
+            | '\n' -> buf.Append "\\n" |> ignore
+            | c when System.Char.IsControl c && c <> '\t' -> WriteUnicodeEscape buf c
+            | c -> buf.Append c |> ignore
+        string buf
+    let rec loop ps hs =
+        match ps, hs with
+        | [ p ], [] -> Token (escape p + "`")
+        | p :: ps, h :: hs -> Token (escape p + "${") ++ Expression h ++ Token "}" ++ loop ps hs
+        | _ -> failwith "Template literal must have one more string part than holes"
+    Token "`" ++ loop parts holes
 
 and IdOrString (id: S.Id) =
     let priv = if id.IsPrivate then "#" else ""
@@ -307,6 +338,20 @@ and Expression (expression) =
         let call = MemberExpression f
         let args = Parens (CommaSeparated AssignmentExpression xs)
         call ++ Generics ts ++ args
+    | S.OptionalApplication (f, xs) ->
+        MemberExpression f ++ Token "?." ++ Parens (CommaSeparated AssignmentExpression xs)
+    | S.Yield (e, isDelegating) ->
+        Word "yield"
+        ++ Conditional (Token "*") isDelegating
+        ++ Optional AssignmentExpression e
+    | S.Await e ->
+        Word "await" ++ ParensExpression PrefixOperatorPrecedence e
+    | S.Spread e ->
+        Token "..." ++ AssignmentExpression e
+    | S.TemplateLiteral (tag, parts, holes) ->
+        Optional MemberExpression tag ++ TemplateLiteralLayout parts holes
+    | S.ComputedMember _ ->
+        failwith "Computed member name used outside of an object literal"
     | S.NewArray xs ->
         let element = function
             | None -> Token ", "
@@ -320,7 +365,8 @@ and Expression (expression) =
                 match S.IgnoreExprPos x with
                 | S.Constant (S.Number _) -> Parens e
                 | S.Application _
-                | S.Binary (_, B.``.``, _)
+                | S.OptionalApplication _
+                | S.Binary (_, (B.``.`` | B.``?.``), _)
                 | S.This
                 | S.Super
                 | S.Var _
@@ -332,6 +378,10 @@ and Expression (expression) =
         | B.``.``, _ ->
             MemberExpression x ++
             Token "[" ++ Expression y ++ Token "]"
+        | B.``?.``, S.IgnoreEPos (S.Constant (S.String y)) when Identifier.IsValid y ->
+            MemberExpression x ++ Token "?." ++ Word y
+        | B.``?.``, _ ->
+            MemberExpression x ++ Token "?.[" ++ Expression y ++ Token "]"
         | _ ->
             let p = BinaryOperatorPrecedence op
             let (pL, pR) =
@@ -339,11 +389,21 @@ and Expression (expression) =
                 | LeftAssociative -> (p + 1, p)
                 | RightAssociative -> (p, p + 1)
                 | NonAssociative -> (p, p)
-            ParensExpression pL x
+            // ?? cannot be mixed with && or || without parentheses
+            let mixesCoalesce e =
+                match S.IgnoreExprPos e with
+                | S.Binary (_, op2, _) ->
+                    match op, op2 with
+                    | B.``??``, (B.``&&`` | B.``||``)
+                    | (B.``&&`` | B.``||``), B.``??`` -> true
+                    | _ -> false
+                | _ -> false
+            let side level e = if mixesCoalesce e then Parens (Expression e) else ParensExpression level e
+            side pL x
             ++ match op with
                | B.``in`` | B.``instanceof`` -> Word (string op)
                | _ -> Token (string op)
-            ++ ParensExpression pR y
+            ++ side pR y
     | S.Constant x ->
         match x with
         | S.Null -> Word "null"
@@ -361,17 +421,20 @@ and Expression (expression) =
         SourceName n ++ Id x
     | S.Var x ->
         Id x
-    | S.Lambda (name, formals, body, isArrow) ->
-        let args = Parens (CommaSeparated Id formals) 
+    | S.Lambda (name, formals, body, isArrow, kind) ->
+        let args = Parens (CommaSeparated Id formals)
         if isArrow then
-            match body with
-            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word " =>" ++ Word " { }"
-            | [ S.IgnoreSPos (S.Return (Some e)) ] -> 
-                args ++ Word " =>" 
-                ++ (if startsWithObjectExpression e then Parens (Expression e) else Expression e)
-            | _ -> args ++ Word " =>" ++ BlockLayout (List.map (Statement true) body)
+            if kind.HasGenerator then failwith "Arrow functions cannot be generators"
+            FuncKindPrefix kind
+            ++ match body with
+               | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word " =>" ++ Word " { }"
+               | [ S.IgnoreSPos (S.Return (Some e)) ] ->
+                   args ++ Word " =>"
+                   ++ (if startsWithObjectExpression e then Parens (Expression e) else AssignmentExpression e)
+               | _ -> args ++ Word " =>" ++ BlockLayout (List.map (Statement true) body)
         else
-            Word "function"
+            FuncKindPrefix kind
+            ++ Word (if kind.HasGenerator then "function*" else "function")
             ++ Optional Id name
             ++ args
             ++ BlockLayout (List.map (Statement true) body)
@@ -382,12 +445,28 @@ and Expression (expression) =
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->
-        let mem (k, a, v) =
+        let rec mem (k, a, v) =
             match v with 
-            | S.IgnoreEPos (S.Lambda (_, args, body, false)) -> 
-                Accessor a
+            | S.IgnoreEPos (S.Spread _) ->
+                Expression v
+            | S.IgnoreEPos (S.ComputedMember (key, v)) ->
+                let keyL = Token "[" ++ AssignmentExpression key ++ Token "]"
+                match v with
+                | S.IgnoreEPos (S.Lambda (_, args, body, false, kind)) ->
+                    FuncKindPrefix kind
+                    ++ Accessor a
+                    ++ Conditional (Token "*") kind.HasGenerator
+                    ++ keyL
+                    ++ Parens (CommaSeparated Id args) 
+                    ++ BlockLayout (List.map (Statement true) body)
+                | _ ->
+                    keyL ++ Token ":" ++ AssignmentExpression v
+            | S.IgnoreEPos (S.Lambda (_, args, body, false, kind)) ->
+                FuncKindPrefix kind
+                ++ Accessor a
+                ++ Conditional (Token "*") kind.HasGenerator
                 ++ Word (if Identifier.IsValid k then k else BracketString k)
-                ++ Parens (CommaSeparated Id args) 
+                ++ Parens (CommaSeparated Id args)
                 ++ BlockLayout (List.map (Statement true) body)
             | _ ->
                 if a <> S.Simple then 
@@ -475,6 +554,8 @@ and Statement canBeEmpty statement =
         let rec dangerous e =
             match e with
             | S.Lambda _ | S.NewObject _ -> true
+            | S.TemplateLiteral (Some x, _, _)
+            | S.OptionalApplication (x, _) -> dangerous x
             | S.ExprPos (x, _)
             | S.Application (x, _, _)
             | S.Binary (x, _, _)
@@ -508,6 +589,26 @@ and Statement canBeEmpty statement =
                    ++ Word "in"
                    ++ Expression e2)
         ++ Statement false body
+    | S.ForOf (e1, e2, body) ->
+        Word "for"
+        ++ Parens (LeftHandSideExpression e1
+                   ++ Word "of"
+                   ++ AssignmentExpression e2)
+        ++ Statement false body
+    | S.ForDeclIn (k, id, e2, body)
+    | S.ForDeclOf (k, id, e2, body) ->
+        let keyword =
+            match k with
+            | S.VarDecl -> "var"
+            | S.ConstDecl -> "const"
+            | S.LetDecl -> "let"
+        let isOf = match statement with S.ForDeclOf _ -> true | _ -> false
+        Word "for"
+        ++ Parens (Word keyword
+                   ++ Id id
+                   ++ Word (if isOf then "of" else "in")
+                   ++ (if isOf then AssignmentExpression e2 else Expression e2))
+        ++ Statement false body
     | S.ForVarIn (id, e1, e2, body) ->
         Word "for"
         ++ Parens (Word "var"
@@ -540,7 +641,8 @@ and Statement canBeEmpty statement =
         ++ s1L
         -- s2L
     | S.Labelled (label, s) ->
-        Label label ++ Token ": " ++ Statement canBeEmpty s
+        // a label needs a statement, write `{ }` for an empty one
+        Label label ++ Token ": " ++ Statement false s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e
@@ -587,8 +689,9 @@ and Statement canBeEmpty statement =
         -- Indent (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
-    | S.Function (id, formals, body) ->
-        Word "function"
+    | S.Function (id, formals, body, kind) ->
+        FuncKindPrefix kind
+        ++ Word (if kind.HasGenerator then "function*" else "function")
         ++ Id (id.ToNonTyped())
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
@@ -664,10 +767,12 @@ and Accessor a =
 
 and Member isClass mem =
     match mem with
-    | S.Method (s, ab, a, n, args, body) ->
+    | S.Method (s, ab, a, n, args, body, kind) ->
         Conditional (Word "abstract") ab
         ++ Conditional (Word "static") s
+        ++ FuncKindPrefix kind
         ++ Accessor a
+        ++ Conditional (Token "*") kind.HasGenerator
         ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)
         ++ TypeAnnotation n.Type 

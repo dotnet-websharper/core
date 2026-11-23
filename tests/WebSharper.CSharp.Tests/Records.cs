@@ -40,6 +40,39 @@ namespace WebSharper.CSharp.Tests
             var teacher = new Teacher("Bill", "Wagner", "English");
             IsTrue(person == person2);
             IsFalse(person == teacher);
+            IsFalse(person == new Person("Bill", "Gates"));
+            IsTrue(new PersonP("Bill", "Wagner") == new PersonP("Bill", "Wagner"));
+            IsFalse(new PersonP("Bill", "Wagner") == new PersonP("Bill", "Gates"));
+        }
+
+        [Test("C# record GetHashCode")]
+        public void HashCode()
+        {
+            // GetHashCode used to call Unchecked.Hash(this), which calls GetHashCode
+            // again: a stack overflow in any hashing collection (dotnet-websharper/ui#314).
+            Equal(new PersonP("Bill", "Wagner").GetHashCode(), new PersonP("Bill", "Wagner").GetHashCode());
+            NotEqual(new PersonP("Bill", "Wagner").GetHashCode(), new PersonP("Bill", "Gates").GetHashCode());
+            Equal(new Person("Bill", "Wagner").GetHashCode(), new Person("Bill", "Wagner").GetHashCode());
+            Equal(new Teacher("Bill", "Wagner", "English").GetHashCode(), new Teacher("Bill", "Wagner", "English").GetHashCode());
+            Equal(new PersonStructPos("Bill", "Wagner").GetHashCode(), new PersonStructPos("Bill", "Wagner").GetHashCode());
+            var set = new HashSet<PersonP> { new("Bill", "Wagner"), new("Bill", "Wagner"), new("Bill", "Gates") };
+            Equal(set.Count, 2);
+            var dict = new Dictionary<PersonP, int> { [new PersonP("Bill", "Wagner")] = 1 };
+            Equal(dict[new PersonP("Bill", "Wagner")], 1);
+        }
+
+        [Test("C# record EqualityContract")]
+        public void EqualityContract()
+        {
+            // The EqualityContract getter used to read a field of its own name,
+            // which called the getter again and overflowed the stack.
+            var bill = new ContractP("Bill");
+            IsTrue(bill.SameContract(new ContractP("Ann")));
+            IsFalse(bill.SameContract(new ContractDerived("Bill", 1)));
+            IsTrue(new ContractDerived("Bill", 1).SameContract(new ContractDerived("Ann", 2)));
+            // a user-defined Equals that relies on EqualityContract
+            IsTrue(new CaseInsensitive("Bill").Equals(new CaseInsensitive("BILL")));
+            IsFalse(new CaseInsensitive("Bill").Equals(new CaseInsensitive("Ann")));
         }
 
         [Test("C# record ToString")]
@@ -51,13 +84,23 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher.ToString(), "Teacher { LastName = Wagner, FirstName = Bill, Subject = English }");
         }
 
-        [Test("C# record struct", TestKind.Skip)]
+        [Test("C# record struct")]
         public void RecordStruct()
         {
-            //var person = new PersonStruct("Bill", "Wagner");
-            //var person2 = new PersonStruct("Bill", "Wagner");
-            //IsTrue(person == person2);
-            //Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            var person = new PersonStruct("Bill", "Wagner");
+            var person2 = new PersonStruct("Bill", "Wagner");
+            IsTrue(person == person2);
+            IsTrue(person.Equals(person2));
+            Equal(person.ToString(), "PersonStruct { LastName = Wagner, FirstName = Bill }");
+            var pos = new PersonStructPos("Bill", "Wagner");
+            var copy = pos;
+            copy.FirstName = "William";
+            Equal(pos.FirstName, "Bill");
+            Equal(copy.FirstName, "William");
+            IsFalse(pos == copy);
+            var changed = pos with { LastName = "W" };
+            Equal(pos.LastName, "Wagner");
+            Equal(changed.LastName, "W");
         }
 
         [Test("C# record inheritance")]
@@ -145,15 +188,20 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test("C# positional record pattern matching with Deconstruct", TestKind.Skip)]
+        [Test("C# positional record pattern matching with Deconstruct")]
         public void PosPatternMatchDeconstruct()
         {
             var person = new PersonP("Bill", "Wagner");
+            var matched = false;
             if (person is var (firstName, lastName))
             {
+                matched = true;
                 Equal(firstName, "Bill");
                 Equal(lastName, "Wagner");
             }
+            IsTrue(matched);
+            PersonP nobody = null;
+            IsFalse(nobody is var (_, _));
         }
 
         [Test("C# init only setter")]
@@ -204,14 +252,35 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; set; }
     }
 
-    //[JavaScript]
-    //public record struct PersonStruct
-    //{
-    //    public readonly string LastName;
-    //    public readonly string FirstName;
+    [JavaScript]
+    public record ContractP(string Name)
+    {
+        public bool SameContract(ContractP other) => ReferenceEquals(EqualityContract, other.EqualityContract);
+    }
 
-    //    public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
-    //}
+    [JavaScript]
+    public record ContractDerived(string Name, int Year) : ContractP(Name);
+
+    [JavaScript]
+    public record CaseInsensitive(string Name)
+    {
+        public virtual bool Equals(CaseInsensitive other) =>
+            other is not null && ReferenceEquals(EqualityContract, other.EqualityContract) && Name.ToLower() == other.Name.ToLower();
+
+        public override int GetHashCode() => Name.ToLower().GetHashCode();
+    }
+
+    [JavaScript]
+    public record struct PersonStruct
+    {
+        public readonly string LastName;
+        public readonly string FirstName;
+
+        public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
+    }
+
+    [JavaScript]
+    public record struct PersonStructPos(string FirstName, string LastName);
 
     [JavaScript]
     public class InitOnlyTest

@@ -620,6 +620,25 @@ module ExtensionWitnessRegression =
     [<Inline>]
     let repeat n = multiply "ha" n
 
+/// Default value assignments to omitted optional arguments must stay declared after inlining
+[<JavaScript>]
+type InlineOptionalArgs() =
+    [<Inline>]
+    member this.Add(x: int, [<System.Runtime.InteropServices.Optional>] y: int) = x + y
+    [<Inline>]
+    member this.Describe(x: string, [<System.Runtime.InteropServices.Optional>] y: string) =
+        if isNull y then x else x + y
+
+[<JavaScript>]
+module Bug1621 =
+    // the shape of FsToolkit.ErrorHandling's ValueOption.tryGetValue
+    [<Inline>]
+    let inline tryGetValue (key: 'key) (dictionary: ^Dictionary) : ^value voption =
+        let mutable output = Unchecked.defaultof< ^value>
+        let found =
+            (^Dictionary: (member TryGetValue: 'key * byref< ^value> -> bool) (dictionary, key, &output))
+        if found then ValueSome output else ValueNone
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -1271,5 +1290,80 @@ let Tests =
         Test "Extension operator witnesses through WebSharper inline calls" {
             equal (ExtensionWitnessRegression.repeat 3) "hahaha"
             equal (ExtensionWitnessRegression.repeat 0) ""
+        }
+        Test "Inline member with omitted optional arguments" {
+            let o = InlineOptionalArgs()
+            equal (o.Add(1)) 1
+            equal (o.Add(1, 2)) 3
+            equal (o.Describe("a")) "a"
+            equal (o.Describe("a", "b")) "ab"
+        }
+
+        Test "#1621 Dictionary members through member constraints and interfaces" {
+            equal (Bug1621.tryGetValue "a" (dict [ ("a", 1) ])) (ValueSome 1)
+            equal (Bug1621.tryGetValue "b" (dict [ ("a", 1) ])) ValueNone
+            equal (Bug1621.tryGetValue "a" (readOnlyDict [ ("a", 1) ])) (ValueSome 1)
+            let d = dict [ ("a", 1) ]
+            isTrue (d.ContainsKey "a")
+            equal d.["a"] 1
+            equal (Array.ofSeq d.Keys) [| "a" |]
+            equal (Array.ofSeq d.Values) [| 1 |]
+            let r = readOnlyDict [ ("a", 1) ]
+            isTrue (r.ContainsKey "a")
+            equal r.["a"] 1
+            equal r.Count 1
+            equal (Array.ofSeq r.Keys) [| "a" |]
+            equal (Array.ofSeq r.Values) [| 1 |]
+        }
+
+        Test "#1623 use and try in a computation expression from a proxy project" {
+            let disposed = ref 0
+            let makeDisposable () =
+                { new System.IDisposable with
+                    member this.Dispose() = disposed.Value <- disposed.Value + 1
+                }
+            let data = 42
+            let actual =
+                ProxyProjectTest.Functions.resource {
+                    use d = makeDisposable ()
+                    return data
+                }
+            equal actual (Result.Ok data : Result<int, string>)
+            let nested =
+                ProxyProjectTest.Functions.resource {
+                    use d1 = makeDisposable ()
+                    use d2 = makeDisposable ()
+                    try
+                        return data + 1
+                    finally
+                        disposed.Value <- disposed.Value + 10
+                }
+            equal nested (Result.Ok (data + 1) : Result<int, string>)
+            let caught =
+                ProxyProjectTest.Functions.resource {
+                    try
+                        return failwith "boom"
+                    with e ->
+                        return e.Message.Length
+                }
+            equal caught (Result.Ok 4 : Result<int, string>)
+            equal disposed.Value 13
+        }
+
+        Test "#1622 Unit literal equals other unit values" {
+            equal (ignore 1) ()
+            equal (ignore "a") ()
+            equal (Result.Ok (ignore 1) : Result<unit, string>) (Result.Ok ())
+            equal (Some (ignore 1)) (Some ())
+            equal [ (); ignore 2 ] [ ignore 1; () ]
+            equal (Unchecked.defaultof<unit>) ()
+            let addIgnore (x: int) (y: int) = ignore (x + y)
+            equal (addIgnore 1 2) ()
+            let unitFirst () (y: int) = ignore y
+            equal (unitFirst () 3) ()
+            equal (Some (addIgnore 1 2)) (Some ())
+            equal (id ()) ()
+            isTrue (box (id ()) ===. JS.Undefined)
+            isTrue (box () ===. box (ignore 1))
         }
     }

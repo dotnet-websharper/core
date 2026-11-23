@@ -152,7 +152,7 @@ type MarkApplicationsPure(v, purity) =
 
     override this.TransformLet(id, value, body) =
         match value with
-        | I.Var x when x = v ->
+        | I.Var x when x = v && notMutated id body ->
             ReplaceId(id, v).TransformExpression(body) |> this.TransformExpression        
         | _ -> base.TransformLet(id, value, body)
 
@@ -207,6 +207,12 @@ let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
         toDecls b.Variables (b.Statements |> List.map (TransformVarSets(v, id).TransformStatement))
+    | ResultExpr (I.VarSet (v, _) as e) when List.contains v b.Variables ->
+        // declare the variable with its first value: `let x = v` instead of `let x; x = v`
+        toDecls b.Variables (b.Statements @ [ ExprStatement e ])
+    | ResultExpr (I.Sequential es) when es |> List.exists (function I.VarSet (v, _) -> List.contains v b.Variables | _ -> false) ->
+        let st = es |> List.filter (isPureExpr >> not) |> List.map (removePureParts >> ExprStatement)
+        toDecls b.Variables (b.Statements @ st)
     | ResultExpr e ->
         seq {
             yield! toDecls b.Variables b.Statements 
@@ -269,12 +275,19 @@ let rec removeLets expr =
     let func vars ret body isReturn =
         if isReturn then Lambda(vars, ret, body) else Function(vars, None, ret, ExprStatement body)
     match expr with
+    // TypeScript casts: move a cast of a bound value to the uses of the variable,
+    // so that the patterns below see the value itself and type information is kept
+    | Let (var, I.Cast (t, value), body) ->
+        Let (var, value, SubstituteVar(var, Cast(t, Var var)).TransformExpression(body)) |> removeLets
+    // a cast on a function value being applied does not change the JavaScript result
+    | Application (I.Cast (_, (I.Function _ | I.Application _ | I.Let _ as f)), xs, info) ->
+        Application (f, xs, info) |> removeLets
     | Application (I.Let (var, value, body), xs, info) ->
         Let (var, value, Application (body, xs, info)) |> removeLets
     | Application (I.GlobalAccess g, [x], _) when g = globalId ->
         x
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        when List.length args <= List.length xs && not (hasSpread xs) ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
@@ -291,12 +304,16 @@ let rec removeLets expr =
     | Let (var, value, I.Function ([x], None, _, (I.ExprStatement(I.Application (I.Var f, [I.Var y], _)) | I.Return(I.Application (I.Var f, [I.Var y], _)))))
         when f = var && x = y ->
             value
-    | Let (var, I.Value Null, c) ->
+    // default value of an inlined optional argument, when the argument is a known value
+    | Let (a, (I.Value _ as v), I.Let (d, I.Conditional (I.Binary (I.Var a2, BinaryOperator.``===``, I.Undefined), _, I.Var a3), body))
+        when a = a2 && a = a3 && CountVarOccurence(a).Get(body) = 0 ->
+        Let (d, v, body) |> removeLets
+    | Let (var, I.Value Null, c) when notMutated var c ->
         SubstituteVar(var, Value Null).TransformExpression(c)
     | Let(a, b, I.Var c) when a = c ->
         b
     | Let(a, I.Var b, c) 
-        when (not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c) -> // TODO: maybe weaker check is enough
+        when notMutated a c && ((not b.IsMutable) || (notMutatedOrCaptured a c && notMutatedOrCaptured b c)) -> // TODO: maybe weaker check is enough
             ReplaceId(a, b).TransformExpression(c)            
     | Let(var, value, I.Application(func, [I.Var v], info))
         when v = var && isStronglyPureExpr func && CountVarOccurence(var).Get(func) = 0 ->
@@ -327,7 +344,7 @@ let rec removeLets expr =
                 match b with
                 | I.Function _ -> notMutatedOrCapturedExceptAppl a c
                 | _ -> notMutatedOrCaptured a c
-            if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
+            if isStronglyPureExpr b && notMutated a c && (isTrivialValue b || notmut()) then 
                 SubstituteVar(a, b).TransformExpression(c)
             else
                 let accVars = HashSet [a]
@@ -348,8 +365,17 @@ let rec removeLets expr =
 
 let optimize expr =
     match expr with
+    // a literal is never undefined
+    | Binary (I.Value _, (BinaryOperator.``===`` | BinaryOperator.``!==`` as op), I.Undefined)
+    | Binary (I.Undefined, (BinaryOperator.``===`` | BinaryOperator.``!==`` as op), I.Value _) ->
+        Value (Bool (op = BinaryOperator.``!==``))
+    // null is only equal to null (and undefined) in JavaScript
+    | Binary (I.Value Null, (BinaryOperator.``==`` | BinaryOperator.``===`` | BinaryOperator.``!=`` | BinaryOperator.``!==`` as op), I.Value v)
+    | Binary (I.Value v, (BinaryOperator.``==`` | BinaryOperator.``===`` | BinaryOperator.``!=`` | BinaryOperator.``!==`` as op), I.Value Null) ->
+        let eq = (v = Null)
+        Value (Bool (if op = BinaryOperator.``==`` || op = BinaryOperator.``===`` then eq else not eq))
     // eta-reduction
-    | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i })))
+    | Function (vars, None, _, I.Return (I.Application (f, args, { KnownLength = Some i }) | I.Cast (_, I.Application (f, args, { KnownLength = Some i }))))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
     // created for sprintf
@@ -358,7 +384,7 @@ let optimize expr =
     // created for F# string interpolation
     | Application(Lets(bindings, I.Function ([i], None, _, I.Return (I.Application (Var j, [expr], _)))), [ I.Function([x], None, _, I.Return (Var y))], _) when i = j && x = y ->
         expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
-    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (args |> List.map snd |> hasSpread) ->
         let moreArgsCount = args.Length - vars.Length
         let bind key (isUnit, value) body = 
             if isUnit then
@@ -369,28 +395,28 @@ let optimize expr =
             if isReturn then
                 List.foldBack2 bind vars args body
             else 
-                List.foldBack2 bind vars args (Sequential [body; Value Null])
+                List.foldBack2 bind vars args (Sequential [body; Undefined])
         elif moreArgsCount > 0 then
             let args, moreArgs = args |> List.splitAt vars.Length
             let f =
                 if isReturn then
                     List.foldBack2 bind vars args body
                 else 
-                    List.foldBack2 bind vars args (Sequential [body; Value Null])
+                    List.foldBack2 bind vars args (Sequential [body; Undefined])
             curriedApplication f moreArgs
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, ret, body)) 
     | Application(TupledLambda(vars, _, body, isReturn), [ I.NewArray args ], { KnownLength = Some _ })
-        when vars.Length = args.Length && not (needsScoping vars args body) ->
+        when vars.Length = args.Length && not (hasSpread args) ->
         if isReturn then
             List.foldBack2 bind vars args body
         else 
-            List.foldBack2 bind vars args (Sequential [body; Value Null])
+            List.foldBack2 bind vars args (Sequential [body; Undefined])
     | Application(I.ItemGet(I.Function (vars, None, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
         List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
     | Application (I.Function (args, None, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
-        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        when List.length args <= List.length xs && not (hasSpread xs) ->
         let xs, more = xs |> List.splitAt args.Length
         match more with
         | [] -> List.foldBack2 bind args xs body
@@ -809,7 +835,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                         match aUses with
                         | 0 -> Some c
                         | 1 -> 
-                            if isTrivialValue brB.Body || notMutatedOrCaptured a c then
+                            if notMutated a c && (isTrivialValue brB.Body || notMutatedOrCaptured a c) then
                                 Some (SubstituteVar(a, brB.Body).TransformExpression(c))
                             else None
                         | _ -> None
@@ -964,6 +990,34 @@ let rec breakExpr expr : Broken<BreakResult> =
         )
     | ClassExpr(name, baseCls, mem, cgen, bgen) ->
         ClassExpr(name, baseCls, mem |> List.map BreakStatement, cgen, bgen) |> broken
+    | FuncWithKind (k, f) ->
+        br f |> mapBroken (fun fE -> FuncWithKind (k, getExpr fE))
+    | YieldExpr (None, _) ->
+        broken expr
+    | YieldExpr (Some a, d) ->
+        br a |> toBrExpr |> mapBroken (fun aE -> YieldExpr (Some aE, d))
+    | Await a ->
+        br a |> toBrExpr |> mapBroken Await
+    | Spread a ->
+        br a |> toBrExpr |> mapBroken Spread
+    | TemplateString (tag, parts, holes) ->
+        brL (Option.toList tag @ holes)
+        |> mapBroken (fun l ->
+            match tag with
+            | Some _ -> TemplateString (Some l.Head, parts, l.Tail)
+            | None -> TemplateString (None, parts, l)
+        )
+    | OptionalChain (o, v, chain) ->
+        let brChain = br chain
+        if hasNoStatements brChain then
+            let brO = br o |> toBrExpr
+            {
+                Body = ResultExpr (OptionalChain (brO.Body, v, getExpr brChain.Body))
+                Statements = brO.Statements
+                Variables = brO.Variables @ brChain.Variables
+            }
+        else
+            Let (v, o, Conditional (Binary (Var v, BinaryOperator.``==``, Value Null), Undefined, chain)) |> br
     | Verbatim(stringParts, holes, isJSX) ->
         let brHoles =
             holes 
@@ -1269,6 +1323,8 @@ and private breakSt statement : Statement seq =
         Seq.singleton (TryFinally (combine (brS a), combine (brS b)))
     | ForIn(a, b, c) -> 
         brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
+    | ForOf(a, b, c) -> 
+        brE b |> toStatements (fun bE -> ForOf (a, bE, combine (brS c)))
     | Continuation(a, b) ->
         brE b |> toStatements (fun bE -> Continuation(a, bE))
     | ClassMethod(isStatic, name, pars, thisVar, body, sgn) ->

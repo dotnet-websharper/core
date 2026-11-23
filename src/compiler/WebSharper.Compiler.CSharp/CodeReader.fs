@@ -407,6 +407,22 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Continuation.ReturnsResultTask
         else Continuation.ReturnsTask
 
+    /// The result of an async method may be a thenable value at runtime (a task, a promise, or an unknown type),
+    /// which JavaScript promise resolution would unwrap
+    member this.AsyncResultMayBeThenable (x: IMethodSymbol) =
+        match x.ReturnType with
+        | :? INamedTypeSymbol as t when t.IsGenericType && t.TypeArguments.Length = 1 ->
+            let r = t.TypeArguments[0]
+            match r.TypeKind with
+            | TypeKind.TypeParameter | TypeKind.Dynamic | TypeKind.Interface -> true
+            | _ ->
+                r.SpecialType = SpecialType.System_Object
+                || (not (isNull r.ContainingNamespace)
+                    && (let ns = r.ContainingNamespace.ToDisplayString()
+                        (ns = "System.Threading.Tasks" && (r.Name = "Task" || r.Name = "ValueTask"))
+                        || (ns = "WebSharper.JavaScript" && r.Name = "Promise")))
+        | _ -> false
+
     member this.ReadMethod (x: IMethodSymbol) =
         let x  = x.OriginalDefinition
         Hashed {
@@ -656,6 +672,106 @@ module Definitions =
             Assembly = "netstandard"
             FullName = "System.ReadOnlySpan`1"
         }
+
+/// The assembly of a .NET library type, WebSharper translates these with proxies
+let private isLibraryAssembly (a: IAssemblySymbol) =
+    not (isNull a) &&
+        match a.Name with
+        | "netstandard" | "mscorlib" | "System.Runtime" | "System.Private.CoreLib" | "FSharp.Core" -> true
+        | n -> n.StartsWith "System."
+
+/// A struct with fields that can change: its values are copied when assigned, like in .NET.
+/// Value tuples and library structs are not included.
+let rec isMutableStruct (t: ITypeSymbol) =
+    not (isNull t) && t.TypeKind = TypeKind.Struct && not t.IsReadOnly && not t.IsTupleType
+    && not (isLibraryAssembly t.ContainingAssembly)
+    && t.GetMembers() |> Seq.exists (function
+        | :? IFieldSymbol as f -> not f.IsStatic && not f.IsReadOnly && not f.IsConst
+        | _ -> false)
+
+/// The expression gives a new struct value, which does not need copying
+let rec isNewStructValue (node: ExpressionSyntax) =
+    match node with
+    | :? ParenthesizedExpressionSyntax as p -> isNewStructValue p.Expression
+    | :? BaseObjectCreationExpressionSyntax
+    | :? DefaultExpressionSyntax
+    | :? LiteralExpressionSyntax
+    | :? WithExpressionSyntax
+    | :? TupleExpressionSyntax
+    | :? InvocationExpressionSyntax -> true
+    | :? ConditionalExpressionSyntax as c -> isNewStructValue c.WhenTrue && isNewStructValue c.WhenFalse
+    | _ -> false
+
+/// Index of a value tuple element (named, or Item1, Item2, ...) in the array of the tuple
+let tupleElementIndex (f: IFieldSymbol) =
+    match f.ContainingType.TupleElements |> Seq.tryFindIndex (fun e -> SymbolEqualityComparer.Default.Equals(e, f)) with
+    | Some i -> Some i
+    | None ->
+        if f.Name.StartsWith "Item" then
+            match System.Int32.TryParse(f.Name.Substring 4) with
+            | true, i when i >= 1 -> Some (i - 1)
+            | _ -> None
+        else None
+
+/// The local or parameter at the root of a value tuple element access (`t.Item1`, `t.a.b`)
+let rec private tupleElementRoot (model: SemanticModel) (e: ExpressionSyntax) : ISymbol =
+    match e with
+    | :? ParenthesizedExpressionSyntax as p -> tupleElementRoot model p.Expression
+    | :? MemberAccessExpressionSyntax as m ->
+        match model.GetSymbolInfo(m).Symbol with
+        | :? IFieldSymbol as f when f.ContainingType.IsTupleType ->
+            match m.Expression with
+            | :? IdentifierNameSyntax as i -> model.GetSymbolInfo(i).Symbol
+            | inner -> tupleElementRoot model inner
+        | _ -> null
+    | _ -> null
+
+let private mutatedTupleVarCache = System.Runtime.CompilerServices.ConditionalWeakTable<ISymbol, obj>()
+
+/// A local or parameter of a value tuple type that has elements changed in place (assigned, incremented,
+/// passed by reference) or is passed by reference itself, in the member that declares it.
+/// Values stored into and read from these variables are copied, other tuples are shared, as only
+/// changes in place could show the difference.
+let isMutatedTupleVar (model: SemanticModel) (s: ISymbol) =
+    let typ =
+        match s with
+        | :? ILocalSymbol as l when not l.IsRef -> l.Type
+        | :? IParameterSymbol as p when p.RefKind = RefKind.None -> p.Type
+        | _ -> null
+    if isNull typ || not typ.IsTupleType || s.DeclaringSyntaxReferences.Length = 0 then false else
+    let compute (s: ISymbol) =
+        let decl = s.DeclaringSyntaxReferences[0].GetSyntax()
+        let scope =
+            match decl.FirstAncestorOrSelf<MemberDeclarationSyntax>() with
+            | null -> decl.SyntaxTree.GetRoot()
+            | m -> m :> SyntaxNode
+        let isS (x: ISymbol) = not (isNull x) && SymbolEqualityComparer.Default.Equals(x, s)
+        let isTarget (e: ExpressionSyntax) =
+            isS (tupleElementRoot model e)
+        let isRefToVar (e: ExpressionSyntax) =
+            match e with
+            | :? IdentifierNameSyntax as i -> isS (model.GetSymbolInfo(i).Symbol)
+            | _ -> isTarget e
+        let rec isAssignTarget (e: ExpressionSyntax) =
+            match e with
+            | :? TupleExpressionSyntax as t -> t.Arguments |> Seq.exists (fun a -> isAssignTarget a.Expression)
+            | _ -> isTarget e
+        let res =
+            model.SyntaxTree = decl.SyntaxTree &&
+            scope.DescendantNodes() |> Seq.exists (fun n ->
+                match n with
+                | :? AssignmentExpressionSyntax as a -> isAssignTarget a.Left
+                | :? PrefixUnaryExpressionSyntax as u ->
+                    (u.IsKind SyntaxKind.PreIncrementExpression || u.IsKind SyntaxKind.PreDecrementExpression) && isTarget u.Operand
+                | :? PostfixUnaryExpressionSyntax as u ->
+                    (u.IsKind SyntaxKind.PostIncrementExpression || u.IsKind SyntaxKind.PostDecrementExpression) && isTarget u.Operand
+                | :? ArgumentSyntax as a ->
+                    (a.RefKindKeyword.IsKind SyntaxKind.RefKeyword || a.RefKindKeyword.IsKind SyntaxKind.OutKeyword) && isRefToVar a.Expression
+                | :? RefExpressionSyntax as r -> isRefToVar r.Expression
+                | _ -> false
+            )
+        res
+    unbox<bool> (mutatedTupleVarCache.GetValue(s, System.Runtime.CompilerServices.ConditionalWeakTable<ISymbol, obj>.CreateValueCallback(fun s -> box (compute s))))
 
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
@@ -966,6 +1082,9 @@ type RoslynTransformer(env: Environment) =
                 //let fromTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.Parameters.[0].Type :?> INamedTypeSymbol)
                 //let toTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.ReturnType :?> INamedTypeSymbol)
                 NumericConversion fromTyp toTyp expr
+            elif conversion.IsBoxing then
+                let t = env.SemanticModel.GetTypeInfo(x.Node).Type
+                if isMutableStruct t && not (isNewStructValue x.Node) then this.CopyStruct(t, expr) else expr
             //elif conversion.IsImplicit then
             //    let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
             //    let fromTyp = typInfo.Type |> sr.ReadType
@@ -974,7 +1093,7 @@ type RoslynTransformer(env: Environment) =
             else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
-            errorPlaceholder       
+            errorPlaceholderWith ("Error while reading C# code: " + e.Message)
 
     member this.TransformType (x: TypeData) : _ =
         match x with
@@ -1000,8 +1119,38 @@ type RoslynTransformer(env: Environment) =
         | SimpleNameData.IdentifierName x -> this.TransformIdentifierName x |> withExprSourcePos x.Node
         | SimpleNameData.GenericName    x -> TODO x //this.TransformGenericName x
 
+    /// A method taking an interpolated string handler, like `StringBuilder.Append(ref AppendInterpolatedStringHandler)`,
+    /// is replaced by its overload taking a string, when there is one. Interpolated strings are translated to strings.
+    member this.WithoutInterpolatedStringHandlers (symbol: IMethodSymbol, args: ArgumentListData) =
+        if isNull symbol || symbol.IsGenericMethod then symbol else
+        let isHandlerArgument (a: ArgumentData) =
+            env.SemanticModel.GetConversion(a.Expression.Node).IsInterpolatedStringHandler
+        if not (args.Arguments |> Seq.exists isHandlerArgument) then symbol else
+        let isHandlerType (t: ITypeSymbol) =
+            t.GetAttributes() |> Seq.exists (fun a -> not (isNull a.AttributeClass) && a.AttributeClass.Name = "InterpolatedStringHandlerAttribute")
+        let ps = symbol.Parameters
+        let candidates =
+            let members =
+                if isNull symbol.ReducedFrom then symbol.ContainingType.GetMembers(symbol.Name)
+                else System.Collections.Immutable.ImmutableArray.Empty
+            members |> Seq.tryPick (function
+                | :? IMethodSymbol as m when
+                        m.IsStatic = symbol.IsStatic && not m.IsGenericMethod && m.Parameters.Length = ps.Length
+                        && Seq.forall2 (fun (p: IParameterSymbol) (q: IParameterSymbol) ->
+                            if isHandlerType p.Type then
+                                q.Type.SpecialType = SpecialType.System_String
+                            else
+                                SymbolEqualityComparer.Default.Equals(p.Type, q.Type) && p.RefKind = q.RefKind
+                        ) ps m.Parameters
+                        && ps |> Seq.exists (fun p -> isHandlerType p.Type) ->
+                    Some m
+                | _ -> None
+            )
+        defaultArg candidates symbol
+
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        let symbol = this.WithoutInterpolatedStringHandlers(symbol, x.ArgumentList)
         if isNull symbol then
             let isNameOf =
                 match x.Expression with
@@ -1020,18 +1169,21 @@ type RoslynTransformer(env: Environment) =
         let eSymbol = getExtensionOrigSymbol symbol
         let typ, meth = getTypeAndMethod symbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
+        // ordinals of the original method, including the `this` parameter of extension methods
+        let callerInfo = this.CallerInfoArguments x.Node
+        let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList @ callerInfo
         let argumentListWithThis =
             if symbol.MethodKind = MethodKind.LocalFunction then
-                argumentListWithParamsFix()    
+                argumentListWithParamsFix()
             elif not symbol.IsStatic then
                 if symbol <> eSymbol then
-                    fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
-                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
+                    (fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))
+                    @ callerInfo
                 else
-                    (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix() 
-                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))   
-            else argumentListWithParamsFix() 
+                    (None, (x.Expression |> this.TransformExpression)) :: (argumentListWithParamsFix()
+                    |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e))
+            else argumentListWithParamsFix()
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
@@ -1044,6 +1196,120 @@ type RoslynTransformer(env: Environment) =
             Call(Some (List.head args), typ, meth, List.tail args)
         |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         |> withExprSourcePos x.Node
+
+    /// Values of omitted arguments for parameters with a caller info attribute
+    /// (CallerMemberName, CallerFilePath, CallerLineNumber, CallerArgumentExpression),
+    /// as named arguments by parameter ordinal. Roslyn computes the values.
+    member this.CallerInfoArguments (node: SyntaxNode) : list<int option * Expression> =
+        let arguments =
+            match env.SemanticModel.GetOperation(node) with
+            | :? IInvocationOperation as op -> op.Arguments
+            | :? IObjectCreationOperation as op -> op.Arguments
+            | _ -> System.Collections.Immutable.ImmutableArray.Empty
+        let isCallerInfo (p: IParameterSymbol) =
+            p.GetAttributes() |> Seq.exists (fun a ->
+                let c = a.AttributeClass
+                not (isNull c) && c.ContainingNamespace.ToDisplayString() = "System.Runtime.CompilerServices"
+                && (match c.Name with
+                    | "CallerMemberNameAttribute" | "CallerFilePathAttribute"
+                    | "CallerLineNumberAttribute" | "CallerArgumentExpressionAttribute" -> true
+                    | _ -> false)
+            )
+        [
+            for a in arguments do
+                if a.ArgumentKind = ArgumentKind.DefaultValue && not (isNull a.Parameter)
+                    && a.Value.ConstantValue.HasValue && isCallerInfo a.Parameter then
+                    yield Some a.Parameter.Ordinal, Value (ReadLiteral a.Value.ConstantValue.Value)
+        ]
+
+    /// Body of an async lambda or local function: a native async function, or a state machine when needed
+    member this.AsyncBody (symbol: IMethodSymbol, body: Statement) =
+        match Continuation.asyncToNative (sr.ReadAsyncReturnKind symbol) (sr.AsyncResultMayBeThenable symbol) body with
+        | Some b -> b
+        | None ->
+            let b = 
+                body |> Continuation.addLastReturnIfNeeded Undefined
+                |> Continuation.AwaitTransformer().TransformStatement 
+                |> BreakStatement
+                |> Continuation.FreeNestedGotos().TransformStatement
+            let labels = Continuation.CollectLabels.Collect b
+            Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
+
+    /// Copies a value of a mutable struct type: a shallow clone, and copies of the nested mutable
+    /// struct values in fields that can be changed in place (explicit fields that are not readonly)
+    member this.CopyStruct (t: ITypeSymbol, e: Expression) : Expression =
+        let nested =
+            t.GetMembers() |> Seq.choose (function
+                | :? IFieldSymbol as f when not f.IsStatic && not f.IsReadOnly && not f.IsConst && not f.IsImplicitlyDeclared && isMutableStruct f.Type -> Some f
+                | _ -> None
+            ) |> List.ofSeq
+        let c = JSRuntime.Clone e
+        if List.isEmpty nested then c else
+        let v = Id.New("$c", mut = false)
+        let td = sr.ReadNamedType (t :?> INamedTypeSymbol)
+        Let (v, c,
+            Sequential [
+                for f in nested ->
+                    FieldSet(Some (Var v), td, f.Name, this.CopyStruct(f.Type, FieldGet(Some (Var v), td, f.Name)))
+                yield Var v
+            ]
+        )
+
+    /// Copies a value tuple (an array), and the nested tuples and mutable structs in it
+    member this.CopyTuple (t: ITypeSymbol, e: Expression) : Expression =
+        let elements = (t :?> INamedTypeSymbol).TupleElements
+        if elements |> Seq.exists (fun f -> f.Type.IsTupleType || isMutableStruct f.Type) then
+            let v = Id.New("$t", mut = false)
+            Let (v, e,
+                NewArray [
+                    for i, f in Seq.indexed elements ->
+                        let item = ItemGet(Var v, Value (Int i), NoSideEffect)
+                        if f.Type.IsTupleType then this.CopyTuple(f.Type, item)
+                        elif isMutableStruct f.Type then this.CopyStruct(f.Type, item)
+                        else item
+                ]
+            )
+        else
+            Appl(ItemGet(e, Value (String "slice"), NonPure), [], NonPure, Some 0)
+
+    /// The expression reads a tuple variable that is changed in place
+    member this.ReadsMutatedTuple (node: ExpressionSyntax) =
+        match node with
+        | :? ParenthesizedExpressionSyntax as p -> this.ReadsMutatedTuple p.Expression
+        | :? IdentifierNameSyntax as i -> isMutatedTupleVar env.SemanticModel (env.SemanticModel.GetSymbolInfo(i).Symbol)
+        | _ -> false
+
+    /// Copies a value of a mutable struct type that is stored into a variable, field, array element or parameter,
+    /// returned or boxed, unless the expression gives a new value anyway.
+    /// Tuples are copied when read from a variable that is changed in place.
+    member this.CopyIfMutableStruct (node: ExpressionSyntax) (e: Expression) : Expression =
+        let info = env.SemanticModel.GetTypeInfo(node)
+        let t = if isNull info.ConvertedType then info.Type else info.ConvertedType
+        if isNull t || isNewStructValue node then e
+        elif t.IsTupleType then
+            if this.ReadsMutatedTuple node then this.CopyTuple(t, e) else e
+        elif isMutableStruct t then this.CopyStruct(t, e)
+        else e
+
+    /// Copies a tuple stored into a variable that is changed in place, if it was not copied already
+    member this.CopyIntoMutatedTuple (target: ISymbol, node: ExpressionSyntax, e: Expression) : Expression =
+        if not (isNull target) && isMutatedTupleVar env.SemanticModel target
+            && not (isNewStructValue node) && not (this.ReadsMutatedTuple node) then
+            let t = match target with :? ILocalSymbol as l -> l.Type | :? IParameterSymbol as p -> p.Type | _ -> null
+            this.CopyTuple(t, e)
+        else e
+
+    /// A parameter of tuple type changed in place gets its own copy of the argument
+    member this.WithTupleParameterCopies (ps: seq<IParameterSymbol>, body: Statement) =
+        let copies =
+            [
+                for p in ps do
+                    if isMutatedTupleVar env.SemanticModel p then
+                        match env.Parameters.TryGetValue(p) with
+                        | true, (id, _) -> yield ExprStatement (VarSet(id, this.CopyTuple(p.Type, Var id)))
+                        | _ -> ()
+            ]
+        if List.isEmpty copies then body else CombineStatements (copies @ [ body ])
 
     member this.TransformBoundArgumentValue (value: IOperation) : Expression =
         if value.IsImplicit && value.ConstantValue.HasValue then
@@ -1075,17 +1341,94 @@ type RoslynTransformer(env: Environment) =
         let arguments = operation.Property.Parameters |> Seq.map (fun p -> arguments[p.Ordinal]) |> List.ofSeq
         List.ofSeq bindings, target, arguments
 
-    member this.TransformElementAccess (node: ExpressionSyntax, expr, args) =
+    /// The System.Index or System.Range type
+    member this.IndexOrRangeType (name: string) =
+        env.SemanticModel.Compilation.GetTypeByMetadataName("System." + name)
+
+    /// `new Index(value, fromEnd)`
+    member this.NewIndex (value: Expression, fromEnd: bool) =
+        let t = this.IndexOrRangeType "Index"
+        let ctor = t.InstanceConstructors |> Seq.find (fun c -> c.Parameters.Length = 2)
+        Ctor(sr.ReadNamedType t, sr.ReadConstructor ctor, [ value; Value (Bool fromEnd) ])
+
+    /// The offset of a System.Index value in a collection of the given length.
+    /// `^n` gives `length - n` directly.
+    member this.IndexOffset (index: ExpressionSyntax, length: Expression) =
+        let rec skipParens (e: ExpressionSyntax) =
+            match e with
+            | :? ParenthesizedExpressionSyntax as p -> skipParens p.Expression
+            | _ -> e
+        match skipParens index with
+        | :? PrefixUnaryExpressionSyntax as p when p.Kind() = SyntaxKind.IndexExpression ->
+            length ^- this.TransformExpression (ExpressionData.FromNode p.Operand)
+        | _ ->
+            let getOffset = this.IndexOrRangeType("Index").GetMembers("GetOffset") |> Seq.exactlyOne :?> IMethodSymbol
+            call getOffset (Some (this.TransformExpression (ExpressionData.FromNode index))) [ length ]
+
+    /// `s[^1]`, `s[1..^1]` on a type with an int indexer (or `Slice`/`Substring`) and a `Length` or `Count`
+    member this.TransformImplicitIndexer (op: IImplicitIndexerReferenceOperation, instance: Expression, argument: ExpressionSyntax) =
+        let inst = Id.New("$i", mut = false)
+        let length =
+            match op.LengthSymbol with
+            | :? IPropertySymbol as p -> call p.GetMethod (Some (Var inst)) []
+            | s -> failwithf "Unexpected length symbol for implicit indexer: %O" s
+        let body =
+            match op.IndexerSymbol with
+            | :? IPropertySymbol as p ->
+                call p.GetMethod (Some (Var inst)) [ this.IndexOffset(argument, length) ]
+            | :? IMethodSymbol as m ->
+                let getOffsetAndLength = this.IndexOrRangeType("Range").GetMembers("GetOffsetAndLength") |> Seq.exactlyOne :?> IMethodSymbol
+                let range = this.TransformExpression (ExpressionData.FromNode argument)
+                let ol = Id.New("$r", mut = false)
+                Let (ol, call getOffsetAndLength (Some range) [ length ],
+                    call m (Some (Var inst)) [ ItemGet(Var ol, Value (Int 0), Pure); ItemGet(Var ol, Value (Int 1), Pure) ])
+            | s -> failwithf "Unexpected indexer symbol for implicit indexer: %O" s
+        Let (inst, instance, body)
+
+    member this.TransformElementAccess (node: ExpressionSyntax, expr, args: BracketedArgumentListData) =
         // TODO : static indexer?
-        let expression = 
+        let expression =
             match expr with
             | Some e -> this.TransformExpression e
             | None ->
                 match env.Initializing with
                 | Some i -> Var i
                 | None -> Var env.Conditional.Value
-        let symbol = env.SemanticModel.GetSymbolInfo(node).Symbol :?> IPropertySymbol
-        // TODO: investigate that symbol is null only when it is an array
+        let symbol =
+            match env.SemanticModel.GetSymbolInfo(node).Symbol with
+            | :? IPropertySymbol as p -> p
+            | _ -> null
+        let isSystemType name (t: ITypeSymbol) =
+            not (isNull t) && t.Name = name && not (isNull t.ContainingNamespace) && t.ContainingNamespace.ToDisplayString() = "System"
+        let singleArgument () =
+            match List.ofSeq args.Node.Arguments with
+            | [ a ] -> Some a.Expression
+            | _ -> None
+        let singleArgumentOf name =
+            singleArgument () |> Option.filter (fun a -> env.SemanticModel.GetTypeInfo(a).Type |> isSystemType name)
+        match env.SemanticModel.GetOperation(node) with
+        | :? IImplicitIndexerReferenceOperation as op ->
+            this.TransformImplicitIndexer(op, expression, (singleArgument ()).Value)
+        | _ ->
+        match (if symbol = null then singleArgumentOf "Index" else None) with
+        | Some index ->
+            // array[^1]: the array expression is evaluated once, without a Let so that it stays assignable
+            let target, array =
+                match IgnoreExprSourcePos expression with
+                | Var _ | Value _ | FieldGet (Some (Var _), _, _) -> expression, expression
+                | _ ->
+                    let a = Id.New("$a")
+                    Sequential [ NewVar (a, expression); Var a ], Var a
+            ItemGet(target, this.IndexOffset(index, ItemGet(array, Value (String "length"), NoSideEffect)), NoSideEffect)
+        | None ->
+        match (if symbol = null then singleArgumentOf "Range" else None) with
+        | Some range ->
+            // array[1..^1]
+            let runtimeHelpers = env.SemanticModel.Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers")
+            let getSubArray = runtimeHelpers.GetMembers("GetSubArray") |> Seq.exactlyOne :?> IMethodSymbol
+            let elemType = (env.SemanticModel.GetTypeInfo(node).Type :?> IArrayTypeSymbol).ElementType
+            call (getSubArray.Construct(elemType)) None [ expression; this.TransformExpression (ExpressionData.FromNode range) ]
+        | None ->
         if symbol = null then
             let argumentList = args |> this.TransformBracketedArgumentList
             // TODO: make setter possible for 2-dim arrays
@@ -1116,9 +1459,7 @@ type RoslynTransformer(env: Environment) =
             | Some ArgumentRefKindKeyword.InKeyword ->
                 createRef expression
             | None ->
-                // TODO: copy struct values, if support for mutable structs on the client-side is added
-                //if env.SemanticModel.GetTypeInfo(x.Node).Type.IsValueType then ...
-                expression
+                this.CopyIfMutableStruct x.Expression.Node expression
         namedParamOrdinal, value
 
     member this.TransformArgumentList (x: ArgumentListData) =
@@ -1159,7 +1500,7 @@ type RoslynTransformer(env: Environment) =
             | StatementData.TryStatement              x -> this.TransformTryStatement x             
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
-            ExprStatement errorPlaceholder        
+            ExprStatement (errorPlaceholderWith ("Error while reading C# code: " + e.Message))
 
     member this.TransformBlock (x: BlockData) : Statement =
         x.Statements |> Seq.map (this.TransformStatement) |> List.ofSeq |> Block
@@ -1182,6 +1523,7 @@ type RoslynTransformer(env: Environment) =
             | For(init, cond, incr, body) -> For(init, cond, incr, continueAtEnd body)
             | While(cond, body) -> While(cond, continueAtEnd body)
             | DoWhile(body, cond) -> DoWhile(continueAtEnd body, cond)
+            | ForOf(v, e, body) -> ForOf(v, e, continueAtEnd body)
             | Block statements ->
                 match List.rev statements with
                 | last :: rest -> Block(List.rev rest @ [ addContinueTarget last ])
@@ -1192,7 +1534,7 @@ type RoslynTransformer(env: Environment) =
         |> withStatementSourcePos x.Node
 
     member this.TransformEqualsValueClause (x: EqualsValueClauseData) : Expression =
-        x.Value |> this.TransformExpression
+        x.Value |> this.TransformExpression |> this.CopyIfMutableStruct x.Value.Node
 
     member this.TransformNameColon (x: NameColonData) : Expression =
         x.Name |> this.TransformIdentifierName
@@ -1216,17 +1558,9 @@ type RoslynTransformer(env: Environment) =
             match expressionBody with
             | Some b -> Return b
             | _ -> body.Value
+        let b = this.WithTupleParameterCopies(symbol.Parameters, b)
         let b =
-            if symbol.IsAsync then
-                let b = 
-                    b |> Continuation.addLastReturnIfNeeded Undefined
-                    |> Continuation.AwaitTransformer().TransformStatement 
-                    |> BreakStatement
-                    |> Continuation.FreeNestedGotos().TransformStatement
-                let labels = Continuation.CollectLabels.Collect b
-                Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
-            else
-                b
+            if symbol.IsAsync then this.AsyncBody(symbol, b) else b
  
         // TODO : optional?
         // TODO : generics?
@@ -1311,6 +1645,10 @@ type RoslynTransformer(env: Environment) =
                     )
                 )
             | Undefined -> Undefined
+            | FieldGet(o, td, f) ->
+                FieldSet(o, td, f, v)
+            | ItemGet(o, i, _) ->
+                ItemSet(o, i, v)
             | Call(t, td, g, []) ->
                 Call(t, td, setterOf g, [ v ])
             | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
@@ -1334,12 +1672,17 @@ type RoslynTransformer(env: Environment) =
             | :? IFieldSymbol as s ->
                 Id.New(s.Name), Some s.Type
             | _ -> failwithf "this.TransformVariableDeclarator: invalid symbol type %A" symbol
-        let initializer = 
+        let initializer =
             match x.Initializer with
-            | Some i -> i |> this.TransformEqualsValueClause
-            | _ -> 
+            | Some i -> i |> this.TransformEqualsValueClause |> fun e -> this.CopyIntoMutatedTuple(symbol, i.Value.Node, e)
+            | _ ->  
             match ftyp with
             | Some t -> DefaultValueOf (sr.ReadType t)
+            | _ ->
+            match symbol with
+            | :? ILocalSymbol as s when isMutableStruct s.Type ->
+                // fields of a struct local can be assigned before the whole value
+                DefaultValueOf (sr.ReadType s.Type)
             | _ -> Undefined
         id, initializer
 
@@ -1470,6 +1813,12 @@ type RoslynTransformer(env: Environment) =
             if Option.isSome env.Initializing then 
                 RoslynTransformer(env.WithNotInitializing())
             else this
+        match x.Right with
+        | ExpressionData.InitializerExpression init when Option.isSome env.Initializing ->
+            // nested member initializer `P = { ... }` initializes the current value of P
+            let m = Id.New("$m", mut = false)
+            Let (m, this.TransformExpression x.Left, RoslynTransformer(env.WithInitializing(m)).TransformInitializerExpression init)
+        | _ ->
         match leftSymbol with
         | :? IPropertySymbol as leftSymbol ->
             if leftSymbol.IsIndexer then
@@ -1483,7 +1832,7 @@ type RoslynTransformer(env: Environment) =
                         | None -> Var env.Conditional.Value
                 let bindings, target, arguments = this.ReadIndexerTarget(x.Left.Node, expression)
                 let set value = call leftSymbol.SetMethod (Some target) (arguments @ [ value ])
-                let right = x.Right |> trR.TransformExpression
+                let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                 let result =
                     match x.Kind with
                     | AssignmentExpressionKind.SimpleAssignmentExpression -> withResultValue right set
@@ -1500,7 +1849,7 @@ type RoslynTransformer(env: Environment) =
             elif leftSymbol.IsReadOnly then
                 // init property
                 let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
-                let right = x.Right |> trR.TransformExpression
+                let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                 if leftSymbol.IsStatic then
                     withResultValue right <| fun rv -> FieldSet(None, NonGeneric td, leftSymbol.Name, rv)
                 else
@@ -1510,7 +1859,7 @@ type RoslynTransformer(env: Environment) =
                 //if leftSymbol.IsIndexer // TODO property indexers
                 match x.Kind with
                 | AssignmentExpressionKind.SimpleAssignmentExpression ->
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     if leftSymbol.IsStatic then
                         withResultValue right <| fun rv -> Call(None, typ, setter, [rv])
                     else
@@ -1522,7 +1871,7 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | AssignmentExpressionKind.CoalesceAssignmentExpression ->
                     let left = x.Left |> this.TransformExpression
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     let coalesced = Binary(left, BinaryOperator.``??``, right)
                     if leftSymbol.IsStatic then
                         withResultValue coalesced <| fun rv -> Call(None, typ, setter, [rv])
@@ -1534,7 +1883,7 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
                 | _ ->
                     let left = x.Left |> this.TransformExpression
-                    let right = x.Right |> trR.TransformExpression
+                    let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
                     let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
                     let opTyp, operator = getTypeAndMethod symbol
                     if leftSymbol.IsStatic then
@@ -1560,7 +1909,11 @@ type RoslynTransformer(env: Environment) =
                         | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
         | _ ->
         let left = x.Left |> this.TransformExpression
-        let right = x.Right |> trR.TransformExpression
+        let right = x.Right |> trR.TransformExpression |> this.CopyIfMutableStruct x.Right.Node
+        let right =
+            if x.Kind = AssignmentExpressionKind.SimpleAssignmentExpression then
+                this.CopyIntoMutatedTuple(leftSymbol, x.Right.Node, right)
+            else right
         match x.Kind with
         | AssignmentExpressionKind.SimpleAssignmentExpression ->
             match IgnoreExprSourcePos left with
@@ -1786,8 +2139,8 @@ type RoslynTransformer(env: Environment) =
         {
             IsStatic = symbol.IsStatic
             Parameters = parameterList
-            This = if symbol.IsStatic then None else env.This 
-            Body = body
+            This = if symbol.IsStatic then None else env.This
+            Body = this.WithTupleParameterCopies(symbol.Parameters, body)
             IsAsync = symbol.IsAsync
             ReturnType = returnType
         }
@@ -1946,7 +2299,7 @@ type RoslynTransformer(env: Environment) =
         typ, Some (bCtor, args, initTempVars)
 
     member this.TransformArrowExpressionClause (x: ArrowExpressionClauseData) : Expression =
-        x.Expression |> this.TransformExpression
+        x.Expression |> this.TransformExpression |> this.CopyIfMutableStruct x.Expression.Node
 
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
         let symbol =
@@ -1958,7 +2311,7 @@ type RoslynTransformer(env: Environment) =
         let parameterList = Option.toList extParam @ (sr.ReadParameters symbol)
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
-        let body = x.Expression |> this.TransformExpression
+        let body = x.Expression |> this.TransformExpression |> this.CopyIfMutableStruct x.Expression.Node
         let rTyp = sr.ReadType meth.ReturnType
         {
             IsStatic = meth.IsStatic
@@ -1970,7 +2323,7 @@ type RoslynTransformer(env: Environment) =
         }
 
     member this.TransformReturnStatement (x: ReturnStatementData) : Statement =
-        defaultArg (x.Expression |> Option.map (this.TransformExpression)) Undefined |> Return
+        defaultArg (x.Expression |> Option.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node)) Undefined |> Return
 
     member this.TransformBaseObjectCreationExpression (x: BaseObjectCreationExpressionData) : _ =
         match x with
@@ -1989,9 +2342,10 @@ type RoslynTransformer(env: Environment) =
         let typ = sr.ReadNamedType symbol.ContainingType
         let argumentList = defaultArg (x.ArgumentList |> Option.map (this.TransformArgumentList)) []
         let argumentListWithParamsFix = 
-            match x.ArgumentList with
-            | Some a -> fixParamArray symbol a argumentList
-            | _-> argumentList
+            (match x.ArgumentList with
+             | Some a -> fixParamArray symbol a argumentList
+             | _-> argumentList)
+            @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
             Ctor (typ, sr.ReadConstructor symbol, args)
@@ -2015,8 +2369,8 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let typ = sr.ReadNamedType symbol.ContainingType
         let argumentList = this.TransformArgumentList x.ArgumentList
-        let argumentListWithParamsFix = 
-            fixParamArray symbol x.ArgumentList argumentList
+        let argumentListWithParamsFix =
+            fixParamArray symbol x.ArgumentList argumentList @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
             Ctor (typ, sr.ReadConstructor symbol, args)
@@ -2036,7 +2390,7 @@ type RoslynTransformer(env: Environment) =
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> Sequential
         | InitializerExpressionKind.CollectionInitializerExpression -> 
             x.Expressions |> Seq.map (fun e -> 
-                let item = this.TransformExpression e
+                let item = this.TransformExpression e |> this.CopyIfMutableStruct e.Node
                 let addSymbol = 
                     let s = env.SemanticModel.GetCollectionInitializerSymbolInfo(e.Node).Symbol :?> IMethodSymbol
                     // workaround for implicit object creation expression's collection initializer 
@@ -2105,7 +2459,7 @@ type RoslynTransformer(env: Environment) =
     member this.TransformConstructorInitializer (x: ConstructorInitializerData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
-        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList
+        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList @ this.CallerInfoArguments x.Node
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let initTempVars = List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         match x.Kind with
@@ -2248,7 +2602,7 @@ type RoslynTransformer(env: Environment) =
                         MutatingUnaryOperator.``()--``
                     else
                         MutatingUnaryOperator.``--()``
-            if typ = opTyp && numericTypes.Contains typ.Entity.Value.FullName then
+            if typ = opTyp && (numericTypes.Contains typ.Entity.Value.FullName || opT.TypeKind = TypeKind.Enum) then
                 match e with
                 | Var _ 
                 | ItemGet _ 
@@ -2276,7 +2630,7 @@ type RoslynTransformer(env: Environment) =
         | Some o -> o |> withExprSourcePos node
         | _ ->
         let convGet, convSet, callOp = 
-            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) then
+            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) && opT.TypeKind <> TypeKind.Enum then
                 // synthetic method, try to find conversions
                 let realOpType =
                     incrOrDecrAutoConvertTypes |> Seq.tryPick (fun t ->
@@ -2359,9 +2713,12 @@ type RoslynTransformer(env: Environment) =
     member this.TransformPrefixUnaryExpression (x: PrefixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
         match x.Kind with
-        | PrefixUnaryExpressionKind.PreIncrementExpression 
+        | PrefixUnaryExpressionKind.PreIncrementExpression
         | PrefixUnaryExpressionKind.PreDecrementExpression ->
             this.TransformIncrOrDecr(x.Node, x.Operand.Node, operand, false)
+        | PrefixUnaryExpressionKind.IndexExpression ->
+            // ^n
+            this.NewIndex(operand, true)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let typ = sr.ReadNamedType symbol.ContainingType
@@ -2527,7 +2884,26 @@ type RoslynTransformer(env: Environment) =
         let v = Id.New symbol.Name
         env.Vars.Add(symbol, v)
         let statement = x.Statement |> this.TransformStatement
-
+        let isArray =
+            match env.SemanticModel.GetTypeInfo(x.Expression.Node).Type with
+            | :? IArrayTypeSymbol as a -> a.Rank = 1
+            | _ -> false
+        // await, yield and jumps inside need the enumerator loop, as the state machines do not support for...of
+        let hasAwaitYieldOrJump () =
+            let mutable found = false
+            { new Visitor() with
+                override this.VisitAwait _ = found <- true
+                override this.VisitYield _ = found <- true
+                override this.VisitGoto _ = found <- true
+                override this.VisitBreak l = if Option.isSome l then found <- true
+                override this.VisitContinue l = if Option.isSome l then found <- true
+            }.VisitStatement statement
+            found
+        let isLabeled = x.Node.Parent :? LabeledStatementSyntax
+        if isArray && not isAsync && not isLabeled && not (hasAwaitYieldOrJump ()) then
+            ForOf (v, expression, statement)
+            |> withStatementSourcePos x.Node
+        else
         this.TransformForEach ((fun c -> NewVar(v, c)), expression, statement, info, isAsync)
         |> withStatementSourcePos x.Node
 
@@ -2565,46 +2941,28 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let block = x.Block |> this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
             | _ -> block
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function(ids, None, ret, body)
+        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
         let id = Id.New parameter.ParameterId.Name.Value              
         env.Parameters.Add(parameter.Symbol, (id, false))
         let block = x.Block |> Option.map this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
             | _ -> block.Value
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function([id], None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function([id], None, ret, body)
+        Function([id], None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2617,22 +2975,13 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let block = x.Block |> Option.map this.TransformBlock
-        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let expressionBody = x.ExpressionBody |> Option.map (fun b -> this.TransformExpression b |> this.CopyIfMutableStruct b.Node)
         let body =
             match expressionBody with
             | Some b -> Return b
             | _ -> block.Value
         let ret = Some (sr.ReadType symbol.ReturnType)
-        if symbol.IsAsync then
-            let b = 
-                body |> Continuation.addLastReturnIfNeeded Undefined
-                |> Continuation.AwaitTransformer().TransformStatement 
-                |> BreakStatement
-                |> Continuation.FreeNestedGotos().TransformStatement
-            let labels = Continuation.CollectLabels.Collect b
-            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
-        else
-            Function(ids, None, ret, body)
+        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with
@@ -2674,6 +3023,10 @@ type RoslynTransformer(env: Environment) =
                 | f -> f
             if Option.isSome expr && field.IsConst then
                 getConstantValueOfExpression node 
+            elif symbol.ContainingType.IsTupleType && Option.isSome (tupleElementIndex symbol) then
+                // value tuples are arrays, reading an element as an array item keeps it assignable
+                let expression = getExpression()
+                ItemGet(expression.Value, Value (Int (tupleElementIndex symbol).Value), NoSideEffect)
             else
                 let expression = getExpression()
                 let typ = sr.ReadNamedType field.ContainingType
@@ -2710,8 +3063,24 @@ type RoslynTransformer(env: Environment) =
         this.TransformElementAccess(x.Node, None, x.ArgumentList)
 
     member this.TransformArrayCreationExpression (x: ArrayCreationExpressionData) : _ =
-        let initializer = x.Initializer |> Option.map (this.TransformInitializerExpression)
-        defaultArg initializer (NewArray [])
+        match x.Initializer with
+        | Some i -> this.TransformInitializerExpression i
+        | None ->
+            // new T[n]: n default values
+            match env.SemanticModel.GetTypeInfo(x.Node).Type with
+            | :? IArrayTypeSymbol as t when t.Rank = 1 && x.Node.Type.RankSpecifiers.Count > 0 ->
+                match List.ofSeq x.Node.Type.RankSpecifiers[0].Sizes with
+                | [ size ] when not (size :? OmittedArraySizeExpressionSyntax) ->
+                    let size = this.TransformExpression (ExpressionData.FromNode size)
+                    let def = DefaultValueOf (sr.ReadType t.ElementType)
+                    if isMutableStruct t.ElementType then
+                        // a separate value for each element
+                        Appl(Global [ "Array"; "from" ], [ Object [ "length", MemberKind.Simple, size ]; Function([], None, None, Return def) ], NonPure, Some 2)
+                    else
+                        let arr = New(Global [ "Array" ], [], [ size ])
+                        Appl(ItemGet(arr, Value (String "fill"), NonPure), [ def ], NonPure, Some 1)
+                | _ -> NewArray []
+            | _ -> NewArray []
 
     member this.TransformImplicitArrayCreationExpression (x: ImplicitArrayCreationExpressionData) : _ =
         let initializer = x.Initializer |> this.TransformInitializerExpression
@@ -2743,7 +3112,7 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos x.Node
 
     member this.TransformYieldStatement (x: YieldStatementData) : _ =
-        let expression = x.Expression |> Option.map (this.TransformExpression)
+        let expression = x.Expression |> Option.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node)
         Yield expression
         |> withStatementSourcePos x.Node
 
@@ -3002,6 +3371,33 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformVarPattern (x: VarPatternData) : _ =
         let designation = x.Designation |> this.TransformVariableDesignation
+        match x.Designation with
+        | VariableDesignationData.ParenthesizedVariableDesignation _ ->
+            // var (a, b): deconstructs the value, which also has to be non-null
+            let inputType =
+                // the pattern operation is found from the closest ancestor that has an operation
+                let rec closestOperation (n: SyntaxNode) =
+                    if isNull n then null else
+                    match env.SemanticModel.GetOperation(n) with
+                    | null -> closestOperation n.Parent
+                    | op -> op
+                match closestOperation x.Node with
+                | null -> null
+                | op ->
+                    op.DescendantsAndSelf() |> Seq.tryPick (function
+                        // Roslyn gives the recursive pattern the syntax of the parenthesized designation
+                        | :? IPatternOperation as p when (p.Syntax = (x.Node :> SyntaxNode) || p.Syntax.Parent = (x.Node :> SyntaxNode)) && not (isNull p.InputType) -> Some p.InputType
+                        | _ -> None
+                    )
+                    |> Option.defaultWith (fun () -> env.SemanticModel.GetTypeInfo(x.Node).Type)
+            if not (inputType :? INamedTypeSymbol) then
+                fun v ->
+                    Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
+            else
+                fun v ->
+                    let set = Sequential [ this.PatternSet(designation, Var v, Some inputType); Value (Bool true) ]
+                    if inputType.IsReferenceType then (Var v ^!= Value Null) ^&& set else set
+        | _ ->
         fun v ->
             Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
 
@@ -3265,9 +3661,22 @@ type RoslynTransformer(env: Environment) =
                     ":" + f.Node.FormatStringToken.ValueText
                 )
             let expr = x.Expression |> this.TransformExpression
-            match align, format with
-            | None, None -> expr
-            | _ -> 
+            // types whose ToString(string) proxy implements .NET format strings
+            let formatted =
+                match x.FormatClause, env.SemanticModel.GetTypeInfo(x.Expression.Node).Type with
+                | Some f, (:? INamedTypeSymbol as t) when t.ContainingNamespace.ToDisplayString() = "System" && (t.Name = "DateTime" || t.Name = "Guid") ->
+                    t.GetMembers("ToString") |> Seq.tryPick (function
+                        | :? IMethodSymbol as m when not m.IsStatic && m.Parameters.Length = 1 && m.Parameters[0].Type.SpecialType = SpecialType.System_String ->
+                            Some (call m (Some expr) [ Value (String f.Node.FormatStringToken.ValueText) ])
+                        | _ -> None
+                    )
+                | _ -> None
+            match formatted, align, format with
+            | Some s, None, _ -> s
+            | Some s, Some a, _ ->
+                Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String ("{0" + a + "}")); s ])
+            | None, None, None -> expr
+            | None, _, _ -> 
                 let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
                 Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])
 
@@ -3278,9 +3687,14 @@ type RoslynTransformer(env: Environment) =
         this.TransformExpression x.Expression
 
     member this.TransformRangeExpression (x: RangeExpressionData) : _ =
-        let leftOperand = x.LeftOperand |> Option.map this.TransformExpression
-        let rightOperand = x.RightOperand |> Option.map this.TransformExpression
-        TODO x
+        // a..b, a missing start is 0, a missing end is ^0
+        let operand fromEnd o =
+            match o with
+            | Some o -> this.TransformExpression o
+            | None -> this.NewIndex(Value (Int 0), fromEnd)
+        let t = this.IndexOrRangeType "Range"
+        let ctor = t.InstanceConstructors |> Seq.find (fun c -> c.Parameters.Length = 2)
+        Ctor(sr.ReadNamedType t, sr.ReadConstructor ctor, [ operand false x.LeftOperand; operand true x.RightOperand ])
 
     member this.TransformSwitchExpression (x: SwitchExpressionData) : _ =
         let governingExpression = x.GoverningExpression |> this.TransformExpression
@@ -3311,7 +3725,9 @@ type RoslynTransformer(env: Environment) =
         let expression = x.Expression |> this.TransformExpression
         let o = Id.New()
         let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
-        Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
+        let t = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type
+        let copy = if isMutableStruct t then this.CopyStruct(t, expression) else JSRuntime.Clone(expression)
+        Let(o, copy, Sequential [initializer; Var o])
 
     member this.TransformExpressionElement (x: ExpressionElementData) : _ =
         let expression = x.Expression |> this.TransformExpression
