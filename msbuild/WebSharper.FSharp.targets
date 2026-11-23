@@ -110,6 +110,7 @@ $end{copyright}
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperAgentExtensions="$(WebSharperAgentExtensions)"
       RefAssembly="@(IntermediateRefAssembly)"
       ReferenceImplementations="@(ReferencePath)"
       IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"

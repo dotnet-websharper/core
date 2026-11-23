@@ -114,6 +114,8 @@ type WsConfig =
         BuildServiceLogging : bool
         TransparentCompiler : bool
         ParallelCompilation : bool
+        /// Assemblies with agent tools for the booster (IAgentExtension), from --agentextension.
+        AgentExtensions : string list
         TimingLog : string option
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
@@ -209,6 +211,7 @@ type WsConfig =
                     | true, v -> v
                     | _ -> true
             ParallelCompilation = true
+            AgentExtensions = []
             TimingLog = None
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
@@ -665,6 +668,7 @@ let RecognizeWebSharperArg a wsArgs =
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
     | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }
     | Flag "--transparentcompiler" v -> Some { wsArgs with TransparentCompiler = v }
+    | StartsWith "--agentextension:" p -> Some { wsArgs with AgentExtensions = wsArgs.AgentExtensions @ [ p ] }
     | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
     | Flag "--prebundle" v -> Some { wsArgs with PreBundle = wsArgs.PreBundle || v }
     | _ -> 
