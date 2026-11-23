@@ -347,17 +347,18 @@ let translateComparison (c: M.ICompilation) (t: Type) args leftNble rightNble cm
                     | Some i, _ -> comp (cInt i) (y.[cString "$"])
                     | _, Some j -> comp (x.[cString "$"]) (cInt j)
                     | _ -> makeComparison cmp t a b
-            match leftNble, rightNble with
-            | false, false -> res
-            | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
-            | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
-            | true , true  -> 
+            // lifted operators: == is true if both are null, != is true if only one is null,
+            // other comparisons are false if any side is null
+            if not (leftNble || rightNble) then res
+            else
                 match cmp with
-                | Comparison.``<=`` 
-                | Comparison.``>=`` 
-                | Comparison.``=`` 
-                    -> utils c "nullableCmpE" [ x; y; lambda res ]
-                | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
+                | Comparison.``=`` -> utils c "nullableCmpE" [ x; y; lambda res ]
+                | Comparison.``<>`` -> utils c "nullableCmpNE" [ x; y; lambda res ]
+                | _ ->
+                    match leftNble, rightNble with
+                    | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
+                    | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
+                    | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
             |> MacroOk
         | Some method ->
             Call(None, t.TypeDefinition |> NonGeneric, method |> NonGeneric, [x; y]) |> MacroOk
@@ -1659,6 +1660,10 @@ type DefaultOf() =
         let t = c.Method.Generics.[0]
         if t.IsParameter then MacroNeedsResolvedTypeArg t else
         match t with
+        | VoidType -> MacroOk Undefined
+        | ConcreteType td when td.Entity = Definitions.Unit || td.Entity = Definitions.Void ->
+            // unit values are undefined everywhere else, keep them equal (#1622)
+            MacroOk Undefined
         | ConcreteType td when
             (td.Entity.Value.Assembly.StartsWith "netstandard" &&
                 match td.Entity.Value.FullName with
@@ -1691,7 +1696,19 @@ type DefaultOf() =
         | ConcreteType td -> 
             match c.Compilation.GetCustomTypeInfo td.Entity with
             | M.StructInfo ->
-                MacroOk (Ctor(td, ConstructorInfo.Default(), []))
+                // C# structs with a parameterless constructor have a `$default` method for the default value
+                let structDefault =
+                    Method {
+                        MethodName = "$default"
+                        Parameters = []
+                        ReturnType = NonGenericType Definitions.Obj
+                        Generics = 0
+                    }
+                match c.Compilation.GetClassInfo td.Entity with
+                | Some ci when ci.Methods.ContainsKey structDefault ->
+                    MacroOk (Call(None, td, NonGeneric structDefault, []))
+                | _ ->
+                    MacroOk (Ctor(td, ConstructorInfo.Default(), []))
             | _ ->
                 MacroOk (Value (Null))
         | _ ->

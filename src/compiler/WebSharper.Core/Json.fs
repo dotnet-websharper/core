@@ -569,38 +569,40 @@ let serializers =
             | _ -> raise (DecoderException(String g, typeof<System.Guid>))
         | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
+    // Formatted and parsed with the invariant culture: the client expects "1.5",
+    // whatever the server's culture is (dotnet-websharper/core#1629).
     let encDecimal (d: decimal) =
-        String (d.ToString())
+        String (d.ToString(System.Globalization.CultureInfo.InvariantCulture))
     let decDecimal = function
         | String d as x ->
-            match System.Decimal.TryParse d with
+            match System.Decimal.TryParse(d, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture) with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
     let encBigInt (d: bigint) =
-        String (d.ToString())
+        String (d.ToString(System.Globalization.CultureInfo.InvariantCulture))
     let decBigInt = function
         | String d as x ->
-            match System.Numerics.BigInteger.TryParse d with
+            match System.Numerics.BigInteger.TryParse(d, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture) with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<bigint>)) 
         | x -> raise (DecoderException(x, typeof<bigint>))
     add encBigInt decBigInt d   
     let encInt64 (d: int64) =
-        String (d.ToString())
+        String (d.ToString(System.Globalization.CultureInfo.InvariantCulture))
     let decInt64 = function
         | String d as x ->
-            match System.Int64.TryParse d with
+            match System.Int64.TryParse(d, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture) with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<int64>)) 
         | x -> raise (DecoderException(x, typeof<int64>))
     add encInt64 decInt64 d   
     let encUInt64 (d: uint64) =
-        String (d.ToString())
+        String (d.ToString(System.Globalization.CultureInfo.InvariantCulture))
     let decUInt64 = function
         | String d as x ->
-            match System.UInt64.TryParse d with
+            match System.UInt64.TryParse(d, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture) with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<uint64>)) 
         | x -> raise (DecoderException(x, typeof<uint64>))
@@ -1238,10 +1240,10 @@ let rec decodeObj value =
     | True -> box true
     | False -> box false
     | Number x ->
-        match System.Int32.TryParse x with
+        match System.Int32.TryParse(x, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture) with
         | true, n -> box n
         | false, _ ->
-            match System.Double.TryParse x with
+            match tryParseDouble x with
             | true, f -> box f
             | false, _ -> raise (DecoderException(value, typeof<obj>))
     | String s -> box s

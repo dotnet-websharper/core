@@ -588,6 +588,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
+    // default(S) of a struct with its own parameterless constructor must not run it:
+    // `$default` creates an instance with the default values of the fields
+    if isStruct && cls.InstanceConstructors |> Seq.exists (fun c -> c.Parameters.IsEmpty && not c.IsImplicitlyDeclared) then
+        let r = Id.New("r", mut = false)
+        Function([], None, None,
+            Block [
+                VarDeclaration(r, CopyCtor(def, Object []))
+                if hasInit then ExprStatement (Call(Some (Var r), thisType, NonGeneric initDef, []))
+                Return (Var r)
+            ])
+        |> addMethod None A.MemberAnnotation.BasicJavaScript CompilationHelpers.Definitions.StructDefault N.Static false
+
     let staticInit =
         if staticInits.Count = 0 then None else
         ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
@@ -601,6 +613,45 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             cls.BaseType |> sr.ReadNamedType |> ignoreSystemObject
         else
             cls.BaseType |> sr.ReadNamedType |> Some
+
+    /// C# runs instance field initializers before the base constructor call.
+    /// JavaScript does not allow using `this` before super(), but initializers cannot
+    /// refer to `this` either, so their values are computed into variables before the
+    /// base constructor call and assigned after it. Constant values and classes deriving
+    /// from System.Object directly call the init method after the base constructor.
+    let withFieldInits (thisVar: Id) (chained: Statement) =
+        if not hasInit then chained else
+        let hasRealBase =
+            match baseCls with
+            | Some b -> b.Entity.Value.FullName <> "System.Object"
+            | None -> false
+        let rec isConstant e = 
+            match IgnoreExprSourcePos e with
+            | Value _ | Undefined | DefaultValueOf _ -> true
+            | Cast (_, e) | Coerce (e, _, _) -> isConstant e
+            | _ -> false
+        let needsReorder =
+            hasRealBase && inits |> Seq.exists (function FieldSet(_, _, _, e) -> not (isConstant e) | _ -> true)
+        if needsReorder then
+            let before, after =
+                inits |> List.ofSeq |> List.map (fun i ->
+                    match ReplaceId(initThisVar, thisVar).TransformExpression i with
+                    | FieldSet(Some o, t, n, e) when not (isConstant e) ->
+                        let v = Id.New(n, mut = false)
+                        Some (VarDeclaration(v, e)), FieldSet(Some o, t, n, Var v)
+                    | i -> None, i
+                )
+                |> List.unzip
+            CombineStatements [
+                yield! List.choose id before
+                yield chained
+                yield! after |> List.map ExprStatement
+            ]
+        else
+            CombineStatements [
+                chained
+                ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
+            ]
 
     let getDefImpl (meth: Method) =
         Method {
@@ -673,6 +724,61 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let mutable makeInline = false
             let getParsed() =                 
                 let thisVar = Id.NewThis()
+                // `EqualityContract` of a record is `typeof(R)` in .NET. `typeof` has no
+                // translation, so use the runtime class: it compares the same way, by identity.
+                let recordEqualityContract () =
+                    {
+                        IsStatic = false
+                        Parameters = []
+                        This = Some thisVar
+                        Body = Return (ItemGet(Appl(Global [ "Object"; "getPrototypeOf" ], [ Var thisVar ], Purity.Pure, Some 1), Value (String "constructor"), Purity.Pure))
+                        IsAsync = false
+                        ReturnType = sr.ReadType meth.ReturnType
+                    } : CodeReader.CSharpMethod
+                // copy constructor of a record, used by `<Clone>$`
+                let recordCopyCtor (ri: CodeReader.CSharpRecord) =
+                    let o = CodeReader.CSharpParameter.New ("o", thisTyp)
+                    let baseCall =
+                        let bTyp, bCtor, _, _ = ri.BaseCall
+                        if isStruct then Empty
+                        elif bTyp.Entity = Definitions.Obj then
+                            ExprStatement (baseCtor bTyp bCtor thisVar [])
+                        else
+                            let bCtor = 
+                                Hashed {
+                                    CtorParameters = [ ConcreteType bTyp ]
+                                }
+                            ExprStatement (baseCtor bTyp bCtor thisVar [ Var o.ParameterId ])
+                    let copyProperty getter =
+                        let setter = CodeReader.setterOf (NonGeneric getter)
+                        Call(Some (Var thisVar), NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
+                    let isAutoProperty (p: IPropertySymbol) =
+                        p.DeclaringSyntaxReferences |> Seq.exists (fun r ->
+                            match r.GetSyntax() with
+                            | :? PropertyDeclarationSyntax as pd ->
+                                isNull pd.ExpressionBody && not (isNull pd.AccessorList)
+                                && pd.AccessorList.Accessors |> Seq.forall (fun a -> isNull a.Body && isNull a.ExpressionBody)
+                            | _ -> false)
+                    let b =
+                        [
+                            for (_, getter) in ri.PositionalFields do
+                                yield copyProperty getter
+                            for f in ri.OtherFields do
+                                match f with
+                                | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                                    if not pSymbol.IsStatic && isAutoProperty pSymbol then yield copyProperty getter
+                                | CodeReader.CSharpRecordField (fSymbol, _) ->
+                                    if not fSymbol.IsStatic && not fSymbol.IsConst then
+                                        yield FieldSet(Some (Var thisVar), NonGeneric def, fSymbol.Name, FieldGet(Some (Var o.ParameterId), NonGeneric def, fSymbol.Name))
+                        ] |> Sequential |> ExprStatement
+                    {
+                        IsStatic = false
+                        Parameters = [ o ]
+                        This = Some thisVar
+                        Body = CombineStatements [ baseCall; b ]
+                        IsAsync = false
+                        ReturnType = Unchecked.defaultof<Type>
+                    } : CodeReader.CSharpMethod
                 if decls.Length > 0 then
                     try
                         let syntax = decls.[0].GetSyntax()
@@ -718,6 +824,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         |> Continuation.FreeNestedGotos().TransformStatement
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncGeneratorTransformer(labels).TransformMethodBody(b)
+                                elif isSeq && hasYield b1 && not (Continuation.HasJumps.Check (Scoping.forwardGotosToBreaks b1)) then
+                                    Scoping.forwardGotosToBreaks b1 |> Continuation.iteratorToGenerator
                                 elif isSeq && hasYield b1 then
                                     let b = 
                                         b1 |> Continuation.addLastReturnIfNeeded (Value (Bool false))
@@ -726,6 +834,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.GeneratorTransformer(labels).TransformMethodBody(b)
                                 elif m.IsAsync then
+                                    match Continuation.asyncToNative (sr.ReadAsyncReturnKind meth) (sr.AsyncResultMayBeThenable meth) b1 with
+                                    | Some b -> b
+                                    | None ->
                                     let b = 
                                         b1 |> Continuation.addLastReturnIfNeeded Undefined
                                         |> Continuation.AwaitTransformer().TransformStatement 
@@ -734,7 +845,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         |> Continuation.FreeNestedGotos().TransformStatement
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
-                                else b1 |> Scoping.fix |> Continuation.eliminateGotos
+                                else 
+                                    // let/const give a new binding on each loop iteration, the loop bodies
+                                    // only need wrapping when gotos make the method a state machine
+                                    let b = b1 |> Scoping.forwardGotosToBreaks
+                                    if Continuation.HasGotos.Check b then
+                                        b |> Scoping.fix |> Continuation.eliminateGotos
+                                    else b
                             { m with Body = b2 }
                         let backingField() = 
                             members.OfType<IFieldSymbol>()
@@ -793,13 +910,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     match c.Initializer with
                                     | Some (CodeReader.ThisInitializer _) -> CombineStatements [ chained; c.Body ]
                                     | _ ->
-                                    if hasInit then 
-                                        CombineStatements [ 
-                                            chained;
-                                            ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
-                                            c.Body
-                                        ]
-                                    else CombineStatements [ chained; c.Body ]
+                                    CombineStatements [ withFieldInits thisVar chained; c.Body ]
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
@@ -831,16 +942,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | :? RecordDeclarationSyntax
                         | :? ClassDeclarationSyntax when Option.isSome recordInfo ->
                             let ri = recordInfo |> Option.get
-                            let useGetter getter = Call(Some (Var thisVar), NonGeneric def, NonGeneric getter, [])
+                            let getterOf o getter = Call(Some o, NonGeneric def, NonGeneric getter, [])
+                            let useGetter getter = getterOf (Var thisVar) getter
                             //let cString s = Value (String s) 
                             let getAllValues ofObj =
                                 seq {
                                     for (p, getter) in ri.PositionalFields do
-                                        yield p.Symbol.Name, useGetter getter
+                                        yield p.Symbol.Name, getterOf ofObj getter
                                     for p in ri.OtherFields do
                                         match p with 
                                         | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
-                                            yield pSymbol.Name, useGetter getter
+                                            yield pSymbol.Name, getterOf ofObj getter
                                         | CodeReader.CSharpRecordField (fSymbol, _) ->
                                             yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
                                 }    
@@ -928,7 +1040,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         match m.Value.Parameters with
                                         | [ p ] -> p = thisTyp
                                         | _ -> false
-                                    | _ -> false
+                                    | _ ->
+                                        // record structs: Equals(T) implements IEquatable<T>
+                                        isStruct && meth.Parameters.Length = 1
+                                        && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls)
                                 let b =
                                     let o = Var p.ParameterId
                                     if isEqualsImpl then
@@ -939,7 +1054,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                             isObject o
                                             getPrototype (Var thisVar) ^=== getPrototype o
                                             for (_, v), (_, vo) in Seq.zip (getAllValues (Var thisVar)) (getAllValues o) do
-                                                v ^== vo     
+                                                // like EqualityComparer<T>.Default for each member
+                                                Call(None, NonGeneric uncheckedMdl, Generic uncheckedEquals [ NonGenericType Definitions.Obj ], [ v; vo ])
                                         } |> Seq.reduce (^&&)
                                         |> Return
                                     else
@@ -953,8 +1069,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod
                             | "GetHashCode" ->
+                                // Hash the members, consistently with Equals above. Hashing `this`
+                                // would call back into this GetHashCode and never return.
                                 let b =
-                                    Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedHash, [ (Var thisVar) ]) |> Return
+                                    let values = getAllValues (Var thisVar) |> Seq.map snd |> List.ofSeq
+                                    Call(None, NonGeneric uncheckedMdl, Generic uncheckedHash [ NonGenericType Definitions.Obj ], [ NewArray values ]) |> Return
                                 {
                                     IsStatic = false
                                     Parameters = []
@@ -979,8 +1098,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     IsAsync = false
                                     ReturnType = thisTyp
                                 } : CodeReader.CSharpMethod
+                            | ".ctor" when meth.Parameters.Length = 1 && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls) ->
+                                recordCopyCtor ri
                             | ".ctor" ->                                
                                 let baseCall =    
+                                    if isStruct then Empty else
                                     let bTyp, bCtor, args, reorder = ri.BaseCall
                                     ExprStatement (baseCtor bTyp bCtor thisVar args |> reorder)
                                 let b =
@@ -1002,14 +1124,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | :? ParameterSyntax as syntax ->
                             makeInline <- true
                             if meth.Name = "get_EqualityContract" then
-                                {
-                                    IsStatic = false
-                                    Parameters = []
-                                    This = Some thisVar
-                                    Body = Empty
-                                    IsAsync = false
-                                    ReturnType = VoidType
-                                } : CodeReader.CSharpMethod
+                                recordEqualityContract ()
                             else
                             let p =
                                 try
@@ -1088,6 +1203,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             IsAsync = false
                             ReturnType = sr.ReadType meth.ReturnType
                         } : CodeReader.CSharpMethod   
+                    | MethodKind.PropertyGet when meth.Name = "get_EqualityContract" && Option.isSome recordInfo ->
+                        // reading a field of the same name would call this getter again
+                        recordEqualityContract ()
                     | MethodKind.PropertyGet ->
                         // implicit property get inside positional records
                         let propSymbol = meth.AssociatedSymbol;
@@ -1121,30 +1239,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         else
                         match recordInfo with
                         | Some ri ->
-                            let o = CodeReader.CSharpParameter.New ("o", thisTyp)
-                            let baseCall =
-                                let bTyp, bCtor, _, _ = ri.BaseCall
-                                if bTyp.Entity = Definitions.Obj then
-                                    ExprStatement (baseCtor bTyp bCtor thisVar [])
-                                else
-                                    let bCtor = 
-                                        Hashed {
-                                            CtorParameters = [ ConcreteType bTyp ]
-                                        }
-                                    ExprStatement (baseCtor bTyp bCtor thisVar [ Var o.ParameterId ])
-                            let b =
-                                ri.PositionalFields |> List.map (fun (_, getter) ->
-                                    let setter = CodeReader.setterOf (NonGeneric getter)
-                                    Call(Some (Var thisVar), NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
-                                ) |> Sequential |> ExprStatement
-                            {
-                                IsStatic = false
-                                Parameters = [ o ]
-                                This = Some thisVar
-                                Body = CombineStatements [ baseCall; b ]
-                                IsAsync = false
-                                ReturnType = Unchecked.defaultof<Type>
-                            } : CodeReader.CSharpMethod
+                            recordCopyCtor ri
                         | _ ->
                             let b = 
                                 if meth.IsStatic then
@@ -1159,11 +1254,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         | Some bTyp ->
                                             ExprStatement <| ChainedCtor(true, bTyp, ConstructorInfo.Default(), [])
                                         | _ -> Empty
-                                    let i =
-                                        if hasInit then 
-                                            ExprStatement <| Call(Some (Var thisVar), thisType, NonGeneric initDef, [])
-                                        else Empty
-                                    CombineStatements [ c; i ]
+                                    withFieldInits thisVar c
 
                             {
                                 IsStatic = meth.IsStatic
@@ -1387,8 +1478,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IFieldSymbol) do
         let f = f :?> IFieldSymbol
-        if isStruct && not f.IsReadOnly then
-            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")      
         //if not cls.IsRecord && recordInfo |> Option.isSome then
         //    failwith $"IsImplicitlyDeclared={f.IsImplicitlyDeclared}, Name={f.Name}"
         let isImplicitParameterField = 

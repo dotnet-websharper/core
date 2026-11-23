@@ -362,6 +362,43 @@ type internal Dictionary<'K,'V when 'K : equality>
             [<JavaScript(false)>]
             member this.Values = X<ICollection>
 
+        // The members below are translated by name to the class members.
+        // Declaring the interfaces lets dead code elimination keep those
+        // members when they are only called through the interface.
+        interface IDictionary<'K,'V> with
+            [<JavaScript(false)>]
+            member this.Item
+                with get (k: 'K) = X<'V>
+                and set (k: 'K) (v: 'V) = ()
+            [<JavaScript(false)>]
+            member this.Keys = X<ICollection<'K>>
+            [<JavaScript(false)>]
+            member this.Values = X<ICollection<'V>>
+            [<JavaScript(false)>]
+            member this.Add(k: 'K, v: 'V) = ()
+            [<JavaScript(false)>]
+            member this.ContainsKey(k: 'K) = X<bool>
+            [<JavaScript(false)>]
+            member this.Remove(k: 'K) = X<bool>
+            [<JavaScript(false)>]
+            member this.TryGetValue(k: 'K, res: byref<'V>) = X<bool>
+
+        interface IReadOnlyCollection<KeyValuePair<'K,'V>> with
+            [<JavaScript(false)>]
+            member this.Count = X<int>
+
+        interface IReadOnlyDictionary<'K,'V> with
+            [<JavaScript(false)>]
+            member this.Item with get (k: 'K) = X<'V>
+            [<JavaScript(false)>]
+            member this.Keys = X<IEnumerable<'K>>
+            [<JavaScript(false)>]
+            member this.Values = X<IEnumerable<'V>>
+            [<JavaScript(false)>]
+            member this.ContainsKey(k: 'K) = X<bool>
+            [<JavaScript(false)>]
+            member this.TryGetValue(k: 'K, res: byref<'V>) = X<bool>
+
         [<Name("RemoveKey")>]
         member this.Remove(k: 'K) =
             remove k

@@ -57,6 +57,18 @@ let private builtAssemblies () =
             |> Array.distinctBy Path.GetFileName
         else [||]
 
+/// Every copy of a built assembly in build/Release, outside the deploy and publish folders.
+let private builtAssemblyCopies (fileName: string) =
+    let rec findRoot (d: DirectoryInfo) =
+        if isNull d then None
+        elif File.Exists(Path.Combine(d.FullName, "WebSharper.sln")) then Some d.FullName
+        else findRoot d.Parent
+    match findRoot (DirectoryInfo(TestContext.CurrentContext.TestDirectory)) with
+    | Some root when Directory.Exists(Path.Combine(root, "build", "Release")) ->
+        Directory.GetFiles(Path.Combine(root, "build", "Release"), fileName, SearchOption.AllDirectories)
+        |> Array.filter (fun p -> not (p.Contains "deploy") && not (p.Contains (string Path.DirectorySeparatorChar + "publish")))
+    | _ -> [||]
+
 let private roundTrip (meta: M.Info) =
     let e1 = MetadataIO.EncodeToBytes meta
     let m2 = MetadataIO.DecodeBytes e1
@@ -290,3 +302,39 @@ let ``Runtime class info keeps addresses, static methods and anonymous record sh
     match r.Classes.[td "Anon"] with
     | _, M.FSharpAnonRecordInfo [ "a" ], None -> ()
     | x -> Assert.Fail(sprintf "Unexpected: %A" x)
+
+/// The dependency graph stored in the built WebSharper.StdLib metadata.
+let private builtStdLibGraph () =
+    // build/Release has several copies of the dll, only the one built in place has its sidecar
+    builtAssemblyCopies "WebSharper.StdLib.dll"
+    |> Array.tryPick WebSharper.Compiler.Sidecar.TryReadFor
+    |> Option.bind (fun sc -> sc.TryGet WebSharper.Constants.EmbeddedResources.EMBEDDED_METADATA)
+    |> Option.map (fun bytes -> DependencyGraph.Graph.FromData (MetadataIO.DecodeBytes bytes).Dependencies)
+
+[<Test>]
+let ``#1621 Dictionary members called through its interfaces are kept`` () =
+    match builtStdLibGraph () with
+    | None -> Assert.Ignore "No built WebSharper.StdLib metadata found"
+    | Some graph ->
+        let dictionary = "System.Collections.Generic.Dictionary`2"
+        let typeNode =
+            graph.Nodes |> Seq.find (function
+                | M.TypeNode t -> t.Value.FullName = dictionary
+                | _ -> false)
+        for intf in [ "System.Collections.Generic.IDictionary`2"; "System.Collections.Generic.IReadOnlyDictionary`2" ] do
+            for name in [ "TryGetValue"; "ContainsKey"; "get_Item"; "get_Keys"; "get_Values" ] do
+                let abstractNode =
+                    graph.Nodes |> Seq.tryFind (function
+                        | M.AbstractMethodNode (t, m) -> t.Value.FullName = intf && m.Value.MethodName = name
+                        | _ -> false)
+                match abstractNode with
+                // the node is added to the StdLib graph by the Dictionary implementation
+                | None -> Assert.Fail(sprintf "Dictionary does not register an implementation of %s.%s" intf name)
+                | Some abstractNode ->
+                    // a bundle that only calls the interface member on a Dictionary
+                    let kept =
+                        graph.GetDependencies [ typeNode; abstractNode ]
+                        |> List.exists (function
+                            | M.MethodNode (t, m) -> t.Value.FullName = dictionary && m.Value.MethodName = name
+                            | _ -> false)
+                    Assert.IsTrue(kept, sprintf "Dictionary.%s is eliminated when only %s.%s is called" name intf name)

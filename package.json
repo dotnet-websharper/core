@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "node-qunit-puppeteer": "^2.2.1"
+  },
+  "overrides": {
+    "puppeteer": "^25.18.1"
   }
 }
