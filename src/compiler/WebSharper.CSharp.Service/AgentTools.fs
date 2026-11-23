@@ -56,6 +56,9 @@ type CompileReport =
         SourceFiles : int
         /// The printed lines, IsError for the error channel (errors and warnings).
         Log : LogLine[]
+        /// Assemblies with agent tools (IAgentExtension) the project's packages add, from --agentextension.
+        /// Null in the reports of an older wscsc.
+        Extensions : string[]
     }
 
 and [<CLIMutable>] LogLine = { IsError : bool; Text : string }
@@ -316,7 +319,7 @@ let diagnostics (p: ProjectState) (file: string option) (includeWarnings: bool) 
 // Translations
 
 /// C# keywords for types, as an agent writes them.
-let private aliases =
+let aliases =
     dict [
         "string", "System.String"; "object", "System.Object"; "bool", "System.Boolean"; "char", "System.Char"
         "byte", "System.Byte"; "sbyte", "System.SByte"; "short", "System.Int16"; "ushort", "System.UInt16"
@@ -325,7 +328,8 @@ let private aliases =
         "nint", "System.IntPtr"; "nuint", "System.UIntPtr"; "void", "System.Void"
     ]
 
-let private requireTranslations (p: ProjectState) =
+/// The translations of a project and its references, or a tool error saying why there are none.
+let requireTranslations (p: ProjectState) =
     match p.Translations.Value with
     | Some t -> t
     | None ->
@@ -494,9 +498,12 @@ type Tool =
         Run : ToolArgs -> string
     }
 
-let private projectParam = "project", "string", "Project file path, file name or assembly name. Defaults to the most recently compiled project.", false
-let private namesParam = "names", "string[]", "Several names at once, instead of name: one call answers for all of them.", false
+/// The optional project parameter of the tools.
+let projectParam = "project", "string", "Project file path, file name or assembly name. Defaults to the most recently compiled project.", false
+/// The names parameter of the tools that answer for several names at once (see batched).
+let namesParam = "names", "string[]", "Several names at once, instead of name: one call answers for all of them.", false
 
+/// The tools of the C# booster itself.
 let tools : Tool list =
     [
         {
@@ -531,7 +538,7 @@ let tools : Tool list =
         }
     ]
 
-let toolsJson () =
+let toolsJsonOf (tools: Tool list) =
     let arr = JsonArray()
     for t in tools do
         let props = JsonObject()
@@ -547,6 +554,119 @@ let toolsJson () =
         arr.Add(JsonObject(dict [ "name", JsonValue.Create(t.Name) :> JsonNode; "description", JsonValue.Create(t.Description) :> JsonNode; "inputSchema", schema :> JsonNode; "annotations", annotations :> JsonNode ]))
     arr
 
+// ---------------------------------------------------------------------------------------------
+// Extensions: more tools from other packages, as in the F# booster (its IAgentExtension), with this booster's Tool,
+// ToolArgs and ProjectState. The booster loads them from the --agentextension arguments wscsc reports, and
+// `wscscservice --mcp` from --extension or WebSharperAgentExtensions.
+
+/// An extension of the C# booster's agent tools.
+type IAgentExtension =
+    abstract Name : string
+    /// Tools added to the booster's; a tool with the name of one of them replaces it.
+    abstract Tools : Tool list
+    /// Added to the server instructions.
+    abstract Instructions : string
+    /// Adds pointers to the extension's tools to the answer of a tool: tool name, arguments, answer.
+    abstract Decorate : toolName: string -> args: ToolArgs -> answer: string -> string
+    /// Tools that need no booster (static content): `wscscservice --mcp` answers them itself.
+    abstract LocalTools : string list
+
+/// What the booster (or `wscscservice --mcp`) gives an extension that implements IAgentExtensionWithHost.
+/// Members are only added here, so extensions built against an earlier version keep working.
+type IAgentHost =
+    /// The extension's statistics, under "ext.<extension name>.", kept with the booster's (Stats.fs).
+    abstract Stats : Stats.IAgentStats
+    /// Writes to the log of the process (the booster's log file, or stderr of `wscscservice --mcp`).
+    abstract Log : string -> unit
+    /// The WebSharper version of the booster.
+    abstract WebSharperVersion : string
+    /// True in the booster, false in `wscscservice --mcp`.
+    abstract IsBooster : bool
+
+/// An extension that gets an IAgentHost when it is loaded, before its tools are used.
+type IAgentExtensionWithHost =
+    inherit IAgentExtension
+    abstract Initialize : host: IAgentHost -> unit
+
+/// Set by the process: its log, its WebSharper version, and whether it is the booster.
+let mutable hostLog : string -> unit = ignore
+let mutable hostVersion = ""
+let mutable hostIsBooster = true
+
+let private hostFor (e: IAgentExtension) =
+    let stats = Stats.forExtension e.Name
+    { new IAgentHost with
+        member _.Stats = stats
+        member _.Log msg = hostLog (sprintf "[%s] %s" e.Name msg)
+        member _.WebSharperVersion = hostVersion
+        member _.IsBooster = hostIsBooster }
+
+let private extensions = ConcurrentDictionary<string, IAgentExtension list>(StringComparer.OrdinalIgnoreCase)
+let private extensionFolders = ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+
+/// The dependencies of an extension are next to it.
+let private resolveFromExtensionFolders =
+    lazy
+        System.Runtime.Loader.AssemblyLoadContext.Default.add_Resolving(fun ctx name ->
+            extensionFolders.Keys
+            |> Seq.map (fun d -> Path.Combine(d, name.Name + ".dll"))
+            |> Seq.tryFind File.Exists
+            |> Option.map ctx.LoadFromAssemblyPath
+            |> Option.toObj)
+
+/// Loads the IAgentExtension implementations of an assembly into the default context (they share the booster's
+/// types), once per path.
+let loadExtensions (path: string) : Result<IAgentExtension list, string> =
+    try
+        let full = Path.GetFullPath path
+        if not (File.Exists full) then Error (sprintf "The agent extension %s does not exist" full) else
+        resolveFromExtensionFolders.Force()
+        extensionFolders.[Path.GetDirectoryName full] <- true
+        Ok (extensions.GetOrAdd(full, fun p ->
+            let asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath p
+            let types =
+                try asm.GetTypes()
+                with :? System.Reflection.ReflectionTypeLoadException as e -> e.Types |> Array.filter (isNull >> not)
+            types
+            |> Array.filter (fun t -> typeof<IAgentExtension>.IsAssignableFrom t && not t.IsAbstract && not t.IsInterface)
+            |> Array.map (fun t ->
+                let e = Activator.CreateInstance t :?> IAgentExtension
+                match e with
+                | :? IAgentExtensionWithHost as h -> h.Initialize (hostFor e)
+                | _ -> ()
+                Stats.count ("extensions.loaded." + Stats.part e.Name)
+                e)
+            |> List.ofArray))
+    with e ->
+        Stats.count "extensions.failed"
+        Error (sprintf "Could not load the agent extension %s: %s" path e.Message)
+
+/// Loads the extensions a compilation report names; the errors go to the process's log.
+let loadReportedExtensions (report: CompileReport) =
+    for path in (if isNull report.Extensions then [||] else report.Extensions) do
+        match loadExtensions path with
+        | Ok _ -> ()
+        | Error msg -> hostLog msg
+
+/// The paths of the assemblies loadExtensions loaded.
+let loadedExtensionPaths () = extensions.Keys |> List.ofSeq
+
+let loadedExtensions () =
+    extensions.Values |> Seq.concat |> Seq.distinctBy (fun e -> e.Name) |> List.ofSeq
+
+/// The booster's tools and those of the loaded extensions.
+let allTools () =
+    let fromExtensions = loadedExtensions () |> List.collect (fun e -> e.Tools)
+    (tools |> List.filter (fun t -> not (fromExtensions |> List.exists (fun x -> x.Name = t.Name)))) @ fromExtensions
+
+let toolsJson () = toolsJsonOf (allTools ())
+
+/// Where a tool comes from: "core" or the name of the extension that has it.
+let toolSource (name: string) =
+    match loadedExtensions () |> List.tryFind (fun e -> e.Tools |> List.exists (fun t -> t.Name = name)) with
+    | Some e -> e.Name
+    | None -> "core"
+
 let instructions =
     "Answers questions about the WebSharper C# projects built on this machine, from what the WebSharper C# booster "
     + "(wscscservice) recorded after each build: WebSharper diagnostics, and how WebSharper translates types and members "
@@ -557,12 +677,38 @@ let instructions =
     + "and search_symbols to find what client-side code can use. "
     + "For online documentation use docs.websharper.com; never use developers.websharper.com/docs/v4.x or other 4.x pages, they are superseded and their APIs differ."
 
+/// What `wscscservice --mcp` offers: the booster's tools, with the loaded extensions' tools, instructions and pointers.
+type Edition =
+    {
+        Name : string
+        Tools : Tool list
+        Instructions : string
+        Decorate : string -> ToolArgs -> string -> string
+        LocalTools : string list
+    }
+
+let edition () =
+    match loadedExtensions () with
+    | [] -> { Name = "free"; Tools = tools; Instructions = instructions; Decorate = (fun _ _ text -> text); LocalTools = [] }
+    | exts ->
+        {
+            Name = exts |> List.map (fun e -> e.Name) |> String.concat ", "
+            Tools = allTools ()
+            Instructions = instructions + " " + (exts |> List.map (fun e -> e.Instructions) |> String.concat " ")
+            Decorate = fun name args text -> exts |> List.fold (fun t e -> e.Decorate name args t) text
+            LocalTools = exts |> List.collect (fun e -> e.LocalTools)
+        }
+
 /// Runs a tool, Ok with its text or Error with a message for the agent.
 let callTool (name: string) (arguments: string) : Result<string, string> =
-    match tools |> List.tryFind (fun t -> t.Name = name) with
-    | None -> Error (sprintf "Unknown tool: %s" name)
+    match allTools () |> List.tryFind (fun t -> t.Name = name) with
+    | None ->
+        if List.isEmpty (loadedExtensions ()) then
+            Error (sprintf "Unknown tool: %s. If it comes from an agent extension, build the project (dotnet build) so that the booster loads it." name)
+        else Error (sprintf "Unknown tool: %s" name)
     | Some tool ->
-        let key = sprintf "tool.core.%s" (Stats.part name)
+        // statistics: tool.<source>.<name>: its duration, how it ended, the size of its answer
+        let key = sprintf "tool.%s.%s" (Stats.part (toolSource name)) (Stats.part name)
         let sw = Diagnostics.Stopwatch.StartNew()
         let result, outcome =
             try

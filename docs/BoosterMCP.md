@@ -188,4 +188,15 @@ What it can't answer without a C# compiler:
 A build with `WebSharperStandalone=True`, or with the `WebSharperBuildService` environment variable set to `false`,
 does not report to the booster. When the WebSharper outputs of a project were up to date, the booster keeps the
 diagnostics of the compilation before. `WebSharperAgentProjects` sets how many projects it keeps, and `dotnet ws stats`
-reads its statistics file like the F# booster's. It does not load agent extensions.
+reads its statistics file like the F# booster's.
+
+It loads [extensions](#extensions) like the F# booster, with the same members, but they implement
+`WebSharper.CSharp.Service.AgentTools.IAgentExtension` (and `IAgentExtensionWithHost`), whose tools take this booster's
+`ToolArgs` and `ProjectState`, so an extension for both boosters is two assemblies:
+
+* the booster loads the assemblies of the `WebSharperAgentExtensions` MSBuild property of the project, which `wscsc`
+  gets as `--agentextension:<path>` and reports with the compilation;
+* `wscscservice --mcp` loads them from `--extension <path>` arguments and the `WebSharperAgentExtensions`
+  environment variable, sends their paths with each tool call, and answers their local tools itself.
+
+`dotnet ws mcp` passes the extensions of the projects' packages to `wscscservice --mcp` too.

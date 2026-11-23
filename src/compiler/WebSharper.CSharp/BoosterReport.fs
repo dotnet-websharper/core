@@ -74,6 +74,7 @@ let send (config: WsConfig) (exitCode: int) (duration: TimeSpan) (skipped: bool)
                     Skipped = skipped
                     SourceFiles = config.CompilerArgs |> Array.filter (fun a -> a.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && not (a.StartsWith "/") && not (a.StartsWith "-")) |> Array.length
                     Log = lines
+                    Extensions = config.AgentExtensions |> List.map Path.GetFullPath |> Array.ofList
                 }
             let json = Text.Json.JsonSerializer.Serialize report
             BoosterPipe.send pipe [| "record"; json |] 2000 |> ignore

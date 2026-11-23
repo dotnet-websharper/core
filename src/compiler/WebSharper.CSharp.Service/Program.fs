@@ -72,7 +72,10 @@ let listen (log: string -> unit) =
         | [| "record"; json |] ->
             let ok =
                 try
-                    AgentTools.record (Text.Json.JsonSerializer.Deserialize<AgentTools.CompileReport>(json, reportOptions))
+                    let report = Text.Json.JsonSerializer.Deserialize<AgentTools.CompileReport>(json, reportOptions)
+                    // agent tools of extension packages the project references (--agentextension)
+                    AgentTools.loadReportedExtensions report
+                    AgentTools.record report
                     true
                 with e ->
                     log (sprintf "Could not record a compilation: %s" e.Message)
@@ -81,7 +84,13 @@ let listen (log: string -> unit) =
             Stats.ms "msg.record_ms" (Diagnostics.Stopwatch.GetElapsedTime received)
             reply (if ok then "x: 0" else "x: 1")
         | _ when args.Length >= 3 && args.[0] = "mcp" ->
-            let result = AgentTools.callTool args.[1] args.[2]
+            // after the tool: the extensions the front end loaded, so that their tools run here too
+            let loadErrors =
+                args.[3..] |> Array.choose (fun path ->
+                    match AgentTools.loadExtensions path with
+                    | Ok _ -> None
+                    | Error msg -> Some msg)
+            let result = if loadErrors.Length > 0 then Error (String.concat "\n" loadErrors) else AgentTools.callTool args.[1] args.[2]
             let elapsed = Diagnostics.Stopwatch.GetElapsedTime received
             Stats.ms "msg.mcp_ms" elapsed
             let text, code = match result with Ok t -> t, 0 | Error t -> t, 1
@@ -193,8 +202,11 @@ module McpClient =
         sprintf "No WebSharper C# booster is running for this installation (%s): %s. It starts with the first build of a WebSharper C# project (dotnet build) unless WebSharperStandalone is set."
             (folder ()) reason
 
+    /// Calls a tool in the booster, with the paths of this process's extensions so that the booster loads them too:
+    /// its answer, and the booster's time in ms.
     let callBooster (name: string) (arguments: string) : Result<string, string> * float option =
-        match BoosterPipe.send (pipeName ()) [| "mcp"; name; arguments |] 2000 with
+        let message = Array.append [| "mcp"; name; arguments |] (AgentTools.loadedExtensionPaths () |> Array.ofList)
+        match BoosterPipe.send (pipeName ()) message 2000 with
         | Ok (0, text, ms) -> Ok text, ms
         | Ok (_, text, ms) -> Error text, ms
         | Error (BoosterPipe.NotRunning reason) -> Error (notRunning reason), None
@@ -210,24 +222,50 @@ module McpClient =
             | Ok (0, _, _) -> ()
             | _ -> forwarding.Return events
 
-    let run () =
+    let run (extensionPaths: string list) =
         let utf8 = Text.UTF8Encoding(false)
         use input = new StreamReader(Console.OpenStandardInput(), utf8)
         use output = new StreamWriter(Console.OpenStandardOutput(), utf8)
         Stats.sink <- forwarding
+        // extensions log to stderr: stdout belongs to the protocol
+        AgentTools.hostLog <- fun msg -> eprintfn "wscscservice --mcp: %s" msg
+        AgentTools.hostVersion <- AssemblyVersionInformation.WSVersion
+        AgentTools.hostIsBooster <- false
+        // extensions: --extension <path> arguments and WebSharperAgentExtensions (separated like PATH)
+        let fromEnv =
+            match Environment.GetEnvironmentVariable "WebSharperAgentExtensions" with
+            | null -> []
+            | v -> v.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
+        for path in extensionPaths @ fromEnv do
+            match AgentTools.loadExtensions path with
+            | Ok _ -> ()
+            | Error msg -> eprintfn "wscscservice --mcp: %s" msg
+        let edition = AgentTools.edition ()
         let sessionClock = Diagnostics.Stopwatch.StartNew()
         let mutable calls = 0
         let call (name: string) (arguments: string) =
             calls <- calls + 1
-            let known = AgentTools.tools |> List.exists (fun t -> t.Name = name)
-            let key = sprintf "mcp.call.core.%s" (if known then Stats.part name else "unknown")
+            // only names of tools offered go into the statistics, not whatever an agent asked for
+            let known = edition.Tools |> List.exists (fun t -> t.Name = name)
+            let key = sprintf "mcp.call.%s.%s" (if known then Stats.part (AgentTools.toolSource name) else "none") (if known then Stats.part name else "unknown")
             let sw = Diagnostics.Stopwatch.StartNew()
             let result =
                 if not known then Error (sprintf "Unknown tool: %s" name)
                 else
-                    let result, boosterMs = callBooster name arguments
-                    boosterMs |> Option.iter (fun ms -> Stats.value (key + ".overhead_ms") (sw.Elapsed.TotalMilliseconds - ms))
-                    result
+                    let result =
+                        // tools with static content need no booster, also before the first build
+                        if List.contains name edition.LocalTools then
+                            Stats.count (key + ".local")
+                            AgentTools.callTool name arguments
+                        else
+                            let result, boosterMs = callBooster name arguments
+                            boosterMs |> Option.iter (fun ms -> Stats.value (key + ".overhead_ms") (sw.Elapsed.TotalMilliseconds - ms))
+                            result
+                    match result with
+                    | Ok text ->
+                        let args = AgentTools.ToolArgs(if String.IsNullOrWhiteSpace arguments then null else (try Text.Json.Nodes.JsonNode.Parse arguments with _ -> null))
+                        Ok (edition.Decorate name args text)
+                    | e -> e
             Stats.ms (key + "_ms") sw.Elapsed
             Stats.count (key + (match result with Ok _ -> ".ok" | Error _ -> ".error"))
             result
@@ -242,7 +280,7 @@ module McpClient =
                         Stats.count ("mcp.client." + Stats.part (try msg.["params"].["clientInfo"].["name"].GetValue<string>() with _ -> null))
                 if response.IsSome then sendStats ()
             with _ -> ()
-        Mcp.serve AssemblyVersionInformation.WSVersion AgentTools.instructions AgentTools.toolsJson call handled input output
+        Mcp.serve AssemblyVersionInformation.WSVersion edition.Instructions (fun () -> AgentTools.toolsJsonOf edition.Tools) call handled input output
         Stats.value "mcp.session.duration_s" sessionClock.Elapsed.TotalSeconds
         Stats.value "mcp.session.calls" (float calls)
         sendStats ()
@@ -254,10 +292,21 @@ do ()
 
 [<EntryPoint>]
 let main args =
-    if args.Length > 0 && args.[0] = "--mcp" then McpClient.run () else
+    if args.Length > 0 && args.[0] = "--mcp" then
+        // --mcp [--extension <path>]...
+        let rec extensions (l: string list) =
+            match l with
+            | "--extension" :: path :: rest -> path :: extensions rest
+            | _ :: rest -> extensions rest
+            | [] -> []
+        McpClient.run (extensions (List.ofArray args.[1..]))
+    else
     // wscscservice [<log file>]: errors go to the log file when given
     let log (msg: string) =
         if args.Length > 0 then try File.AppendAllLines(args.[0], [ msg ]) with _ -> ()
+    AgentTools.hostLog <- log
+    AgentTools.hostVersion <- AssemblyVersionInformation.WSVersion
+    AgentTools.hostIsBooster <- true
     let location = folder ()
     // one booster per folder
     let mutexName = "Global\\" + hashPath (Path.Combine(location, "WsCscServiceMutex"))

@@ -97,6 +97,7 @@ $end{copyright}
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperTimingLog="$(WebSharperTimingLog)"
       WebSharperStandalone="$(WebSharperStandalone)"
+      WebSharperAgentExtensions="$(WebSharperAgentExtensions)"
       WebSharperToolPath="$(WebSharperToolPath)"
       DotnetHostPath="$(DOTNET_HOST_PATH)"
       WebSharperToolPathIsDefault="$(_WebSharperToolPathIsDefault)"
