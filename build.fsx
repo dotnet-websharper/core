@@ -54,11 +54,13 @@ let boosterRids =
         "osx-x64"; "osx-arm64"
     ]
 
-/// Compiler executables, in the order they publish for one platform: wsfsc references wsfscservice.
+/// Compiler executables, in the order they publish for one platform: wsfsc references wsfscservice, wscsc
+/// references wscscservice.
 let compilerExes =
     [
         "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj", "FSharp"
         "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj", "FSharp"
+        "src/compiler/WebSharper.CSharp.Service/WebSharper.CSharp.Service.fsproj", "CSharp"
         "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj", "CSharp"
     ]
 
@@ -425,7 +427,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 
 
 //region ** Booster tool packages **
-// WebSharper.FSharp.Booster and WebSharper.CSharp.Booster: the ReadyToRun compilers as RID-specific .NET tools
+// WebSharper.FSharp.Booster and WebSharper.CSharp.Booster: the ReadyToRun compilers and their boosters as RID-specific .NET tools
 // (SDK 10+). A pointer package (type DotnetTool) lists one <id>.<rid> package (type DotnetToolRidPackage) per
 // platform, the CLI downloads only the one for the current platform. The WebSharper targets use an installed
 // Booster of the same version instead of the portable compiler of WebSharper.FSharp / WebSharper.CSharp.
@@ -453,8 +455,8 @@ let boosterTools =
             Id = "WebSharper.CSharp.Booster"
             Command = "wscsc"
             Folder = "CSharp"
-            Executables = [ "wscsc" ]
-            Description = "ReadyToRun build of the WebSharper C# compiler for the current platform. Install it as a .NET tool at the version of WebSharper.CSharp to use it instead of the portable compiler."
+            Executables = [ "wscsc"; "wscscservice" ]
+            Description = "ReadyToRun build of the WebSharper C# compiler and its booster for the current platform. Install it as a .NET tool at the version of WebSharper.CSharp to use it instead of the portable compiler."
         }
     ]
 

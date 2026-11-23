@@ -17,12 +17,17 @@ let hashPath (fullPath: string) =
     |> string
 
 /// The pipe of the booster running from a folder: a hash of the folder on Windows, a file in the temp folder elsewhere.
-let boosterPipeName (folder: string) =
-    let raw = System.IO.Path.Combine(folder, "WsFscServicePipe") |> hashPath
+let private pipeNameWith (salt: string) (folder: string) =
+    let raw = System.IO.Path.Combine(folder, salt) |> hashPath
     if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
         raw
     else
         System.IO.Path.Combine(System.IO.Path.GetTempPath(), raw)
+
+let boosterPipeName (folder: string) = pipeNameWith "WsFscServicePipe" folder
+
+/// The pipe of the C# booster (wscscservice) of a folder: named apart from the F# booster's, should both be in it.
+let cscBoosterPipeName (folder: string) = pipeNameWith "WsCscServicePipe" folder
 
 /// A running booster registers itself for dotnet ws, which can't tell a booster started as
 /// `dotnet wsfscservice.dll` from any other dotnet process. One file per booster folder,
@@ -45,6 +50,10 @@ let boosterRecordFolder () =
 
 let boosterRecordPath (folder: string) =
     System.IO.Path.Combine(boosterRecordFolder (), hashPath (System.IO.Path.Combine(folder, "WsFscServicePipe")) + ".json")
+
+/// The record of the C# booster (wscscservice) of a folder, next to the F# boosters' records.
+let cscBoosterRecordPath (folder: string) =
+    System.IO.Path.Combine(boosterRecordFolder (), hashPath (System.IO.Path.Combine(folder, "WsCscServicePipe")) + ".json")
 
 exception PipeException of unit
 

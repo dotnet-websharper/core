@@ -391,7 +391,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     FileSystem.OutputFiles.Finish config.AssemblyFile
     fullTime logger
 
-let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
+/// Compiles, calling configured with the parsed configuration before compiling (the C# booster's report).
+let compileMainWith (argv: string[]) tryGetMetadata (logger: LoggerBase) (configured: WsConfig -> unit) =
 
     match HandleDefaultArgsAndCommands logger argv false with
     | Some r -> r
@@ -464,6 +465,7 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
                     CompilerArgs = Array.append cArgs [|"-define:JAVASCRIPT"|]
                 }
 
+    configured !wsArgs
     try
         Compile !wsArgs logger tryGetMetadata
         0
@@ -474,3 +476,6 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
         reraise()
+
+let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
+    compileMainWith argv tryGetMetadata logger ignore
