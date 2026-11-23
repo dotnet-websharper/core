@@ -11,6 +11,7 @@
     <Compile Include="Tests.fs" />
     <Compile Include="BoosterTests.fs" />
     <Compile Include="AgentToolsTests.fs" />
+    <Compile Include="CSharpBoosterTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -19,6 +20,7 @@
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\WebSharper.Compiler.FSharp.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\wsfsc.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\wsfscservice.dll" />
+    <Reference Include="..\..\build\$(Configuration)\CSharp\net11.0\wscscservice.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\WebSharper.Core.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\WebSharper.Core.JavaScript.dll" />
     <Reference Include="..\..\build\$(Configuration)\FSharp\net11.0\FSharp.Compiler.Service.dll" />

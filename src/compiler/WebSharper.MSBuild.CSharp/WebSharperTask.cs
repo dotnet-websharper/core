@@ -56,6 +56,8 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperTimingLog { get; set; }
         /// True: do not report the compilation to the C# booster (wscscservice) for its agent tools.
         public string WebSharperStandalone { get; set; } = "";
+        /// Assemblies with agent tools (IAgentExtension) for the C# booster, separated by semicolons.
+        public string WebSharperAgentExtensions { get; set; } = "";
         public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wscsc.exe";
         /// $(DOTNET_HOST_PATH), runs WebSharperToolPath when it is a .dll
@@ -162,6 +164,10 @@ namespace WebSharper.MSBuild.CSharp
 
                 if (TryParseBool(WebSharperStandalone))
                     w.WriteLine("--standalone");
+
+                foreach (var extension in (WebSharperAgentExtensions ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                    if (!string.IsNullOrWhiteSpace(extension))
+                        w.WriteLine("--agentextension:" + extension.Trim());
 
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");
