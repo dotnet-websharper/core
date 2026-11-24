@@ -1,0 +1,5 @@
+{
+  "project": "library",
+  "javascriptExport": true,
+  "outputDir": "build"
+}

@@ -1,0 +1,1879 @@
+{
+  "int.overflow.wraps": {
+    "status": "mismatch",
+    "net": "-2147483648",
+    "js": "2147483648"
+  },
+  "int.multiply.wraps": {
+    "status": "mismatch",
+    "net": "-2",
+    "js": "4294967294"
+  },
+  "int.negate.min": {
+    "status": "mismatch",
+    "net": "-2147483648",
+    "js": "2147483648"
+  },
+  "int.division.truncates": {
+    "status": "pass"
+  },
+  "int.remainder.sign": {
+    "status": "pass"
+  },
+  "int.divide.zero": {
+    "status": "pass"
+  },
+  "int.modulo.zero": {
+    "status": "pass"
+  },
+  "int64.overflow.wraps": {
+    "status": "mismatch",
+    "net": "-9223372036854775808",
+    "js": "9223372036854775808"
+  },
+  "int64.large": {
+    "status": "pass"
+  },
+  "int64.multiply": {
+    "status": "pass"
+  },
+  "int64.division": {
+    "status": "pass"
+  },
+  "uint32.wraps": {
+    "status": "mismatch",
+    "net": "4294967295",
+    "js": "-1"
+  },
+  "byte.wraps": {
+    "status": "mismatch",
+    "net": "0",
+    "js": "256"
+  },
+  "sbyte.wraps": {
+    "status": "mismatch",
+    "net": "-128",
+    "js": "128"
+  },
+  "int16.wraps": {
+    "status": "mismatch",
+    "net": "-32768",
+    "js": "32768"
+  },
+  "uint64.max": {
+    "status": "pass"
+  },
+  "checked.overflow": {
+    "status": "unsupported",
+    "net": "EXN Overflow",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "checked.int.conversion": {
+    "status": "unsupported",
+    "net": "EXN Overflow",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "conversion.int.of.float": {
+    "status": "pass"
+  },
+  "conversion.byte.of.int": {
+    "status": "pass"
+  },
+  "conversion.int.of.string": {
+    "status": "pass"
+  },
+  "conversion.int.of.bad.string": {
+    "status": "mismatch",
+    "net": "EXN Format",
+    "js": "0"
+  },
+  "conversion.float.of.string": {
+    "status": "pass"
+  },
+  "conversion.int.of.char": {
+    "status": "pass"
+  },
+  "conversion.char.of.int": {
+    "status": "pass"
+  },
+  "conversion.int64.of.int": {
+    "status": "pass"
+  },
+  "conversion.uint32.of.negative": {
+    "status": "pass"
+  },
+  "int.parse": {
+    "status": "pass"
+  },
+  "int.parse.bad": {
+    "status": "pass"
+  },
+  "int.parse.overflow": {
+    "status": "pass"
+  },
+  "int.tryparse": {
+    "status": "pass"
+  },
+  "int.tryparse.bad": {
+    "status": "pass"
+  },
+  "float.tostring": {
+    "status": "pass"
+  },
+  "float.tostring.large": {
+    "status": "mismatch",
+    "net": "1E+21,123456789012",
+    "js": "1e+21,123456789012"
+  },
+  "float.tostring.small": {
+    "status": "mismatch",
+    "net": "1E-07",
+    "js": "1e-7"
+  },
+  "float.nan": {
+    "status": "pass"
+  },
+  "float.divide.zero": {
+    "status": "pass"
+  },
+  "float.nan.equality": {
+    "status": "pass"
+  },
+  "float.compare.nan": {
+    "status": "mismatch",
+    "net": "-1",
+    "js": "1"
+  },
+  "float.round.banker": {
+    "status": "mismatch",
+    "net": "2,4,-2",
+    "js": "3,4,-2"
+  },
+  "float.math.round": {
+    "status": "pass"
+  },
+  "float.math.round.digits": {
+    "status": "pass"
+  },
+  "float.truncate": {
+    "status": "pass"
+  },
+  "float32.precision": {
+    "status": "pass"
+  },
+  "float32.arith": {
+    "status": "known",
+    "reason": "`float32` is a JavaScript number, so it keeps double precision instead of rounding to single. Use `float`, or a Float32Array from WebSharper.JavaScript when single-precision storage matters.",
+    "net": "0.3",
+    "js": "0.30000000000000004"
+  },
+  "float.sum": {
+    "status": "pass"
+  },
+  "float.parse": {
+    "status": "pass"
+  },
+  "float.tostring.format": {
+    "status": "pass"
+  },
+  "float.tostring.n": {
+    "status": "pass"
+  },
+  "int.tostring.d": {
+    "status": "pass"
+  },
+  "int.tostring.x": {
+    "status": "pass"
+  },
+  "decimal.add": {
+    "status": "known",
+    "reason": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+    "net": "0.3",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "decimal.divide": {
+    "status": "known",
+    "reason": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+    "net": "0.3333333333333333333333333333",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "bigint.pow": {
+    "status": "pass"
+  },
+  "bigint.divide": {
+    "status": "pass"
+  },
+  "pown": {
+    "status": "pass"
+  },
+  "abs.sign": {
+    "status": "pass"
+  },
+  "abs.min.int": {
+    "status": "mismatch",
+    "net": "EXN Overflow",
+    "js": "2147483648"
+  },
+  "min.max": {
+    "status": "mismatch",
+    "net": "3,NaN",
+    "js": "3,3"
+  },
+  "sqrt.negative": {
+    "status": "pass"
+  },
+  "math.pow": {
+    "status": "pass"
+  },
+  "bitwise.ops": {
+    "status": "pass"
+  },
+  "bitwise.shift": {
+    "status": "pass"
+  },
+  "bitwise.shift.uint": {
+    "status": "mismatch",
+    "net": "1",
+    "js": "-1"
+  },
+  "bitwise.int64": {
+    "status": "pass"
+  },
+  "hex.literal": {
+    "status": "pass"
+  },
+  "int.compare": {
+    "status": "pass"
+  },
+  "int.max.value": {
+    "status": "pass"
+  },
+  "char.arith": {
+    "status": "pass"
+  },
+  "range.step": {
+    "status": "pass"
+  },
+  "range.float": {
+    "status": "pass"
+  },
+  "incr.decr": {
+    "status": "pass"
+  },
+  "string.length": {
+    "status": "pass"
+  },
+  "string.index": {
+    "status": "pass"
+  },
+  "string.index.out.of.range": {
+    "status": "known",
+    "reason": "String indexing is not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException. Check Length before indexing.",
+    "net": "EXN IndexOutOfRange",
+    "js": "<null>"
+  },
+  "string.slice": {
+    "status": "pass"
+  },
+  "string.slice.out.of.range": {
+    "status": "pass"
+  },
+  "string.substring": {
+    "status": "pass"
+  },
+  "string.substring.bad": {
+    "status": "pass"
+  },
+  "string.concat.null": {
+    "status": "mismatch",
+    "net": "ab",
+    "js": "anullb"
+  },
+  "string.of.null": {
+    "status": "mismatch",
+    "net": "[]",
+    "js": "[null]"
+  },
+  "string.of.option": {
+    "status": "mismatch",
+    "net": "Some(1)|",
+    "js": "[object Object]|null"
+  },
+  "string.of.unit": {
+    "status": "pass"
+  },
+  "string.of.bool": {
+    "status": "mismatch",
+    "net": "True,False",
+    "js": "true,false"
+  },
+  "string.of.char": {
+    "status": "pass"
+  },
+  "string.of.list": {
+    "status": "mismatch",
+    "net": "[1; 2; 3]",
+    "js": "[object Object]"
+  },
+  "string.of.tuple": {
+    "status": "mismatch",
+    "net": "(1, a)",
+    "js": "1,a"
+  },
+  "string.split": {
+    "status": "pass"
+  },
+  "string.split.options": {
+    "status": "pass"
+  },
+  "string.split.string": {
+    "status": "pass"
+  },
+  "string.trim": {
+    "status": "pass"
+  },
+  "string.pad": {
+    "status": "pass"
+  },
+  "string.replace": {
+    "status": "pass"
+  },
+  "string.indexof": {
+    "status": "pass"
+  },
+  "string.indexof.start": {
+    "status": "pass"
+  },
+  "string.contains": {
+    "status": "pass"
+  },
+  "string.case": {
+    "status": "pass"
+  },
+  "string.case.invariant": {
+    "status": "pass"
+  },
+  "string.compare.ordinal": {
+    "status": "pass"
+  },
+  "string.compare.fsharp": {
+    "status": "pass"
+  },
+  "string.sort.fsharp": {
+    "status": "pass"
+  },
+  "string.equals.ignorecase": {
+    "status": "pass"
+  },
+  "string.isnullorempty": {
+    "status": "pass"
+  },
+  "string.join": {
+    "status": "pass"
+  },
+  "string.concat.array": {
+    "status": "pass"
+  },
+  "string.reverse": {
+    "status": "pass"
+  },
+  "string.ctor.repeat": {
+    "status": "pass"
+  },
+  "string.insert.remove": {
+    "status": "pass"
+  },
+  "string.equality": {
+    "status": "known",
+    "reason": "JavaScript strings are values: two equal strings are never different references. Compare strings with `=` or String.Equals.",
+    "net": "true,false",
+    "js": "true,true"
+  },
+  "string.module.concat": {
+    "status": "pass"
+  },
+  "string.module.map": {
+    "status": "unsupported",
+    "net": "ABC",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "string.module.collect": {
+    "status": "pass"
+  },
+  "string.module.init": {
+    "status": "pass"
+  },
+  "string.module.replicate": {
+    "status": "pass"
+  },
+  "string.module.forall": {
+    "status": "pass"
+  },
+  "string.module.filter": {
+    "status": "pass"
+  },
+  "string.module.length.null": {
+    "status": "pass"
+  },
+  "string.seq": {
+    "status": "pass"
+  },
+  "string.toCharArray": {
+    "status": "pass"
+  },
+  "char.tests": {
+    "status": "mismatch",
+    "net": "true,true,true,true",
+    "js": "true,false,true,true"
+  },
+  "char.unicode.upper": {
+    "status": "unsupported",
+    "net": "ß,STRAßE",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "char.surrogate.length": {
+    "status": "pass"
+  },
+  "stringbuilder": {
+    "status": "pass"
+  },
+  "stringbuilder.appendline": {
+    "status": "pass"
+  },
+  "interp.basic": {
+    "status": "pass"
+  },
+  "interp.adjacent": {
+    "status": "pass"
+  },
+  "interp.typed": {
+    "status": "unsupported",
+    "net": "3|    3|3  |",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "interp.format": {
+    "status": "unsupported",
+    "net": "3.14",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "interp.float": {
+    "status": "pass"
+  },
+  "interp.string": {
+    "status": "pass"
+  },
+  "interp.verbatim": {
+    "status": "pass"
+  },
+  "escape.sequences": {
+    "status": "pass"
+  },
+  "triple.quoted": {
+    "status": "pass"
+  },
+  "sprintf.d": {
+    "status": "pass"
+  },
+  "sprintf.d.negative": {
+    "status": "pass"
+  },
+  "sprintf.s": {
+    "status": "pass"
+  },
+  "sprintf.s.null": {
+    "status": "pass"
+  },
+  "sprintf.f": {
+    "status": "pass"
+  },
+  "sprintf.f.rounding": {
+    "status": "mismatch",
+    "net": "0|2|0.2",
+    "js": "1|2|0.3"
+  },
+  "sprintf.e": {
+    "status": "mismatch",
+    "net": "1.234568e+004|1.23e+004",
+    "js": "1.2345678e+4|1.2345678e+4"
+  },
+  "sprintf.g": {
+    "status": "unsupported",
+    "net": "0.0001|1.23457e+08|1.5",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "sprintf.x": {
+    "status": "pass"
+  },
+  "sprintf.x.negative": {
+    "status": "pass"
+  },
+  "sprintf.c": {
+    "status": "pass"
+  },
+  "sprintf.b": {
+    "status": "pass"
+  },
+  "sprintf.percent": {
+    "status": "pass"
+  },
+  "sprintf.star": {
+    "status": "mismatch",
+    "net": "   42|3.14",
+    "js": "   42|2.000"
+  },
+  "sprintf.O": {
+    "status": "pass"
+  },
+  "sprintf.A.int": {
+    "status": "pass"
+  },
+  "sprintf.A.string": {
+    "status": "pass"
+  },
+  "sprintf.A.float": {
+    "status": "mismatch",
+    "net": "1.0|1.5|nan",
+    "js": "1|1.5|NaN"
+  },
+  "sprintf.A.list": {
+    "status": "pass"
+  },
+  "sprintf.A.array": {
+    "status": "pass"
+  },
+  "sprintf.A.tuple": {
+    "status": "pass"
+  },
+  "sprintf.A.option": {
+    "status": "mismatch",
+    "net": "Some 1|None",
+    "js": "Some 1|null"
+  },
+  "sprintf.A.record": {
+    "status": "mismatch",
+    "net": "{ Name = \"Ann\"\\n  Age = 30 }",
+    "js": "{Name = \"Ann\"; Age = 30}"
+  },
+  "sprintf.A.union": {
+    "status": "pass"
+  },
+  "sprintf.A.nested": {
+    "status": "pass"
+  },
+  "sprintf.A.char": {
+    "status": "mismatch",
+    "net": "'c'",
+    "js": "\"c\""
+  },
+  "sprintf.A.unit": {
+    "status": "mismatch",
+    "net": "()",
+    "js": "null"
+  },
+  "sprintf.A.map": {
+    "status": "mismatch",
+    "net": "map [(1, \"a\")]",
+    "js": "{tree = {Node = {Key = 1; Value = \"a\"}; Left = null; Right = null; Height = 1; Count = 1}}"
+  },
+  "sprintf.partial": {
+    "status": "pass"
+  },
+  "sprintf.int64": {
+    "status": "pass"
+  },
+  "sprintf.u": {
+    "status": "unsupported",
+    "net": "4294967295",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "sprintf.M": {
+    "status": "known",
+    "reason": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+    "net": "1.50",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "failwithf": {
+    "status": "pass"
+  },
+  "string.format": {
+    "status": "pass"
+  },
+  "string.format.align": {
+    "status": "pass"
+  },
+  "string.format.spec": {
+    "status": "pass"
+  },
+  "string.format.escape": {
+    "status": "pass"
+  },
+  "record.tostring": {
+    "status": "mismatch",
+    "net": "{ Name = \"Ann\"\\n  Age = 30 }",
+    "js": "[object Object]"
+  },
+  "union.tostring": {
+    "status": "mismatch",
+    "net": "UB 1|UA",
+    "js": "[object Object]|[object Object]"
+  },
+  "list.basics": {
+    "status": "pass"
+  },
+  "list.head.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input list was empty."
+  },
+  "list.cons.append": {
+    "status": "pass"
+  },
+  "list.map.filter": {
+    "status": "pass"
+  },
+  "list.sort": {
+    "status": "pass"
+  },
+  "list.sort.stable": {
+    "status": "pass"
+  },
+  "list.sortwith": {
+    "status": "pass"
+  },
+  "list.fold": {
+    "status": "pass"
+  },
+  "list.reduce": {
+    "status": "pass"
+  },
+  "list.reduce.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input list was empty."
+  },
+  "list.scan": {
+    "status": "pass"
+  },
+  "list.sum.average": {
+    "status": "pass"
+  },
+  "list.average.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input sequence was empty."
+  },
+  "list.minmax": {
+    "status": "pass"
+  },
+  "list.distinct": {
+    "status": "pass"
+  },
+  "list.groupby": {
+    "status": "pass"
+  },
+  "list.countby": {
+    "status": "mismatch",
+    "net": "[False:4,True:4]",
+    "js": "[false:4,true:4]"
+  },
+  "list.partition": {
+    "status": "pass"
+  },
+  "list.chunk": {
+    "status": "pass"
+  },
+  "list.windowed": {
+    "status": "pass"
+  },
+  "list.pairwise": {
+    "status": "pass"
+  },
+  "list.zip": {
+    "status": "pass"
+  },
+  "list.zip.mismatch": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The lists have different lengths."
+  },
+  "list.unzip": {
+    "status": "pass"
+  },
+  "list.collect": {
+    "status": "pass"
+  },
+  "list.choose": {
+    "status": "pass"
+  },
+  "list.find": {
+    "status": "pass"
+  },
+  "list.find.missing": {
+    "status": "mismatch",
+    "net": "EXN KeyNotFound",
+    "js": "EXN Exception :: KeyNotFoundException"
+  },
+  "list.tryfind": {
+    "status": "mismatch",
+    "net": ",Some(4)",
+    "js": "null,[object Object]"
+  },
+  "list.pick": {
+    "status": "pass"
+  },
+  "list.exists": {
+    "status": "pass"
+  },
+  "list.take.skip": {
+    "status": "pass"
+  },
+  "list.take.too.many": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "list.takewhile": {
+    "status": "pass"
+  },
+  "list.item": {
+    "status": "pass"
+  },
+  "list.item.out.of.range": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "list.last": {
+    "status": "mismatch",
+    "net": "6,",
+    "js": "6,null"
+  },
+  "list.rev": {
+    "status": "pass"
+  },
+  "list.init.replicate": {
+    "status": "pass"
+  },
+  "list.mapi.indexed": {
+    "status": "mismatch",
+    "net": "[0=5,1=6][(0, a)]",
+    "js": "[0=5,1=6][0,a]"
+  },
+  "list.map2.map3": {
+    "status": "pass"
+  },
+  "list.iter": {
+    "status": "pass"
+  },
+  "list.except": {
+    "status": "pass"
+  },
+  "list.splitat": {
+    "status": "pass"
+  },
+  "list.allpairs": {
+    "status": "pass"
+  },
+  "list.transpose": {
+    "status": "pass"
+  },
+  "list.unfold": {
+    "status": "pass"
+  },
+  "list.mapfold": {
+    "status": "pass"
+  },
+  "list.equality": {
+    "status": "pass"
+  },
+  "list.comprehension": {
+    "status": "pass"
+  },
+  "list.comprehension.nested": {
+    "status": "pass"
+  },
+  "list.updateat": {
+    "status": "pass"
+  },
+  "list.exactlyone": {
+    "status": "mismatch",
+    "net": "4,",
+    "js": "4,null"
+  },
+  "list.randomless.permute": {
+    "status": "pass"
+  },
+  "array.basics": {
+    "status": "pass"
+  },
+  "array.index.out.of.range": {
+    "status": "mismatch",
+    "net": "EXN IndexOutOfRange",
+    "js": "EXN Exception :: Index was outside the bounds of the array."
+  },
+  "array.set.out.of.range": {
+    "status": "mismatch",
+    "net": "EXN IndexOutOfRange",
+    "js": "EXN Exception :: Index was outside the bounds of the array."
+  },
+  "array.slice": {
+    "status": "pass"
+  },
+  "array.slice.empty": {
+    "status": "pass"
+  },
+  "array.create.zero": {
+    "status": "pass"
+  },
+  "array.zerocreate.string": {
+    "status": "pass"
+  },
+  "array.sort.inplace": {
+    "status": "pass"
+  },
+  "array.sort.copy": {
+    "status": "pass"
+  },
+  "array.map.filter": {
+    "status": "pass"
+  },
+  "array.fold": {
+    "status": "pass"
+  },
+  "array.blit": {
+    "status": "pass"
+  },
+  "array.blit.bad": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: Index was outside the bounds of the array."
+  },
+  "array.fill": {
+    "status": "pass"
+  },
+  "array.append.concat": {
+    "status": "pass"
+  },
+  "array.copy.independent": {
+    "status": "pass"
+  },
+  "array.rev": {
+    "status": "pass"
+  },
+  "array.equality": {
+    "status": "pass"
+  },
+  "array.compare": {
+    "status": "pass"
+  },
+  "array.hash.equal": {
+    "status": "pass"
+  },
+  "array.contains": {
+    "status": "pass"
+  },
+  "array.init": {
+    "status": "pass"
+  },
+  "array.binarysearch": {
+    "status": "pass"
+  },
+  "array.resize": {
+    "status": "pass"
+  },
+  "array.reverse.inplace": {
+    "status": "pass"
+  },
+  "array.sortby.inplace": {
+    "status": "pass"
+  },
+  "array.choose.pick": {
+    "status": "pass"
+  },
+  "array.partition": {
+    "status": "pass"
+  },
+  "array.sub": {
+    "status": "pass"
+  },
+  "array.sub.bad": {
+    "status": "mismatch",
+    "net": "EXN ArgumentOutOfRange",
+    "js": "EXN Exception :: Index was outside the bounds of the array."
+  },
+  "array.max.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input array was empty."
+  },
+  "array.2d": {
+    "status": "pass"
+  },
+  "array.2d.set": {
+    "status": "pass"
+  },
+  "array.jagged": {
+    "status": "pass"
+  },
+  "array.comprehension": {
+    "status": "pass"
+  },
+  "array.for.in": {
+    "status": "pass"
+  },
+  "seq.lazy": {
+    "status": "pass"
+  },
+  "seq.reevaluates": {
+    "status": "pass"
+  },
+  "seq.cache": {
+    "status": "pass"
+  },
+  "seq.infinite": {
+    "status": "pass"
+  },
+  "seq.expression": {
+    "status": "pass"
+  },
+  "seq.while": {
+    "status": "pass"
+  },
+  "seq.tryfinally": {
+    "status": "pass"
+  },
+  "seq.use.dispose": {
+    "status": "pass"
+  },
+  "seq.take.too.many": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "seq.truncate": {
+    "status": "pass"
+  },
+  "seq.skip.too.many": {
+    "status": "mismatch",
+    "net": "EXN InvalidOperation",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "seq.head.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "seq.zip": {
+    "status": "pass"
+  },
+  "seq.sortby": {
+    "status": "pass"
+  },
+  "seq.groupby": {
+    "status": "pass"
+  },
+  "seq.distinct": {
+    "status": "pass"
+  },
+  "seq.compare": {
+    "status": "pass"
+  },
+  "seq.length": {
+    "status": "pass"
+  },
+  "seq.sum.empty": {
+    "status": "pass"
+  },
+  "seq.average.empty": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input sequence was empty."
+  },
+  "seq.item": {
+    "status": "pass"
+  },
+  "seq.item.missing": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+  },
+  "seq.chunk": {
+    "status": "pass"
+  },
+  "seq.windowed": {
+    "status": "pass"
+  },
+  "seq.pairwise": {
+    "status": "pass"
+  },
+  "seq.append": {
+    "status": "pass"
+  },
+  "seq.concat": {
+    "status": "pass"
+  },
+  "seq.unfold": {
+    "status": "pass"
+  },
+  "seq.scan": {
+    "status": "pass"
+  },
+  "seq.exists": {
+    "status": "pass"
+  },
+  "seq.tolist.toarray": {
+    "status": "pass"
+  },
+  "seq.range.empty": {
+    "status": "pass"
+  },
+  "seq.enumerator": {
+    "status": "pass"
+  },
+  "seq.max.by": {
+    "status": "pass"
+  },
+  "seq.readonly": {
+    "status": "pass"
+  },
+  "seq.delay": {
+    "status": "pass"
+  },
+  "map.sorted.keys": {
+    "status": "pass"
+  },
+  "map.string.keys": {
+    "status": "pass"
+  },
+  "map.find": {
+    "status": "pass"
+  },
+  "map.find.missing": {
+    "status": "pass"
+  },
+  "map.tryfind": {
+    "status": "mismatch",
+    "net": ",Some(a)",
+    "js": "null,[object Object]"
+  },
+  "map.add.replace": {
+    "status": "pass"
+  },
+  "map.remove": {
+    "status": "pass"
+  },
+  "map.count": {
+    "status": "pass"
+  },
+  "map.containskey": {
+    "status": "pass"
+  },
+  "map.fold": {
+    "status": "pass"
+  },
+  "map.foldback": {
+    "status": "pass"
+  },
+  "map.map.filter": {
+    "status": "pass"
+  },
+  "map.change": {
+    "status": "pass"
+  },
+  "map.equality": {
+    "status": "pass"
+  },
+  "map.compare": {
+    "status": "pass"
+  },
+  "map.tuple.keys": {
+    "status": "pass"
+  },
+  "map.record.keys": {
+    "status": "pass"
+  },
+  "map.minkey": {
+    "status": "pass"
+  },
+  "map.keys.values": {
+    "status": "pass"
+  },
+  "map.partition": {
+    "status": "pass"
+  },
+  "map.findkey": {
+    "status": "pass"
+  },
+  "map.iterate": {
+    "status": "pass"
+  },
+  "set.sorted": {
+    "status": "pass"
+  },
+  "set.ops": {
+    "status": "pass"
+  },
+  "set.subset": {
+    "status": "pass"
+  },
+  "set.contains": {
+    "status": "pass"
+  },
+  "set.equality": {
+    "status": "pass"
+  },
+  "set.minmax": {
+    "status": "pass"
+  },
+  "set.tuples": {
+    "status": "pass"
+  },
+  "set.remove": {
+    "status": "pass"
+  },
+  "dictionary.order": {
+    "status": "pass"
+  },
+  "dictionary.missing": {
+    "status": "pass"
+  },
+  "dictionary.add.duplicate": {
+    "status": "pass"
+  },
+  "dictionary.trygetvalue": {
+    "status": "pass"
+  },
+  "dictionary.trygetvalue.missing": {
+    "status": "mismatch",
+    "net": "none:True",
+    "js": "none:true"
+  },
+  "dictionary.remove": {
+    "status": "pass"
+  },
+  "dictionary.tuple.key": {
+    "status": "pass"
+  },
+  "dictionary.union.key": {
+    "status": "known",
+    "reason": "`None` is null, which .NET rejects as a Dictionary key; JavaScript accepts it. Use `Map`, or a key type without a null case.",
+    "net": "EXN ArgumentNull",
+    "js": "56"
+  },
+  "dictionary.readonly.dict": {
+    "status": "mismatch",
+    "net": "EXN",
+    "js": "set"
+  },
+  "dictionary.kvp": {
+    "status": "pass"
+  },
+  "readonlydict": {
+    "status": "pass"
+  },
+  "hashset": {
+    "status": "pass"
+  },
+  "hashset.ops": {
+    "status": "pass"
+  },
+  "hashset.tuples": {
+    "status": "pass"
+  },
+  "resizearray": {
+    "status": "pass"
+  },
+  "resizearray.out.of.range": {
+    "status": "pass"
+  },
+  "resizearray.sort": {
+    "status": "pass"
+  },
+  "resizearray.modify.during.enum": {
+    "status": "pass"
+  },
+  "queue.stack": {
+    "status": "pass"
+  },
+  "queue.empty": {
+    "status": "pass"
+  },
+  "record.equality": {
+    "status": "pass"
+  },
+  "record.comparison": {
+    "status": "pass"
+  },
+  "record.sort": {
+    "status": "pass"
+  },
+  "record.hash": {
+    "status": "pass"
+  },
+  "record.copy.update": {
+    "status": "pass"
+  },
+  "record.distinct": {
+    "status": "pass"
+  },
+  "record.set": {
+    "status": "pass"
+  },
+  "record.dictionary.key": {
+    "status": "pass"
+  },
+  "record.hashset": {
+    "status": "pass"
+  },
+  "record.custom.equality": {
+    "status": "pass"
+  },
+  "record.custom.dictionary": {
+    "status": "pass"
+  },
+  "record.mutable.field": {
+    "status": "pass"
+  },
+  "record.mutable.alias": {
+    "status": "pass"
+  },
+  "record.struct.copy": {
+    "status": "pass"
+  },
+  "record.struct.compare": {
+    "status": "pass"
+  },
+  "record.anonymous": {
+    "status": "pass"
+  },
+  "record.anonymous.copy": {
+    "status": "pass"
+  },
+  "record.anonymous.nested": {
+    "status": "pass"
+  },
+  "union.equality": {
+    "status": "pass"
+  },
+  "union.comparison": {
+    "status": "pass"
+  },
+  "union.sort": {
+    "status": "pass"
+  },
+  "union.hash": {
+    "status": "pass"
+  },
+  "union.match": {
+    "status": "pass"
+  },
+  "union.named.fields": {
+    "status": "pass"
+  },
+  "union.recursive": {
+    "status": "pass"
+  },
+  "union.struct": {
+    "status": "pass"
+  },
+  "union.single.case": {
+    "status": "pass"
+  },
+  "union.isCase": {
+    "status": "pass"
+  },
+  "union.map.key": {
+    "status": "pass"
+  },
+  "option.equality": {
+    "status": "pass"
+  },
+  "option.functions": {
+    "status": "mismatch",
+    "net": "Some(2),9,",
+    "js": "[object Object],9,null"
+  },
+  "option.value.none": {
+    "status": "mismatch",
+    "net": "EXN Argument",
+    "js": "EXN Exception :: Cannot read properties of null (reading '$0')"
+  },
+  "option.value.prop": {
+    "status": "known",
+    "reason": "`None` is null, so `.Value` on it throws a JavaScript TypeError, not a NullReferenceException. Match on the option, or use Option.defaultValue.",
+    "net": "EXN NullReference",
+    "js": "EXN Exception :: Cannot read properties of null (reading '$0')"
+  },
+  "option.isnone": {
+    "status": "pass"
+  },
+  "option.tolist": {
+    "status": "pass"
+  },
+  "option.null": {
+    "status": "pass"
+  },
+  "option.ofobj": {
+    "status": "mismatch",
+    "net": ",Some(x)",
+    "js": "null,[object Object]"
+  },
+  "voption": {
+    "status": "pass"
+  },
+  "result": {
+    "status": "mismatch",
+    "net": "Microsoft.FSharp.Core.FSharpResult`2[System.Int32,System.String],Microsoft.FSharp.Core.FSharpResult`2[System.Int32,System.String]",
+    "js": "[object Object],[object Object]"
+  },
+  "result.match": {
+    "status": "pass"
+  },
+  "result.equality": {
+    "status": "pass"
+  },
+  "tuple.equality": {
+    "status": "pass"
+  },
+  "tuple.struct": {
+    "status": "pass"
+  },
+  "tuple.fst.snd": {
+    "status": "pass"
+  },
+  "enum.tostring": {
+    "status": "mismatch",
+    "net": "Green,4",
+    "js": "2,4"
+  },
+  "enum.flags.tostring": {
+    "status": "unsupported",
+    "net": "5",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "enum.of.int": {
+    "status": "mismatch",
+    "net": "Green,3",
+    "js": "2,3"
+  },
+  "enum.hasflag": {
+    "status": "unsupported",
+    "net": "true",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "enum.compare": {
+    "status": "pass"
+  },
+  "enum.parse": {
+    "status": "known",
+    "reason": "No reflection: Enum.Parse takes a System.Type, which is not available in JavaScript. Match the string against the enum's cases instead.",
+    "net": "Blue",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "unit.equality": {
+    "status": "pass"
+  },
+  "structural.nested": {
+    "status": "pass"
+  },
+  "physical.equality": {
+    "status": "unsupported",
+    "net": "true,false",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "compare.mixed.strings": {
+    "status": "pass"
+  },
+  "compare.floats.nan.sort": {
+    "status": "mismatch",
+    "net": "[NaN,1,2]",
+    "js": "[2,NaN,1]"
+  },
+  "compare.char": {
+    "status": "pass"
+  },
+  "hash.string.stable": {
+    "status": "pass"
+  },
+  "hash.int": {
+    "status": "pass"
+  },
+  "equals.boxed": {
+    "status": "known",
+    "reason": "Numbers are not boxed with their .NET type in JavaScript: `box 1` and `box 1.0` are the same value. Compare unboxed values of a known type.",
+    "net": "true,false,false",
+    "js": "true,false,true"
+  },
+  "match.constant": {
+    "status": "pass"
+  },
+  "match.guard": {
+    "status": "pass"
+  },
+  "match.or": {
+    "status": "pass"
+  },
+  "match.and": {
+    "status": "pass"
+  },
+  "match.as": {
+    "status": "pass"
+  },
+  "match.list": {
+    "status": "pass"
+  },
+  "match.array": {
+    "status": "pass"
+  },
+  "match.tuple": {
+    "status": "pass"
+  },
+  "match.record": {
+    "status": "pass"
+  },
+  "match.option.nested": {
+    "status": "pass"
+  },
+  "match.string": {
+    "status": "pass"
+  },
+  "match.char.range": {
+    "status": "pass"
+  },
+  "match.null": {
+    "status": "pass"
+  },
+  "match.typetest": {
+    "status": "pass"
+  },
+  "match.typetest.float.int": {
+    "status": "known",
+    "reason": "`int` and `float` are both JavaScript numbers, so `:? int` cannot tell a whole-number `float` from an `int`. Keep the static type, or use a union case per numeric type.",
+    "net": "float",
+    "js": "int"
+  },
+  "match.typetest.int64": {
+    "status": "pass"
+  },
+  "match.typetest.char.string": {
+    "status": "known",
+    "reason": "A `char` is a one-character JavaScript string, so `:? string` also matches a boxed `char`. Keep the static type, or use a union case per type.",
+    "net": "char",
+    "js": "string"
+  },
+  "match.incomplete": {
+    "status": "pass"
+  },
+  "match.active.total": {
+    "status": "pass"
+  },
+  "match.active.partial": {
+    "status": "pass"
+  },
+  "match.active.struct": {
+    "status": "pass"
+  },
+  "match.active.param": {
+    "status": "pass"
+  },
+  "match.active.single": {
+    "status": "pass"
+  },
+  "match.function": {
+    "status": "pass"
+  },
+  "match.let.tuple": {
+    "status": "pass"
+  },
+  "match.wildcard.lambda": {
+    "status": "pass"
+  },
+  "match.cons.string.list": {
+    "status": "pass"
+  },
+  "match.enum": {
+    "status": "pass"
+  },
+  "match.enum.undefined": {
+    "status": "pass"
+  },
+  "match.union.nested": {
+    "status": "pass"
+  },
+  "match.exception": {
+    "status": "pass"
+  },
+  "match.kvp": {
+    "status": "pass"
+  },
+  "closure.capture": {
+    "status": "pass"
+  },
+  "closure.mutable.ref": {
+    "status": "pass"
+  },
+  "closure.loop.mutable": {
+    "status": "pass"
+  },
+  "currying": {
+    "status": "pass"
+  },
+  "composition": {
+    "status": "pass"
+  },
+  "pipes": {
+    "status": "pass"
+  },
+  "recursion": {
+    "status": "pass"
+  },
+  "tail.recursion.deep": {
+    "status": "pass"
+  },
+  "recursion.deep.nontail": {
+    "status": "known",
+    "reason": "JavaScript has a fixed call stack, so deep non-tail recursion overflows sooner than on .NET. Write the function tail-recursive (WebSharper turns self tail calls into loops), or use a loop or a fold.",
+    "net": "10000",
+    "js": "EXN Exception :: Maximum call stack size exceeded"
+  },
+  "inline.srtp": {
+    "status": "unsupported",
+    "net": "6,abab,3",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "generic.function": {
+    "status": "pass"
+  },
+  "mutable.loop": {
+    "status": "pass"
+  },
+  "for.downto": {
+    "status": "pass"
+  },
+  "while.loop": {
+    "status": "pass"
+  },
+  "for.range.step": {
+    "status": "pass"
+  },
+  "if.unit": {
+    "status": "pass"
+  },
+  "exception.failwith": {
+    "status": "unsupported",
+    "net": "failure:boom",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "exception.invalidarg": {
+    "status": "unsupported",
+    "net": "x",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "exception.invalidop": {
+    "status": "pass"
+  },
+  "exception.custom": {
+    "status": "pass"
+  },
+  "exception.reraise": {
+    "status": "pass"
+  },
+  "exception.finally": {
+    "status": "pass"
+  },
+  "exception.message.division": {
+    "status": "pass"
+  },
+  "exception.nullref": {
+    "status": "known",
+    "reason": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException. Use options or check with `isNull` instead of catching NullReferenceException.",
+    "net": "EXN NullReference",
+    "js": "EXN Exception :: Cannot read properties of null (reading 'length')"
+  },
+  "exception.tostring": {
+    "status": "pass"
+  },
+  "exception.inner": {
+    "status": "pass"
+  },
+  "use.dispose": {
+    "status": "pass"
+  },
+  "use.binding": {
+    "status": "pass"
+  },
+  "class.members": {
+    "status": "pass"
+  },
+  "class.static.let": {
+    "status": "mismatch",
+    "net": "1",
+    "js": "0"
+  },
+  "inheritance": {
+    "status": "pass"
+  },
+  "inheritance.tostring": {
+    "status": "pass"
+  },
+  "object.expression": {
+    "status": "pass"
+  },
+  "object.expression.override": {
+    "status": "unsupported",
+    "net": "custom",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "interface.cast": {
+    "status": "pass"
+  },
+  "interface.cast.fail": {
+    "status": "mismatch",
+    "net": "cast",
+    "js": "<null>"
+  },
+  "downcast.fail": {
+    "status": "mismatch",
+    "net": "cast",
+    "js": "s"
+  },
+  "operator.overload": {
+    "status": "pass"
+  },
+  "method.overload": {
+    "status": "pass"
+  },
+  "optional.args": {
+    "status": "pass"
+  },
+  "named.args": {
+    "status": "pass"
+  },
+  "lazy": {
+    "status": "pass"
+  },
+  "lazy.exception": {
+    "status": "pass"
+  },
+  "computation.option": {
+    "status": "mismatch",
+    "net": "Some(3),",
+    "js": "[object Object],null"
+  },
+  "units.of.measure": {
+    "status": "pass"
+  },
+  "ref.cell": {
+    "status": "pass"
+  },
+  "byref": {
+    "status": "pass"
+  },
+  "shadowing": {
+    "status": "pass"
+  },
+  "tuple.return": {
+    "status": "pass"
+  },
+  "outref.tryparse": {
+    "status": "pass"
+  },
+  "id.ignore": {
+    "status": "pass"
+  },
+  "nameof": {
+    "status": "pass"
+  },
+  "typeof.name": {
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "Int32",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "box.unbox": {
+    "status": "pass"
+  },
+  "isnull": {
+    "status": "pass"
+  },
+  "default.values": {
+    "status": "pass"
+  },
+  "event": {
+    "status": "pass"
+  },
+  "delegate": {
+    "status": "pass"
+  },
+  "action.delegate": {
+    "status": "pass"
+  },
+  "datetime.parts": {
+    "status": "pass"
+  },
+  "datetime.dayofweek": {
+    "status": "mismatch",
+    "net": "Thursday,60",
+    "js": "4,60"
+  },
+  "datetime.adddays": {
+    "status": "pass"
+  },
+  "datetime.addmonths": {
+    "status": "pass"
+  },
+  "datetime.addyears": {
+    "status": "pass"
+  },
+  "datetime.format.custom": {
+    "status": "pass"
+  },
+  "datetime.format.iso": {
+    "status": "known",
+    "reason": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset. Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp.",
+    "net": "2024-02-29T13:45:30.0000000",
+    "js": "2024-02-29T13:45:30.0000000+00:00"
+  },
+  "datetime.tostring": {
+    "status": "mismatch",
+    "net": "02/29/2024 13:45:30",
+    "js": "2/29/2024, 1:45:30 PM"
+  },
+  "datetime.subtract": {
+    "status": "pass"
+  },
+  "datetime.compare": {
+    "status": "pass"
+  },
+  "datetime.daysinmonth": {
+    "status": "pass"
+  },
+  "datetime.parse": {
+    "status": "pass"
+  },
+  "datetime.date": {
+    "status": "pass"
+  },
+  "datetime.invalid": {
+    "status": "mismatch",
+    "net": "EXN ArgumentOutOfRange",
+    "js": "1"
+  },
+  "datetime.minvalue": {
+    "status": "mismatch",
+    "net": "1,9999",
+    "js": "-271821,275760"
+  },
+  "datetime.ticks": {
+    "status": "mismatch",
+    "net": "630822816000000000",
+    "js": "9466848000000000"
+  },
+  "datetimeoffset": {
+    "status": "unsupported",
+    "net": "1704067200",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "timespan.parts": {
+    "status": "pass"
+  },
+  "timespan.tostring": {
+    "status": "mismatch",
+    "net": "1.02:03:04|01:30:30",
+    "js": "93784000|5430000"
+  },
+  "timespan.negative": {
+    "status": "mismatch",
+    "net": "-00:01:01",
+    "js": "-61000"
+  },
+  "timespan.arith": {
+    "status": "pass"
+  },
+  "timespan.compare": {
+    "status": "pass"
+  },
+  "guid.parse": {
+    "status": "pass"
+  },
+  "guid.empty": {
+    "status": "pass"
+  },
+  "guid.equality": {
+    "status": "pass"
+  },
+  "guid.newguid.unique": {
+    "status": "pass"
+  },
+  "char.parse": {
+    "status": "pass"
+  },
+  "char.tostring.int": {
+    "status": "pass"
+  },
+  "bool.parse": {
+    "status": "mismatch",
+    "net": "True,False",
+    "js": "true,false"
+  },
+  "nullable": {
+    "status": "pass"
+  },
+  "math.functions": {
+    "status": "pass"
+  },
+  "math.constants": {
+    "status": "pass"
+  },
+  "math.clamp": {
+    "status": "pass"
+  },
+  "math.divrem": {
+    "status": "unsupported",
+    "net": "32",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "math.truncate.log": {
+    "status": "mismatch",
+    "net": "-2,3,3",
+    "js": "-2,2.9999999999999996,3"
+  },
+  "convert.tobase": {
+    "status": "unsupported",
+    "net": "1010,255",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "convert.toint32.rounding": {
+    "status": "pass"
+  },
+  "convert.base64": {
+    "status": "unsupported",
+    "net": "AQL/",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "bitconverter": {
+    "status": "unsupported",
+    "net": "4",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "random.range": {
+    "status": "pass"
+  },
+  "uri": {
+    "status": "unsupported",
+    "net": "example.com,8080,/a/b",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "typeof.int.name": {
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "System.String",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "gettype.name": {
+    "status": "known",
+    "reason": "No reflection: GetType() is not available in JavaScript. Use `nameof` for names, `:?` patterns for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "Int32",
+    "js": "WS-COMPILE-ERROR"
+  }
+}
