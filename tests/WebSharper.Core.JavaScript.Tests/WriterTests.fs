@@ -68,6 +68,14 @@ let Run () =
         w (b (v "a") S.BinaryOperator.``&&`` (b (v "b") S.BinaryOperator.``??`` (v "c"))) =? "a&&(b??c)"
     }
 
+    Test "Conditional is parenthesized as an operand of ??" {
+        let b x op y = S.Binary (x, op, y)
+        w (b (S.Conditional (v "c", v "a", v "b")) S.BinaryOperator.``??`` (v "d")) =? "(c?a:b)??d"
+        w (b (v "d") S.BinaryOperator.``??`` (S.Conditional (v "c", v "a", v "b"))) =? "d??(c?a:b)"
+        w (S.Conditional (v "c", b (v "a") S.BinaryOperator.``??`` (v "d"), v "b")) =? "c?a??d:b"
+        w (S.Binary (v "x", S.BinaryOperator.``=``, S.Conditional (v "c", v "a", v "b"))) =? "x=c?a:b"
+    }
+
     Test "Default parameters and for...of" {
         w (S.Lambda (None, [ S.Id.New("x", def = n "1") ], [ S.Return (Some (v "x")) ], true, S.Normal)) =? "(x=1) => x"
         ws (S.ForDeclOf (S.ConstDecl, S.Id.New "x", v "xs", S.Ignore (v "x"))) =? "for(const x of xs)x;"

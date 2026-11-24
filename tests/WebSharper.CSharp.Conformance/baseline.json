@@ -1006,9 +1006,7 @@
     "status": "pass"
   },
   "null.conditional": {
-    "status": "mismatch",
-    "net": "none,-1",
-    "js": "null,null"
+    "status": "pass"
   },
   "null.coalescing.assign": {
     "status": "pass"
