@@ -102,11 +102,13 @@ namespace Conformance
             C("object.tostring.default", () => new Plain().ToString()),
 #if !JS
             C("gettype.name", () => new Dog().GetType().Name),
-#else
-            C("gettype.name", () => "WS-COMPILE-ERROR"),
-#endif
             C("typeof.name", () => typeof(Dog).Name + "|" + typeof(List<int>).Name),
             C("typeof.fullname", () => typeof(Dog).FullName + "|" + typeof(Dog).Namespace + "|" + typeof(string).FullName + "|" + typeof(Dictionary<string, int>).Name),
+#else
+            C("gettype.name", () => "WS-COMPILE-ERROR"),
+            C("typeof.name", () => "WS-COMPILE-ERROR"),
+            C("typeof.fullname", () => "WS-COMPILE-ERROR"),
+#endif
             C("is.base.interface", () => { object d = new Puppy(); return B(d is Animal) + B(d is IGreeter) + B(d is Dog); }),
             C("boxing.equality", () => { object a = 1, b = 1; return B(a == b) + "," + B(a.Equals(b)) + "," + B(Equals(a, b)); }),
             C("boxing.int.long", () => { object a = 1, b = 1L; return B(a.Equals(b)); }),

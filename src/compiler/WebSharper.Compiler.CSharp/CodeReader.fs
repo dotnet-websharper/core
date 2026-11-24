@@ -3390,26 +3390,6 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos node
 
     member this.TransformMemberAccessExpression (x: MemberAccessExpressionData) : _ =
-        // typeof(T).Name / .FullName / .Namespace on a known type: a compile-time constant
-        // (System.Type itself is not available in JavaScript)
-        let typeOfConstant =
-            match x.Expression with
-            | ExpressionData.TypeOfExpression t ->
-                match env.SemanticModel.GetTypeInfo(t.Node.Type).Type with
-                | :? INamedTypeSymbol as nt when nt.TypeKind <> TypeKind.Error ->
-                    let ns = if isNull nt.ContainingNamespace || nt.ContainingNamespace.IsGlobalNamespace then "" else nt.ContainingNamespace.ToDisplayString()
-                    let rec nested (t: INamedTypeSymbol) =
-                        if isNull t.ContainingType then t.MetadataName else nested t.ContainingType + "+" + t.MetadataName
-                    match x.Node.Name.Identifier.ValueText with
-                    | "Name" -> Some nt.MetadataName
-                    | "Namespace" when ns <> "" -> Some ns
-                    | "FullName" when not nt.IsGenericType -> Some ((if ns = "" then "" else ns + ".") + nested nt)
-                    | _ -> None
-                | _ -> None
-            | _ -> None
-        match typeOfConstant with
-        | Some name -> Value (String name)
-        | None ->
         this.TransformMemberAccess(x.Node, Some x.Expression, x.Name)
 
     member this.TransformConditionalAccessExpression (x: ConditionalAccessExpressionData) : _ =
