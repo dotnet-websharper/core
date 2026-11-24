@@ -35,58 +35,22 @@ namespace Conformance
             C("split.removeempty", () => J("a,b,,c".Split(',', StringSplitOptions.RemoveEmptyEntries))),
             C("split.trimentries", () => J(" a , b ,c ".Split(',', StringSplitOptions.TrimEntries))),
             C("split.chars", () => J("a b;c".Split(new[] { ' ', ';' }))),
-#if !JS
             C("split.string", () => J("a::b::c".Split("::"))),
-#else
-            C("split.string", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("split.count", () => J("a,b,c,d".Split(',', 2))),
-#else
-            C("split.count", () => "WS-COMPILE-ERROR"),
-#endif
             C("trim.chars", () => "xxhixx".Trim('x') + "|" + "  hi ".TrimStart() + "|" + "  hi ".TrimEnd() + "|"),
             C("pad", () => "7".PadLeft(3, '0') + "|" + "ab".PadRight(4) + "|"),
             C("substring", () => "hello".Substring(1, 3) + "|" + "hello".Substring(2)),
             C("substring.outofrange", () => "hello".Substring(3, 5)),
             C("indexof", () => $"{"hello".IndexOf('l')},{"hello".LastIndexOf('l')},{"hello".IndexOf("lo")},{"hello".IndexOf('z')}"),
             C("indexof.startindex", () => $"{"abcabc".IndexOf('b', 2)}"),
-#if !JS
             C("contains.comparison", () => B("Hello".Contains("hell", StringComparison.OrdinalIgnoreCase))),
-#else
-            C("contains.comparison", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("startswith.endswith", () => $"{B("Hello".StartsWith("He"))},{B("Hello".EndsWith("LO", StringComparison.OrdinalIgnoreCase))}"),
-#else
-            C("startswith.endswith", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("equals.ignorecase", () => B(string.Equals("abc", "ABC", StringComparison.OrdinalIgnoreCase))),
-#else
-            C("equals.ignorecase", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("compare.ordinal", () => $"{Math.Sign(string.CompareOrdinal("a", "B"))},{Math.Sign(string.Compare("a", "b"))}"),
-#else
-            C("compare.ordinal", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("upper.lower.invariant", () => "MiXeD".ToUpperInvariant() + "|" + "MiXeD".ToLowerInvariant()),
-#else
-            C("upper.lower.invariant", () => "WS-COMPILE-ERROR"),
-#endif
             C("replace", () => "a-b-c".Replace("-", "+") + "|" + "a-b-c".Replace('-', '_')),
-#if !JS
             C("insert.remove", () => "hello".Insert(2, "XX") + "|" + "hello".Remove(1, 2) + "|" + "hello".Remove(3)),
-#else
-            C("insert.remove", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("join.concat", () => string.Join("-", new[] { 1, 2, 3 }) + "|" + string.Concat("a", 1, true)),
-#else
-            C("join.concat", () => "WS-COMPILE-ERROR"),
-#endif
             C("join.null", () => string.Join(",", new string[] { "a", null, "b" })),
             C("isnullorwhitespace", () => $"{B(string.IsNullOrWhiteSpace(" \t"))},{B(string.IsNullOrEmpty(""))}"),
             C("char.indexer", () => { var s = "abc"; return $"{s[1]},{s[^1]}"; }),
@@ -112,11 +76,7 @@ namespace Conformance
             C("string.split.empty", () => $"{"".Split(',').Length}"),
             C("trim.unicode.ws", () => $"[{"\u00a0x\u00a0".Trim()}]"),
             C("lastindexof.string", () => $"{"a.b.c".LastIndexOf(".")}"),
-#if !JS
             C("string.contains.char", () => B("abc".Contains('b'))),
-#else
-            C("string.contains.char", () => "WS-COMPILE-ERROR"),
-#endif
             C("string.equals.null", () => { string s = null; return B(s == null) + "," + B("a" != null); }),
         };
     }

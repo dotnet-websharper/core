@@ -54,11 +54,7 @@ namespace Conformance
 #endif
             C("array.jagged", () => { var j = new int[2][]; j[0] = new[] { 1 }; j[1] = new[] { 2, 3 }; return $"{j[1][1]},{j.Sum(r => r.Length)}"; }),
             C("array.equality.ref", () => B(new[] { 1 }.Equals(new[] { 1 })) + "," + B(new[] { 1 }.SequenceEqual(new[] { 1 }))),
-#if !JS
             C("array.fill.indexof", () => { var a = new int[3]; Array.Fill(a, 7); return $"{J(a)},{Array.IndexOf(a, 7)},{Array.IndexOf(a, 8)}"; }),
-#else
-            C("array.fill.indexof", () => "WS-COMPILE-ERROR"),
-#endif
             C("array.range.slice", () => J(new[] { 1, 2, 3, 4, 5 }[1..^1]) + J(new[] { 1, 2, 3 }[^2..])),
             C("array.covariance", () => { object[] o = new string[] { "a" }; return $"{o[0]}"; }),
             C("dict.insertion.order", () => { var d = new Dictionary<string, int> { ["b"] = 1, ["a"] = 2, ["c"] = 3 }; d.Remove("a"); d["d"] = 4; return J(d.Keys); }),
@@ -67,11 +63,7 @@ namespace Conformance
             C("dict.add.duplicate", () => { var d = new Dictionary<string, int>(); d.Add("a", 1); d.Add("a", 2); return "no exn"; }),
             C("dict.trygetvalue", () => { var d = new Dictionary<string, int> { ["a"] = 1 }; var ok = d.TryGetValue("b", out var v); return $"{B(ok)},{v},{B(d.ContainsKey("a"))}"; }),
             C("dict.kvp.tostring", () => new Dictionary<string, int> { ["a"] = 1 }.First().ToString()),
-#if !JS
             C("dict.tryadd.getordefault", () => { var d = new Dictionary<string, int>(); d.TryAdd("a", 1); var b = d.TryAdd("a", 2); return $"{B(b)},{d["a"]},{d.GetValueOrDefault("z", 9)}"; }),
-#else
-            C("dict.tryadd.getordefault", () => "WS-COMPILE-ERROR"),
-#endif
 #if !JS
             C("dict.comparer.ignorecase", () => { var d = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Key"] = 1 }; return B(d.ContainsKey("KEY")); }),
 #else

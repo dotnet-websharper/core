@@ -574,6 +574,19 @@ type NumericMacro() =
                     let op = if mname = "op_CheckedIncrement" then BinaryOperator.``+`` else BinaryOperator.``-``
                     MacroOk (overflowChecked name (Binary(x, op, one)))
                 | _ -> MacroError "numericMacro error"
+        | "op_UnsignedRightShift" ->
+            // C# 11 >>>: shifts the value as unsigned, the result has the operand's type
+            match c.Arguments with
+            | [a; b] ->
+                match name with
+                | "System.Int32" -> MacroOk ((a ^>>> b) ^| Value (Int 0))
+                | "System.UInt32" -> MacroOk (a ^>>> b)
+                | "System.Int16" | "System.SByte" | "System.UInt16" | "System.Byte" -> MacroOk (a ^>>> b)
+                | "System.Int64" ->
+                    MacroOk (Appl(Global [ "BigInt"; "asIntN" ], [ Value (Int 64); Appl(Global [ "BigInt"; "asUintN" ], [ Value (Int 64); a ], Pure, Some 2) ^>> Appl(Global ["BigInt"], [b], Pure, Some 1) ], Pure, Some 2))
+                | "System.UInt64" -> MacroOk (a ^>> Appl(Global ["BigInt"], [b], Pure, Some 1))
+                | _ -> MacroFallback
+            | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
             checkCorrectType <| fun () ->
                 match c.Arguments with
@@ -606,7 +619,8 @@ type NumericMacro() =
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
             match c.Arguments with
-            | [x] ->
+            // Parse(s, IFormatProvider): invariant culture, like Parse(s)
+            | [x; _] | [x] ->
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
                     <| toNumber x

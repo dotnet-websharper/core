@@ -169,6 +169,34 @@ type private MathProxy =
         | System.MidpointRounding.ToPositiveInfinity -> JS.Inline("Math.ceil($0)", a)
         | _ -> System.Math.Round a
 
+    /// Round(value, digits): to the nearest value with `digits` decimals, by the exact binary value
+    /// (2.345 is slightly above 2.345 and gives 2.35, 1.005 slightly below and gives 1); exact ties go to even
+    static member Round(a: double, digits: int) : double =
+        if digits < 0 || digits > 15 then raise (System.ArgumentOutOfRangeException("digits"))
+        let scaled : double = a * JS.Inline("Math.pow(10, $0)", digits)
+        let isTie : bool = JS.Inline("Number.isInteger($0 * 2) && !Number.isInteger($0)", scaled)
+        if isTie then
+            let down : double = JS.Inline("Math.floor($0)", scaled)
+            let even = if JS.Inline("$0 % 2 === 0", down) then down else down + 1.0
+            even / JS.Inline("Math.pow(10, $0)", digits)
+        else
+            JS.Inline("Number(Math.abs($0).toFixed($1)) * Math.sign($0)", a, digits)
+
+    [<Inline>]
+    static member Clamp(value: int, min: int, max: int) =
+        if min > max then raise (System.ArgumentException("min must be less than or equal to max"))
+        elif value < min then min elif value > max then max else value
+
+    [<Inline>]
+    static member Clamp(value: double, min: double, max: double) =
+        if min > max then raise (System.ArgumentException("min must be less than or equal to max"))
+        elif value < min then min elif value > max then max else value
+
+    [<Inline>]
+    static member Clamp(value: int64, min: int64, max: int64) =
+        if min > max then raise (System.ArgumentException("min must be less than or equal to max"))
+        elif value < min then min elif value > max then max else value
+
     [<Inline>]
     static member Sign(value: sbyte) = sign value
 

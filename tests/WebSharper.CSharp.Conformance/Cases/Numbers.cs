@@ -50,18 +50,10 @@ namespace Conformance
             C("double.to.int.truncates", () => $"{(int)2.9},{(int)-2.9}"),
             C("double.to.int.nan", () => { double n = double.NaN; return $"{(int)n}"; }),
             C("math.round.bankers", () => $"{Math.Round(2.5)},{Math.Round(3.5)},{Math.Round(-2.5)}"),
-#if !JS
             C("math.round.digits", () => $"{Math.Round(1.005, 2)},{Math.Round(2.345, 2)}"),
-#else
-            C("math.round.digits", () => "WS-COMPILE-ERROR"),
-#endif
             C("math.round.awayfromzero", () => $"{Math.Round(2.5, MidpointRounding.AwayFromZero)}"),
             C("math.floor.ceiling", () => $"{Math.Floor(-1.5)},{Math.Ceiling(-1.5)},{Math.Truncate(-1.5)}"),
-#if !JS
             C("math.clamp.sign", () => $"{Math.Clamp(15, 0, 10)},{Math.Sign(-3.2)},{Math.Abs(-4)}"),
-#else
-            C("math.clamp.sign", () => "WS-COMPILE-ERROR"),
-#endif
             C("math.max.min.int", () => $"{Math.Max(3, 7)},{Math.Min(3L, 7L)}"),
             C("format.N2", () => (1234567.891).ToString("N2")),
             C("format.F3", () => (3.14159).ToString("F3")),
@@ -77,25 +69,13 @@ namespace Conformance
             C("parse.int.invalid", () => $"{int.Parse("4x2")}"),
             C("parse.int.overflow", () => $"{int.Parse("99999999999")}"),
             C("tryparse.int", () => { var ok = int.TryParse("12a", out var v); return $"{B(ok)},{v}"; }),
-#if !JS
             C("parse.double", () => $"{double.Parse("1.5e3", CultureInfo.InvariantCulture)}"),
-#else
-            C("parse.double", () => "WS-COMPILE-ERROR"),
-#endif
             C("tryparse.double", () => { var ok = double.TryParse("abc", out var v); return $"{B(ok)},{v}"; }),
             C("convert.toint32.rounds", () => $"{Convert.ToInt32(2.5)},{Convert.ToInt32(3.5)}"),
             C("int.tostring.negative.zero", () => $"{-0.0}"),
-#if !JS
             C("char.arith", () => { char c = 'a'; c++; return $"{c},{(int)'A'},{(char)66}"; }),
-#else
-            C("char.arith", () => "WS-COMPILE-ERROR"),
-#endif
             C("char.isdigit.letter", () => $"{B(char.IsDigit('7'))},{B(char.IsLetter('7'))},{B(char.IsWhiteSpace('\t'))},{B(char.IsUpper('Q'))}"),
-#if !JS
             C("bitwise.shift", () => $"{1 << 33},{-16 >> 2},{-16 >>> 2},{1L << 40}"),
-#else
-            C("bitwise.shift", () => "WS-COMPILE-ERROR"),
-#endif
             C("bitwise.ops", () => $"{6 & 3},{6 | 3},{6 ^ 3},{~5}"),
             C("compound.assign.ops", () => { int x = 10; x += 5; x *= 2; x -= 3; x /= 4; x %= 4; x <<= 2; return $"{x}"; }),
             C("nullable.arith", () => { int? a = null; int? b = 3; return $"{a + b}|{(a ?? 0) + b}|{B((a + b).HasValue)}"; }),

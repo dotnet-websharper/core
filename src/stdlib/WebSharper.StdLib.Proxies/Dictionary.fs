@@ -276,6 +276,13 @@ type internal Dictionary<'K,'V when 'K : equality>
             data <- Array()
             count <- 0
 
+        /// adds the pair unless the key is already present
+        member this.TryAdd(k: 'K, v: 'V) =
+            if this.ContainsKey k then false
+            else
+                add k v
+                true
+
         member this.ContainsKey(k: 'K) =
             let h = hash k
             let d = data.[h]
@@ -426,3 +433,25 @@ type internal Dictionary<'K,'V when 'K : equality>
         [<Name("Keys")>]
         member this.Keys =
             As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))
+
+/// System.Collections.Generic.CollectionExtensions (.NET Core 2.0+)
+[<Proxy "System.Collections.Generic.CollectionExtensions, netstandard">]
+type internal CollectionExtensionsProxy =
+
+    [<Inline>]
+    static member GetValueOrDefault<'K, 'V>(dictionary: IReadOnlyDictionary<'K, 'V>, key: 'K, defaultValue: 'V) : 'V =
+        match dictionary.TryGetValue key with
+        | true, v -> v
+        | _ -> defaultValue
+
+    [<Inline>]
+    static member GetValueOrDefault<'K, 'V>(dictionary: IReadOnlyDictionary<'K, 'V>, key: 'K) : 'V =
+        match dictionary.TryGetValue key with
+        | true, v -> v
+        | _ -> As<'V> null
+
+    static member TryAdd<'K, 'V>(dictionary: IDictionary<'K, 'V>, key: 'K, value: 'V) : bool =
+        if dictionary.ContainsKey key then false
+        else
+            dictionary.Add(key, value)
+            true
