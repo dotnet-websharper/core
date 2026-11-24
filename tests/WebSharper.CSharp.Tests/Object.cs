@@ -397,6 +397,33 @@ namespace WebSharper.CSharp.Tests
         static void SetXByRef(ref MutPoint p) { p.X = 100; }
         static MutPoint Same(MutPoint p) => p;
 
+        static T MaxOf<T>(T a, T b) where T : IComparable<T> => a.CompareTo(b) >= 0 ? a : b;
+
+        class Version : IComparable<Version>
+        {
+            public int N;
+            public Version(int n) { N = n; }
+            public int CompareTo(Version other) => N.CompareTo(other.N);
+        }
+
+        class Holder<T>(T value) where T : IComparable<T>
+        {
+            public bool Bigger(T other) => value.CompareTo(other) > 0;
+        }
+
+        [Test("IComparable<T>.CompareTo in generic code (#1649)")]
+        public void GenericCompareTo()
+        {
+            Equal(MaxOf(3, 9), 9);
+            Equal(MaxOf("b", "a"), "b");
+            Equal(MaxOf(2.5, -1.0), 2.5);
+            Equal(MaxOf(new Version(2), new Version(5)).N, 5);
+            IsTrue(new Holder<int>(5).Bigger(3));
+            IsFalse(new Holder<string>("a").Bigger("b"));
+            IComparable<int> c = 4;
+            Equal(c.CompareTo(7), -1);
+        }
+
         [Test("Mutable structs are copied")]
         public void MutableStructs()
         {
