@@ -3340,8 +3340,40 @@ type RoslynTransformer(env: Environment) =
         fun expr -> body (expr, Choice1Of2 symbol)
 
     member this.TransformInterpolatedStringExpression (x: InterpolatedStringExpressionData) : _ =
-        x.Contents |> Seq.map this.TransformInterpolatedStringContent 
-        |> Seq.reduce (^+)
+        // each part is a string, or a number that JavaScript `+` converts like .NET does once the chain
+        // has started with a string: start with "" when the first part isn't one, so `$"{a}{b}"` doesn't add
+        match x.Contents |> Seq.map this.TransformInterpolatedStringContent |> List.ofSeq with
+        | [] -> Value (String "")
+        | ((_, isString) :: _) as parts ->
+            let parts = if isString then parts else (Value (String ""), true) :: parts
+            parts |> List.map fst |> List.reduce (^+)
+
+    /// An interpolation hole's value as .NET's string conversion gives it (no format string):
+    /// the expression and whether it is already a string (otherwise a number, which `+` converts correctly).
+    member this.InterpolationHoleToString (expr: Expression, t: ITypeSymbol) : Expression * bool =
+        if isNull t then Macros.formatValue expr "", true else
+        match t.SpecialType with
+        | SpecialType.System_String ->
+            match IgnoreExprSourcePos expr with
+            | Value (String _) -> expr, true
+            | _ -> Binary(expr, BinaryOperator.``??``, Value (String "")), true
+        | SpecialType.System_Char -> expr, true
+        | SpecialType.System_Boolean -> Conditional(expr, Value (String "True"), Value (String "False")), true
+        | SpecialType.System_SByte | SpecialType.System_Byte | SpecialType.System_Int16 | SpecialType.System_UInt16
+        | SpecialType.System_Int32 | SpecialType.System_UInt32 | SpecialType.System_Int64 | SpecialType.System_UInt64 ->
+            expr, false
+        | SpecialType.System_Nullable_T ->
+            match t with
+            | :? INamedTypeSymbol as nt when nt.TypeArguments.Length = 1 ->
+                let v = Id.New(mut = false)
+                let inner, _ = this.InterpolationHoleToString(Var v, nt.TypeArguments[0])
+                Let(v, expr, Conditional(Var v ^== Value Null, Value (String ""), inner)), true
+            | _ -> Macros.formatValue expr "", true
+        | _ when t.TypeKind = TypeKind.Enum -> expr, false
+        | _ ->
+            // objects, structs, interfaces, type parameters, double/float/decimal: null is "",
+            // .NET number format, otherwise the value's JavaScript toString (ToString overrides)
+            Macros.formatValue expr "", true
 
     member this.TransformDeclarationPattern (x: DeclarationPatternData) : (Id -> Expression) =
         let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
@@ -3645,20 +3677,16 @@ type RoslynTransformer(env: Environment) =
         let i = Id.New("$i", mut = false)
         Let (i, expression, pattern i)
 
-    member this.TransformInterpolatedStringContent (x: InterpolatedStringContentData) : _ =
+    member this.TransformInterpolatedStringContent (x: InterpolatedStringContentData) : Expression * bool =
         match x with
         | InterpolatedStringContentData.InterpolatedStringText x -> 
-            Value (String x.Node.TextToken.ValueText)
+            Value (String x.Node.TextToken.ValueText), true
         | InterpolatedStringContentData.Interpolation x -> 
             let align =
                 x.AlignmentClause |> Option.map (fun a ->
                     match getConstantValueOfExpression a.Value.Node with
                     | Value v -> "," + v.Value.ToString()
                     | _ -> failwith "Decimal not supported for string alignment"
-                )
-            let format = 
-                x.FormatClause |> Option.map (fun f ->
-                    ":" + f.Node.FormatStringToken.ValueText
                 )
             let expr = x.Expression |> this.TransformExpression
             // types whose ToString(string) proxy implements .NET format strings
@@ -3671,14 +3699,19 @@ type RoslynTransformer(env: Environment) =
                         | _ -> None
                     )
                 | _ -> None
-            match formatted, align, format with
-            | Some s, None, _ -> s
-            | Some s, Some a, _ ->
+            let aligned a s =
                 Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String ("{0" + a + "}")); s ])
-            | None, None, None -> expr
-            | None, _, _ -> 
-                let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
-                Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])
+            match formatted, align, x.FormatClause with
+            | Some s, None, _ -> s, true
+            | Some s, Some a, _ -> aligned a s, true
+            | None, _, Some f ->
+                let s = Macros.formatValue expr f.Node.FormatStringToken.ValueText
+                (match align with Some a -> aligned a s | None -> s), true
+            | None, Some a, None ->
+                let s, _ = this.InterpolationHoleToString(expr, env.SemanticModel.GetTypeInfo(x.Expression.Node).Type)
+                aligned a s, true
+            | None, None, None ->
+                this.InterpolationHoleToString(expr, env.SemanticModel.GetTypeInfo(x.Expression.Node).Type)
 
     member this.TransformCheckedStatement (x: CheckedStatementData) : _ =
         this.TransformBlock x.Block

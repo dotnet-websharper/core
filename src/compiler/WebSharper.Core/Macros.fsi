@@ -213,3 +213,10 @@ type WebWorker =
     inherit Macro
 
 val UncheckedEquals : AST.Expression -> AST.Expression -> AST.Expression
+
+/// Converts a value to string like String.Format and interpolated strings do (WebSharper.Formatting.FormatValue):
+/// null is "", booleans are "True"/"False", numbers use .NET's format and the given format string
+val formatValue : AST.Expression -> string -> AST.Expression
+
+/// Formats a number with a .NET numeric format string expression (WebSharper.Formatting.FormatNumber)
+val formatNumber : AST.Expression -> AST.Expression -> AST.Expression

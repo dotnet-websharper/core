@@ -50,9 +50,7 @@
     "status": "pass"
   },
   "double.tostring": {
-    "status": "mismatch",
-    "net": "0.30000000000000004|1|1E+21|1.5E-07|NaN|Infinity",
-    "js": "0.30000000000000004|1|1e+21|1.5e-7|NaN|Infinity"
+    "status": "pass"
   },
   "double.to.int.truncates": {
     "status": "pass"
@@ -87,52 +85,34 @@
     "status": "pass"
   },
   "format.N2": {
-    "status": "mismatch",
-    "net": "1,234,567.89",
-    "js": "1234567.891"
+    "status": "pass"
   },
   "format.F3": {
-    "status": "mismatch",
-    "net": "3.142",
-    "js": "3.14159"
+    "status": "pass"
   },
   "format.P1": {
-    "status": "mismatch",
-    "net": "25.6 %",
-    "js": "0.256"
+    "status": "pass"
   },
   "format.D5": {
-    "status": "mismatch",
-    "net": "00042",
-    "js": "42"
+    "status": "pass"
   },
   "format.X": {
-    "status": "mismatch",
-    "net": "FF,00ff",
-    "js": "255,255"
+    "status": "pass"
   },
   "format.E2": {
-    "status": "mismatch",
-    "net": "1.23E+004",
-    "js": "12345.678"
+    "status": "pass"
   },
   "format.interp.align": {
     "status": "pass"
   },
   "format.interp.spec": {
-    "status": "mismatch",
-    "net": "3.14|50 %|1,234",
-    "js": "3.14159|0.5|1234"
+    "status": "pass"
   },
   "format.custom": {
-    "status": "mismatch",
-    "net": "1,234.50|.5",
-    "js": "1234.5|0.5"
+    "status": "pass"
   },
   "string.format": {
-    "status": "mismatch",
-    "net": "1-2.2-1",
-    "js": "1-2.25-1"
+    "status": "pass"
   },
   "parse.int": {
     "status": "pass"
@@ -156,7 +136,7 @@
   "tryparse.double": {
     "status": "mismatch",
     "net": "false,0",
-    "js": "false,undefined"
+    "js": "false,"
   },
   "convert.toint32.rounds": {
     "status": "mismatch",
@@ -188,9 +168,7 @@
     "status": "pass"
   },
   "nullable.arith": {
-    "status": "mismatch",
-    "net": "|3|false",
-    "js": "null|3|false"
+    "status": "pass"
   },
   "nullable.compare": {
     "status": "pass"
@@ -328,24 +306,16 @@
     "status": "pass"
   },
   "interp.null": {
-    "status": "mismatch",
-    "net": "[][]",
-    "js": "[null][null]"
+    "status": "pass"
   },
   "interp.adjacent.numbers": {
-    "status": "mismatch",
-    "net": "12",
-    "js": "3"
+    "status": "pass"
   },
   "interp.single.number.is.string": {
-    "status": "mismatch",
-    "net": "true",
-    "js": "false"
+    "status": "pass"
   },
   "interp.bool": {
-    "status": "mismatch",
-    "net": "True|False",
-    "js": "true|false"
+    "status": "pass"
   },
   "raw.literal": {
     "status": "pass"
@@ -363,9 +333,7 @@
     "status": "pass"
   },
   "format.string.braces": {
-    "status": "mismatch",
-    "net": "{5}",
-    "js": "{{5}}"
+    "status": "pass"
   },
   "string.compareto.culture": {
     "status": "pass"

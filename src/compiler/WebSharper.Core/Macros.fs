@@ -413,6 +413,29 @@ let parseInt x =
 let toNumber x =
     Appl(Global ["Number"], [x], Pure, Some 1)
 
+/// WebSharper.Formatting in WebSharper.StdLib: .NET string conversion and format strings at runtime
+let formattingTy =
+    TypeDefinition {
+        Assembly = "WebSharper.StdLib"
+        FullName = "WebSharper.Formatting"
+    }
+
+let private formattingMeth name =
+    Method {
+        MethodName = name
+        Parameters = [ NonGenericType Definitions.Obj; NonGenericType Definitions.String ]
+        ReturnType = NonGenericType Definitions.String
+        Generics = 0
+    }
+
+/// Converts a value to string like String.Format: null is "", booleans are "True"/"False", numbers use the format string
+let formatValue (e: Expression) (format: string) =
+    Call(None, NonGeneric formattingTy, NonGeneric (formattingMeth "FormatValue"), [ e; Value (String format) ])
+
+/// Formats a number with a .NET numeric format string expression
+let formatNumber (e: Expression) (format: Expression) =
+    Call(None, NonGeneric formattingTy, NonGeneric (formattingMeth "FormatNumber"), [ e; format ])
+
 [<Sealed>]
 type NumericMacro() =
     inherit Macro()
@@ -501,10 +524,18 @@ type NumericMacro() =
             | Some self ->
                 // TODO refactor to separate method
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, netstandard" then
-                    self
-                else 
-                    Appl(Global ["String"], [self], Pure, Some 1)
-                |> MacroOk 
+                    self |> MacroOk
+                else
+                    // ToString(format) and ToString(format, provider): .NET numeric format strings, invariant culture
+                    let format =
+                        match c.Method.Entity.Value.Parameters, c.Arguments with
+                        | ConcreteType { Entity = td } :: _, f :: _ when td = Definitions.String -> Some f
+                        | _ -> None
+                    match format, name with
+                    | Some f, _ -> formatNumber self f |> MacroOk
+                    // floating point: .NET's shortest round-trip format, 1E+21 rather than 1e+21
+                    | None, ("System.Double" | "System.Single") -> formatNumber self (Value (String "")) |> MacroOk
+                    | None, _ -> Appl(Global ["String"], [self], Pure, Some 1) |> MacroOk
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
             match c.Arguments with
@@ -1840,14 +1871,8 @@ let stringTy, lengthMeth, padLeft, padRight =
 type StringFormat() =
     inherit Macro()
 
-    let regExp = Regex("(?:(.*?){(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?})|(.+)$", RegexOptions.Singleline)
-
-    let safeToString expr =
-        Conditional(
-            expr ^== (Value Literal.Null),
-            cString "",
-            cCallG ["String"] [expr]
-        )
+    // {{ and }} are escaped braces, {index[,alignment][:format]} is an argument
+    let regExp = Regex(@"{{|}}|{(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::([^}]*))?}")
 
     override __.TranslateCall(c) =
         match c.DefiningType.Entity.Value.FullName, c.Method.Entity.Value.MethodName with
@@ -1869,58 +1894,53 @@ type StringFormat() =
                     | [_; x1; x2; x3] -> NewArray [args.[0]; args.[1]; args.[2]]
                     | _ -> failwith "Wrong number of arguments for String.Format"
 
-                let warning = ref None
                 let argsId = Id.New(mut = false)
-               
-                let parts =
-                    regExp.Matches(format)
-                    |> Seq.cast<Match>
-                    |> Array.ofSeq
 
-                let body =
-                    if Array.isEmpty parts then cString "" else
-                    parts
-                    |> Seq.map (fun m ->
-                        if m.Groups.[5].Value <> "" then
-                            Value (Literal.String m.Groups.[5].Value)
-                        else
-                            let prefix = m.Groups.[1].Value
-                            let prefix s = Value (Literal.String prefix) ^+ s
-                            let idx = int m.Groups.[2].Value
-
-                            let r =
-                                ItemGet(Var argsId, cInt idx, Pure)
-                                |> safeToString
-
-                            let spec = m.Groups.[4].Value
-                            if spec <> "" then
-                                warning := Some (sprintf "String format specifiers are not supported: %s" spec)
-
-                            if m.Groups.[3].Value <> "" then
-                                let w1 = int m.Groups.[3].Value
-                                let w2 = abs w1
-
-                                let expr =
+                let parts = ResizeArray<Expression>()
+                let text = System.Text.StringBuilder()
+                let flushText () =
+                    if text.Length > 0 then
+                        parts.Add(Value (Literal.String (text.ToString())))
+                        text.Clear() |> ignore
+                let mutable last = 0
+                for m in regExp.Matches(format) |> Seq.cast<Match> do
+                    text.Append(format.Substring(last, m.Index - last)) |> ignore
+                    last <- m.Index + m.Length
+                    match m.Value with
+                    | "{{" -> text.Append("{") |> ignore
+                    | "}}" -> text.Append("}") |> ignore
+                    | _ ->
+                        flushText ()
+                        let idx = int m.Groups.[1].Value
+                        let r = formatValue (ItemGet(Var argsId, cInt idx, Pure)) m.Groups.[3].Value
+                        if m.Groups.[2].Value <> "" then
+                            let w1 = int m.Groups.[2].Value
+                            let w2 = abs w1
+                            let rId = Id.New(mut = false)
+                            let r' = Var rId
+                            parts.Add(
+                                Let(rId, r,
                                     Conditional(
-                                        cInt w2 ^> Call (None, NonGeneric stringTy, NonGeneric lengthMeth, [r]),
+                                        cInt w2 ^> Call (None, NonGeneric stringTy, NonGeneric lengthMeth, [r']),
                                         (
                                             if w1 > 0 then
-                                                Call (None, NonGeneric stringTy, NonGeneric padLeft, [r; cInt w2])
+                                                Call (None, NonGeneric stringTy, NonGeneric padLeft, [r'; cInt w2])
                                             else
-                                                Call (None, NonGeneric stringTy, NonGeneric padRight, [r; cInt w2])
+                                                Call (None, NonGeneric stringTy, NonGeneric padRight, [r'; cInt w2])
                                         ),
-                                        r
+                                        r'
                                     )
-                                prefix expr
-                            else prefix r
-                    )
-                    |> Seq.reduce (^+)
+                                )
+                            )
+                        else parts.Add r
+                text.Append(format.Substring(last)) |> ignore
+                flushText ()
 
-                let result = Let(argsId, args, body)
+                let body =
+                    if parts.Count = 0 then cString "" else
+                    parts |> Seq.reduce (^+)
 
-                let warningRes = !warning |> Option.map (fun w -> MacroWarning(w, MacroOk result))
-
-                defaultArg warningRes (MacroOk result)
+                MacroOk (Let(argsId, args, body))
             
             | _ -> MacroFallback
         | _ -> MacroError "proxy is for System.String.Format"

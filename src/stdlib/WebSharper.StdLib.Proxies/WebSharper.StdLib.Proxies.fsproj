@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
@@ -22,6 +22,7 @@
     <Compile Include="../WebSharper.StdLib/FSharpConvert.fs" />
     <Compile Include="../WebSharper.StdLib/JavaScript.Extensions.fs" />
     <Compile Include="../WebSharper.StdLib/Comparers.fs" />
+    <Compile Include="../WebSharper.StdLib/Formatting.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Utils.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Concurrency.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Enumerator.fs" />
