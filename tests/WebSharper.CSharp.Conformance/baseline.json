@@ -951,9 +951,7 @@
     "js": "[object Object]|true"
   },
   "datetime.basic": {
-    "status": "mismatch",
-    "net": "2024-2-29 13:5:9 Thursday 60",
-    "js": "2024-2-29 13:5:9 4 60"
+    "status": "pass"
   },
   "datetime.arith": {
     "status": "pass"
