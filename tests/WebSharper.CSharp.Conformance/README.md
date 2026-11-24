@@ -12,6 +12,9 @@ node check.mjs            # compare with baseline.json
 node check.mjs --update   # after a fix: rewrite baseline.json, commit it with the fix
 ```
 
+`check.mjs` also type-checks `dts-check.ts` with `strict` and without `skipLibCheck`, against the `.d.ts` files
+WebSharper writes for the cases (needs `npm install` in the repository root for `typescript`).
+
 `build.cmd RunCSharpConformanceRelease` runs the check (part of `CI-Release`; skipped with `SKIP_CORE_TESTING`).
 
 ## Results

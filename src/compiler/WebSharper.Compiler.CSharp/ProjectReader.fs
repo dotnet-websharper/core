@@ -1057,8 +1057,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.String
                                 } : CodeReader.CSharpMethod
                             | "op_Inequality" ->
-                                let x = CodeReader.CSharpParameter.New "x"
-                                let y = CodeReader.CSharpParameter.New "y"
+                                // named and typed, for the TypeScript declarations
+                                let x = CodeReader.CSharpParameter.New ("left", thisTyp)
+                                let y = CodeReader.CSharpParameter.New ("right", thisTyp)
                                 let b =
                                     Unary(UnaryOperator.Not, opEq (Var x.ParameterId) (Var y.ParameterId)) |> Return
                                 {
@@ -1070,8 +1071,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod                                
                             | "op_Equality" ->
-                                let x = CodeReader.CSharpParameter.New "x"
-                                let y = CodeReader.CSharpParameter.New "y"
+                                // named and typed, for the TypeScript declarations
+                                let x = CodeReader.CSharpParameter.New ("left", thisTyp)
+                                let y = CodeReader.CSharpParameter.New ("right", thisTyp)
                                 let b =
                                     opEq (Var x.ParameterId) (Var y.ParameterId) |> Return
                                 {
@@ -1083,7 +1085,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod
                             | "Equals" ->
-                                let p = CodeReader.CSharpParameter.New "o"
                                 let isEqualsImpl =
                                     match memdef with
                                     | Member.Override (_, m)  ->
@@ -1094,6 +1095,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         // record structs: Equals(T) implements IEquatable<T>
                                         isStruct && meth.Parameters.Length = 1
                                         && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls)
+                                let p = CodeReader.CSharpParameter.New ("obj", if isEqualsImpl then thisTyp else NonGenericType Definitions.Obj)
                                 let b =
                                     let o = Var p.ParameterId
                                     if isEqualsImpl then
@@ -1460,7 +1462,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
                         | _ -> RemoteSync // TODO: warning
                     let path = comp.GetRemotePath(p, def, mdef.Value.MethodName)
-                    let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                    // the stub's parameters keep the method's names (TypeScript declarations, debugging)
+                    let vars = meth.Parameters |> Seq.map (fun p -> Id.New(p.Name)) |> List.ofSeq
                     addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, path, vars, sourcePos(), rp, None, None)) false Undefined
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then

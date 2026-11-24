@@ -1507,7 +1507,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName flattene
                     let file = m.FileName                        
                     if asm = "" then
                         file
-                    elif file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".cjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
+                    // declaration files import the generated modules without an extension: they sit next to the
+                    // .js files, not among the resources under Content/
+                    elif output = O.TypeScriptDeclaration || file.EndsWith(".js") || file.EndsWith(".mjs") || file.EndsWith(".cjs") || file.EndsWith(".ts") || file.EndsWith(".jsx") || file.EndsWith(".tsx") then
                         if isWorkerBundle then
                             if asm = asmName then
                                 "../" + file

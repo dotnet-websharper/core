@@ -359,6 +359,8 @@ Target.create "RunCSharpConformanceRelease" <| fun _ ->
             @"C:\Program Files\nodejs\node.exe"
         else
             "node"
+    // typescript (devDependency) type-checks the generated declarations
+    Npm.install id
     let res = Shell.Exec(node, "check.mjs", "tests/WebSharper.CSharp.Conformance")
     if res <> 0 then
         failwith "C# conformance check failed, see tests/WebSharper.CSharp.Conformance/README.md"
