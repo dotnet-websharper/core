@@ -262,7 +262,10 @@ let FormatNumber (x: obj) (format: string) : string =
     let isInt =
         typeOf x = "bigint" || JS.Inline("Number.isInteger($0)", x)
     if isNull format || format = "" then
-        if typeOf x = "bigint" || isInt && abs (toNumber x) < 1e15 then str x else general (toNumber x)
+        if typeOf x = "bigint" then str x
+        elif isNegZero (toNumber x) then "-0"
+        elif isInt && abs (toNumber x) < 1e15 then str x
+        else general (toNumber x)
     elif isStandardFormat format then
         let precision = if len format > 1 then Some (parseIntStr (subFrom format 1)) else None
         match standardNumber x isInt (charAt format 0) precision with
@@ -360,6 +363,52 @@ let FormatTimeSpan (value: float) : string =
     + (if d > 0.0 then str d + "." else "")
     + pad2 h + ":" + pad2 m + ":" + pad2 s
     + (if ticks > 0.0 then "." + padStart (str ticks) 7 "0" else "")
+
+/// TimeSpan.ToString(format): the standard "c"/"t"/"T", "g" and "G" formats, and custom formats
+/// (d..dddddddd, h, hh, m, mm, s, ss, f..fffffff, F..FFFFFFF, '...'/"..." literals, \\ escapes, %x).
+let FormatTimeSpanWith (value: float) (format: string) : string =
+    if isNull format || format = "" || format = "c" || format = "t" || format = "T" then FormatTimeSpan value else
+    let neg = value < 0.0
+    let a = if neg then -value else value
+    let totalSeconds : float = JS.Inline("Math.floor($0 / 1000)", a)
+    let ticks : float = JS.Inline("Math.round(($0 - $1 * 1000) * 1E4)", a, totalSeconds)
+    let d : float = JS.Inline("Math.floor($0 / 86400)", totalSeconds)
+    let h : float = JS.Inline("Math.floor($0 / 3600) % 24", totalSeconds)
+    let m : float = JS.Inline("Math.floor($0 / 60) % 60", totalSeconds)
+    let s : float = JS.Inline("$0 % 60", totalSeconds)
+    let fraction (n: int) = sub (padStart (str ticks) 7 "0") 0 n
+    let trimmed (n: int) : string = JS.Inline("$0.replace(/0+$/, '')", fraction n)
+    match format with
+    | "g" ->
+        (if neg then "-" else "") + (if d > 0.0 then str d + ":" else "") + str h + ":" + pad2 m + ":" + pad2 s
+        + (if ticks > 0.0 then "." + trimmed 7 else "")
+    | "G" ->
+        (if neg then "-" else "") + str d + ":" + pad2 h + ":" + pad2 m + ":" + pad2 s + "." + fraction 7
+    | _ ->
+    let format = if len format = 2 && charAt format 0 = "%" then subFrom format 1 else format
+    let mutable res = ""
+    let mutable i = 0
+    while i < len format do
+        let c = charAt format i
+        let mutable n = 1
+        while i + n < len format && charAt format (i + n) = c do n <- n + 1
+        match c with
+        | "d" -> res <- res + padStart (str d) n "0"; i <- i + n
+        | "h" -> res <- res + (if n >= 2 then pad2 h else str h); i <- i + n
+        | "m" -> res <- res + (if n >= 2 then pad2 m else str m); i <- i + n
+        | "s" -> res <- res + (if n >= 2 then pad2 s else str s); i <- i + n
+        | "f" -> res <- res + fraction n; i <- i + n
+        | "F" -> res <- res + trimmed n; i <- i + n
+        | "\\" ->
+            res <- res + charAt format (i + 1)
+            i <- i + 2
+        | "'" | "\"" ->
+            let close : int = JS.Inline("$0.indexOf($1, $2)", format, c, i + 1)
+            if close < 0 then raise (System.FormatException("Input string was not in a correct format."))
+            res <- res + sub format (i + 1) close
+            i <- close + 1
+        | _ -> raise (System.FormatException("Input string was not in a correct format."))
+    res
 
 /// DateTime.ToString() (a DateTime is milliseconds): .NET's invariant culture "G" format, MM/dd/yyyy HH:mm:ss
 let FormatDateTime (value: float) : string =

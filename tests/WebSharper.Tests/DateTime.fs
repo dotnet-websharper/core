@@ -486,9 +486,9 @@ let Tests =
 
         Test "DateTime.ToString('O') works" {
             // On .NET the result is "2014-09-11T16:37:02.0000000+02:00"
-            // but because of JavaScript date precission we remove some trailing zero
-            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("O")) ($"2014-12-11T16:37:02.000{timeZoneOffsetWithMinutes}")
-            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("o")) ($"2014-12-11T16:37:02.000{timeZoneOffsetWithMinutes}")
+            // .NET writes 7 fraction digits; a JavaScript date has milliseconds, so the last 4 are zeros
+            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("O")) ($"2014-12-11T16:37:02.0000000{timeZoneOffsetWithMinutes}")
+            equal (DateTime(2014, 12, 11, 16, 37, 2).ToString("o")) ($"2014-12-11T16:37:02.0000000{timeZoneOffsetWithMinutes}")
         }
 
         Test "DateTime.ToString('D') works" {

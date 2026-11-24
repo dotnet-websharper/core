@@ -114,9 +114,7 @@
     "status": "pass"
   },
   "int.tostring.negative.zero": {
-    "status": "mismatch",
-    "net": "-0",
-    "js": "0"
+    "status": "pass"
   },
   "char.arith": {
     "status": "pass"
@@ -212,11 +210,12 @@
     "status": "pass"
   },
   "join.concat": {
-    "status": "mismatch",
-    "net": "1-2-3|a1True",
-    "js": "1-2-3|a1true"
+    "status": "pass"
   },
   "join.null": {
+    "status": "pass"
+  },
+  "join.concat.objects": {
     "status": "pass"
   },
   "isnullorwhitespace": {
@@ -958,9 +957,7 @@
     "status": "pass"
   },
   "anonymous.type": {
-    "status": "mismatch",
-    "net": "{ X = 1, Y = y }|true",
-    "js": "[object Object]|true"
+    "status": "pass"
   },
   "datetime.basic": {
     "status": "pass"
@@ -972,9 +969,10 @@
     "status": "pass"
   },
   "datetime.iso": {
-    "status": "unsupported",
+    "status": "known",
+    "reason": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\".",
     "net": "2024-07-04T09:03:00.0000000Z",
-    "js": "WS-COMPILE-ERROR"
+    "js": "2024-07-04T11:03:00.0000000+02:00"
   },
   "datetime.parse": {
     "status": "pass"
@@ -983,9 +981,16 @@
     "status": "pass"
   },
   "timespan.format": {
-    "status": "unsupported",
-    "net": "01:02:03.004",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "timespan.format.standard": {
+    "status": "pass"
+  },
+  "timespan.format.custom": {
+    "status": "pass"
+  },
+  "anonymous.type.nested": {
+    "status": "pass"
   },
   "dateonly": {
     "status": "unsupported",

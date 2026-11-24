@@ -117,18 +117,13 @@ namespace Conformance
             C("datetime.basic", () => { var d = new DateTime(2024, 2, 29, 13, 5, 9); return $"{d.Year}-{d.Month}-{d.Day} {d.Hour}:{d.Minute}:{d.Second} {d.DayOfWeek} {d.DayOfYear}"; }),
             C("datetime.arith", () => { var d = new DateTime(2024, 1, 31); return $"{d.AddMonths(1):yyyy-MM-dd}|{d.AddDays(1):yyyy-MM-dd}|{(new DateTime(2024, 3, 1) - d).TotalDays}"; }),
             C("datetime.format", () => new DateTime(2024, 7, 4, 9, 3, 0).ToString("yyyy-MM-dd HH:mm:ss") + "|" + new DateTime(2024, 7, 4).ToString("ddd, dd MMM yyyy")),
-#if !JS
             C("datetime.iso", () => new DateTime(2024, 7, 4, 9, 3, 0, DateTimeKind.Utc).ToString("o")),
-#else
-            C("datetime.iso", () => "WS-COMPILE-ERROR"),
-#endif
             C("datetime.parse", () => DateTime.Parse("2024-07-04T09:03:00").ToString("yyyy/MM/dd HH:mm")),
             C("timespan", () => { var t = TimeSpan.FromMinutes(90) + TimeSpan.FromSeconds(30); return $"{t}|{t.TotalHours}|{t.Hours}|{t.Minutes}"; }),
-#if !JS
             C("timespan.format", () => TimeSpan.FromMilliseconds(3723004).ToString(@"hh\:mm\:ss\.fff")),
-#else
-            C("timespan.format", () => "WS-COMPILE-ERROR"),
-#endif
+            C("timespan.format.standard", () => { var t = new TimeSpan(1, 2, 3, 4, 50); return t.ToString("c") + "|" + t.ToString("g") + "|" + t.ToString("G") + "|" + TimeSpan.FromMinutes(5).ToString("g"); }),
+            C("timespan.format.custom", () => { var t = new TimeSpan(3, 4, 5, 6, 70); return t.ToString(@"d\.hh\:mm") + "|" + t.ToString("%d") + "|" + t.ToString(@"dd' days' h' h'") + "|" + t.ToString(@"ss\.FFF"); }),
+            C("anonymous.type.nested", () => { var a = new { Name = (string)null, Flag = true, Inner = new { V = 1.5 } }; return $"{a}|{new { }}"; }),
 #if !JS
             C("dateonly", () => new DateOnly(2024, 2, 28).AddDays(2).ToString("yyyy-MM-dd")),
 #else

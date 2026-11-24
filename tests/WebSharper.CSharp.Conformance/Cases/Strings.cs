@@ -52,6 +52,7 @@ namespace Conformance
             C("insert.remove", () => "hello".Insert(2, "XX") + "|" + "hello".Remove(1, 2) + "|" + "hello".Remove(3)),
             C("join.concat", () => string.Join("-", new[] { 1, 2, 3 }) + "|" + string.Concat("a", 1, true)),
             C("join.null", () => string.Join(",", new string[] { "a", null, "b" })),
+            C("join.concat.objects", () => string.Join(",", 1, false, null, 2.5) + "|" + string.Concat(new object[] { true, null, -0.0, 7 }) + "|" + string.Concat(false, "x")),
             C("isnullorwhitespace", () => $"{B(string.IsNullOrWhiteSpace(" \t"))},{B(string.IsNullOrEmpty(""))}"),
             C("char.indexer", () => { var s = "abc"; return $"{s[1]},{s[^1]}"; }),
             C("string.range", () => "hello world"[6..] + "|" + "hello"[1..^1]),

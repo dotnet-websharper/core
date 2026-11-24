@@ -494,6 +494,7 @@ module DateTime =
             + (d.GetSeconds() |> string |> padLeft 2)
             + "."
             + (d.GetMilliseconds() |> string |> padLeft 3)
+            + "0000" // .NET writes 7 fraction digits (ticks); a JS Date has milliseconds
             + dateOffsetString d
         | _ -> dateToStringWithCustomFormat d format
 
