@@ -218,8 +218,14 @@ type Arith() =
                         | M.EnumInfo _ -> true
                         | _ -> false
                     | _ -> false
+                let isUInt32 = match t with ConcreteType { Entity = td } -> td.Value.FullName = "System.UInt32" | _ -> false
                 if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) && isIn bigIntegralTypes t then
                     Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
+                // JavaScript bitwise operators work on signed 32-bit values: keep uint32 results unsigned
+                elif isUInt32 && op = BinaryOperator.``>>`` then
+                    Binary(a, BinaryOperator.``>>>``, b) |> MacroOk
+                elif isUInt32 && (op = BinaryOperator.``<<`` || op = BinaryOperator.``&`` || op = BinaryOperator.``|`` || op = BinaryOperator.``^``) then
+                    Binary(Binary(a, op, b), BinaryOperator.``>>>``, Value (Int 0)) |> MacroOk
                 // enums have underlying types supporting bitwise operations
                 elif isEnum() || isIn scalarTypes t then
                     Binary(a, op, b) |> MacroOk
@@ -927,6 +933,24 @@ module Definitions =
             Generics = 0      
         }    
 
+    let checkedAbsMeth =
+        Method {
+            MethodName = "CheckedAbs"
+            Parameters = [ NonGenericType Definitions.Int; NonGenericType Definitions.Int ]
+            ReturnType = NonGenericType Definitions.Int
+            Generics = 0
+        }
+
+    let floatMaxMeth, floatMinMeth =
+        let m name =
+            Method {
+                MethodName = name
+                Parameters = [ NonGenericType Definitions.Float; NonGenericType Definitions.Float ]
+                ReturnType = NonGenericType Definitions.Float
+                Generics = 0
+            }
+        m "FloatMax", m "FloatMin"
+
     let bigIntSignMeth =
         Method {
             MethodName = "BigIntSign"
@@ -947,9 +971,18 @@ type Abs() =
         else
             match t with
             | ConcreteType ct ->
+                let minValue =
+                    match ct.Entity.Value.FullName with
+                    | "System.Int32" -> Some -2147483648
+                    | "System.Int16" -> Some -32768
+                    | "System.SByte" -> Some -128
+                    | _ -> None
                 if bigIntegralTypes.Contains ct.Entity.Value.FullName then
 
                     Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.bigIntAbsMeth, c.Arguments) |> MacroOk
+                elif minValue.IsSome then
+                    // abs of the minimum value overflows in .NET
+                    Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.checkedAbsMeth, c.Arguments @ [ Value (Int minValue.Value) ]) |> MacroOk
                 elif scalarTypes.Contains ct.Entity.Value.FullName then
                     MacroFallback
                 else
@@ -964,6 +997,17 @@ type Abs() =
             | _ ->
                 MacroError (sprintf "Op macro error on method %s, type not supported: %O" me.MethodName t)
 
+
+/// `max`/`min` on floats return NaN when either argument is NaN, as in .NET; other types use the inline proxy.
+[<Sealed>]
+type FloatMinMax() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Method.Generics with
+        | [ ConcreteType ct ] when ct.Entity.Value.FullName = "System.Double" || ct.Entity.Value.FullName = "System.Single" ->
+            let meth = if c.Method.Entity.Value.MethodName = "Max" then Definitions.floatMaxMeth else Definitions.floatMinMeth
+            Call(None, NonGeneric Definitions.opModule, NonGeneric meth, c.Arguments) |> MacroOk
+        | _ -> MacroFallback
 
 [<Sealed>]
 type Sign() =
@@ -1533,6 +1577,9 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                     withPadding f (fun (s, _) -> utils comp "toSafe" [s])
                 | 'd' | 'i' ->
                     numberToString f (fun n -> cCallG ["String"] [n])
+                | 'u' ->
+                    // unsigned: a negative signed integer prints as its two's complement
+                    numberToStringForIntFormmating f (fun n -> cCallG ["String"] [n])
                 | 'x' ->                                           
                     numberToStringForIntFormmating f (fun n -> cCall n "toString" [cInt 16])
                 | 'X' ->                                           

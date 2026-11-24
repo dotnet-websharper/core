@@ -1348,6 +1348,12 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
             else
                 i |> Option.iter (fun i -> comp.AddCustomType(def, i))
 
+        // enums of the assembly being compiled: same custom type info as for referenced assemblies (reflectCustomType)
+        if cls.IsEnum && not (comp.HasCustomTypeInfo def) then
+            match cls.FSharpFields |> Seq.tryFind (fun f -> f.IsLiteral && f.LiteralValue.IsSome) with
+            | Some f -> comp.AddCustomType(def, CustomTypeInfo.EnumInfo (Reflection.ReadTypeDefinition (f.LiteralValue.Value.GetType())))
+            | None -> ()
+
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
             let cdef = ConstructorInfo.Default()

@@ -114,13 +114,14 @@ type private OperationCanceledExceptionProxy(message: string, inner: exn, ct: CT
 
 [<Proxy(typeof<System.ArgumentException>)>]
 [<Name "ArgumentException">]
-type private ArgumentExceptionProxy(message: string) =
-    inherit exn(message)
-    
-    new () = ArgumentExceptionProxy "Value does not fall within the expected range."
+type private ArgumentExceptionProxy(message: string, paramName: string) =
+    inherit exn(if isNull paramName then message else message + " (Parameter '" + paramName + "')")
 
-    new (argumentName: string, message: string) =
-        ArgumentExceptionProxy (message + "\nParameter name: " + argumentName)
+    new () = ArgumentExceptionProxy("Value does not fall within the expected range.", null)
+
+    new (message: string) = ArgumentExceptionProxy(message, null)
+
+    member this.ParamName = paramName
 
 [<Proxy(typeof<System.ArgumentOutOfRangeException>)>]
 [<Name "ArgumentOutOfRangeException">]

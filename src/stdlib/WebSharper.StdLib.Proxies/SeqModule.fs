@@ -34,7 +34,7 @@ let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
 let seqEmpty() =
-    failwith "The input sequence was empty."
+    raise (System.ArgumentException "The input sequence was empty.")
 
 [<Name "allPairs">]
 let AllPairs (source1: seq<_>) (source2: seq<_>) =
@@ -193,7 +193,7 @@ let DistinctBy<'T,'K when 'K : equality>
 
 [<Name "splitInto">]
 let SplitInto count (s: seq<'T>) =
-    if count <= 0 then failwith "Count must be positive"
+    if count <= 0 then raise (System.ArgumentException "Count must be positive")
     Seq.delay (fun () -> ArraySplitInto count (Array.ofSeq s) |> Seq.ofArray)   
 
 [<Inline>]
@@ -262,13 +262,13 @@ let Filter (f: 'T -> bool) (s: seq<'T>) =
 let Find p (s: seq<_>) =
     match Seq.tryFind p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "findIndex">]
 let FindIndex p (s: seq<_>) =
     match Seq.tryFindIndex p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "fold">]
 let Fold<'T,'S> (f: 'S -> 'T -> 'S) (x: 'S) (s: seq<'T>) : 'S =
@@ -294,7 +294,7 @@ let GroupBy (f: 'T -> 'K when 'K : equality) (s: seq<'T>) : seq<'K * seq<'T>> =
 [<Name "head">]
 let Head (s: seq<'T>) : 'T =
     use e = Enumerator.Get s
-    if e.MoveNext() then e.Current else InsufficientElements()
+    if e.MoveNext() then e.Current else InsufficientElementsArg()
 
 [<Name "init">]
 let Initialize (n: int) (f: int -> 'T) : seq<'T> =
@@ -433,12 +433,12 @@ let Min (s: seq<'T>) : 'T =
 [<Name "nth">]
 let Get index (s: seq<'T>) =
     if index < 0 then
-        failwith "negative index requested"
+        raise (System.ArgumentException "The input must be non-negative.")
     let mutable pos = -1
     use e = Enumerator.Get s
     while pos < index do
         if not (e.MoveNext()) then
-            InsufficientElements()
+            InsufficientElementsArg()
         pos <- pos + 1
     e.Current
 
@@ -462,7 +462,7 @@ let Pairwise (s: seq<'T>) : seq<'T * 'T> =
 let Pick p (s: seq<_>) =
     match Seq.tryPick p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "readOnly">]
 let ReadOnly (s: seq<'T>) : seq<'T> =
@@ -735,7 +735,7 @@ let TryLast (s: seq<'T>) =  SeqTryLast s
 let FindBack p (s: seq<_>) =
     match TryFindBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "tryFindIndex">]
 let TryFindIndex ok (s: seq<_>) =
@@ -758,7 +758,7 @@ let TryFindIndexBack ok (s: seq<_>) =
 let FindIndexBack p (s: seq<_>) =
     match TryFindIndexBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "tryPick">]
 let TryPick f (s: seq<_>) =
@@ -783,7 +783,7 @@ let Unfold<'S, 'T> (f: 'S -> option<'T * 'S>) (s: 'S) : seq<'T> =
 [<Name "windowed">]
 let Windowed (windowSize: int) (s: seq<'T>) : seq<'T []> =
     if windowSize <= 0 then
-        failwith "The input must be positive."
+        raise (System.ArgumentException "The input must be positive.")
     seq {
         use e = Enumerator.Get s
         let q = new System.Collections.Generic.Queue<'T>()

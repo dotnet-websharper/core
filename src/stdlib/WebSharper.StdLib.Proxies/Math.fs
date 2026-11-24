@@ -82,7 +82,7 @@ type private MathProxy =
     [<Inline "Math.log($a)/Math.log($newBase)">]
     static member Log(a: double, newBase: double) = X<double>
 
-    [<Inline "Math.log($d)/Math.log(10)">]
+    [<Inline "Math.log10($d)">]
     static member Log10(d: double) = X<double>
 
     [<Inline>]
@@ -146,6 +146,16 @@ type private MathProxy =
     static member Min(val1: double, val2: double) = min val1 val2
 
     static member PI with [<Inline "Math.PI">] get () = 0.
+
+    static member DivRem(a: int, b: int, [<System.Runtime.InteropServices.Out>] result: byref<int>) : int =
+        let q = a / b
+        result <- a % b
+        q
+
+    static member DivRem(a: int64, b: int64, [<System.Runtime.InteropServices.Out>] result: byref<int64>) : int64 =
+        let q = a / b
+        result <- a % b
+        q
 
     [<Inline "Math.pow($x,$y)">]
     static member Pow(x: double, y: double) = X<double>

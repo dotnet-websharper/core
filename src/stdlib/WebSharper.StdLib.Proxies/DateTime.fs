@@ -104,7 +104,32 @@ module private DateTimeHelpers =
     let LongTime (d: obj) = X<string>
 
     [<Direct "var d = new Date($y, $mo - 1, $d, $h, $m, $s, $ms); if ($y < 99) d.setFullYear($y); return d.getTime()">]
-    let Create(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = X<DateTime>
+    let CreateUnchecked(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = X<DateTime>
+
+    /// The constructor throws for components outside the calendar (2023-02-29, month 13, hour 24), as in .NET,
+    /// instead of rolling over into the next month or day.
+    let Validate(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) =
+        let leap = y % 4 = 0 && (y % 100 <> 0 || y % 400 = 0)
+        let days =
+            match mo with
+            | 2 -> if leap then 29 else 28
+            | 4 | 6 | 9 | 11 -> 30
+            | _ -> 31
+        if y < 1 || y > 9999 || mo < 1 || mo > 12 || d < 1 || d > days then
+            raise (System.ArgumentOutOfRangeException(null, "Year, Month, and Day parameters describe an un-representable DateTime."))
+        if h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59 then
+            raise (System.ArgumentOutOfRangeException(null, "Hour, Minute, and Second parameters describe an un-representable DateTime."))
+        if ms < 0 || ms > 999 then
+            raise (System.ArgumentOutOfRangeException("millisecond", "Valid values are between 0 and 999, inclusive."))
+
+    let Create(y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) =
+        Validate(y, mo, d, h, m, s, ms)
+        CreateUnchecked(y, mo, d, h, m, s, ms)
+
+    /// .NET ticks count 100 ns intervals of the wall-clock time from 0001-01-01; the value here is a UTC epoch of
+    /// the local time, so shift by the local offset first.
+    [<Direct "var t = $d - new Date($d).getTimezoneOffset() * 60000 + 62135596800000; return BigInt(Math.trunc(t)) * 10000n + BigInt(Math.round((t - Math.trunc(t)) * 1E4))">]
+    let Ticks (d: DateTime) = X<int64>
                 
 // DateTime is represented as an UTC epoch for remoting purposes.
 // Properties for getting sub-dates/times like Day or Hour convert it to local time on the client for easier display purposes.
@@ -131,7 +156,9 @@ type private DateTimeProxy =
     /// DateTimeKind.Utc: the components are UTC; otherwise local, like the constructor without a kind
     [<Inline; Pure>]
     static member CtorProxy (y: int, mo: int, d: int, h: int, m: int, s: int, kind: System.DateTimeKind) = 
-        if kind = System.DateTimeKind.Utc then As<D> (JS.Inline("Date.UTC($0, $1 - 1, $2, $3, $4, $5)", y, mo, d, h, m, s))
+        if kind = System.DateTimeKind.Utc then
+            DateTimeHelpers.Validate(y, mo, d, h, m, s, 0)
+            As<D> (JS.Inline("(function (d) { if ($0 < 100) d.setUTCFullYear($0); return d.getTime(); })(new Date(Date.UTC($0, $1 - 1, $2, $3, $4, $5)))", y, mo, d, h, m, s))
         else DateTimeHelpers.Create(y, mo, d, h, m, s, 0)
     
     static member Now
@@ -183,7 +210,7 @@ type private DateTimeProxy =
         with [<Inline "(d => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 864e5) + 1)(new Date($this))">] get() = X<int>
 
     member this.Ticks
-        with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
+        with [<Inline; JavaScript>] get() = DateTimeHelpers.Ticks(As<DateTime> this)
 
     [<Inline "$this + $t">]
     member this.Add(t: TS) = X<D>
@@ -247,11 +274,13 @@ type private DateTimeProxy =
             true
         | _ -> false    
 
+    /// 9999-12-31 23:59:59.999 local time (the server sends DateTime.MaxValue as that local time too)
     static member MaxValue
-        with [<Inline "8640000000000000">] get () = X<int>
+        with [<Inline; JavaScript>] get () = DateTimeHelpers.CreateUnchecked(9999, 12, 31, 23, 59, 59, 999)
 
+    /// 0001-01-01 00:00 local time, as the server sends DateTime.MinValue
     static member MinValue
-        with [<Inline "-8640000000000000">] get () = X<int>
+        with [<Inline; JavaScript>] get () = DateTimeHelpers.CreateUnchecked(1, 1, 1, 0, 0, 0, 0)
 
     [<Inline "$a + $b">]
     static member (+) (a: D, b: TS) = X<D>

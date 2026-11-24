@@ -60,14 +60,14 @@ type private CharProxy =
     [<Inline>]
     static member IsControl(s: string, i: int) = CharProxy.IsControl(s.[i])
 
-    static member IsDigit(c: char) : bool =
-        c >= '0' && c <= '9'
+    [<Inline "/\\p{Nd}/u.test($c)">]
+    static member IsDigit(c: char) = X<bool>
 
     [<Inline>]
     static member IsDigit(s: string, i: int) = CharProxy.IsDigit(s.[i])
 
-    static member IsLetter(c: char) : bool =
-        c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
+    [<Inline "/\\p{L}/u.test($c)">]
+    static member IsLetter(c: char) = X<bool>
 
     [<Inline>]
     static member IsLetter(s: string, i: int) = CharProxy.IsLetter(s.[i])
@@ -78,14 +78,14 @@ type private CharProxy =
     [<Inline>]
     static member IsLetterOrDigit(s: string, i: int) = CharProxy.IsLetterOrDigit(s.[i])
 
-    static member IsLower(c: char) : bool =
-        c >= 'a' && c <= 'z'
+    [<Inline "/\\p{Ll}/u.test($c)">]
+    static member IsLower(c: char) = X<bool>
 
     [<Inline>]
     static member IsLower(s: string, i: int) = CharProxy.IsLower(s.[i])
 
-    static member IsUpper(c: char) : bool =
-        c >= 'A' && c <= 'Z'
+    [<Inline "/\\p{Lu}/u.test($c)">]
+    static member IsUpper(c: char) = X<bool>
 
     [<Inline>]
     static member IsUpper(s: string, i: int) = CharProxy.IsUpper(s.[i])
@@ -95,6 +95,21 @@ type private CharProxy =
 
     [<Inline>]
     static member IsWhiteSpace(s: string, i: int) = CharProxy.IsWhiteSpace(s.[i])
+
+    /// A character whose upper case is more than one character (such as 'ß') stays unchanged, as in .NET.
+    static member ToUpper(c: char) : char =
+        let u : string = JS.Inline("$0.toUpperCase()", c)
+        if u.Length = 1 then As<char> u else c
+
+    static member ToLower(c: char) : char =
+        let l : string = JS.Inline("$0.toLowerCase()", c)
+        if l.Length = 1 then As<char> l else c
+
+    [<Inline>]
+    static member ToUpperInvariant(c: char) = CharProxy.ToUpper c
+
+    [<Inline>]
+    static member ToLowerInvariant(c: char) = CharProxy.ToLower c
 
     static member Parse(s: string) =
         if s.Length = 1 then As<char> s else

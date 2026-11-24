@@ -26,7 +26,7 @@ open WebSharper.JavaScript
 
 [<Name "splitInto">]
 let ArraySplitInto count (arr: 'T[]) =
-    if count <= 0 then failwith "Count must be positive"
+    if count <= 0 then raise (System.ArgumentException "Count must be positive")
     let len = arr.Length
     if len = 0 then
         [| |]
@@ -141,7 +141,7 @@ let SeqTryLast (s: seq<'T>) =
 
 [<Name "chunkBySize">]
 let SeqChunkBySize (size: int) (s: seq<'T>) =
-    if size <= 0 then failwith "Chunk size must be positive"
+    if size <= 0 then raise (System.ArgumentException "Chunk size must be positive")
     Enumerable.Of <| fun () ->
         let o = Enumerator.Get s
         Enumerator.NewDisposing true (fun _ -> o.Dispose()) <| fun e ->
@@ -198,7 +198,7 @@ let ListSkip i (l : list<'T>) =
         match res with 
         | _ :: t ->
             res <- t
-        | [] -> failwith "Input list too short."
+        | [] -> raise (System.ArgumentOutOfRangeException("count", "The input list has an insufficient number of elements."))
     res
 
 [<Name "groupBy">]
@@ -216,9 +216,15 @@ let ArrayGroupBy (f: 'T -> 'K when 'K : equality) (a: 'T[]) : ('K * 'T[])[] =
     As<'K[]> keys |> mapInPlace (fun k -> (k, d.[k]))
     As keys
 
+/// Seq/Array/List.take and Seq.skip past the end: InvalidOperationException, as in FSharp.Core.
 [<Name "insufficient">]
 let InsufficientElements() =
-    failwith "The input sequence has an insufficient number of elements."
+    raise (System.InvalidOperationException "The input sequence has an insufficient number of elements.")
+
+/// Seq.head, Seq.last and Seq.item past the end: ArgumentException, as in FSharp.Core.
+[<Name "insufficientArg">]
+let InsufficientElementsArg() =
+    raise (System.ArgumentException "The input sequence has an insufficient number of elements.")
 
 [<Name "outOfBounds">]
 let OutOfBounds() =
@@ -227,7 +233,7 @@ let OutOfBounds() =
 [<Name "last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
-    if not <| e.MoveNext() then InsufficientElements()
+    if not <| e.MoveNext() then InsufficientElementsArg()
     else 
         let mutable res = e.Current
         while e.MoveNext() do
@@ -251,7 +257,7 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
 
 [<Name "nonNegative">]
 let InputMustBeNonNegative() =
-    failwith "The input must be non-negative."
+    raise (System.ArgumentException "The input must be non-negative.")
 
 [<Name "transposeArray">]
 let ArrayTranspose (array:'T[][]) : 'T[][] =
@@ -261,7 +267,7 @@ let ArrayTranspose (array:'T[][]) : 'T[][] =
 
     for j in 1..len-1 do
         if lenInner <> array.[j].Length then
-            failwith "The arrays have different lengths."
+            raise (System.ArgumentException "The arrays have different lengths.")
 
     let result = Array lenInner
     for i in 0..lenInner-1 do

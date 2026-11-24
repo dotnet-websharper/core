@@ -83,9 +83,7 @@
     "status": "pass"
   },
   "conversion.int.of.bad.string": {
-    "status": "mismatch",
-    "net": "EXN Format",
-    "js": "0"
+    "status": "pass"
   },
   "conversion.float.of.string": {
     "status": "pass"
@@ -140,14 +138,10 @@
     "status": "pass"
   },
   "float.compare.nan": {
-    "status": "mismatch",
-    "net": "-1",
-    "js": "1"
+    "status": "pass"
   },
   "float.round.banker": {
-    "status": "mismatch",
-    "net": "2,4,-2",
-    "js": "3,4,-2"
+    "status": "pass"
   },
   "float.math.round": {
     "status": "pass"
@@ -210,14 +204,10 @@
     "status": "pass"
   },
   "abs.min.int": {
-    "status": "mismatch",
-    "net": "EXN Overflow",
-    "js": "2147483648"
+    "status": "pass"
   },
   "min.max": {
-    "status": "mismatch",
-    "net": "3,NaN",
-    "js": "3,3"
+    "status": "pass"
   },
   "sqrt.negative": {
     "status": "pass"
@@ -232,9 +222,7 @@
     "status": "pass"
   },
   "bitwise.shift.uint": {
-    "status": "mismatch",
-    "net": "1",
-    "js": "-1"
+    "status": "pass"
   },
   "bitwise.int64": {
     "status": "pass"
@@ -393,9 +381,7 @@
     "status": "pass"
   },
   "string.module.map": {
-    "status": "unsupported",
-    "net": "ABC",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "string.module.collect": {
     "status": "pass"
@@ -422,9 +408,10 @@
     "status": "pass"
   },
   "char.tests": {
-    "status": "mismatch",
-    "net": "true,true,true,true",
-    "js": "true,false,true,true"
+    "status": "pass"
+  },
+  "char.case": {
+    "status": "pass"
   },
   "char.unicode.upper": {
     "status": "unsupported",
@@ -582,9 +569,7 @@
     "status": "pass"
   },
   "sprintf.u": {
-    "status": "unsupported",
-    "net": "4294967295",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "sprintf.M": {
     "status": "known",
@@ -621,9 +606,7 @@
     "status": "pass"
   },
   "list.head.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input list was empty."
+    "status": "pass"
   },
   "list.cons.append": {
     "status": "pass"
@@ -647,9 +630,7 @@
     "status": "pass"
   },
   "list.reduce.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input list was empty."
+    "status": "pass"
   },
   "list.scan": {
     "status": "pass"
@@ -658,9 +639,7 @@
     "status": "pass"
   },
   "list.average.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input sequence was empty."
+    "status": "pass"
   },
   "list.minmax": {
     "status": "pass"
@@ -692,9 +671,7 @@
     "status": "pass"
   },
   "list.zip.mismatch": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The lists have different lengths."
+    "status": "pass"
   },
   "list.unzip": {
     "status": "pass"
@@ -709,9 +686,7 @@
     "status": "pass"
   },
   "list.find.missing": {
-    "status": "mismatch",
-    "net": "EXN KeyNotFound",
-    "js": "EXN Exception :: KeyNotFoundException"
+    "status": "pass"
   },
   "list.tryfind": {
     "status": "mismatch",
@@ -728,9 +703,7 @@
     "status": "pass"
   },
   "list.take.too.many": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "list.takewhile": {
     "status": "pass"
@@ -739,9 +712,7 @@
     "status": "pass"
   },
   "list.item.out.of.range": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "list.last": {
     "status": "mismatch",
@@ -807,14 +778,10 @@
     "status": "pass"
   },
   "array.index.out.of.range": {
-    "status": "mismatch",
-    "net": "EXN IndexOutOfRange",
-    "js": "EXN Exception :: Index was outside the bounds of the array."
+    "status": "pass"
   },
   "array.set.out.of.range": {
-    "status": "mismatch",
-    "net": "EXN IndexOutOfRange",
-    "js": "EXN Exception :: Index was outside the bounds of the array."
+    "status": "pass"
   },
   "array.slice": {
     "status": "pass"
@@ -844,9 +811,7 @@
     "status": "pass"
   },
   "array.blit.bad": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: Index was outside the bounds of the array."
+    "status": "pass"
   },
   "array.fill": {
     "status": "pass"
@@ -897,14 +862,10 @@
     "status": "pass"
   },
   "array.sub.bad": {
-    "status": "mismatch",
-    "net": "EXN ArgumentOutOfRange",
-    "js": "EXN Exception :: Index was outside the bounds of the array."
+    "status": "pass"
   },
   "array.max.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input array was empty."
+    "status": "pass"
   },
   "array.2d": {
     "status": "pass"
@@ -946,22 +907,16 @@
     "status": "pass"
   },
   "seq.take.too.many": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "seq.truncate": {
     "status": "pass"
   },
   "seq.skip.too.many": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "seq.head.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "seq.zip": {
     "status": "pass"
@@ -985,17 +940,13 @@
     "status": "pass"
   },
   "seq.average.empty": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input sequence was empty."
+    "status": "pass"
   },
   "seq.item": {
     "status": "pass"
   },
   "seq.item.missing": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "seq.chunk": {
     "status": "pass"
@@ -1294,9 +1245,7 @@
     "js": "[object Object],9,null"
   },
   "option.value.none": {
-    "status": "mismatch",
-    "net": "EXN Argument",
-    "js": "EXN Exception :: Cannot read properties of null (reading '$0')"
+    "status": "pass"
   },
   "option.value.prop": {
     "status": "known",
@@ -1347,9 +1296,7 @@
     "js": "2,4"
   },
   "enum.flags.tostring": {
-    "status": "unsupported",
-    "net": "5",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "enum.of.int": {
     "status": "mismatch",
@@ -1357,9 +1304,7 @@
     "js": "2,3"
   },
   "enum.hasflag": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "enum.compare": {
     "status": "pass"
@@ -1377,17 +1322,13 @@
     "status": "pass"
   },
   "physical.equality": {
-    "status": "unsupported",
-    "net": "true,false",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "compare.mixed.strings": {
     "status": "pass"
   },
   "compare.floats.nan.sort": {
-    "status": "mismatch",
-    "net": "[NaN,1,2]",
-    "js": "[2,NaN,1]"
+    "status": "pass"
   },
   "compare.char": {
     "status": "pass"
@@ -1560,14 +1501,16 @@
     "status": "pass"
   },
   "exception.failwith": {
-    "status": "unsupported",
-    "net": "failure:boom",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "exception.invalidarg": {
-    "status": "unsupported",
-    "net": "x",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "exception.argument.message": {
+    "status": "pass"
+  },
+  "exception.failure.subclass": {
+    "status": "pass"
   },
   "exception.invalidop": {
     "status": "pass"
@@ -1755,19 +1698,16 @@
     "status": "pass"
   },
   "datetime.invalid": {
-    "status": "mismatch",
-    "net": "EXN ArgumentOutOfRange",
-    "js": "1"
+    "status": "pass"
+  },
+  "datetime.invalid.time": {
+    "status": "pass"
   },
   "datetime.minvalue": {
-    "status": "mismatch",
-    "net": "1,9999",
-    "js": "-271821,275760"
+    "status": "pass"
   },
   "datetime.ticks": {
-    "status": "mismatch",
-    "net": "630822816000000000",
-    "js": "9466848000000000"
+    "status": "pass"
   },
   "datetimeoffset": {
     "status": "unsupported",
@@ -1829,27 +1769,28 @@
     "status": "pass"
   },
   "math.divrem": {
-    "status": "unsupported",
-    "net": "32",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "math.truncate.log": {
-    "status": "mismatch",
-    "net": "-2,3,3",
-    "js": "-2,2.9999999999999996,3"
+    "status": "pass"
   },
   "convert.tobase": {
-    "status": "unsupported",
-    "net": "1010,255",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "convert.toint32.rounding": {
     "status": "pass"
   },
   "convert.base64": {
-    "status": "unsupported",
-    "net": "AQL/",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "convert.frombase64": {
+    "status": "pass"
+  },
+  "convert.todouble": {
+    "status": "pass"
+  },
+  "convert.toint32.base": {
+    "status": "pass"
   },
   "bitconverter": {
     "status": "unsupported",
