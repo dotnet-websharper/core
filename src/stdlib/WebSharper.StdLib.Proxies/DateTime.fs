@@ -54,10 +54,12 @@ module private DateTimeHelpers =
 
     let AddYears(d: int, years) =
         let e = Date(d)
+        // Feb 29 + 1 year = Feb 28, like .NET
+        let daysInTarget = Date(e.GetFullYear() + years, e.GetMonth() + 1, 0).GetDate()
         Date(   
             e.GetFullYear() + years,
             e.GetMonth(),
-            e.GetDate(),
+            min (e.GetDate()) daysInTarget,
             e.GetHours(),
             e.GetMinutes(),
             e.GetSeconds(),
@@ -67,10 +69,12 @@ module private DateTimeHelpers =
 
     let AddMonths(d: int, months: int) =
         let e = Date(d)
+        // like .NET, the day is clamped to the length of the target month (Jan 31 + 1 month = Feb 28/29)
+        let daysInTarget = Date(e.GetFullYear(), e.GetMonth() + months + 1, 0).GetDate()
         Date(   
             e.GetFullYear(),
             e.GetMonth() + months,
-            e.GetDate(),
+            min (e.GetDate()) daysInTarget,
             e.GetHours(),
             e.GetMinutes(),
             e.GetSeconds(),

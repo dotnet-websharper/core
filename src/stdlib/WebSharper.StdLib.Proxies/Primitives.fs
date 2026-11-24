@@ -248,14 +248,14 @@ type internal B =
     [<Inline>]
     override this.GetHashCode() = hash this
 
-    [<Constant "true">]
+    [<Constant "True">]
     static member TrueString = X<string>
 
-    [<Constant "false">]
+    [<Constant "False">]
     static member FalseString = X<string>
 
-    [<Inline>]
-    override this.ToString() = string this
+    [<Inline "($this ? 'True' : 'False')">]
+    override this.ToString() = X<string>
 
     [<Inline>]
     member this.CompareTo(x: bool) =

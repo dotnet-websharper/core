@@ -878,6 +878,8 @@ type RoslynTransformer(env: Environment) =
             MakeRef e (fun value -> VarSet(v, value)) v.VarType
         | NewVar (v, Undefined) -> // out var
             Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) v.VarType ]
+        | Undefined -> // out _ (discard): a reference that drops what is written to it
+            MakeRef e (fun value -> Void value) None
         | ItemGet(o, i, _) ->
             let ov = Id.New ()
             let iv = Id.New ()
@@ -1148,6 +1150,110 @@ type RoslynTransformer(env: Environment) =
             )
         defaultArg candidates symbol
 
+    /// [| value0; name0; ... |] of an enum's members, and whether it has [Flags]
+    member this.EnumTable (t: ITypeSymbol) : Expression * bool =
+        let fields =
+            t.GetMembers() |> Seq.choose (function
+                | :? IFieldSymbol as f when f.HasConstantValue -> Some f
+                | _ -> None)
+        let table = NewArray [ for f in fields do yield Value (ReadLiteral f.ConstantValue); yield Value (String f.Name) ]
+        let isFlags =
+            t.GetAttributes() |> Seq.exists (fun a -> not (isNull a.AttributeClass) && a.AttributeClass.Name = "FlagsAttribute")
+        table, isFlags
+
+    member this.FormattingCall (name: string, parameters: Type list, returnType: Type, args: Expression list) =
+        let formattingTy = TypeDefinition { Assembly = "WebSharper.StdLib"; FullName = "WebSharper.Formatting" }
+        let m = Method { MethodName = name; Parameters = parameters; ReturnType = returnType; Generics = 0 }
+        Call(None, NonGeneric formattingTy, NonGeneric m, args)
+
+    /// Enum.ToString(): the member name, "A, B" for [Flags] combinations, otherwise the number
+    member this.EnumToString (t: ITypeSymbol, e: Expression) =
+        let table, isFlags = this.EnumTable t
+        let objT = NonGenericType Definitions.Obj
+        this.FormattingCall("FormatEnum", [ objT; ArrayType(objT, 1); NonGenericType Definitions.Bool ], NonGenericType Definitions.String,
+            [ e; table; Value (Bool isFlags) ])
+
+    /// ToString() of types whose JavaScript value has no ToString of its own (numbers, booleans, arrays and
+    /// plain objects represent them), as .NET formats them; None for other types
+    member this.KnownToString (t: ITypeSymbol, e: Expression) : Expression option =
+        if isNull t then None else
+        let fullName = t.OriginalDefinition.ToDisplayString()
+        let fmt v = WebSharper.Core.Macros.formatValue v ""
+        let withValue (f: Expression -> Expression) =
+            let v = Id.New(mut = false)
+            Let(v, e, f (Var v))
+        match t.SpecialType with
+        | SpecialType.System_Boolean -> Some (Conditional(e, Value (String "True"), Value (String "False")))
+        | _ when t.TypeKind = TypeKind.Enum -> Some (this.EnumToString(t, e))
+        | _ ->
+        match fullName with
+        | "System.TimeSpan" ->
+            Some (this.FormattingCall("FormatTimeSpan", [ NonGenericType Definitions.Float ], NonGenericType Definitions.String, [ e ]))
+        | "System.DateTime" ->
+            Some (this.FormattingCall("FormatDateTime", [ NonGenericType Definitions.Float ], NonGenericType Definitions.String, [ e ]))
+        | "System.Collections.Generic.KeyValuePair<TKey, TValue>" ->
+            Some (withValue (fun v ->
+                Value (String "[") ^+ fmt (ItemGet(v, Value (String "K"), Pure)) ^+ Value (String ", ")
+                ^+ fmt (ItemGet(v, Value (String "V"), Pure)) ^+ Value (String "]")))
+        | _ ->
+        match t with
+        | :? INamedTypeSymbol as nt when
+                (nt.IsTupleType && nt.TupleElements.Length <= 7)
+                || (fullName.StartsWith "System.Tuple<" && nt.TypeArguments.Length <= 7) ->
+            let n = if nt.IsTupleType then nt.TupleElements.Length else nt.TypeArguments.Length
+            Some (withValue (fun v ->
+                let items = [ for i in 0 .. n - 1 -> fmt (ItemGet(v, Value (Int i), Pure)) ]
+                match items with
+                | [] -> Value (String "()")
+                | _ -> Value (String "(") ^+ (items |> List.reduce (fun a b -> a ^+ Value (String ", ") ^+ b)) ^+ Value (String ")")))
+        | _ -> None
+
+    /// Enum.ToString() on a value of a known enum type, and the generic Enum methods (Parse<T>, TryParse<T>,
+    /// GetValues<T>, GetNames<T>, IsDefined<T>), which need the enum's members at compile time
+    member this.TryTransformEnumCall (x: InvocationExpressionData, symbol: IMethodSymbol, args: Expression list) : Expression option =
+        let objT = NonGenericType Definitions.Obj
+        let strT = NonGenericType Definitions.String
+        let boolT = NonGenericType Definitions.Bool
+        let isEnum (t: ITypeSymbol) = not (isNull t) && t.TypeKind = TypeKind.Enum
+        let containing = symbol.ContainingType
+        let isSystemEnum = not (isNull containing) && containing.ToDisplayString() = "System.Enum"
+        if symbol.Name = "ToString" && symbol.Parameters.Length = 0 && not symbol.IsStatic then
+            let rec instanceType (o: IOperation) =
+                match o with
+                | :? IConversionOperation as c -> instanceType c.Operand
+                | null -> null
+                | o -> o.Type
+            match env.SemanticModel.GetOperation(x.Node) with
+            | :? IInvocationOperation as op -> this.KnownToString(instanceType op.Instance, List.head args)
+            | _ -> None
+        elif isSystemEnum && symbol.IsGenericMethod && symbol.TypeArguments.Length = 1 && isEnum symbol.TypeArguments[0] then
+            let t = symbol.TypeArguments[0]
+            let table, _ = this.EnumTable t
+            let parse name s ignoreCase =
+                this.FormattingCall(name, [ strT; ArrayType(objT, 1); boolT ], objT, [ s; table; ignoreCase ])
+            let names () =
+                t.GetMembers() |> Seq.choose (function :? IFieldSymbol as f when f.HasConstantValue -> Some f | _ -> None)
+            match symbol.Name, args with
+            | "Parse", [ s ] -> Some (parse "ParseEnum" s (Value (Bool false)))
+            | "Parse", [ s; ic ] -> Some (parse "ParseEnum" s ic)
+            | "TryParse", [ s; r ] | "TryParse", [ s; _; r ] ->
+                let ic = match args with [ _; ic; _ ] -> ic | _ -> Value (Bool false)
+                let v = Id.New(mut = false)
+                // `out _` is a discard: nothing to set
+                let set value = match IgnoreExprSourcePos r with Undefined -> [] | _ -> [ SetRef r value ]
+                Some (Let(v, parse "TryParseEnum" s ic,
+                        Conditional(Var v ^== Value Null,
+                            Sequential (set (Value (Int 0)) @ [ Value (Bool false) ]),
+                            Sequential (set (Var v) @ [ Value (Bool true) ]))))
+            | "GetValues", [] -> Some (NewArray [ for f in names () -> Value (ReadLiteral f.ConstantValue) ])
+            | "GetNames", [] -> Some (NewArray [ for f in names () -> Value (String f.Name) ])
+            | "IsDefined", [ v ] ->
+                let i = Id.New(mut = false)
+                Some (Let(i, v, NewArray [ for f in names () -> Value (ReadLiteral f.ConstantValue) ]
+                                |> fun arr -> Appl(ItemGet(arr, Value (String "includes"), Pure), [ Var i ], Pure, None)))
+            | _ -> None
+        else None
+
     member this.TransformInvocationExpression (x: InvocationExpressionData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let symbol = this.WithoutInterpolatedStringHandlers(symbol, x.ArgumentList)
@@ -1160,6 +1266,10 @@ type RoslynTransformer(env: Environment) =
                     | _ -> false
                 | _ -> false
             if isNameOf then
+                // nameof(A.B) is "B": Roslyn has the constant
+                match env.SemanticModel.GetConstantValue(x.Node) with
+                | c when c.HasValue -> Value (String (string c.Value))
+                | _ ->
                 let arg = x.ArgumentList.Arguments |> Seq.head
                 Value (String (arg.Node.GetText().ToString()))
             else
@@ -1187,6 +1297,9 @@ type RoslynTransformer(env: Environment) =
 
         let tempVars, args = readReorderedParams argumentListWithThis
 
+        match this.TryTransformEnumCall(x, symbol, args) with
+        | Some e -> e |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars |> withExprSourcePos x.Node
+        | None ->
         if symbol.MethodKind = MethodKind.LocalFunction then
             let f = env.GetLocalFunctionId(symbol)
             Appl(Var f, args, NonPure, Some args.Length)
@@ -1503,8 +1616,30 @@ type RoslynTransformer(env: Environment) =
             ExprStatement (errorPlaceholderWith ("Error while reading C# code: " + e.Message))
 
     member this.TransformBlock (x: BlockData) : Statement =
-        x.Statements |> Seq.map (this.TransformStatement) |> List.ofSeq |> Block
+        x.Statements |> List.ofSeq |> this.TransformStatementsWithUsings |> Block
         |> withStatementSourcePos x.Node  
+
+    /// Statements of a block: a using declaration (`using var x = ...;`) disposes its variables when the rest
+    /// of the block exits, in reverse order, skipping null values
+    member this.TransformStatementsWithUsings (statements: StatementData list) : Statement list =
+        match statements with
+        | [] -> []
+        | StatementData.LocalDeclarationStatement d :: rest when d.Node.UsingKeyword.Kind() <> SyntaxKind.None ->
+            let decls = d.Declaration |> this.TransformVariableDeclaration
+            let isAsync = d.Node.AwaitKeyword.Kind() <> SyntaxKind.None
+            let restStatements = this.TransformStatementsWithUsings rest
+            let dispose (v: Id) =
+                let call =
+                    if isAsync then
+                        Await (Call(Some (Var v), NonGeneric Definitions.IAsyncDisposable, NonGeneric Definitions.IAsyncDisposableDisposeAsync, []))
+                    else
+                        Call(Some (Var v), NonGeneric Definitions.IDisposable, NonGeneric Definitions.IDisposableDispose, [])
+                If(Var v ^!= Value Null, ExprStatement call, Empty)
+            [
+                for ve in decls -> VarDeclaration ve |> withStatementSourcePos d.Node
+                yield TryFinally(Block restStatements, Block [ for v, _ in List.rev decls -> dispose v ])
+            ]
+        | s :: rest -> this.TransformStatement s :: this.TransformStatementsWithUsings rest
 
     member this.TransformEmptyStatement (x: EmptyStatementData) : Statement =
         Empty
@@ -2084,6 +2219,19 @@ type RoslynTransformer(env: Environment) =
             Conditional(left, right, Value (Bool false))
         | BinaryExpressionKind.CoalesceExpression ->
             Binary(left, BinaryOperator.``??``, right)
+        | BinaryExpressionKind.AddExpression when
+            (let t = env.SemanticModel.GetTypeInfo(x.Node).Type in not (isNull t) && t.SpecialType = SpecialType.System_String) ->
+            // string concatenation: the non-string operand is converted with its .NET ToString (bool "True", enum
+            // names, double "1E+21", tuples); strings, chars and integers concatenate like in JavaScript
+            let operand (e: Expression) (node: ExpressionSyntax) =
+                let t = env.SemanticModel.GetTypeInfo(node).Type
+                if isNull t then e else
+                match t.SpecialType with
+                | SpecialType.System_String | SpecialType.System_Char
+                | SpecialType.System_SByte | SpecialType.System_Byte | SpecialType.System_Int16 | SpecialType.System_UInt16
+                | SpecialType.System_Int32 | SpecialType.System_UInt32 | SpecialType.System_Int64 | SpecialType.System_UInt64 -> e
+                | _ -> fst (this.InterpolationHoleToString(e, t))
+            Binary(operand left x.Left.Node, BinaryOperator.``+``, operand right x.Right.Node)
         | _ -> 
             let leftTypeSymbol = env.SemanticModel.GetTypeInfo(x.Left.Node).Type
             let rightTypeSymbol = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
@@ -3369,8 +3517,11 @@ type RoslynTransformer(env: Environment) =
                 let inner, _ = this.InterpolationHoleToString(Var v, nt.TypeArguments[0])
                 Let(v, expr, Conditional(Var v ^== Value Null, Value (String ""), inner)), true
             | _ -> Macros.formatValue expr "", true
-        | _ when t.TypeKind = TypeKind.Enum -> expr, false
+        | _ when t.TypeKind = TypeKind.Enum -> this.EnumToString(t, expr), true
         | _ ->
+        match this.KnownToString(t, expr) with
+        | Some s -> s, true
+        | None ->
             // objects, structs, interfaces, type parameters, double/float/decimal: null is "",
             // .NET number format, otherwise the value's JavaScript toString (ToString overrides)
             Macros.formatValue expr "", true

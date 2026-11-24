@@ -148,5 +148,44 @@ namespace WebSharper.CSharp.Tests
             Equal($"{1234.5:0,0.00}|{0.5:#.##}", "1,234.50|.5");
             Equal($"[{42,5}][{42,-5}][{3.5,6:F2}]", "[   42][42   ][  3.50]");
         }
+
+        enum Shade { Red, Green = 5, Blue }
+        [System.Flags] enum Access { None = 0, Read = 1, Write = 2, Exec = 4 }
+
+        class Disposer : IDisposable
+        {
+            List<string> log; string name;
+            public Disposer(List<string> log, string name) { this.log = log; this.name = name; }
+            public void Dispose() => log.Add("dispose " + name);
+        }
+
+        [Test(".NET semantics from the C# conformance sweep (#1651)")]
+        public void ConformanceSemantics()
+        {
+            var log = new List<string>();
+            void Run() { using var a = new Disposer(log, "a"); using var b = new Disposer(log, "b"); log.Add("body"); }
+            Run();
+            Equal(String.Join(",", log), "body,dispose b,dispose a");
+
+            Equal(nameof(System.Collections.Generic.List<int>.Count), "Count");
+
+            Equal(Shade.Green.ToString(), "Green");
+            Equal($"{(Shade)6}|{(Shade)42}", "Blue|42");
+            Equal((Access.Read | Access.Write).ToString(), "Read, Write");
+            Equal(Access.None.ToString(), "None");
+            Equal((int)Enum.Parse<Shade>("Blue"), 6);
+            IsTrue(Enum.TryParse<Access>("Read, Exec", out var acc) && acc == (Access.Read | Access.Exec));
+            IsFalse(Enum.TryParse<Shade>("Purple", out var _));
+            Equal(Enum.GetNames<Shade>().Length, 3);
+
+            Equal(new DateTime(2024, 1, 31).AddMonths(1).Day, 29);
+            Equal(new DateTime(2024, 2, 29).AddYears(1).Day, 28);
+            Equal((TimeSpan.FromMinutes(90) + TimeSpan.FromSeconds(30)).ToString(), "01:30:30");
+            IsTrue(Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e") == new Guid("0F8FAD5B-D9CB-469F-A165-70867728950E"));
+            IsTrue(double.NaN.Equals(double.NaN));
+            Equal(new KeyValuePair<string, int>("a", 1).ToString(), "[a, 1]");
+            Equal(true.ToString() + "|" + false, "True|False");
+            Equal((1, "a", true).ToString(), "(1, a, True)");
+        }
     }
 }

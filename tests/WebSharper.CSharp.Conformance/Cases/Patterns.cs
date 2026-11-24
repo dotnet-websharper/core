@@ -105,21 +105,9 @@ namespace Conformance
             C("enum.tostring", () => $"{Color.Green}|{(Color)6}|{(int)Color.Blue}|{(Color)42}"),
             C("enum.flags.tostring", () => $"{Perm.Read | Perm.Write}|{Perm.None}"),
             C("enum.hasflag", () => B((Perm.Read | Perm.Exec).HasFlag(Perm.Exec)) + "," + B((Perm.Read).HasFlag(Perm.Write))),
-#if !JS
             C("enum.parse", () => $"{Enum.Parse<Color>("Blue")}|{(int)Enum.Parse<Color>("Green")}"),
-#else
-            C("enum.parse", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("enum.tryparse", () => { var ok = Enum.TryParse<Color>("Purple", out var c); return $"{B(ok)},{c}"; }),
-#else
-            C("enum.tryparse", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
             C("enum.getvalues", () => J(Enum.GetValues<Color>())),
-#else
-            C("enum.getvalues", () => "WS-COMPILE-ERROR"),
-#endif
             C("enum.switch", () => Color.Blue switch { Color.Red => "r", Color.Blue => "b", _ => "?" }),
         };
     }
