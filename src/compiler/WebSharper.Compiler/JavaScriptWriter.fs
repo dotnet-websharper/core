@@ -994,7 +994,8 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) : J.Id =
         i
     else
         match typ with
-        | TSType.Any -> i
+        // a declaration file states `any` explicitly: `strict` consumers reject an implicit any (TS7006, TS7033)
+        | TSType.Any when env.Output <> O.TypeScriptDeclaration -> i
         | _ -> i.WithType(transformType env typ)
 
 and withTypeAny (env: Environment) (typ: TSType) (i: J.Id) =
@@ -1046,7 +1047,10 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 CollectVariables(innerEnv).VisitStatement(b)
                 flattenJS [ b |> transformStatement innerEnv ]
             )
-        let id = J.Id.New(n, gen = jsgen) |> withType env tr 
+        let id =
+            match s.Kind with
+            | MemberKind.Setter -> J.Id.New(n, gen = jsgen) // a set accessor has no return type annotation
+            | _ -> J.Id.New(n, gen = jsgen) |> withType env tr 
         let acc = transformMemberKind s.Kind
         let isAbstract =
             env.Output <> O.JavaScript && s.IsAbstract
