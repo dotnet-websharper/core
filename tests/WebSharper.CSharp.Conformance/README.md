@@ -22,7 +22,15 @@ WebSharper writes for the cases (needs `npm install` in the repository root for 
 Each case is `pass`, `mismatch` (compiles, but JavaScript gives a different result), `unsupported` (rejected by
 WebSharper at compile time, fenced off, see below) or `known`: an accepted difference that follows from JavaScript
 itself (no string or boxing identity, erased generics and enums, no reflection, unchecked array bounds). `known.json`
-maps each such case to its reason; keep it short and only for differences that are not going to be fixed. `baseline.json` records the status of every case, with both outputs
+maps each such case to its reason; keep it short and only for differences that are not going to be fixed, and end it
+with what to write instead (a C# alternative, or the direct `WebSharper.JavaScript` API).
+
+Which differences are accepted follows one rule: proxy a .NET API when it can follow .NET semantics exactly or very
+closely; don't proxy one when that would blow up a clean, small JavaScript representation just for coverage; and where
+only a partial implementation is possible (e.g. `System.Type`, which cannot tell apart .NET types sharing a JavaScript
+representation), prefer leaving it out and pointing to the direct JavaScript binding.
+
+`baseline.json` records the status of every case, with both outputs
 for the ones that don't pass, so a PR diff of it shows exactly which behaviour changed.
 
 `check.mjs` exits with an error when:
