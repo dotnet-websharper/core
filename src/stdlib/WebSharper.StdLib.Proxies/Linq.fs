@@ -102,45 +102,29 @@ type internal OrderedEnumerable<'T>(source: seq<'T>, primary: IComparer<'T>) =
         [<JavaScript(false)>]
         member this.GetEnumerator() = X<_>
 
-//[<Proxy(typeof<ILookup<_, _>>)>]
-//type internal ILookupProxy<'K, 'E> =
-//    inherit seq<IGrouping<'K, 'E>>
-//    inherit IEnumerable
-//    abstract Item : 'K -> 'E with get
-//    abstract Count : int with get
-//    abstract Contains : 'K -> bool
-//
-//[<JavaScript>]
-//type internal Lookup<'K, 'T, 'E>(source: seq<'T>, key: Func<'T, 'K>, elt: Func<'T, 'E>, comparer: IEqualityComparer<'K>) =
-//
-//    let dc = lazy (
-//        let d = Dictionary<'K, ResizeArray<'E>>(comparer)
-//        let count = ref 0
-//        source |> Seq.iter (fun e ->
-//            incr count
-//            let k = key.Invoke e
-//            let v = elt.Invoke e
-//            if d.ContainsKey k then
-//                d.[k].Add(v)
-//            else
-//                d.Add(k, ResizeArray([|v|]))
-//        )
-//        d, !count
-//    )
-//
-//    let s = lazy (
-//        fst dc.Value |> Seq.map (fun (KeyValue(k, v)) ->
-//            Grouping(k, v) :> IGrouping<_,_>)
-//    )
-//
-//    interface seq<IGrouping<'K, 'E>> with
-//        member this.GetEnumerator() = s.Value.GetEnumerator()
-//    interface IEnumerable with
-//        member this.GetEnumerator() = (s.Value :> IEnumerable).GetEnumerator()
-//    interface ILookup<'K, 'E> with
-//        member this.Item with get k = (fst dc.Value).[k] :> seq<_>
-//        member this.Count = snd dc.Value
-//        member this.Contains(k) = (fst dc.Value).ContainsKey(k)
+[<Proxy(typeof<ILookup<_, _>>)>]
+type internal ILookupProxy<'K, 'E> =
+    inherit seq<IGrouping<'K, 'E>>
+    abstract Item : 'K -> seq<'E> with get
+    abstract Count : int with get
+    abstract Contains : 'K -> bool
+
+/// ToLookup's result: the groups in first-occurrence order, an empty sequence for a missing key
+[<JavaScript>]
+type internal Lookup<'K, 'E>(d: Dictionary<'K, ResizeArray<'E>>) =
+
+    interface seq<IGrouping<'K, 'E>> with
+        member this.GetEnumerator() =
+            (d |> Seq.map (fun kv -> Grouping(kv.Key, kv.Value) :> IGrouping<_, _>)).GetEnumerator()
+
+    interface IEnumerable with
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>
+
+    interface ILookup<'K, 'E> with
+        member this.Item with get k = if d.ContainsKey k then d.[k] :> seq<'E> else Seq.empty
+        member this.Count = d.Count
+        member this.Contains(k) = d.ContainsKey k
 
 type private LinqMacro() =
     inherit Macro()
@@ -885,6 +869,36 @@ type private LinqProxy =
     [<Inline>]
     static member Sum<'T>(this: seq<'T>, selector: Func<'T, int>) : int =
         LinqProxy.Sum(Seq.map selector.Invoke this)
+
+    /// Take(Range): the items in the range, clamped to the sequence like .NET (never throws)
+    static member Take<'T>(this: seq<'T>, range: Range) : seq<'T> =
+        Seq.delay (fun () ->
+            let a = Array.ofSeq this
+            let n = a.Length
+            let clamp i = if i < 0 then 0 elif i > n then n else i
+            let st = clamp (if range.Start.IsFromEnd then n - range.Start.Value else range.Start.Value)
+            let en = clamp (if range.End.IsFromEnd then n - range.End.Value else range.End.Value)
+            if en <= st then Seq.empty else Array.sub a st (en - st) :> seq<'T>)
+
+    [<Inline>]
+    static member ToLookup<'T, 'K when 'K : equality>(this: seq<'T>, keySelector: Func<'T, 'K>) : ILookup<'K, 'T> =
+        LinqProxy.ToLookup(this, keySelector, (fun x -> x), EqualityComparer.Default)
+
+    [<Inline>]
+    static member ToLookup<'T, 'K when 'K : equality>(this: seq<'T>, keySelector: Func<'T, 'K>, comparer: IEqualityComparer<'K>) : ILookup<'K, 'T> =
+        LinqProxy.ToLookup(this, keySelector, (fun x -> x), comparer)
+
+    [<Inline>]
+    static member ToLookup<'T, 'K, 'E when 'K : equality>(this: seq<'T>, keySelector: Func<'T, 'K>, elementSelector: Func<'T, 'E>) : ILookup<'K, 'E> =
+        LinqProxy.ToLookup(this, keySelector, elementSelector, EqualityComparer.Default)
+
+    static member ToLookup<'T, 'K, 'E when 'K : equality>(this: seq<'T>, keySelector: Func<'T, 'K>, elementSelector: Func<'T, 'E>, comparer: IEqualityComparer<'K>) : ILookup<'K, 'E> =
+        let d = Dictionary<'K, ResizeArray<'E>>(comparer)
+        for x in this do
+            let k = keySelector.Invoke x
+            let e = elementSelector.Invoke x
+            if d.ContainsKey k then d.[k].Add e else d.[k] <- ResizeArray [| e |]
+        Lookup(d) :> ILookup<'K, 'E>
 
     static member Take<'T>(this: seq<'T>, count: int) =
         seq {

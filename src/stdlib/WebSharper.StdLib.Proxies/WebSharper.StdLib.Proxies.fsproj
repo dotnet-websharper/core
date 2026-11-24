@@ -51,7 +51,9 @@
     <Compile Include="../WebSharper.StdLib.Proxies/Func.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Guid.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/HashSet.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/SortedCollections.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Interfaces.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/StringComparer.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Interlocked.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/IntrinsicOperators.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/KeyValuePair.fs" />

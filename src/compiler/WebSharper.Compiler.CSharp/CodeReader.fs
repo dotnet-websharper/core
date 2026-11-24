@@ -1405,6 +1405,24 @@ type RoslynTransformer(env: Environment) =
             Call(None, typ, meth, args)
         else        
             Call(Some (List.head args), typ, meth, List.tail args)
+        |> fun call ->
+            // TryGetValue(key, out v) leaves `v` unset when the key is missing: give it default(V) like .NET
+            // for value types whose default is not null (the proxies are generic, so they can't)
+            let lastParam = if symbol.Parameters.Length = 0 then null else symbol.Parameters[symbol.Parameters.Length - 1]
+            let outDefault =
+                if symbol.Name <> "TryGetValue" || isNull lastParam || lastParam.RefKind <> RefKind.Out then None else
+                match lastParam.Type.SpecialType with
+                | SpecialType.System_Boolean -> Some (Value (Bool false))
+                | SpecialType.System_Byte | SpecialType.System_SByte | SpecialType.System_Int16 | SpecialType.System_UInt16
+                | SpecialType.System_Int32 | SpecialType.System_UInt32 | SpecialType.System_Double | SpecialType.System_Single
+                | SpecialType.System_Char -> 
+                    Some (if lastParam.Type.SpecialType = SpecialType.System_Char then Value (String "\000") else Value (Int 0))
+                | _ -> None
+            match outDefault, List.tryLast args with
+            | Some d, Some r when (match IgnoreExprSourcePos r with Undefined -> false | _ -> true) ->
+                let ok = Id.New(mut = false)
+                Let(ok, call, Sequential [ Conditional(Var ok, Undefined, SetRef r d); Var ok ])
+            | _ -> call
         |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
         |> withExprSourcePos x.Node
 

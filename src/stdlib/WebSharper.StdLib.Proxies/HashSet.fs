@@ -51,7 +51,7 @@ type internal HashSetProxy<'T when 'T : equality>
              equals : FuncWithArgs<'T * 'T, bool>,
              hash   : 'T -> int) =
 
-        let mutable data  = Array<Array<'T>>()
+        let mutable data  = newBuckets ()
         let mutable count = 0
 
         let arrContains (item: 'T) (arr: Array<'T>)  =
@@ -79,9 +79,9 @@ type internal HashSetProxy<'T when 'T : equality>
 
         let add (item: 'T) =
             let h = hash item
-            let arr = data.[h]
+            let arr : Array<'T> = getBucket data h
             if arr ==. null then
-                data.[h] <- As [| item |]
+                setBucket data h (As [| item |])
                 count <- count + 1
                 true
             else
@@ -106,16 +106,16 @@ type internal HashSetProxy<'T when 'T : equality>
         member this.Add(item: 'T) = add item
 
         member this.Clear() =
-            data <- Array()
+            data <- newBuckets ()
             count <- 0
 
         member x.Contains(item: 'T) =
-            let arr = data.[hash item]
+            let arr : Array<'T> = getBucket data (hash item)
             if arr ==. null then false else arrContains item arr
 
         [<Name("CopyTo")>]
         member x.CopyTo(arr: 'T[], index: int) =
-            let all = concat data 
+            let all = allItems data 
             for i = 0 to all.Length - 1 do 
                 arr.[i + index] <- all.[i]
 
@@ -124,7 +124,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.CopyTo(arr: 'T[], index: int, count: int) =
             let mutable i = 0
-            let all = concat data 
+            let all = allItems data 
             for i = 0 to count - 1 do 
                 arr.[i + index] <- all.[i]
 
@@ -137,7 +137,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         [<Name("GetEnumerator")>]
         member this.GetEnumerator() =
-           As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
+           As<HashSet<'T>.Enumerator>((As<seq<'T>>(allItems data)).GetEnumerator())
 
         interface IEnumerable with
             [<JavaScript(false)>]
@@ -152,7 +152,7 @@ type internal HashSetProxy<'T when 'T : equality>
         
         member x.IntersectWith(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash) 
-            let all = concat data
+            let all = allItems data
             for i = 0 to all.Length - 1 do
                 let item = all.[i]
                 if other.Contains(item) |> not then
@@ -168,7 +168,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
-            As<_[]>(concat data) |> Array.forall other.Contains
+            As<_[]>(allItems data) |> Array.forall other.Contains
 
         member x.IsSupersetOf(xs: seq<'T>) =
             xs |> Seq.forall x.Contains
@@ -178,15 +178,16 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.Remove(item: 'T) =
             let h = hash item
-            let arr = data.[h]
+            let arr : Array<'T> = getBucket data h
             if arr ==. null then false else
                 if arrRemove item arr then
                     count <- count - 1
+                    if arr.Length = 0 then deleteBucket data h
                     true
                 else false
 
         member x.RemoveWhere(cond: System.Predicate<'T>) =
-            let all = concat data
+            let all = allItems data
             let mutable res = 0
             for i = 0 to all.Length - 1 do
                 let item = all.[i]

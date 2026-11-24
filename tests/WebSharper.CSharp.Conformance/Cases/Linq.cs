@@ -40,11 +40,9 @@ namespace Conformance
             C("linq.order", () => J(new[] { 3, 1, 2 }.Order())),
             C("linq.groupby", () => J(new[] { 1, 2, 3, 4, 5 }.GroupBy(x => x % 2).Select(g => $"{g.Key}:{J(g)}"))),
             C("linq.groupby.resultselector", () => J(new[] { "ab", "c", "de" }.GroupBy(s => s.Length, (k, g) => $"{k}={g.Count()}"))),
-#if !JS
             C("linq.tolookup", () => { var l = new[] { "ab", "c", "de" }.ToLookup(s => s.Length); return $"{l[2].Count()},{l[9].Count()},{l.Count}"; }),
-#else
-            C("linq.tolookup", () => "WS-COMPILE-ERROR"),
-#endif
+            C("linq.tolookup.order", () => { var l = new[] { "bb", "a", "cc", "d" }.ToLookup(s => s.Length, s => s.ToUpper()); return string.Join("|", l.Select(g => $"{g.Key}:{J(g)}")) + "," + B(l.Contains(2)); }),
+            C("linq.take.range.fromend", () => J(Enumerable.Range(1, 5).Take(^2..)) + J(new[] { 1, 2 }.Take(1..9)) + J(new[] { 1, 2 }.Take(3..1))),
             C("linq.todictionary.dup", () => $"{new[] { 1, 1 }.ToDictionary(x => x).Count}"),
             C("linq.first.empty", () => $"{new int[0].First()}"),
             C("linq.firstordefault", () => $"{new int[0].FirstOrDefault()},{new string[0].FirstOrDefault() ?? "null"},{new[] { 1, 2 }.FirstOrDefault(x => x > 5, -1)}"),
@@ -60,11 +58,7 @@ namespace Conformance
             C("linq.except.intersect", () => J(new[] { 1, 2, 3, 2 }.Except(new[] { 2 })) + J(new[] { 1, 2, 3 }.Intersect(new[] { 3, 2 }))),
             C("linq.zip", () => J(new[] { 1, 2, 3 }.Zip(new[] { "a", "b" }, (n, s) => $"{n},{s}")) + J(new[] { 1, 2 }.Zip(new[] { 'x', 'y' }).Select(t => $"{t.First},{t.Second}"))),
             C("linq.skip.take", () => J(Enumerable.Range(1, 10).Skip(2).Take(3)) + J(Enumerable.Range(1, 5).SkipWhile(x => x < 3).TakeWhile(x => x < 5)) + J(Enumerable.Range(1, 5).TakeLast(2)) + J(Enumerable.Range(1, 5).SkipLast(3))),
-#if !JS
             C("linq.take.range", () => J(Enumerable.Range(1, 10).Take(2..4))),
-#else
-            C("linq.take.range", () => "WS-COMPILE-ERROR"),
-#endif
             C("linq.chunk", () => J(Enumerable.Range(1, 5).Chunk(2).Select(c => J(c)))),
             C("linq.selectmany", () => J(new[] { "ab", "cd" }.SelectMany(s => s.ToCharArray()))),
             C("linq.join", () => J(new[] { (1, "a"), (2, "b") }.Join(new[] { (2, "x"), (1, "y"), (1, "z") }, l => l.Item1, r => r.Item1, (l, r) => l.Item2 + r.Item2))),
