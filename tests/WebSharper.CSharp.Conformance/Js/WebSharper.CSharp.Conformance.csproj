@@ -11,6 +11,8 @@
     <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Signed>False</Signed>
+    <!-- only ../Cases: the WebSharper output under build/ carries .cs source copies for the source maps -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- Node runs the output: JavaScript, not the repository default TypeScript output -->
     <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>

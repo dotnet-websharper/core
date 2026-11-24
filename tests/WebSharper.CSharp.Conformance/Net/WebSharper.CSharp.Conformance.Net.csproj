@@ -11,9 +11,12 @@
     <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Signed>False</Signed>
+    <!-- only ../Cases: the WebSharper output under build/ carries .cs source copies for the source maps -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Cases\*.cs" />
+    <Compile Include="Program.cs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
