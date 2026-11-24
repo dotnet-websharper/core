@@ -31,6 +31,18 @@ let Clear (a: obj) =
     splice a 0 (a :?> obj []).Length
 
 [<JavaScript>]
+let Peek (queue: obj) : obj =
+    let a = As<obj[]> queue
+    if a.Length = 0 then raise (System.InvalidOperationException "Queue empty.")
+    a.[0]
+
+[<JavaScript>]
+let Dequeue (queue: obj) : obj =
+    let a = As<obj[]> queue
+    if a.Length = 0 then raise (System.InvalidOperationException "Queue empty.")
+    a.JS.Shift()
+
+[<JavaScript>]
 let Contains (a: obj) (el: 'T) =
     Seq.exists ((=) el) (a :?> seq<'T>)
 
@@ -62,11 +74,11 @@ type private QueueProxy<'T when 'T : equality>
     [<Inline>]
     member this.CopyTo(array: 'T [], index: int) = CopyTo this array index
 
-    [<Inline "$this[0]">]
-    member this.Peek() = X<'T>
+    [<Inline>]
+    member this.Peek() : 'T = As<'T> (Peek this)
 
-    [<Inline "$this.shift()">]
-    member this.Dequeue() = X<'T>
+    [<Inline>]
+    member this.Dequeue() : 'T = As<'T> (Dequeue this)
 
     [<Inline "$this.push($x)">]
     member this.Enqueue(x: 'T) = X<unit>

@@ -106,9 +106,7 @@
     "status": "pass"
   },
   "tryparse.int": {
-    "status": "mismatch",
-    "net": "false,0",
-    "js": "false,undefined"
+    "status": "pass"
   },
   "parse.double": {
     "status": "unsupported",
@@ -116,9 +114,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "tryparse.double": {
-    "status": "mismatch",
-    "net": "false,0",
-    "js": "false,"
+    "status": "pass"
   },
   "convert.toint32.rounds": {
     "status": "pass"
@@ -174,9 +170,7 @@
     "status": "pass"
   },
   "split.trimentries": {
-    "status": "mismatch",
-    "net": "[a,b,c]",
-    "js": "[ a , b ,c ]"
+    "status": "pass"
   },
   "split.chars": {
     "status": "pass"
@@ -201,9 +195,7 @@
     "status": "pass"
   },
   "substring.outofrange": {
-    "status": "mismatch",
-    "net": "EXN ArgumentOutOfRange",
-    "js": "lo"
+    "status": "pass"
   },
   "indexof": {
     "status": "pass"
@@ -445,9 +437,7 @@
     "status": "pass"
   },
   "switch.nomatch": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "undefined"
+    "status": "pass"
   },
   "is.not.null": {
     "status": "pass"
@@ -510,9 +500,7 @@
     "status": "pass"
   },
   "list.indexer.outofrange": {
-    "status": "mismatch",
-    "net": "EXN ArgumentOutOfRange",
-    "js": "EXN Exception :: Index was outside the bounds of the array."
+    "status": "pass"
   },
   "list.getrange.reverse": {
     "status": "pass"
@@ -521,9 +509,7 @@
     "status": "pass"
   },
   "list.modify.during.foreach": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: Invalid array length"
+    "status": "pass"
   },
   "array.outofrange": {
     "status": "mismatch",
@@ -612,9 +598,7 @@
     "status": "pass"
   },
   "stack.pop.empty": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "undefined"
+    "status": "pass"
   },
   "sorteddictionary": {
     "status": "unsupported",
@@ -694,9 +678,7 @@
     "status": "pass"
   },
   "linq.first.empty": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: The input sequence has an insufficient number of elements."
+    "status": "pass"
   },
   "linq.firstordefault": {
     "status": "unsupported",
@@ -716,9 +698,7 @@
     "status": "pass"
   },
   "linq.average.empty": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: The input sequence was empty."
+    "status": "pass"
   },
   "linq.sum.overflow": {
     "status": "mismatch",
@@ -739,9 +719,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "linq.except.intersect": {
-    "status": "mismatch",
-    "net": "[1,3][2,3]",
-    "js": "[1,3][3,2]"
+    "status": "pass"
   },
   "linq.zip": {
     "status": "unsupported",
@@ -788,9 +766,7 @@
     "status": "pass"
   },
   "linq.cast.oftype": {
-    "status": "mismatch",
-    "net": "[1,2][a,b]",
-    "js": "[1,a,2,][a,b]"
+    "status": "pass"
   },
   "linq.cast.invalid": {
     "status": "mismatch",
@@ -812,9 +788,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "linq.range.negative": {
-    "status": "mismatch",
-    "net": "EXN ArgumentOutOfRange",
-    "js": "EXN Exception :: The input must be non-negative."
+    "status": "pass"
   },
   "linq.index": {
     "status": "pass"
@@ -1071,9 +1045,7 @@
     "status": "pass"
   },
   "nullable.value.null": {
-    "status": "mismatch",
-    "net": "EXN InvalidOperation",
-    "js": "EXN Exception :: Nullable object must have a value."
+    "status": "pass"
   },
   "convert.tostring.bool": {
     "status": "pass"

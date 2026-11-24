@@ -162,6 +162,14 @@ type private LinqMacro() =
             let m = { c.Method with Entity = Hashed m' }
             AST.Call(c.This, c.DefiningType, c.Method, c.Arguments @ [ec]))
 
+/// LINQ's empty-sequence errors are InvalidOperationException in .NET
+[<JavaScript>]
+module internal LinqErrors =
+    let noElements () = raise (InvalidOperationException "Sequence contains no elements")
+    let nonEmpty (s: seq<'T>) : 'T[] =
+        let a = Array.ofSeq s
+        if a.Length = 0 then noElements () else a
+
 [<Name "WebSharper.Linq">]
 [<Proxy(typeof<System.Linq.Enumerable>)>]
 [<JavaScript>]
@@ -239,15 +247,15 @@ type private LinqProxy =
 
     [<Inline>]
     static member Average(this: seq<float>) : float =
-        Seq.average this
+        Seq.average (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Average(this: seq<int64>) : float =
-        Seq.average (Seq.cast<float> this)
+        Seq.average (LinqErrors.nonEmpty (Seq.cast<float> this))
 
     [<Inline>]
     static member Average(this: seq<int>) : float =
-        Seq.average (Seq.cast<float> this)
+        Seq.average (LinqErrors.nonEmpty (Seq.cast<float> this))
 
     [<Inline>]
     static member Average<'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<float> =
@@ -357,9 +365,9 @@ type private LinqProxy =
         for x in second do tbl.Remove(x) |> ignore
         tbl :> _
 
-    [<Inline>]
     static member First<'T>(this: seq<'T>) : 'T =
-        Seq.head this
+        use e = this.GetEnumerator()
+        if e.MoveNext() then e.Current else LinqErrors.noElements ()
 
     [<Inline>]
     static member First<'T>(this: seq<'T>, predicate: Func<'T, bool>) : 'T =
@@ -472,11 +480,11 @@ type private LinqProxy =
         LinqProxy.Intersect(this, second, EqualityComparer.Default)
 
     static member Intersect<'T>(this: seq<'T>, second: seq<'T>, comparer: IEqualityComparer<'T>) : seq<'T> =
-        let t1 = HashSet(this, comparer)
+        // in the order of the first sequence, like .NET
         seq {
-            let t2 = HashSet(comparer)
-            for x in second do
-                if t1.Contains(x) && t2.Add(x) then
+            let t2 = HashSet(second, comparer)
+            for x in this do
+                if t2.Remove(x) then
                     yield x
         }
 
@@ -509,9 +517,9 @@ type private LinqProxy =
             |] :> _
         )
 
-    [<Inline>]
     static member Last<'T>(this: seq<'T>) : 'T =
-        Seq.last this
+        let a = LinqErrors.nonEmpty this
+        a.[a.Length - 1]
 
     static member LastPred(this: seq<'T>, predicate: Func<'T, bool>) : option<'T> =
         (None, this)
@@ -551,7 +559,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Max(this: seq<float>) : float =
-        Seq.max this
+        Seq.max (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Max(this: seq<Nullable<int64>>) : Nullable<int64> =
@@ -559,7 +567,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Max(this: seq<int64>) : int64 =
-        Seq.max this
+        Seq.max (LinqErrors.nonEmpty this)
 
     static member Max(this: seq<Nullable<float>>) : Nullable<float> =
         let s = this |> Seq.choose (fun x -> if x.HasValue then Some x.Value else None)
@@ -567,11 +575,11 @@ type private LinqProxy =
 
     [<Inline>]
     static member Max(this: seq<int>) : int =
-        Seq.max this
+        Seq.max (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Max<'T when 'T : comparison>(this: seq<'T>) : 'T =
-        Seq.max this
+        Seq.max (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Max<'T>(this: seq<'T>, selector: Func<'T, int64>) : int64 =
@@ -607,7 +615,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Min(this: seq<float>) : float =
-        Seq.min this
+        Seq.min (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Min(this: seq<Nullable<int64>>) : Nullable<int64> =
@@ -615,7 +623,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Min(this: seq<int64>) : int64 =
-        Seq.min this
+        Seq.min (LinqErrors.nonEmpty this)
 
     static member Min(this: seq<Nullable<float>>) : Nullable<float> =
         let s = this |> Seq.choose (fun x -> if x.HasValue then Some x.Value else None)
@@ -623,11 +631,11 @@ type private LinqProxy =
 
     [<Inline>]
     static member Min(this: seq<int>) : int =
-        Seq.min this
+        Seq.min (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Min<'T when 'T : comparison>(this: seq<'T>) : 'T =
-        Seq.min this
+        Seq.min (LinqErrors.nonEmpty this)
 
     [<Inline>]
     static member Min<'T>(this: seq<'T>, selector: Func<'T, int64>) : int64 =
@@ -659,7 +667,8 @@ type private LinqProxy =
 
     [<Inline>]
     static member OfType<'T>(this: IEnumerable) : seq<'T> =
-        Seq.cast<'T> this
+        // a type test on 'T: needs the type argument, resolved where OfType is inlined
+        Seq.cast<obj> this |> Seq.filter (fun x -> x :? 'T) |> Seq.cast<'T>
 
     [<Inline>]
     static member OrderBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>) : IOrderedEnumerable<'T> =
@@ -676,6 +685,7 @@ type private LinqProxy =
         OrderedEnumerable(this, ReverseComparer(comparer, keySelector)) :> _
 
     static member Range(start: int, count: int) : seq<int> =
+        if count < 0 then raise (ArgumentOutOfRangeException("count"))
         Seq.init count ((+) start)
 
     static member Repeat<'T>(element: 'T, count: int) : seq<'T> =
@@ -738,9 +748,11 @@ type private LinqProxy =
         let comparer = if isNull comparer then EqualityComparer.Default :> IEqualityComparer<'T> else comparer
         LinqProxy.SequenceEqualImpl(this, second, comparer)
 
-    [<Inline>]
     static member Single<'T>(this: seq<'T>) : 'T =
-        Seq.exactlyOne this
+        use e = this.GetEnumerator()
+        if not (e.MoveNext()) then LinqErrors.noElements () else
+        let x = e.Current
+        if e.MoveNext() then raise (InvalidOperationException "Sequence contains more than one element") else x
 
     static member Single<'T>(this: seq<'T>, predicate: Func<'T, bool>) : 'T =
         let x =

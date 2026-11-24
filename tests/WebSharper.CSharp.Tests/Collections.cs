@@ -152,5 +152,39 @@ namespace WebSharper.CSharp.Tests
             Equal(j.Length, 2);
             IsTrue(j[1] == null);
         }
+
+        static string Kind(Action f)
+        {
+            try { f(); return "none"; }
+            catch (ArgumentOutOfRangeException) { return "ArgumentOutOfRange"; }
+            catch (InvalidOperationException) { return "InvalidOperation"; }
+            catch (Exception) { return "Exception"; }
+        }
+
+        [Test("Collection and LINQ semantics from the C# conformance sweep (#1650)")]
+        public void ConformanceCollections()
+        {
+            Equal(string.Join(",", new object[] { 1, "a", 2, null }.OfType<int>().Select(x => x.ToString())), "1,2");
+            Equal(string.Join(",", new[] { 1, 2, 3 }.Intersect(new[] { 3, 2 }).Select(x => x.ToString())), "2,3");
+            Equal(Kind(() => { var l = new List<int> { 1, 2 }; foreach (var x in l) l.Add(x); }), "InvalidOperation");
+            Equal(Kind(() => { var l = new List<int> { 1 }; var _ = l[5]; }), "ArgumentOutOfRange");
+            Equal(Kind(() => new int[0].First()), "InvalidOperation");
+            Equal(Kind(() => new int[0].Last()), "InvalidOperation");
+            Equal(Kind(() => new[] { 1, 2 }.Single()), "InvalidOperation");
+            Equal(Kind(() => new int[0].Min()), "InvalidOperation");
+            Equal(Kind(() => new int[0].Average()), "InvalidOperation");
+            Equal(Kind(() => Enumerable.Range(1, -1).ToList()), "ArgumentOutOfRange");
+            Equal(Kind(() => new Stack<int>().Pop()), "InvalidOperation");
+            Equal(Kind(() => new Queue<int>().Dequeue()), "InvalidOperation");
+            Equal(Kind(() => { int? n = null; var _ = n.Value; }), "InvalidOperation");
+            Equal(Kind(() => "hello".Substring(3, 5)), "ArgumentOutOfRange");
+            Equal(Kind(() => { var r = 7 switch { 1 => "one" }; }), "InvalidOperation");
+            Equal(string.Join("|", " a , b ,c ".Split(',', StringSplitOptions.TrimEntries)), "a|b|c");
+            IsFalse(int.TryParse("12a", out var v));
+            Equal(v, 0);
+            var s = new Stack<int>(); s.Push(1); s.Push(2);
+            Equal(s.Peek(), 2);
+            Equal(s.Pop(), 2);
+        }
     }
 }

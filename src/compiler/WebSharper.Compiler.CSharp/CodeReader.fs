@@ -3992,7 +3992,13 @@ type RoslynTransformer(env: Environment) =
         let res = Id.New(mut = false)
         let sv = Id.New("$sv", mut = false)
         Let (sv, governingExpression, 
-            let unmatched = StatementExpr(Throw (Value (String "Value is unmatched.")), None) 
+            // .NET throws SwitchExpressionException, an InvalidOperationException
+            let invalidOp =
+                Ctor(
+                    NonGeneric (TypeDefinition { Assembly = "netstandard"; FullName = "System.InvalidOperationException" }),
+                    Constructor { CtorParameters = [ NonGenericType Definitions.String ] },
+                    [ Value (String "Non-exhaustive switch expression failed to match its input.") ])
+            let unmatched = StatementExpr(Throw invalidOp, None) 
             (arms, unmatched) 
             ||> List.foldBack (fun (pattern, body) rest ->
                 Conditional (pattern sv, body, rest)

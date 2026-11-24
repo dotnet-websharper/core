@@ -31,6 +31,18 @@ let Clear (stack: obj) =
     splice stack 0 (stack :?> obj []).Length
 
 [<JavaScript>]
+let Peek (stack: obj) : obj =
+    let a = As<obj[]> stack
+    if a.Length = 0 then raise (System.InvalidOperationException "Stack empty.")
+    a.[0]
+
+[<JavaScript>]
+let Pop (stack: obj) : obj =
+    let a = As<obj[]> stack
+    if a.Length = 0 then raise (System.InvalidOperationException "Stack empty.")
+    a.JS.Shift()
+
+[<JavaScript>]
 let Contains (stack: obj) (el: 'T) =
     Seq.exists ((=) el) (stack :?> 'T[])
     
@@ -63,11 +75,11 @@ type private StackProxy<'T when 'T : equality> =
     [<Inline>]
     member this.CopyTo(array: 'T [], index) = CopyTo this array index
 
-    [<Inline "$this[0]">]
-    member this.Peek() = X<'T>
+    [<Inline>]
+    member this.Peek() : 'T = As<'T> (Peek this)
 
-    [<Inline "$this.shift()">]
-    member this.Pop() = X<'T>
+    [<Inline>]
+    member this.Pop() : 'T = As<'T> (Pop this)
 
     [<Inline "$this.unshift($x)">]
     member this.Push(x: 'T) = X<unit>
