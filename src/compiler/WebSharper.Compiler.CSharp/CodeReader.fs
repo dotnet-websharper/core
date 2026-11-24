@@ -1300,7 +1300,30 @@ type RoslynTransformer(env: Environment) =
         match this.TryTransformEnumCall(x, symbol, args) with
         | Some e -> e |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars |> withExprSourcePos x.Node
         | None ->
-        if symbol.MethodKind = MethodKind.LocalFunction then
+        // IComparable<T>.CompareTo / IComparable.CompareTo: numbers, strings and dates have no CompareTo method in
+        // JavaScript, so a call through the interface (generic code, `where T : IComparable<T>`) uses the runtime
+        // comparison, which calls CompareTo on objects that have it
+        let isComparableCompareTo =
+            not symbol.IsStatic && symbol.Name = "CompareTo" && symbol.Parameters.Length = 1
+            && (let t = symbol.ContainingType in
+                not (isNull t) && t.TypeKind = TypeKind.Interface
+                && t.ContainingNamespace.ToDisplayString() = "System"
+                && (t.MetadataName = "IComparable`1" || t.MetadataName = "IComparable"))
+        if isComparableCompareTo then
+            let uncheckedCompare =
+                Method {
+                    MethodName = "Compare"
+                    Parameters = [ TypeParameter 0; TypeParameter 0 ]
+                    ReturnType = NonGenericType Definitions.Int
+                    Generics = 1
+                }
+            let uncheckedMdl =
+                TypeDefinition {
+                    FullName = "Microsoft.FSharp.Core.Operators+Unchecked"
+                    Assembly = "FSharp.Core"
+                }
+            Call(None, NonGeneric uncheckedMdl, Generic uncheckedCompare [ NonGenericType Definitions.Obj ], args)
+        elif symbol.MethodKind = MethodKind.LocalFunction then
             let f = env.GetLocalFunctionId(symbol)
             Appl(Var f, args, NonPure, Some args.Length)
         elif symbol <> eSymbol || symbol.IsStatic then

@@ -988,9 +988,7 @@
     "status": "pass"
   },
   "generic.constraint": {
-    "status": "mismatch",
-    "net": "true,false",
-    "js": "EXN Exception :: this.Value.CompareTo is not a function"
+    "status": "pass"
   },
   "generic.default": {
     "status": "mismatch",
@@ -998,9 +996,7 @@
     "js": "null|null"
   },
   "generic.method.max": {
-    "status": "mismatch",
-    "net": "9,b",
-    "js": "EXN Exception :: a.CompareTo is not a function"
+    "status": "pass"
   },
   "generic.tostring": {
     "status": "unsupported",
