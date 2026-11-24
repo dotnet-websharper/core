@@ -95,11 +95,7 @@ namespace Conformance
             C("null.conditional", () => { Counter c = null; int? v = c?.Value; string s = null; return $"{v?.ToString() ?? "none"},{s?.Length ?? -1}"; }),
             C("null.coalescing.assign", () => { List<int> l = null; l ??= new List<int>(); l.Add(1); string s = null; s ??= "d"; return $"{l.Count},{s}"; }),
             C("conditional.chain", () => { int x = 5; return x > 3 ? x > 4 ? "big" : "mid" : "small"; }),
-#if !JS
             C("goto.labels", () => { int i = 0; again: i++; if (i < 3) goto again; return $"{i}"; }),
-#else
-            C("goto.labels", () => "WS-COMPILE-ERROR"),
-#endif
             C("while.dowhile.continue", () => { var r = ""; int i = 0; do { i++; if (i == 2) continue; r += i; } while (i < 4); while (i > 0) { i--; if (i == 1) break; } return r + i; }),
             C("lazy", () => { var n = 0; var l = new Lazy<int>(() => ++n); var a = l.Value; var b = l.Value; return $"{a},{b},{n},{B(l.IsValueCreated)}"; }),
             C("default.literal", () => { int i = default; string s = default; return $"{i},{s ?? "null"}"; }),

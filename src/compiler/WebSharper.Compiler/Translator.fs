@@ -2400,6 +2400,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 TypeCheck(trExpr, typ)
             else 
                 this.Error("Using a type test on a type parameter requires the Inline attribute.")
-        | ArrayType _ -> this.Error("Type tests do not support generic array type, check against System.Array.")
+        | ArrayType (elemTyp, _) ->
+            // the element type is erased: any array matches
+            match elemTyp with
+            | ConcreteType { Entity = e } when e = Definitions.Obj -> ()
+            | _ -> this.Warning("Type test on an array type only checks for an array in JavaScript, the element type is not checked.")
+            Appl(Global [ "Array"; "isArray" ], [ trExpr ], Pure, Some 1)
         | FSharpFuncType _ -> this.Error("Type tests do not support F# function type, check against WebSharper.JavaScript.Function.")   
         | _ ->  this.Error("Failed to compile a type check.")

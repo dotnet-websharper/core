@@ -1371,6 +1371,20 @@ type RoslynTransformer(env: Environment) =
             let labels = Continuation.CollectLabels.Collect b
             Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b)
 
+    /// Body of a lambda or local function: async bodies become native async functions or state machines,
+    /// backward gotos are eliminated like in methods (forward ones become labeled breaks)
+    member this.FunctionBody (symbol: IMethodSymbol, body: Statement) =
+        if symbol.IsAsync then this.AsyncBody(symbol, body) else
+        let hasYield =
+            let mutable found = false
+            { new Visitor() with override this.VisitYield _ = found <- true }.VisitStatement body
+            found
+        if hasYield then body else
+        let b = body |> Scoping.forwardGotosToBreaks
+        if Continuation.HasGotos.Check b then
+            b |> Scoping.fix |> Continuation.eliminateGotos
+        else b
+
     /// Copies a value of a mutable struct type: a shallow clone, and copies of the nested mutable
     /// struct values in fields that can be changed in place (explicit fields that are not readonly)
     member this.CopyStruct (t: ITypeSymbol, e: Expression) : Expression =
@@ -1717,8 +1731,7 @@ type RoslynTransformer(env: Environment) =
             | Some b -> Return b
             | _ -> body.Value
         let b = this.WithTupleParameterCopies(symbol.Parameters, b)
-        let b =
-            if symbol.IsAsync then this.AsyncBody(symbol, b) else b
+        let b = this.FunctionBody(symbol, b)
  
         // TODO : optional?
         // TODO : generics?
@@ -1835,6 +1848,9 @@ type RoslynTransformer(env: Environment) =
             | Some i -> i |> this.TransformEqualsValueClause |> fun e -> this.CopyIntoMutatedTuple(symbol, i.Value.Node, e)
             | _ ->  
             match ftyp with
+            // a field of a type parameter type has no known default without the type argument: null, it is
+            // usually set by a constructor (`default(T)` in code still needs [Inline])
+            | Some t when t.TypeKind = TypeKind.TypeParameter -> Value Null
             | Some t -> DefaultValueOf (sr.ReadType t)
             | _ ->
             match symbol with
@@ -3120,7 +3136,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> block
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
+        Function(ids, None, ret, this.FunctionBody(symbol, body))
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -3134,7 +3150,7 @@ type RoslynTransformer(env: Environment) =
             | _ -> block.Value
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         let ret = Some (sr.ReadType symbol.ReturnType)
-        Function([id], None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
+        Function([id], None, ret, this.FunctionBody(symbol, body))
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -3153,7 +3169,7 @@ type RoslynTransformer(env: Environment) =
             | Some b -> Return b
             | _ -> block.Value
         let ret = Some (sr.ReadType symbol.ReturnType)
-        Function(ids, None, ret, if symbol.IsAsync then this.AsyncBody(symbol, body) else body)
+        Function(ids, None, ret, this.FunctionBody(symbol, body))
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with
@@ -3557,7 +3573,7 @@ type RoslynTransformer(env: Environment) =
         fun v -> 
             let c = Id.New("$c", mut = false)
             Let (c, 
-                TypeCheck(Var v, typ), 
+                TypeCheck(Var v, typ) |> withExprSourcePos x.Node, 
                 Conditional(
                     Var c, 
                     Sequential [ this.PatternSet(designation, Var v, Some rTyp); Value (Bool true) ],
@@ -3616,7 +3632,7 @@ type RoslynTransformer(env: Environment) =
         fun v ->
             let condition =
                 match typ with
-                | Some typ -> TypeCheck(Var v, typ)
+                | Some typ -> TypeCheck(Var v, typ) |> withExprSourcePos x.Node
                 | None -> Var v ^!= Value Null
             let matches =
                 [ positionalPatternClause; propertyPatternClause ] |> List.choose id
@@ -3720,7 +3736,7 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformTypePattern (x: TypePatternData) : _ =
         let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
-        fun v -> TypeCheck (Var v, typ)
+        fun v -> TypeCheck (Var v, typ) |> withExprSourcePos x.Node
 
     member this.TransformBinaryPattern (x: BinaryPatternData) : _ =
         let left = x.Left |> this.TransformPattern
@@ -3741,7 +3757,8 @@ type RoslynTransformer(env: Environment) =
         let typ = env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
         
         let getItem =
-            if typ.TypeKind = TypeKind.Array then
+            // arrays, and strings (their indexer is Chars, not Item)
+            if typ.TypeKind = TypeKind.Array || typ.SpecialType = SpecialType.System_String then
                 fun v i ->
                     ItemGet(Var v, i, Pure)
             else
@@ -3768,19 +3785,32 @@ type RoslynTransformer(env: Environment) =
                 let l = Id.New("_l", mut = false)
                 Let (l, Call(None, NonGeneric Definitions.SeqModule, NonGeneric Definitions.SeqLength, [ Var v ]),
                     List.reduce (^&&) [
-                        Var l ^>= (Value (Int (length - 1)))
+                        yield Var l ^>= (Value (Int (length - 1)))
                         for i, p in Seq.indexed patterns do
                             let e = Id.New(mut = false)
                             if i < sliceIdx then
-                                Let (e, getItem v (Value (Int i)), p e)
+                                yield Let (e, getItem v (Value (Int i)), p e)
                             elif i > sliceIdx then
-                                Let (e, getItem v (Var l ^- (Value (Int (length - i)))), p e)
+                                yield Let (e, getItem v (Var l ^- (Value (Int (length - i)))), p e)
+                            else
+                                // `.. pattern`: the sub-pattern on the elements between the fixed ones
+                                match x.Patterns |> Seq.item sliceIdx with
+                                | PatternData.SlicePattern sp when sp.Pattern.IsSome ->
+                                    if not (typ.TypeKind = TypeKind.Array || typ.SpecialType = SpecialType.System_String) then
+                                        err sp.Node "A slice pattern with a sub-pattern is only supported on arrays and strings in JavaScript translation"
+                                    let slice =
+                                        Appl(ItemGet(Var v, Value (String "slice"), Pure),
+                                            [ Value (Int sliceIdx); Var l ^- Value (Int (length - 1 - sliceIdx)) ], Pure, None)
+                                    yield Let (e, slice, p e)
+                                | _ -> ()
                     ]
                 )
 
     member this.TransformSlicePattern (x: SlicePatternData) : _ =
-        let pattern = x.Pattern |> Option.map this.TransformPattern
-        fun v -> Expression.Undefined
+        // `..` matches any elements; a `.. pattern` sub-pattern is applied by TransformListPattern
+        match x.Pattern with
+        | Some p -> this.TransformPattern p
+        | None -> fun _ -> Value (Bool true)
 
     member this.TransformPatternOnValue (x: PatternData) (next: Id -> Expression) : Id -> Expression =
         match x with
@@ -3814,7 +3844,7 @@ type RoslynTransformer(env: Environment) =
                 | PatternData.ConstantPattern _
                 | PatternData.RelationalPattern _ when not isNullPattern ->
                     let typ = sr.ReadType operation.NarrowedType
-                    fun value -> TypeCheck(Var value, typ) ^&& pattern value
+                    fun value -> (TypeCheck(Var value, typ) |> withExprSourcePos x.Node) ^&& pattern value
                 | _ -> pattern
             fun v ->
                 let value = Id.New(mut = false)

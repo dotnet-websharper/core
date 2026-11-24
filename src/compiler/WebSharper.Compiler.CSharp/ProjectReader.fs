@@ -533,6 +533,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 match data.Initializer with
                                 | Some i ->
                                     i |> (cs initThisVar model).TransformEqualsValueClause
+                                | None when p.Type.TypeKind = TypeKind.TypeParameter ->
+                                    // like a field of a type parameter type, see TransformVariableDeclarator
+                                    Value Null
                                 | None -> 
                                     DefaultValueOf (sr.ReadType p.Type)
                             if p.IsStatic then

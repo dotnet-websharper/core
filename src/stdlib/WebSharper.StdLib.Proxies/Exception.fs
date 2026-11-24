@@ -58,6 +58,34 @@ type private IndexOutOfRangeExceptionProxy(message: string) =
 
     new () = IndexOutOfRangeExceptionProxy "Index was outside the bounds of the array."
 
+[<Proxy(typeof<System.DivideByZeroException>)>]
+[<Name "DivideByZeroException">]
+type private DivideByZeroExceptionProxy(message: string) =
+    inherit exn(message)
+
+    new () = DivideByZeroExceptionProxy "Attempted to divide by zero."
+
+[<Proxy(typeof<System.NullReferenceException>)>]
+[<Name "NullReferenceException">]
+type private NullReferenceExceptionProxy(message: string) =
+    inherit exn(message)
+
+    new () = NullReferenceExceptionProxy "Object reference not set to an instance of an object."
+
+[<Proxy(typeof<System.NotSupportedException>)>]
+[<Name "NotSupportedException">]
+type private NotSupportedExceptionProxy(message: string) =
+    inherit exn(message)
+
+    new () = NotSupportedExceptionProxy "Specified method is not supported."
+
+[<Proxy(typeof<System.NotImplementedException>)>]
+[<Name "NotImplementedException">]
+type private NotImplementedExceptionProxy(message: string) =
+    inherit exn(message)
+
+    new () = NotImplementedExceptionProxy "The method or operation is not implemented."
+
 [<Proxy(typeof<System.InvalidCastException>)>]
 [<Name "InvalidCastException">]
 type private InvalidCastExceptionProxy(message: string) =
