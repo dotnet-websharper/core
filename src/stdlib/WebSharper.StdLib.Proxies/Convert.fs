@@ -76,7 +76,8 @@ type internal SystemConvertProxy =
     [<Inline>] static member ToInt32(b: byte) : int =  b |> int
     [<Inline>] static member ToInt32(c: char) = int c
     [<Inline>] static member ToInt32(dt: DateTime) : int = raise <| System.InvalidCastException()
-    [<Inline>] static member ToInt32(d: double) = d |> int
+    // rounds to the nearest integer, halfway values to even, like .NET
+    [<Inline>] static member ToInt32(d: double) = System.Math.Round d |> int
     [<Inline>] static member ToInt32(i: int16) = i |> int
     [<Inline>] static member ToInt32(i: int32) = i |> int
     [<Inline>] static member ToInt32(i: int64) = i |> int

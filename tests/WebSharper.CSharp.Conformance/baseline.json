@@ -1,13 +1,9 @@
 {
   "int.overflow.wraps": {
-    "status": "mismatch",
-    "net": "-2147483648",
-    "js": "2147483648"
+    "status": "pass"
   },
   "int.multiply.wraps": {
-    "status": "mismatch",
-    "net": "-2",
-    "js": "4294967294"
+    "status": "pass"
   },
   "int.division.truncates": {
     "status": "pass"
@@ -16,24 +12,16 @@
     "status": "pass"
   },
   "int.divide.by.zero": {
-    "status": "mismatch",
-    "net": "EXN DivideByZero",
-    "js": "0"
+    "status": "pass"
   },
   "int.checked.overflow": {
-    "status": "unsupported",
-    "net": "EXN Overflow",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "uint.wraps": {
-    "status": "mismatch",
-    "net": "4294967295",
-    "js": "-1"
+    "status": "pass"
   },
   "byte.wraps": {
-    "status": "mismatch",
-    "net": "0",
-    "js": "256"
+    "status": "pass"
   },
   "short.cast.truncates": {
     "status": "pass"
@@ -42,9 +30,7 @@
     "status": "pass"
   },
   "long.overflow.wraps": {
-    "status": "mismatch",
-    "net": "-9223372036854775808",
-    "js": "9223372036854775808"
+    "status": "pass"
   },
   "long.multiply": {
     "status": "pass"
@@ -59,9 +45,7 @@
     "status": "pass"
   },
   "math.round.bankers": {
-    "status": "mismatch",
-    "net": "2,4,-2",
-    "js": "3,4,-2"
+    "status": "pass"
   },
   "math.round.digits": {
     "status": "unsupported",
@@ -69,9 +53,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "math.round.awayfromzero": {
-    "status": "unsupported",
-    "net": "3",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "math.floor.ceiling": {
     "status": "pass"
@@ -139,9 +121,7 @@
     "js": "false,"
   },
   "convert.toint32.rounds": {
-    "status": "mismatch",
-    "net": "2,4",
-    "js": "2,3"
+    "status": "pass"
   },
   "int.tostring.negative.zero": {
     "status": "mismatch",
@@ -174,9 +154,7 @@
     "status": "pass"
   },
   "int.minvalue.negate": {
-    "status": "mismatch",
-    "net": "-2147483648",
-    "js": "2147483648"
+    "status": "pass"
   },
   "double.equality.nan": {
     "status": "pass"
@@ -964,9 +942,7 @@
     "status": "pass"
   },
   "checked.unchecked.block": {
-    "status": "mismatch",
-    "net": "-2147483648",
-    "js": "2147483648"
+    "status": "pass"
   },
   "discard.assign": {
     "status": "pass"

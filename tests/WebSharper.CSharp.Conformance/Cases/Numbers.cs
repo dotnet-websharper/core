@@ -39,11 +39,7 @@ namespace Conformance
             C("int.division.truncates", () => $"{-7 / 2},{7 / -2}"),
             C("int.remainder.sign", () => $"{-7 % 3},{7 % -3}"),
             C("int.divide.by.zero", () => $"{1 / Zero()}"),
-#if !JS
             C("int.checked.overflow", () => $"{checked(Big() + 1)}"),
-#else
-            C("int.checked.overflow", () => "WS-COMPILE-ERROR"),
-#endif
             C("uint.wraps", () => { uint u = 0; u--; return $"{u}"; }),
             C("byte.wraps", () => { byte b = 255; b++; return $"{b}"; }),
             C("short.cast.truncates", () => $"{unchecked((short)70000)}"),
@@ -59,11 +55,7 @@ namespace Conformance
 #else
             C("math.round.digits", () => "WS-COMPILE-ERROR"),
 #endif
-#if !JS
             C("math.round.awayfromzero", () => $"{Math.Round(2.5, MidpointRounding.AwayFromZero)}"),
-#else
-            C("math.round.awayfromzero", () => "WS-COMPILE-ERROR"),
-#endif
             C("math.floor.ceiling", () => $"{Math.Floor(-1.5)},{Math.Ceiling(-1.5)},{Math.Truncate(-1.5)}"),
 #if !JS
             C("math.clamp.sign", () => $"{Math.Clamp(15, 0, 10)},{Math.Sign(-3.2)},{Math.Abs(-4)}"),

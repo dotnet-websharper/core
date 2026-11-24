@@ -187,6 +187,31 @@ let numericTypes =
         "System.Double" 
     ]
 
+/// C# integer arithmetic is unchecked by default: an overflowing result wraps around to the type's size
+/// (int.MaxValue + 1 == int.MinValue). JavaScript numbers don't, so results are cut to the type here.
+let wrapIntegral (t: ITypeSymbol) (e: Expression) =
+    if isNull t then e else
+    let i n = Value (Int n)
+    match t.SpecialType with
+    | SpecialType.System_Int32 -> e ^| i 0
+    | SpecialType.System_UInt32 -> e ^>>> i 0
+    | SpecialType.System_Int16 -> (e ^<< i 16) ^>> i 16
+    | SpecialType.System_UInt16 -> e ^& i 65535
+    | SpecialType.System_SByte -> (e ^<< i 24) ^>> i 24
+    | SpecialType.System_Byte -> e ^& i 255
+    | SpecialType.System_Int64 -> Appl(Global [ "BigInt"; "asIntN" ], [ i 64; e ], Pure, Some 2)
+    | SpecialType.System_UInt64 -> Appl(Global [ "BigInt"; "asUintN" ], [ i 64; e ], Pure, Some 2)
+    | _ -> e
+
+/// Whether `x++`/`x--` on the type needs the wrapping above: int and long keep JavaScript's ++/--,
+/// overflowing them by one step is not practical
+let incrNeedsWrap (t: ITypeSymbol) =
+    not (isNull t) &&
+    match t.SpecialType with
+    | SpecialType.System_UInt32 | SpecialType.System_Int16 | SpecialType.System_UInt16
+    | SpecialType.System_SByte | SpecialType.System_Byte | SpecialType.System_UInt64 -> true
+    | _ -> false
+
 let incrOrDecrAutoConvertTypes =
     [|
         SpecialType.System_Byte
@@ -2134,8 +2159,20 @@ type RoslynTransformer(env: Environment) =
             let leftT = env.SemanticModel.GetTypeInfo(x.Left.Node).Type
             let leftTyp = leftT |> sr.ReadType
             let e = IgnoreExprSourcePos left
+            // integral + - * / % << need truncating, wrapping or a zero check, not JavaScript's += etc.
+            let isIntegralArith =
+                not (isNull leftT) &&
+                (match leftT.SpecialType with
+                 | SpecialType.System_SByte | SpecialType.System_Byte | SpecialType.System_Int16 | SpecialType.System_UInt16
+                 | SpecialType.System_Int32 | SpecialType.System_UInt32 | SpecialType.System_Int64 | SpecialType.System_UInt64 -> true
+                 | _ -> false) &&
+                (match x.Kind with
+                 | AssignmentExpressionKind.AddAssignmentExpression | AssignmentExpressionKind.SubtractAssignmentExpression
+                 | AssignmentExpressionKind.MultiplyAssignmentExpression | AssignmentExpressionKind.DivideAssignmentExpression
+                 | AssignmentExpressionKind.ModuloAssignmentExpression | AssignmentExpressionKind.LeftShiftAssignmentExpression -> true
+                 | _ -> false)
             let direct = 
-                if numericTypes.Contains opTyp.Entity.Value.FullName then
+                if numericTypes.Contains opTyp.Entity.Value.FullName && not isIntegralArith then
                     match leftTyp with
                     | ConcreteType ft when numericTypes.Contains ft.Entity.Value.FullName ->
                         match e with
@@ -2192,7 +2229,8 @@ type RoslynTransformer(env: Environment) =
             match opOverload with
             | Some o -> o
             | _ ->
-            let implicitConv = not isEvent && leftTyp <> operator.Entity.Value.Parameters.Head
+            // numeric promotion (byte += int uses int's +) is not a user conversion: the result is narrowed below
+            let implicitConv = not isEvent && not isIntegralArith && leftTyp <> operator.Entity.Value.Parameters.Head
             let convGet =
                 if implicitConv then
                     let convTyp, convMeth = getImplicitConversionMethod leftT symbol.Parameters[0].Type
@@ -2203,6 +2241,8 @@ type RoslynTransformer(env: Environment) =
                 if implicitConv then
                     let convTyp, convMeth = getImplicitConversionMethod symbol.ReturnType leftT
                     fun value -> Call(None, convTyp, convMeth, [value])
+                elif isIntegralArith then
+                    wrapIntegral leftT
                 else
                     id
             match IgnoreExprSourcePos left with
@@ -2297,6 +2337,14 @@ type RoslynTransformer(env: Environment) =
                     Call(None, typ, meth, [left; right])
                 else
                     Call(None, typ, meth, [left; right])
+                |> fun e ->
+                    match x.Kind with
+                    | BinaryExpressionKind.AddExpression
+                    | BinaryExpressionKind.SubtractExpression
+                    | BinaryExpressionKind.MultiplyExpression
+                    | BinaryExpressionKind.LeftShiftExpression when symbol.MethodKind = MethodKind.BuiltinOperator ->
+                        wrapIntegral (env.SemanticModel.GetTypeInfo(x.Node).Type) e
+                    | _ -> e
         |> withExprSourcePos x.Node
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =
@@ -2790,7 +2838,7 @@ type RoslynTransformer(env: Environment) =
                         MutatingUnaryOperator.``()--``
                     else
                         MutatingUnaryOperator.``--()``
-            if typ = opTyp && (numericTypes.Contains typ.Entity.Value.FullName || opT.TypeKind = TypeKind.Enum) then
+            if typ = opTyp && (numericTypes.Contains typ.Entity.Value.FullName || opT.TypeKind = TypeKind.Enum) && not (incrNeedsWrap opT) then
                 match e with
                 | Var _ 
                 | ItemGet _ 
@@ -2842,7 +2890,7 @@ type RoslynTransformer(env: Environment) =
                     (fun value -> Call(None, opTyp, setCm, [value])),
                     (fun value -> Call(None, realOpTyp, NonGeneric realOpMeth, [ value ]))
             else
-                id, id, (fun value -> Call(None, opTyp, meth, [ value ]))
+                id, id, (fun value -> Call(None, opTyp, meth, [ value ]) |> (if incrNeedsWrap opT then wrapIntegral opT else id))
         let withResultValue alwaysSaveValue right makeExpr =
             let isValueNeeded = not (node.Parent :? ExpressionStatementSyntax)
             let rv = Id.New () // right side value stored for chaining
@@ -2913,6 +2961,10 @@ type RoslynTransformer(env: Environment) =
             let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
             let meth = Generic (sr.ReadMethod symbol) ma
             Call(None, typ, meth, [ operand ])
+            |> fun e ->
+                if x.Kind = PrefixUnaryExpressionKind.UnaryMinusExpression && symbol.MethodKind = MethodKind.BuiltinOperator then
+                    wrapIntegral (env.SemanticModel.GetTypeInfo(x.Node).Type) e
+                else e
             |> withExprSourcePos x.Node
     
     member this.TransformUsingStatement (x: UsingStatementData) : _ =

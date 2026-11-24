@@ -250,5 +250,43 @@ namespace WebSharper.CSharp.Tests
             IsTrue(d + t >= d);
             IsTrue(d <= d + t);
         }
+
+        static int Big() => int.MaxValue;
+        static int Zero() => 0;
+
+        static string Throws(Action f)
+        {
+            try { f(); return "none"; }
+            catch (DivideByZeroException) { return "DivideByZero"; }
+            catch (OverflowException) { return "Overflow"; }
+        }
+
+        [Test("Integer overflow, division by zero and rounding like .NET (#1645)")]
+        public void IntegerSemantics()
+        {
+            Equal(Big() + 1, int.MinValue);
+            Equal(Big() * 2, -2);
+            int m = int.MinValue;
+            Equal(-m, int.MinValue);
+            uint u = 0; u--;
+            Equal(u, uint.MaxValue);
+            byte b = 255; b++;
+            Equal(b, (byte)0);
+            short sh = short.MaxValue; sh += 1;
+            Equal(sh, short.MinValue);
+            int x = 27; x /= 4;
+            Equal(x, 6);
+            Equal(long.MaxValue + Zero() + 1, long.MinValue);
+            Equal(Throws(() => { var r = 1 / Zero(); }), "DivideByZero");
+            Equal(Throws(() => { var r = 1 % Zero(); }), "DivideByZero");
+            Equal(Throws(() => { var r = checked(Big() + 1); }), "Overflow");
+            Equal(unchecked(Big() + 1), int.MinValue);
+            Equal(Math.Round(2.5), 2.0);
+            Equal(Math.Round(3.5), 4.0);
+            Equal(Math.Round(-2.5), -2.0);
+            Equal(Math.Round(2.5, MidpointRounding.AwayFromZero), 3.0);
+            Equal(Convert.ToInt32(2.5), 2);
+            Equal(Convert.ToInt32(3.5), 4);
+        }
     }
 }
