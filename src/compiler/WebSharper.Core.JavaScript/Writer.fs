@@ -98,7 +98,8 @@ let Precedence expression =
     | S.Application _
     | S.OptionalApplication _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
-    | S.Conditional _ -> 15
+    // binds looser than ??, like assignment: `(c ? a : b) ?? d` needs the parentheses
+    | S.Conditional _ -> 16
     | S.New _ -> 1
     | S.TemplateLiteral (Some _, _, _) -> 1
     | S.Postfix (_, op) -> PostfixOperatorPrecedence
