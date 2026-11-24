@@ -145,7 +145,7 @@
   },
   "float.precision": {
     "status": "known",
-    "reason": "`float` is a JavaScript number, so it keeps double precision instead of rounding to single.",
+    "reason": "`float` is a JavaScript number, so it keeps double precision instead of rounding to single. Use `double`, or a Float32Array from WebSharper.JavaScript when single-precision storage matters.",
     "net": "0.1|0.10000000149011612",
     "js": "0.1|0.1"
   },
@@ -235,7 +235,7 @@
   },
   "string.equality.ref": {
     "status": "known",
-    "reason": "JavaScript strings are values: two equal strings are never different references.",
+    "reason": "JavaScript strings are values: two equal strings are never different references. Compare strings with == or string.Equals.",
     "net": "true,false,true",
     "js": "true,true,true"
   },
@@ -449,7 +449,7 @@
   },
   "enum.getvalues": {
     "status": "known",
-    "reason": "Enums are erased to numbers: a boxed or generic enum value formats as its number.",
+    "reason": "Enums are erased to numbers: a boxed or generic enum value formats as its number. Call ToString on the statically typed enum value.",
     "net": "[Red,Green,Blue]",
     "js": "[0,5,6]"
   },
@@ -487,7 +487,7 @@
   },
   "array.outofrange": {
     "status": "known",
-    "reason": "Array accesses are not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException.",
+    "reason": "Array accesses are not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException. Check Length before indexing.",
     "net": "EXN IndexOutOfRange",
     "js": "undefined"
   },
@@ -524,7 +524,7 @@
   },
   "dict.insertion.order": {
     "status": "known",
-    "reason": "After a Remove, .NET reuses the freed slot for the next Add; that order is unspecified in .NET, and JavaScript keeps insertion order.",
+    "reason": "After a Remove, .NET reuses the freed slot for the next Add; that order is unspecified in .NET, and JavaScript keeps insertion order. Sort the keys, or use SortedDictionary, when order matters.",
     "net": "[b,d,c]",
     "js": "[b,c,d]"
   },
@@ -590,7 +590,7 @@
   },
   "span.sum": {
     "status": "known",
-    "reason": "Span<T> and stackalloc are not supported.",
+    "reason": "Span<T> and stackalloc are not supported. Use arrays, or JavaScript typed arrays from WebSharper.JavaScript.",
     "net": "6",
     "js": "WS-COMPILE-ERROR"
   },
@@ -601,7 +601,7 @@
   },
   "list.capacity.tostring": {
     "status": "known",
-    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name.",
+    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name. Override ToString, or use nameof.",
     "net": "System.Collections.Generic.List`1[System.Int32]",
     "js": ""
   },
@@ -813,7 +813,7 @@
   },
   "exception.null.deref": {
     "status": "known",
-    "reason": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException.",
+    "reason": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException. Check for null (or use ?.) instead of catching NullReferenceException.",
     "net": "EXN NullReference",
     "js": "EXN Exception :: Cannot read properties of null (reading 'length')"
   },
@@ -897,7 +897,7 @@
   },
   "generic.default": {
     "status": "known",
-    "reason": "Generics are erased: default(T) inside generic code is null for value types too.",
+    "reason": "Generics are erased: default(T) inside generic code is null for value types too. Pass the default value in, or constrain T to a class.",
     "net": "0|null",
     "js": "null|null"
   },
@@ -929,13 +929,13 @@
   },
   "object.tostring.default": {
     "status": "known",
-    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name.",
+    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name. Override ToString, or use nameof.",
     "net": "Conformance.Plain",
     "js": "[object Object]"
   },
   "gettype.name": {
     "status": "known",
-    "reason": "No reflection: GetType() is not available in JavaScript.",
+    "reason": "No reflection: GetType() is not available in JavaScript. Use nameof for names, pattern matching (`is`) for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
     "net": "Dog",
     "js": "WS-COMPILE-ERROR"
   },
@@ -949,7 +949,7 @@
   },
   "boxing.equality": {
     "status": "known",
-    "reason": "Values are not boxed in JavaScript: two boxed equal numbers compare equal by reference too.",
+    "reason": "Values are not boxed in JavaScript: two boxed equal numbers compare equal by reference too. Compare unboxed values instead of relying on reference identity.",
     "net": "false,true,true",
     "js": "true,true,true"
   },
@@ -970,7 +970,7 @@
   },
   "datetime.iso": {
     "status": "known",
-    "reason": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\".",
+    "reason": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\". Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp.",
     "net": "2024-07-04T09:03:00.0000000Z",
     "js": "2024-07-04T11:03:00.0000000+02:00"
   },
