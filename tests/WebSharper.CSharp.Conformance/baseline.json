@@ -507,9 +507,16 @@
     "status": "pass"
   },
   "array.2d": {
-    "status": "unsupported",
-    "net": "2,3,5,6",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "array.2d.init": {
+    "status": "pass"
+  },
+  "array.2d.defaults": {
+    "status": "pass"
+  },
+  "array.2d.declaration": {
+    "status": "pass"
   },
   "array.jagged": {
     "status": "pass"
@@ -959,8 +966,15 @@
     "js": "WS-COMPILE-ERROR"
   },
   "typeof.name": {
-    "status": "unsupported",
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof(T).Name would suggest otherwise. Use nameof(T) for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
     "net": "Dog|List`1",
+    "js": "WS-COMPILE-ERROR"
+  },
+  "typeof.fullname": {
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof(T).Name would suggest otherwise. Use nameof(T) for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "Conformance.Dog|Conformance|System.String|Dictionary`2",
     "js": "WS-COMPILE-ERROR"
   },
   "is.base.interface": {
@@ -1012,9 +1026,13 @@
     "status": "pass"
   },
   "dateonly": {
-    "status": "unsupported",
-    "net": "2024-03-01",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "dateonly.ops": {
+    "status": "pass"
+  },
+  "dateonly.tostring": {
+    "status": "pass"
   },
   "guid.parse.format": {
     "status": "pass"

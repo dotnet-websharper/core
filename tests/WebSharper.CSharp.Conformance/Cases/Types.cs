@@ -102,13 +102,12 @@ namespace Conformance
             C("object.tostring.default", () => new Plain().ToString()),
 #if !JS
             C("gettype.name", () => new Dog().GetType().Name),
+            C("typeof.name", () => typeof(Dog).Name + "|" + typeof(List<int>).Name),
+            C("typeof.fullname", () => typeof(Dog).FullName + "|" + typeof(Dog).Namespace + "|" + typeof(string).FullName + "|" + typeof(Dictionary<string, int>).Name),
 #else
             C("gettype.name", () => "WS-COMPILE-ERROR"),
-#endif
-#if !JS
-            C("typeof.name", () => typeof(Dog).Name + "|" + typeof(List<int>).Name),
-#else
             C("typeof.name", () => "WS-COMPILE-ERROR"),
+            C("typeof.fullname", () => "WS-COMPILE-ERROR"),
 #endif
             C("is.base.interface", () => { object d = new Puppy(); return B(d is Animal) + B(d is IGreeter) + B(d is Dog); }),
             C("boxing.equality", () => { object a = 1, b = 1; return B(a == b) + "," + B(a.Equals(b)) + "," + B(Equals(a, b)); }),
@@ -124,11 +123,9 @@ namespace Conformance
             C("timespan.format.standard", () => { var t = new TimeSpan(1, 2, 3, 4, 50); return t.ToString("c") + "|" + t.ToString("g") + "|" + t.ToString("G") + "|" + TimeSpan.FromMinutes(5).ToString("g"); }),
             C("timespan.format.custom", () => { var t = new TimeSpan(3, 4, 5, 6, 70); return t.ToString(@"d\.hh\:mm") + "|" + t.ToString("%d") + "|" + t.ToString(@"dd' days' h' h'") + "|" + t.ToString(@"ss\.FFF"); }),
             C("anonymous.type.nested", () => { var a = new { Name = (string)null, Flag = true, Inner = new { V = 1.5 } }; return $"{a}|{new { }}"; }),
-#if !JS
             C("dateonly", () => new DateOnly(2024, 2, 28).AddDays(2).ToString("yyyy-MM-dd")),
-#else
-            C("dateonly", () => "WS-COMPILE-ERROR"),
-#endif
+            C("dateonly.ops", () => { var d = new DateOnly(2024, 1, 31); var e = d.AddMonths(1); return $"{e.Year}-{e.Month}-{e.Day},{e.DayOfWeek},{B(d < e)},{B(new DateOnly(2024, 3, 1) == d.AddDays(30))},{d.AddYears(1):yyyy/MM/dd}"; }),
+            C("dateonly.tostring", () => $"{new DateOnly(2024, 7, 4)}|" + new DateOnly(2024, 7, 4).ToString()),
             C("guid.parse.format", () => { var g = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e"); return g.ToString() + "|" + g.ToString("N") + "|" + B(g == new Guid("0F8FAD5B-D9CB-469F-A165-70867728950E")); }),
             C("guid.empty", () => Guid.Empty.ToString()),
             C("random.seeded.range", () => { var r = new Random(1); var x = r.Next(10); return B(x >= 0 && x < 10); }),

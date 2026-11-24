@@ -411,3 +411,48 @@ type private DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: D, o: int) =
 
     [<Inline "$a.d <= $b.d">]
     static member op_LessThanOrEqual (a: DO, b: DO) = X<bool>
+
+/// System.DateOnly: like a DateTime, the milliseconds of local midnight of that day
+[<Proxy(typeof<System.DateOnly>)>]
+[<Type "number">]
+type private DateOnlyProxy =
+
+    [<Inline "new Date($y, $m - 1, $d).getTime()">]
+    new (y: int, m: int, d: int) = {}
+
+    [<Inline>]
+    static member FromDateTime(dt: D) : System.DateOnly = As (DateTimeHelpers.DatePortion(As dt))
+
+    member this.Year with [<Inline; JavaScript>] get() = (As<D> this).Year
+    member this.Month with [<Inline; JavaScript>] get() = (As<D> this).Month
+    member this.Day with [<Inline; JavaScript>] get() = (As<D> this).Day
+    member this.DayOfWeek with [<Inline; JavaScript>] get() = (As<D> this).DayOfWeek
+    member this.DayOfYear with [<Inline; JavaScript>] get() = (As<D> this).DayOfYear
+    // by calendar day, so a DST change doesn't move the time of day
+    [<Inline "(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + $days).getTime())(new Date($this))">]
+    member this.AddDays(days: int) = X<System.DateOnly>
+
+    [<Inline>]
+    member this.AddMonths(months: int) : System.DateOnly = As ((As<D> this).AddMonths months)
+
+    [<Inline>]
+    member this.AddYears(years: int) : System.DateOnly = As ((As<D> this).AddYears years)
+
+    [<Inline>]
+    override this.ToString() : string = WebSharper.Formatting.FormatDateOnly (As this)
+
+    [<Inline>]
+    member this.ToString(format: string) : string = (As<D> this).ToString(format)
+
+    [<Inline "$a == $b">]
+    static member op_Equality (a: System.DateOnly, b: System.DateOnly) = X<bool>
+    [<Inline "$a != $b">]
+    static member op_Inequality (a: System.DateOnly, b: System.DateOnly) = X<bool>
+    [<Inline "$a < $b">]
+    static member op_LessThan (a: System.DateOnly, b: System.DateOnly) = X<bool>
+    [<Inline "$a > $b">]
+    static member op_GreaterThan (a: System.DateOnly, b: System.DateOnly) = X<bool>
+    [<Inline "$a <= $b">]
+    static member op_LessThanOrEqual (a: System.DateOnly, b: System.DateOnly) = X<bool>
+    [<Inline "$a >= $b">]
+    static member op_GreaterThanOrEqual (a: System.DateOnly, b: System.DateOnly) = X<bool>

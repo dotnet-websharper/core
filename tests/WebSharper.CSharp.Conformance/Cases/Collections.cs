@@ -43,11 +43,10 @@ namespace Conformance
             C("array.default.values", () => J(new int[3]) + "|" + J(new string[2].Select(s => s ?? "null")) + "|" + J(new bool[2].Select(B))),
             C("array.sort.reverse", () => { var a = new[] { 3, 1, 2 }; Array.Sort(a); Array.Reverse(a); return J(a); }),
             C("array.resize.copy", () => { var a = new[] { 1, 2 }; Array.Resize(ref a, 4); var b = new int[4]; Array.Copy(a, b, 2); return J(a) + J(b); }),
-#if !JS
             C("array.2d", () => { var m = new int[2, 3]; m[1, 2] = 5; return $"{m.GetLength(0)},{m.GetLength(1)},{m[1, 2]},{m.Length}"; }),
-#else
-            C("array.2d", () => "WS-COMPILE-ERROR"),
-#endif
+            C("array.2d.init", () => { var m = new[,] { { 1, 2, 3 }, { 4, 5, 6 } }; m[0, 1] += 10; return $"{m.Rank},{m.GetLength(0)},{m.GetLength(1)},{m.Length},{m[0, 1]},{m[1, 2]},{m.GetUpperBound(1)}"; }),
+            C("array.2d.defaults", () => { var s = new string[2, 2]; var b = new bool[1, 2]; return $"{B(s[1, 1] == null)},{B(b[0, 1])}"; }),
+            C("array.2d.declaration", () => { int[,] m = { { 1, 2 }, { 3, 4 } }; var n = new int[2, 2] { { 5, 6 }, { 7, 8 } }; return $"{m.GetLength(1)},{m[1, 0]},{n.Length},{n[1, 1]}"; }),
             C("array.jagged", () => { var j = new int[2][]; j[0] = new[] { 1 }; j[1] = new[] { 2, 3 }; return $"{j[1][1]},{j.Sum(r => r.Length)}"; }),
             C("array.equality.ref", () => B(new[] { 1 }.Equals(new[] { 1 })) + "," + B(new[] { 1 }.SequenceEqual(new[] { 1 }))),
             C("array.fill.indexof", () => { var a = new int[3]; Array.Fill(a, 7); return $"{J(a)},{Array.IndexOf(a, 7)},{Array.IndexOf(a, 8)}"; }),
