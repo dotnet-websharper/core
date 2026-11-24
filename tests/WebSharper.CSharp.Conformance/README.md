@@ -19,14 +19,17 @@ WebSharper writes for the cases (needs `npm install` in the repository root for 
 
 ## Results
 
-Each case is `pass`, `mismatch` (compiles, but JavaScript gives a different result) or `unsupported` (rejected by
-WebSharper at compile time, fenced off, see below). `baseline.json` records the status of every case, with both outputs
+Each case is `pass`, `mismatch` (compiles, but JavaScript gives a different result), `unsupported` (rejected by
+WebSharper at compile time, fenced off, see below) or `known`: an accepted difference that follows from JavaScript
+itself (no string or boxing identity, erased generics and enums, no reflection, unchecked array bounds). `known.json`
+maps each such case to its reason; keep it short and only for differences that are not going to be fixed. `baseline.json` records the status of every case, with both outputs
 for the ones that don't pass, so a PR diff of it shows exactly which behaviour changed.
 
 `check.mjs` exits with an error when:
 
 - a case got worse than its baseline status (**regression**), or
-- a case is not in `baseline.json` (new case: run `--update`).
+- a case is not in `baseline.json` (new case: run `--update`), or
+- an entry in `known.json` passes or is not a case (remove it).
 
 Fixed cases and changed mismatch output are reported but don't fail the check; update the baseline in the same commit.
 
