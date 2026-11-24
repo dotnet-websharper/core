@@ -446,7 +446,7 @@
   "switch.type.patterns": {
     "status": "mismatch",
     "net": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|long array 7|other",
-    "js": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|other|int 1.5"
+    "js": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|long array 7|int 1.5"
   },
   "switch.property.positional": {
     "status": "pass"
@@ -461,9 +461,7 @@
     "status": "pass"
   },
   "switch.list.slice": {
-    "status": "unsupported",
-    "net": "3,short",
-    "js": "WS-COMPILE-ERROR,WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "switch.tuple": {
     "status": "pass"
@@ -951,9 +949,7 @@
     "status": "pass"
   },
   "goto.labels": {
-    "status": "unsupported",
-    "net": "3",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "while.dowhile.continue": {
     "status": "pass"
@@ -999,9 +995,7 @@
     "status": "pass"
   },
   "generic.tostring": {
-    "status": "unsupported",
-    "net": "1,null,1.5",
-    "js": "WS-COMPILE-ERROR,WS-COMPILE-ERROR,WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "ctor.chaining.order": {
     "status": "pass"

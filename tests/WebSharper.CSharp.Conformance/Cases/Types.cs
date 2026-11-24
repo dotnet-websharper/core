@@ -37,7 +37,7 @@ namespace Conformance
     [JavaScript]
     public class Box<T> where T : IComparable<T>
     {
-        public T Value = default!;
+        public T Value;
         public Box(T v) { Value = v; }
         public bool Bigger(T other) => Value.CompareTo(other) > 0;
 #if !JS
@@ -81,11 +81,7 @@ namespace Conformance
     [JavaScript]
     public static class Types
     {
-#if !JS
         static string Generic<T>(T x) => x?.ToString() ?? "null";
-#else
-        static string Generic<T>(T x) => "WS-COMPILE-ERROR";
-#endif
         static T Max<T>(T a, T b) where T : IComparable<T> => a.CompareTo(b) >= 0 ? a : b;
 
         public static List<(string, Func<string>)> Cases() => new List<(string, Func<string>)>

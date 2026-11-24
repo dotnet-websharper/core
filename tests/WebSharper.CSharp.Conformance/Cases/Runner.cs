@@ -43,21 +43,13 @@ namespace Conformance
             if (e is KeyNotFoundException) return "KeyNotFound";
             if (e is IndexOutOfRangeException) return "IndexOutOfRange";
             if (e is InvalidOperationException) return "InvalidOperation";
-#if !JS
             if (e is DivideByZeroException) return "DivideByZero";
-#endif
             if (e is OverflowException) return "Overflow";
             if (e is FormatException) return "Format";
-#if !JS
             if (e is NullReferenceException) return "NullReference";
-#endif
             if (e is InvalidCastException) return "InvalidCast";
-#if !JS
             if (e is NotSupportedException) return "NotSupported";
-#endif
-#if !JS
             if (e is NotImplementedException) return "NotImplemented";
-#endif
             return "Exception";
         }
 

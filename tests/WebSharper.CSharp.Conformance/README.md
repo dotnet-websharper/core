@@ -49,5 +49,5 @@ Fixed cases and changed mismatch output are reported but don't fail the check; u
 
   Remove the fence when the gap is fixed. A WebSharper error without a source location (`WEBSHARPERTASK : …`) has to
   be bisected, for example by building one `Cases` file at a time.
-- Exception kinds the JavaScript side can't test for yet (`DivideByZeroException`, `NullReferenceException`,
-  `NotSupportedException`, `NotImplementedException`, see #1648) are fenced in `Runner.Kind` and report as `Exception`.
+- A JavaScript runtime error (a `TypeError`, say) is not a .NET exception type, so `Runner.Kind` reports it as
+  `Exception`; the message after ` :: ` shows what was thrown.

@@ -120,5 +120,45 @@ namespace WebSharper.CSharp.Tests
                 f();
             }
         }
+
+        class GenericBox<T>
+        {
+            public T Value;
+            public T Other { get; }
+            public GenericBox(T v) { Value = v; }
+        }
+
+        [Test("Compiler errors and gaps from the C# conformance sweep (#1648)")]
+        public void ConformanceCompilerErrors()
+        {
+            // list pattern with a slice sub-pattern
+            int[] xs = [1, 2, 3, 4, 5];
+            Equal(xs is [_, .. var mid, _] ? mid.Length : -1, 3);
+            Equal("hello" is [_, .. var inner, _] ? inner : "", "ell");
+
+            // backward goto in a lambda
+            System.Func<int> loop = () => { int i = 0; again: i++; if (i < 3) goto again; return i; };
+            Equal(loop(), 3);
+
+            // uninitialized fields and get-only auto-properties of a type parameter type
+            var b = new GenericBox<int>(5);
+            Equal(b.Value, 5);
+
+            // type pattern on an array type
+            object o = new[] { 7, 8, 9 };
+            Equal(o is int[] { Length: > 2 } a ? a[0] : -1, 7);
+
+            // exception types that had no proxy
+            IsTrue(Catches(() => throw new System.DivideByZeroException()) is System.DivideByZeroException);
+            IsTrue(Catches(() => throw new System.NotSupportedException()) is System.NotSupportedException);
+            IsTrue(Catches(() => throw new System.NotImplementedException("x")) is System.NotImplementedException);
+            IsTrue(Catches(() => throw new System.NullReferenceException()) is System.NullReferenceException);
+        }
+
+        static System.Exception Catches(System.Action f)
+        {
+            try { f(); return null; }
+            catch (System.Exception e) { return e; }
+        }
     }
 }

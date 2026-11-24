@@ -43,9 +43,7 @@ namespace Conformance
             Point { X: 0, Y: 0 } => "origin",
             Point(var x, var y) when x == y => $"diagonal {x}",
             Point p => $"point {p.X}",
-#if !JS
             int[] { Length: > 2 } a => $"long array {a[0]}",
-#endif
             _ => "other",
         };
 
@@ -72,11 +70,7 @@ namespace Conformance
             [var first, .., var last] => $"many {first}..{last}",
         };
 
-#if !JS
         static string SliceLen(int[] xs) => xs is [_, .. var mid, _] ? $"{mid.Length}" : "short";
-#else
-        static string SliceLen(int[] xs) => "WS-COMPILE-ERROR";
-#endif
 
         static string Tuple(int a, bool b) => (a, b) switch
         {
