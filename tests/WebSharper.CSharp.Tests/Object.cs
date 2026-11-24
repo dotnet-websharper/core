@@ -451,6 +451,19 @@ namespace WebSharper.CSharp.Tests
             var list = new List<MutPoint> { p1 };
             p1.X = 9;
             Equal(list[0].X, 7, "collection initializer");
+
+            var q = new MutPoint(1, 1);
+            var one = new[] { q };
+            one[0].Move(1);
+            Equal(q.X, 1, "array initializer (#1647)");
+            Equal(one[0].X, 2);
+            var two = new MutPoint[] { q, q };
+            two[1].X = 5;
+            Equal(q.X, 1, "array initializer, explicit type");
+            Equal(two[0].X, 1, "array initializer elements are separate values");
+            MutPoint[] coll = [q];
+            coll[0].X = 6;
+            Equal(q.X, 1, "collection expression");
         }
 
         [JavaScript]
