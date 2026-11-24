@@ -966,10 +966,16 @@
     "js": "WS-COMPILE-ERROR"
   },
   "typeof.name": {
-    "status": "pass"
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof(T).Name would suggest otherwise. Use nameof(T) for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "Dog|List`1",
+    "js": "WS-COMPILE-ERROR"
   },
   "typeof.fullname": {
-    "status": "pass"
+    "status": "known",
+    "reason": "No reflection: System.Type is not available in JavaScript, and a partial typeof(T).Name would suggest otherwise. Use nameof(T) for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+    "net": "Conformance.Dog|Conformance|System.String|Dictionary`2",
+    "js": "WS-COMPILE-ERROR"
   },
   "is.base.interface": {
     "status": "pass"
