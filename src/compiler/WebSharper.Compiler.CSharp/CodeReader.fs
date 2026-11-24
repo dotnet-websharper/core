@@ -1254,7 +1254,45 @@ type RoslynTransformer(env: Environment) =
         let isEnum (t: ITypeSymbol) = not (isNull t) && t.TypeKind = TypeKind.Enum
         let containing = symbol.ContainingType
         let isSystemEnum = not (isNull containing) && containing.ToDisplayString() = "System.Enum"
-        if symbol.Name = "ToString" && symbol.Parameters.Length = 0 && not symbol.IsStatic then
+        let castTarget =
+            if symbol.Name = "Cast" && symbol.IsGenericMethod && not (isNull containing)
+                && containing.ToDisplayString() = "System.Linq.Enumerable" then
+                let t = symbol.TypeArguments[0]
+                match t.SpecialType with
+                | SpecialType.System_Boolean | SpecialType.System_Byte | SpecialType.System_SByte
+                | SpecialType.System_Int16 | SpecialType.System_UInt16 | SpecialType.System_Int32
+                | SpecialType.System_UInt32 | SpecialType.System_Double | SpecialType.System_String -> Some t
+                | _ when t.TypeKind = TypeKind.Class
+                         && not (match t with :? INamedTypeSymbol as nt -> nt.IsGenericType | _ -> true)
+                         && SymbolEqualityComparer.Default.Equals(t.ContainingAssembly, env.SemanticModel.Compilation.Assembly) -> Some t
+                | _ -> None
+            else None
+        match castTarget, args with
+        | Some t, [ source ] ->
+            // Enumerable.Cast<T>: each item is type-checked, InvalidCastException like .NET
+            let objT = NonGenericType Definitions.Obj
+            let x = Id.New(mut = false)
+            let test = Lambda([ x ], None, TypeCheck(Var x, sr.ReadType t))
+            let m = Method { MethodName = "CastChecked"; Parameters = [ objT; objT; NonGenericType Definitions.String ]
+                             ReturnType = objT; Generics = 0 }
+            Some (Call(None, NonGeneric (sr.ReadNamedTypeDefinition containing), NonGeneric m,
+                    [ source; test; Value (String (t.ToDisplayString())) ]))
+        | _ ->
+        if symbol.Name = "Equals" && symbol.Parameters.Length = 1 && not symbol.IsStatic
+            && not (isNull containing) && containing.SpecialType = SpecialType.System_Object then
+            // arrays don't override Equals: reference equality, like .NET
+            match env.SemanticModel.GetOperation(x.Node) with
+            | :? IInvocationOperation as op when
+                    (let rec inst (o: IOperation) =
+                        match o with
+                        | :? IConversionOperation as c -> inst c.Operand
+                        | null -> null
+                        | o -> o.Type
+                     let t = inst op.Instance
+                     not (isNull t) && t.TypeKind = TypeKind.Array) ->
+                Some (Binary(List.head args, BinaryOperator.``===``, List.item 1 args))
+            | _ -> None
+        elif symbol.Name = "ToString" && symbol.Parameters.Length = 0 && not symbol.IsStatic then
             let rec instanceType (o: IOperation) =
                 match o with
                 | :? IConversionOperation as c -> instanceType c.Operand
@@ -2339,6 +2377,23 @@ type RoslynTransformer(env: Environment) =
             | Some res -> res
             | _ ->
                 let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+                // `==` on class instances without an operator of their own is reference equality in .NET
+                // (boxed structs and delegates keep WebSharper's value equality: JavaScript doesn't box)
+                let isClass (t: ITypeSymbol) =
+                    not (isNull t) && t.TypeKind = TypeKind.Class && t.SpecialType = SpecialType.None
+                let isNullLiteral (e: ExpressionSyntax) =
+                    match e with
+                    | :? LiteralExpressionSyntax as l -> l.Kind() = SyntaxKind.NullLiteralExpression || l.Kind() = SyntaxKind.DefaultLiteralExpression
+                    | _ -> false
+                let referenceEquality =
+                    not (isNull symbol) && symbol.MethodKind = MethodKind.BuiltinOperator
+                    && not (isNull symbol.ContainingType) && symbol.ContainingType.SpecialType = SpecialType.System_Object
+                    && (isClass leftTypeSymbol || isClass rightTypeSymbol)
+                    && not (isNullLiteral x.Left.Node || isNullLiteral x.Right.Node)
+                match x.Kind with
+                | BinaryExpressionKind.EqualsExpression when referenceEquality -> Binary(left, BinaryOperator.``===``, right)
+                | BinaryExpressionKind.NotEqualsExpression when referenceEquality -> Binary(left, BinaryOperator.``!==``, right)
+                | _ ->
                 let typ, meth = getTypeAndMethod symbol
                 if List.isEmpty meth.Generics then
                     // add fake generics type information to resolve nullable operations
@@ -3399,6 +3454,31 @@ type RoslynTransformer(env: Environment) =
         if isNull symbol then 
             let fromTyp = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type |> sr.ReadType
             let toTyp = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
+            let toSymbol = env.SemanticModel.GetTypeInfo(x.Type.Node).Type
+            let conv = if isNull toSymbol then Unchecked.defaultof<_> else env.SemanticModel.ClassifyConversion(x.Expression.Node, toSymbol, true)
+            // a downcast to a class of this compilation, or unboxing to a number, bool or string:
+            // checked like .NET, InvalidCastException when the value has another type
+            let checkedCast =
+                not (isNull toSymbol) && conv.Exists && conv.IsExplicit &&
+                (   (conv.IsReference && toSymbol.TypeKind = TypeKind.Class
+                     && not (match toSymbol with :? INamedTypeSymbol as nt -> nt.IsGenericType | _ -> true)
+                     && SymbolEqualityComparer.Default.Equals(toSymbol.ContainingAssembly, env.SemanticModel.Compilation.Assembly))
+                 || (conv.IsUnboxing &&
+                        match toSymbol.SpecialType with
+                        | SpecialType.System_Boolean | SpecialType.System_Byte | SpecialType.System_SByte
+                        | SpecialType.System_Int16 | SpecialType.System_UInt16 | SpecialType.System_Int32
+                        | SpecialType.System_UInt32 | SpecialType.System_Double -> true
+                        | _ -> false))
+            if checkedCast then
+                let v = Id.New(mut = false)
+                let invalidCast =
+                    Ctor(
+                        NonGeneric (TypeDefinition { Assembly = "netstandard"; FullName = "System.InvalidCastException" }),
+                        Constructor { CtorParameters = [ NonGenericType Definitions.String ] },
+                        [ Value (String ("Unable to cast object to type '" + toSymbol.ToDisplayString() + "'.")) ])
+                Let(v, expression,
+                    Conditional((Var v ^== Value Null) ^|| TypeCheck(Var v, toTyp), Var v, StatementExpr(Throw invalidCast, None)))
+            else
             match fromTyp, toTyp with
             | ConcreteType { Generics = []; Entity = ft }, ConcreteType { Generics = []; Entity = tt } ->
                 NumericConversion ft tt expression

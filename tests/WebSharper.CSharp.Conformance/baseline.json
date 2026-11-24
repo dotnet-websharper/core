@@ -387,9 +387,7 @@
     "status": "pass"
   },
   "switch.type.patterns": {
-    "status": "mismatch",
-    "net": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|long array 7|other",
-    "js": "null|negative int|int 3|empty string|string x|origin|diagonal 2|point 1|long array 7|int 1.5"
+    "status": "pass"
   },
   "switch.property.positional": {
     "status": "pass"
@@ -422,9 +420,19 @@
     "status": "pass"
   },
   "cast.invalid": {
-    "status": "mismatch",
-    "net": "EXN InvalidCast",
-    "js": "x"
+    "status": "pass"
+  },
+  "cast.valid": {
+    "status": "pass"
+  },
+  "unbox.invalid": {
+    "status": "pass"
+  },
+  "unbox.valid": {
+    "status": "pass"
+  },
+  "reference.equality.class": {
+    "status": "pass"
   },
   "switch.statement.goto": {
     "status": "pass"
@@ -509,9 +517,7 @@
     "status": "pass"
   },
   "array.equality.ref": {
-    "status": "mismatch",
-    "net": "false,true",
-    "js": "true,true"
+    "status": "pass"
   },
   "array.fill.indexof": {
     "status": "pass"
@@ -671,9 +677,7 @@
     "status": "pass"
   },
   "linq.sum.overflow": {
-    "status": "mismatch",
-    "net": "EXN Overflow",
-    "js": "2147483648"
+    "status": "pass"
   },
   "linq.min.max": {
     "status": "pass"
@@ -729,9 +733,16 @@
     "status": "pass"
   },
   "linq.cast.invalid": {
-    "status": "mismatch",
-    "net": "EXN InvalidCast",
-    "js": "[1,a]"
+    "status": "pass"
+  },
+  "linq.cast.valid": {
+    "status": "pass"
+  },
+  "linq.sum.selector.overflow": {
+    "status": "pass"
+  },
+  "linq.sum.long": {
+    "status": "pass"
   },
   "linq.deferred": {
     "status": "pass"
@@ -917,9 +928,7 @@
     "status": "pass"
   },
   "override.equals": {
-    "status": "mismatch",
-    "net": "true,false,1",
-    "js": "true,true,1"
+    "status": "pass"
   },
   "override.equals.dictionary": {
     "status": "pass"

@@ -285,6 +285,14 @@ type private LinqProxy =
     static member Cast<'T>(this: IEnumerable) : seq<'T> =
         Seq.cast this
 
+    /// Enumerable.Cast<T> for a T the C# compiler can test (numbers, bool, string, classes), see CodeReader:
+    /// each item is checked when enumerated, null passes, and a value of another type throws InvalidCastException
+    static member CastChecked(source: obj, test: obj, typeName: string) : obj =
+        let test = As<obj -> bool> test
+        box (Seq.cast<obj> (As<IEnumerable> source) |> Seq.map (fun x ->
+            if x ==. null || test x then x
+            else raise (System.InvalidCastException("Unable to cast object to type '" + typeName + "'."))))
+
     [<Inline>]
     static member Concat<'T>(this: seq<'T>, second: seq<'T>) : seq<'T> =
         Seq.append this second
@@ -824,9 +832,12 @@ type private LinqProxy =
                 while e.MoveNext() do yield e.Current
         }
 
-    [<Inline>]
+    /// checked like .NET: OverflowException when the sum leaves the Int64 range
     static member Sum(this: seq<int64>) : int64 =
-        Seq.sum this
+        let s = Seq.sum this
+        if JS.Inline("$0 > 9223372036854775807n || $0 < -9223372036854775808n", s) then
+            raise (System.OverflowException("Arithmetic operation resulted in an overflow."))
+        s
 
     [<Inline>]
     static member Sum(this: seq<Nullable<int64>>) : Nullable<int64> =
@@ -844,9 +855,12 @@ type private LinqProxy =
     static member Sum(this: seq<Nullable<int>>) : Nullable<int> =
         As(LinqProxy.Sum(Seq.cast<Nullable<float>> this))
 
-    [<Inline>]
+    /// checked like .NET: OverflowException when the sum leaves the Int32 range
     static member Sum(this: seq<int>) : int =
-        Seq.sum this
+        let s = Seq.fold (fun (acc: float) (x: int) -> acc + float x) 0.0 this
+        if s > 2147483647.0 || s < -2147483648.0 then
+            raise (System.OverflowException("Arithmetic operation resulted in an overflow."))
+        As<int> s
 
     [<Inline>]
     static member Sum<'T>(this: seq<'T>, selector: Func<'T, int64>) : int64 =

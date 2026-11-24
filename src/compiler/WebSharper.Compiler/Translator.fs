@@ -436,6 +436,7 @@ let private wsEnumerableStringCtor =
 
 type TypeCheckKind =
     | TypeOf of string
+    | IsInteger
     | InstanceOf of Address
     | IsNull
     | PlainObject of bool
@@ -450,6 +451,9 @@ let rec tryGetTypeCheck expr kind =
             BinaryOperator.``==``,
             Value (String t)
         ) |> Some
+    | IsInteger ->
+        // integral types: a non-integer number (1.5) is a double, not an int
+        Appl(ItemGet(Global [ "Number" ], Value (String "isInteger"), Pure), [ expr ], Pure, Some 1) |> Some
     | InstanceOf a ->
         Binary(expr, BinaryOperator.instanceof, GlobalAccess a) |> Some
     | IsNull ->
@@ -1727,7 +1731,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         )
                     let prevCasesTranslating =
                         prevCases |> List.forall (function 
-                            | TypeOf _ | InstanceOf _ -> true 
+                            | TypeOf _ | IsInteger | InstanceOf _ -> true 
                             | IsNull -> not hasNull  
                             | _ -> false
                         )
@@ -2227,16 +2231,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "System.Boolean" ->
                 TypeOf "boolean"
             | "WebSharper.JavaScript.Number"
-            | "System.Byte"
-            | "System.SByte"
             | "System.Char"
             | "System.Single"
-            | "System.Double"
+            | "System.Double" ->
+                TypeOf "number"
+            | "System.Byte"
+            | "System.SByte"
             | "System.Int16"
             | "System.Int32"
             | "System.UInt16"
             | "System.UInt32" ->
-                TypeOf "number"
+                IsInteger
             | "System.Numerics.BigInteger"
             | "System.Int64"
             | "System.UInt64" ->
