@@ -39,6 +39,7 @@ websharper.log
 /tests/WebSharper.SPA.Tests/wwwroot/Scripts
 /tests/Web/build
 /tests/WebSharper.CSharp.Conformance/Js/build
+/tests/WebSharper.FSharp.Conformance/Js/build
 /tests/Web.FSharp/.websharper
 /build-output.txt
 .codex/config.toml

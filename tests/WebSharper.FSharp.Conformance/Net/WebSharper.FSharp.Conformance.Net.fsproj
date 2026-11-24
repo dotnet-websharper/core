@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The .NET side of the F# conformance harness: the same cases as ../Js, run as a plain .NET console app. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Tests>True</Tests>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Signed>False</Signed>
+    <IncludeWebSharperVersionFile>False</IncludeWebSharperVersionFile>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Cases\H.fs" />
+    <Compile Include="..\Cases\Numbers.fs" />
+    <Compile Include="..\Cases\Strings.fs" />
+    <Compile Include="..\Cases\Collections.fs" />
+    <Compile Include="..\Cases\Maps.fs" />
+    <Compile Include="..\Cases\Records.fs" />
+    <Compile Include="..\Cases\Patterns.fs" />
+    <Compile Include="..\Cases\Language.fs" />
+    <Compile Include="..\Cases\Dates.fs" />
+    <Compile Include="..\Cases\Runner.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>

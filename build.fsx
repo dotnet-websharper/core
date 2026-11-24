@@ -372,6 +372,28 @@ Target.create "RunCSharpConformanceRelease" <| fun _ ->
 "RunCSharpConformanceRelease"
     ==> "CI-Release"
 
+// F# conformance: the same check for the F# cases of tests/WebSharper.FSharp.Conformance (no TypeScript declarations).
+Target.create "RunFSharpConformanceRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "F# conformance check skipped"
+    else
+
+    let node =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
+            @"C:\Program Files\nodejs\node.exe"
+        else
+            "node"
+    let res = Shell.Exec(node, "check.mjs", "tests/WebSharper.FSharp.Conformance")
+    if res <> 0 then
+        failwith "F# conformance check failed, see tests/WebSharper.FSharp.Conformance/README.md"
+
+"WS-BuildRelease"
+    ?=> "RunFSharpConformanceRelease"
+    ?=> "WS-Package"
+
+"RunFSharpConformanceRelease"
+    ==> "CI-Release"
+
 Target.create "RunSPATestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "QUnit Puppeteer testing for SPA skipped"

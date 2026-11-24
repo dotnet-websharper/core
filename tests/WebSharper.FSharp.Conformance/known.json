@@ -1,0 +1,20 @@
+{
+  "float32.arith": "`float32` is a JavaScript number, so it keeps double precision instead of rounding to single. Use `float`, or a Float32Array from WebSharper.JavaScript when single-precision storage matters.",
+  "recursion.deep.nontail": "JavaScript has a fixed call stack, so deep non-tail recursion overflows sooner than on .NET. Write the function tail-recursive (WebSharper turns self tail calls into loops), or use a loop or a fold.",
+  "string.equality": "JavaScript strings are values: two equal strings are never different references. Compare strings with `=` or String.Equals.",
+  "equals.boxed": "Numbers are not boxed with their .NET type in JavaScript: `box 1` and `box 1.0` are the same value. Compare unboxed values of a known type.",
+  "match.typetest.float.int": "`int` and `float` are both JavaScript numbers, so `:? int` cannot tell a whole-number `float` from an `int`. Keep the static type, or use a union case per numeric type.",
+  "match.typetest.char.string": "A `char` is a one-character JavaScript string, so `:? string` also matches a boxed `char`. Keep the static type, or use a union case per type.",
+  "string.index.out.of.range": "String indexing is not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException. Check Length before indexing.",
+  "exception.nullref": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException. Use options or check with `isNull` instead of catching NullReferenceException.",
+  "option.value.prop": "`None` is null, so `.Value` on it throws a JavaScript TypeError, not a NullReferenceException. Match on the option, or use Option.defaultValue.",
+  "dictionary.union.key": "`None` is null, which .NET rejects as a Dictionary key; JavaScript accepts it. Use `Map`, or a key type without a null case.",
+  "datetime.format.iso": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset. Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp.",
+  "decimal.add": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+  "decimal.divide": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+  "sprintf.M": "`decimal` is implemented by the WebSharper.MathJS package, not by the standard library. Reference WebSharper.MathJS to use `decimal`.",
+  "typeof.name": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+  "typeof.int.name": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+  "gettype.name": "No reflection: GetType() is not available in JavaScript. Use `nameof` for names, `:?` patterns for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+  "enum.parse": "No reflection: Enum.Parse takes a System.Type, which is not available in JavaScript. Match the string against the enum's cases instead."
+}

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The JavaScript side of the F# conformance harness: the cases compiled by this repository's wsfsc (JS defined). -->
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>Conformance</AssemblyName>
+    <DefineConstants>$(DefineConstants);JS</DefineConstants>
+    <Tests>True</Tests>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Signed>False</Signed>
+    <!-- Node runs the output: JavaScript, not the repository default TypeScript output -->
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Cases\H.fs" />
+    <Compile Include="..\Cases\Numbers.fs" />
+    <Compile Include="..\Cases\Strings.fs" />
+    <Compile Include="..\Cases\Collections.fs" />
+    <Compile Include="..\Cases\Maps.fs" />
+    <Compile Include="..\Cases\Records.fs" />
+    <Compile Include="..\Cases\Patterns.fs" />
+    <Compile Include="..\Cases\Language.fs" />
+    <Compile Include="..\Cases\Dates.fs" />
+    <Compile Include="..\Cases\Runner.fs" />
+    <None Include="paket.references" />
+    <None Include="wsconfig.json" />
+    <None Include="run.mjs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\..\src\stdlib\WebSharper.StdLib\WebSharper.StdLib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>
