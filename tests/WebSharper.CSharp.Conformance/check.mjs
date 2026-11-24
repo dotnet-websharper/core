@@ -63,6 +63,27 @@ for (const [name, expected] of net) {
 const count = s => Object.values(results).filter(r => r.status === s).length;
 console.log(`${net.size} cases: ${count("pass")} pass, ${count("unsupported")} unsupported (fenced), ${count("mismatch")} mismatch`);
 
+// The TypeScript declarations of the cases: dts-check.ts must type-check with `strict`, without skipLibCheck
+let dtsErrors = [];
+{
+  let ts = null;
+  try { ts = (await import("typescript")).default; } catch { }
+  if (!ts) {
+    console.log("TypeScript declarations: not checked (run `npm install` in the repository root)");
+  } else {
+    const file = join(here, "dts-check.ts");
+    const program = ts.createProgram([file], {
+      strict: true, noEmit: true, skipLibCheck: false,
+      module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, target: ts.ScriptTarget.ES2022,
+    });
+    dtsErrors = ts.getPreEmitDiagnostics(program).map(d => {
+      const where = d.file ? `${d.file.fileName.replace(here + "/", "")}(${d.file.getLineAndCharacterOfPosition(d.start).line + 1})` : "";
+      return `${where} TS${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, " ")}`;
+    });
+    console.log(`TypeScript declarations: ${dtsErrors.length === 0 ? "ok" : dtsErrors.length + " error(s)"}`);
+  }
+}
+
 const baselinePath = join(here, "baseline.json");
 if (update) {
   writeFileSync(baselinePath, JSON.stringify(results, null, 2) + "\n");
@@ -88,5 +109,6 @@ report("Mismatch output changed", changed);
 report("Removed from the cases", removed);
 report("Not in baseline.json — run `node check.mjs --update`", unknown);
 report("REGRESSIONS", regressions);
+report("TypeScript declaration errors", dtsErrors);
 
-process.exit(regressions.length || unknown.length ? 1 : 0);
+process.exit(regressions.length || unknown.length || dtsErrors.length ? 1 : 0);

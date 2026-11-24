@@ -1,6 +1,7 @@
 {
   "devDependencies": {
-    "node-qunit-puppeteer": "^2.2.1"
+    "node-qunit-puppeteer": "^2.2.1",
+    "typescript": "5.8.3"
   },
   "overrides": {
     "puppeteer": "^25.18.1"
