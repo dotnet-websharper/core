@@ -24,30 +24,22 @@ open WebSharper.JavaScript
 open System.Collections
 open System.Collections.Generic
 
-/// System.StringComparer: ordinal and culture comparisons, with or without case.
-/// Culture comparisons use String.prototype.localeCompare.
+/// System.StringComparer: the ordinal comparers, with or without case.
+/// The culture-sensitive comparers are left out on purpose: the browser's collation
+/// does not match .NET's, so they would only be an approximation.
 [<Proxy(typeof<System.StringComparer>)>]
 [<Name "StringComparer">]
-type internal StringComparerProxy(culture: bool, ignoreCase: bool) =
+type internal StringComparerProxy(ignoreCase: bool) =
 
     let norm (s: string) = if ignoreCase && not (isNull s) then s.ToUpper() else s
 
-    static member Ordinal = StringComparerProxy(false, false)
-    static member OrdinalIgnoreCase = StringComparerProxy(false, true)
-    static member InvariantCulture = StringComparerProxy(true, false)
-    static member InvariantCultureIgnoreCase = StringComparerProxy(true, true)
-    static member CurrentCulture = StringComparerProxy(true, false)
-    static member CurrentCultureIgnoreCase = StringComparerProxy(true, true)
+    static member Ordinal = StringComparerProxy(false)
+    static member OrdinalIgnoreCase = StringComparerProxy(true)
 
     member this.Compare(x: string, y: string) : int =
         if x ===. y then 0
         elif x ==. null then -1
         elif y ==. null then 1
-        elif culture then
-            let c : int =
-                if ignoreCase then JS.Inline("$0.localeCompare($1, undefined, { sensitivity: 'accent' })", x, y)
-                else JS.Inline("$0.localeCompare($1)", x, y)
-            if c < 0 then -1 elif c > 0 then 1 else 0
         else
             // like .NET: the difference of the first differing chars, else of the lengths
             let a = norm x
@@ -57,12 +49,11 @@ type internal StringComparerProxy(culture: bool, ignoreCase: bool) =
     member this.Equals(x: string, y: string) : bool =
         if x ===. y then true
         elif x ==. null || y ==. null then false
-        elif culture then this.Compare(x, y) = 0
         else norm x = norm y
 
     member this.GetHashCode(s: string) : int =
         if s ==. null then raise (System.ArgumentNullException("obj"))
-        hash (if culture && ignoreCase then s.ToUpper() else norm s)
+        hash (norm s)
 
     member this.Compare(x: obj, y: obj) : int = this.Compare(As<string> x, As<string> y)
 

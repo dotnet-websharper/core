@@ -59,6 +59,7 @@ namespace Conformance
             C("dict.trygetvalue.defaults", () => { var d = new Dictionary<string, bool>(); var e = new Dictionary<string, double>(); d.TryGetValue("x", out var b); e.TryGetValue("x", out var x); return $"{B(b)},{x}"; }),
             C("dict.comparer.ordinal", () => { var d = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["a"] = 1 }; d["A"] = 2; var h = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "x", "X", "y" }; return $"{d.Count},{d["a"]},{h.Count},{StringComparer.Ordinal.Compare("a", "B")},{StringComparer.OrdinalIgnoreCase.Equals("ab", "AB")}"; }),
             C("sorteddictionary.ops", () => { var d = new SortedDictionary<int, string>(Comparer<int>.Create((a, b) => b.CompareTo(a))) { [1] = "a", [3] = "c", [2] = "b" }; d.Remove(3); return J(d.Keys) + J(d.Values) + $"{d.Count},{B(d.ContainsKey(2))},{B(d.TryGetValue(9, out var v))}"; }),
+            C("sorteddictionary.keys.live", () => { var d = new SortedDictionary<int, string> { [1] = "a" }; var keys = d.Keys; d[2] = "b"; return $"{keys.Count}"; }),
             C("sortedset.ops", () => { var s = new SortedSet<string> { "pear", "apple", "fig" }; s.Remove("fig"); return J(s) + $"{s.Min},{s.Max},{B(s.Add("apple"))},{s.Count}"; }),
             C("dict.missing.key", () => new Dictionary<string, int>()["x"].ToString()),
             C("dict.add.duplicate", () => { var d = new Dictionary<string, int>(); d.Add("a", 1); d.Add("a", 2); return "no exn"; }),
