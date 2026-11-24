@@ -11,5 +11,7 @@
   "object.tostring.default": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name. Override ToString, or use nameof.",
   "gettype.name": "No reflection: GetType() is not available in JavaScript. Use nameof for names, pattern matching (`is`) for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
   "span.sum": "Span<T> and stackalloc are not supported. Use arrays, or JavaScript typed arrays from WebSharper.JavaScript.",
-  "datetime.iso": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\". Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp."
+  "datetime.iso": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\". Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp.",
+  "readonly.wrapper": "AsReadOnly returns a snapshot, not a live wrapper: it doesn't see later changes to the list. Call AsReadOnly again after changing the list, or pass the list as IReadOnlyList<T>.",
+  "sorteddictionary.keys.live": "SortedDictionary.Keys and .Values are snapshots, not live views: they don't see later changes. Read Keys/Values again after changing the dictionary."
 }

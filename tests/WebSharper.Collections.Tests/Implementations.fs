@@ -362,7 +362,7 @@ let Tests =
             s.Add(3) |> ignore
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
-            run (TestICollectionGeneric s 2 [| 1; 2; 3 |]) // order is sorted, specific to WebSharper's implementation, but .NET HashSet has no guarantees on ordering
+            run (TestICollectionGeneric s 2 [| 1; 3; 2 |]) // insertion order, like .NET's HashSet without removals
             let s2 = System.Collections.Generic.HashSet<int>([| 1; 3 |])
             run (TestISetGeneric s2 (Seq.ofArray [| 1; 3 |]) 2 1)
         }

@@ -84,6 +84,17 @@ type private ComparerProxy<'T>() =
     [<Macro(typeof<M.Comparer>)>]
     static member Default = X<System.Collections.Generic.Comparer<'T>>
 
+    static member Create(comparison: System.Comparison<'T>) : System.Collections.Generic.Comparer<'T> =
+        As (DelegateComparer<'T>(comparison))
+
+/// Comparer<T>.Create: compares with a Comparison<T> delegate. It does not inherit the Comparer proxy (a JS
+/// module cycle with Comparer.Create); IComparer<T>.Compare is named Compare, like the Comparer method.
+and [<JavaScript>] private DelegateComparer<'T>(comparison: System.Comparison<'T>) =
+    interface System.Collections.Generic.IComparer<'T> with
+        member this.Compare(x, y) = comparison.Invoke(x, y)
+    interface System.Collections.IComparer with
+        member this.Compare(x, y) = comparison.Invoke(As x, As y)
+
 [<Proxy(typeof<System.IEquatable<_>>)>]
 type private IEquatableProxy<'T> =
     [<Name "EEquals">]

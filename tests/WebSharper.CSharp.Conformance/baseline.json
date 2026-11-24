@@ -471,9 +471,7 @@
     "status": "pass"
   },
   "list.sort.strings": {
-    "status": "unsupported",
-    "net": "[A,B,a,b]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "list.sort.comparison": {
     "status": "pass"
@@ -535,9 +533,28 @@
     "js": "[b,c,d]"
   },
   "dict.int.keys.order": {
-    "status": "mismatch",
-    "net": "[10,2,1]",
-    "js": "[1,2,10]"
+    "status": "pass"
+  },
+  "dict.negative.keys.order": {
+    "status": "pass"
+  },
+  "dict.trygetvalue.defaults": {
+    "status": "pass"
+  },
+  "dict.comparer.ordinal": {
+    "status": "pass"
+  },
+  "sorteddictionary.ops": {
+    "status": "pass"
+  },
+  "sorteddictionary.keys.live": {
+    "status": "known",
+    "reason": "SortedDictionary.Keys and .Values are snapshots, not live views: they don't see later changes. Read Keys/Values again after changing the dictionary.",
+    "net": "2",
+    "js": "1"
+  },
+  "sortedset.ops": {
+    "status": "pass"
   },
   "dict.missing.key": {
     "status": "pass"
@@ -546,9 +563,7 @@
     "status": "pass"
   },
   "dict.trygetvalue": {
-    "status": "mismatch",
-    "net": "false,0,true",
-    "js": "false,undefined,true"
+    "status": "pass"
   },
   "dict.kvp.tostring": {
     "status": "pass"
@@ -557,9 +572,7 @@
     "status": "pass"
   },
   "dict.comparer.ignorecase": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "dict.tuple.key": {
     "status": "pass"
@@ -568,9 +581,7 @@
     "status": "pass"
   },
   "hashset.string.order": {
-    "status": "mismatch",
-    "net": "[z,a,m]",
-    "js": "[a,m,z]"
+    "status": "pass"
   },
   "stack.queue": {
     "status": "pass"
@@ -579,14 +590,10 @@
     "status": "pass"
   },
   "sorteddictionary": {
-    "status": "unsupported",
-    "net": "[a,b]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "sortedset": {
-    "status": "unsupported",
-    "net": "[1,3,5]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linkedlist": {
     "status": "pass"
@@ -601,7 +608,8 @@
     "js": "WS-COMPILE-ERROR"
   },
   "readonly.wrapper": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "AsReadOnly returns a snapshot, not a live wrapper: it doesn't see later changes to the list. Call AsReadOnly again after changing the list, or pass the list as IReadOnlyList<T>.",
     "net": "2",
     "js": "1"
   },
@@ -648,9 +656,13 @@
     "status": "pass"
   },
   "linq.tolookup": {
-    "status": "unsupported",
-    "net": "2,0,2",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
+  },
+  "linq.tolookup.order": {
+    "status": "pass"
+  },
+  "linq.take.range.fromend": {
+    "status": "pass"
   },
   "linq.todictionary.dup": {
     "status": "pass"
@@ -698,9 +710,7 @@
     "status": "pass"
   },
   "linq.take.range": {
-    "status": "unsupported",
-    "net": "[3,4]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.chunk": {
     "status": "pass"
