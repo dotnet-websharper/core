@@ -25,7 +25,7 @@ open WebSharper.JavaScript
 [<JavaScript>]
 module Nullable =
     let get (x: obj) =
-        if x ===. null then failwith "Nullable object must have a value." else x
+        if x ===. null then raise (System.InvalidOperationException "Nullable object must have a value.") else x
 
 ////    let getOrDefault<'T> (x: 'T) =
 //        if x ==. null then Unchecked.defaultof<'T> else x     

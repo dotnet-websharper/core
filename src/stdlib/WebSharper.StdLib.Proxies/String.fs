@@ -84,6 +84,11 @@ let ReplaceChar (s: string) (oldC: char) (newC: char) =
 [<Direct "$s.substr($ix,$ct)">]
 let Substring (s: string) (ix: int) (ct: int) = X<string>
 
+/// String.Substring(startIndex, length): out of range arguments throw, like .NET
+let SubstringChecked (s: string) (ix: int) (ct: int) =
+    if ix < 0 || ct < 0 || ix + ct > s.Length then raise (System.ArgumentOutOfRangeException("length"))
+    Substring s ix ct
+
 [<Direct "$t.substring(0,$s.length) == $s">]
 let StartsWith (t: string) (s: string) = X<bool>
 
@@ -141,7 +146,9 @@ let RegexEscape (s: string) = X<string>
 
 let Split (s: string) (pat: obj) (opts: System.StringSplitOptions) =
     let res = SplitWith s pat
-    if opts ===. System.StringSplitOptions.RemoveEmptyEntries then
+    // TrimEntries (2) trims each part, RemoveEmptyEntries (1) then drops the empty ones
+    let res = if JS.Inline("($0 & 2) !== 0", opts) then Array.map (fun (x: string) -> x.Trim()) res else res
+    if JS.Inline("($0 & 1) !== 0", opts) then
         Array.filter (fun x -> x !==. "") res
     else
         res
@@ -393,7 +400,7 @@ type private StringProxy =
 
     [<Inline>]
     member this.Substring(ix: int, ct: int) =
-        Substring (As this) ix ct
+        SubstringChecked (As this) ix ct
 
     [<Inline>]
     member this.ToCharArray(i: int, l: int) =

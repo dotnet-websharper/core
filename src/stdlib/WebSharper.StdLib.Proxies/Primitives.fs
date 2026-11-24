@@ -38,7 +38,8 @@ type internal N =
     static member TryParse<'T>(s: string, min: 'T, max: 'T, r: outref<'T>) =
         let x : float = JS.Plus s
         let ok = x ===. (x -. (x %. 1)) && (x >=. min) && (x <=. max)
-        if ok then r <- As<'T> x
+        // like .NET, the out value is 0 when parsing fails
+        r <- if ok then As<'T> x else As<'T> 0
         ok
 
     static member ParseBigInt<'T>(s: string, min: 'T, max: 'T, overflowMsg) =
@@ -53,9 +54,9 @@ type internal N =
         match bigint.TryParse s with
         | true, x ->
             let ok = x ===. (x -. (x %. 1L)) && (x >=. min) && (x <=. max)
-            if ok then r <- As<'T> x
+            r <- if ok then As<'T> x else As<'T> 0L
             ok
-        | _ -> false
+        | _ -> r <- As<'T> 0L; false
 
     static member ParseBool(s: string) =
         match s.ToLower() with
@@ -67,7 +68,7 @@ type internal N =
         match s.ToLower() with
         | "true" -> r <- true; true
         | "false" -> r <- false; true
-        | _ -> false
+        | _ -> r <- false; false
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]

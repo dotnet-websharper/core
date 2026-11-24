@@ -28,8 +28,12 @@ type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 [<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
 type ResizeArrayEnumeratorProxy<'T> (arr: 'T[]) =
     let mutable i = -1
+    let length = arr.Length
 
     member this.MoveNext() =
+        // like .NET's version check: adding or removing items while enumerating is an error
+        if arr.Length <> length then
+            raise (System.InvalidOperationException "Collection was modified; enumeration operation may not execute.")
         i <- i + 1
         i < arr.Length
 
@@ -196,8 +200,14 @@ type ResizeArrayProxy<'T> [<Inline "$wsruntime.MarkResizable($_arr)">] (_arr: 'T
         (As<'T[]> this).JS.Splice(index, 0, Array.ofSeq items) |> ignore
 
     member this.Item
-        with [<Inline>] get (x: int) : 'T = (As<'T[]> this).[x]
-        and [<Inline>] set (x: int) (v: 'T) = (As<'T[]> this).[x] <- v
+        with get (x: int) : 'T =
+            let a = As<'T[]> this
+            if x < 0 || x >= a.Length then raise (System.ArgumentOutOfRangeException("index"))
+            a.[x]
+        and set (x: int) (v: 'T) =
+            let a = As<'T[]> this
+            if x < 0 || x >= a.Length then raise (System.ArgumentOutOfRangeException("index"))
+            a.[x] <- v
 
     [<Inline>]
     member this.LastIndexOf(item: 'T) : int =

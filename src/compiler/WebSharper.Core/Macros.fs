@@ -621,7 +621,7 @@ type NumericMacro() =
                 if name = "System.Single" || name = "System.Double" then
                     exprParse
                     <| toNumber x
-                    <| fun _ -> Value (Bool false)
+                    <| fun _ -> Expression.Sequential [ SetRef y (Value (Int 0)); Value (Bool false) ]
                     <| fun id ->
                         Expression.Sequential [
                             SetRef y (Var id)
