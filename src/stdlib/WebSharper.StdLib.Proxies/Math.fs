@@ -150,8 +150,24 @@ type private MathProxy =
     [<Inline "Math.pow($x,$y)">]
     static member Pow(x: double, y: double) = X<double>
 
-    [<Inline "Math.round($a)">]
-    static member Round(a: double) = X<double>
+    /// .NET rounds a value halfway between two integers to the even one (2.5 -> 2, 3.5 -> 4)
+    static member Round(a: double) : double =
+        let f : double = JS.Inline("Math.floor($0)", a)
+        let diff = a - f
+        if diff > 0.5 then f + 1.0
+        elif diff < 0.5 then f
+        elif JS.Inline("$0 % 2 === 0", f) then f
+        else f + 1.0
+
+    static member Round(a: double, mode: System.MidpointRounding) : double =
+        match mode with
+        | System.MidpointRounding.AwayFromZero ->
+            let r : double = JS.Inline("Math.floor(Math.abs($0) + 0.5)", a)
+            if a < 0.0 then -r else r
+        | System.MidpointRounding.ToZero -> JS.Inline("Math.trunc($0)", a)
+        | System.MidpointRounding.ToNegativeInfinity -> JS.Inline("Math.floor($0)", a)
+        | System.MidpointRounding.ToPositiveInfinity -> JS.Inline("Math.ceil($0)", a)
+        | _ -> System.Math.Round a
 
     [<Inline>]
     static member Sign(value: sbyte) = sign value

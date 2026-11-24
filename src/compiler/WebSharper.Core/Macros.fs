@@ -99,6 +99,43 @@ let utils (comp: M.ICompilation) f args =
     let m = comp.GetClassInfo(utilsModule).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
     Call(None, NonGeneric utilsModule, NonGeneric m, args)
 
+let divideByZeroTy = Reflection.ReadTypeDefinition typeof<System.DivideByZeroException>
+let overflowTy = Reflection.ReadTypeDefinition typeof<System.OverflowException>
+
+let private throwNew (td: TypeDefinition) =
+    StatementExpr(Throw(Ctor(NonGeneric td, ConstructorInfo.Default(), [])), None)
+
+/// Integer division and remainder: a zero divisor throws DivideByZeroException, like .NET
+let private zeroChecked (zero: Expression) (b: Expression) (a: Expression) (mk: Expression -> Expression -> Expression) =
+    match IgnoreExprSourcePos b with
+    | Value (Int n) when n <> 0 -> mk a b
+    | Value (JSNumber n) when n <> "0n" && n <> "0" -> mk a b
+    | _ ->
+        let av = Id.New(mut = false)
+        let bv = Id.New(mut = false)
+        Let(av, a, Let(bv, b, Conditional(Var bv ^== zero, throwNew divideByZeroTy, mk (Var av) (Var bv))))
+
+/// The value range of an integral type, for checked arithmetic
+let private integralRange (fullName: string) =
+    match fullName with
+    | "System.SByte" -> Some (Value (Int -128), Value (Int 127))
+    | "System.Byte" -> Some (Value (Int 0), Value (Int 255))
+    | "System.Int16" -> Some (Value (Int -32768), Value (Int 32767))
+    | "System.UInt16" -> Some (Value (Int 0), Value (Int 65535))
+    | "System.Int32" -> Some (Value (Int -2147483648), Value (Int 2147483647))
+    | "System.UInt32" -> Some (Value (Int 0), Value (JSNumber "4294967295"))
+    | "System.Int64" -> Some (Value (JSNumber "-9223372036854775808n"), Value (JSNumber "9223372036854775807n"))
+    | "System.UInt64" -> Some (Value (JSNumber "0n"), Value (JSNumber "18446744073709551615n"))
+    | _ -> None
+
+/// checked(...) arithmetic: a result outside the type's range throws OverflowException
+let overflowChecked (fullName: string) (e: Expression) =
+    match integralRange fullName with
+    | Some (min, max) ->
+        let r = Id.New(mut = false)
+        Let(r, e, Conditional((Var r ^< min) ^|| (Var r ^> max), throwNew overflowTy, Var r))
+    | None -> e
+
 let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
     match args with
     | [x; y] ->
@@ -114,10 +151,16 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
                 Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
             elif op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
-                then (a ^/ b) ^>> !~(Int 0) |> MacroOk
+                then zeroChecked (Value (Int 0)) b a (fun a b -> (a ^/ b) ^>> !~(Int 0)) |> MacroOk
+                elif isIn bigIntegralTypes t
+                then zeroChecked (Value (JSNumber "0n")) b a (fun a b -> a ^/ b) |> MacroOk
                 elif isIn scalarTypes t
                 then a ^/ b |> MacroOk
                 else traitCallOp c [a; b]
+            elif op = BinaryOperator.``%`` && isIn smallIntegralTypes t then
+                zeroChecked (Value (Int 0)) b a (fun a b -> a ^% b) |> MacroOk
+            elif op = BinaryOperator.``%`` && isIn bigIntegralTypes t then
+                zeroChecked (Value (JSNumber "0n")) b a (fun a b -> a ^% b) |> MacroOk
             else
                 if isIn scalarTypes t then
                     Binary(a, op, b) |> MacroOk
@@ -506,6 +549,30 @@ type NumericMacro() =
                         x |> MacroOk
                     else
                         Unary (op, x) |> MacroOk
+                | _ -> MacroError "numericMacro error"
+        | "op_CheckedAddition" | "op_CheckedSubtraction" | "op_CheckedMultiply" | "op_CheckedDivision" ->
+            checkCorrectType <| fun () ->
+                let op =
+                    match mname with
+                    | "op_CheckedAddition" -> BinaryOperator.``+``
+                    | "op_CheckedSubtraction" -> BinaryOperator.``-``
+                    | "op_CheckedMultiply" -> BinaryOperator.``*``
+                    | _ -> BinaryOperator.``/``
+                match translateOperation c (ConcreteType c.DefiningType) c.Arguments false false op with
+                | MacroOk e -> MacroOk (overflowChecked name e)
+                | r -> r
+        | "op_CheckedUnaryNegation" ->
+            checkCorrectType <| fun () ->
+                match c.Arguments with
+                | [x] -> MacroOk (overflowChecked name (Unary(UnaryOperator.``-``, x)))
+                | _ -> MacroError "numericMacro error"
+        | "op_CheckedIncrement" | "op_CheckedDecrement" ->
+            checkCorrectType <| fun () ->
+                match c.Arguments with
+                | [x] ->
+                    let one = if isIn bigIntegralTypes (ConcreteType c.DefiningType) then Value (JSNumber "1n") else Value (Int 1)
+                    let op = if mname = "op_CheckedIncrement" then BinaryOperator.``+`` else BinaryOperator.``-``
+                    MacroOk (overflowChecked name (Binary(x, op, one)))
                 | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
             checkCorrectType <| fun () ->
