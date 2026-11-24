@@ -210,7 +210,42 @@ namespace WebSharper.CSharp.Tests
             var person = new InitOnlyTest { Name = "Bill Wagner" };
             Equal(person.Name, "Bill Wagner");
         }
+
+        [Test("C# records: null, init-only initializers, default, ToString (#1646)")]
+        public void RecordNullAndInit()
+        {
+            PersonP nobody = null;
+            IsTrue(nobody == null);
+            IsFalse(nobody != null);
+            IsFalse(new PersonP("A", "B") == null);
+            IsFalse(new PersonP("A", "B").Equals(null));
+            object o = "x";
+            IsTrue((o as PersonP) == null);
+
+            var w = new RecordWithBody { A = "a" };
+            Equal(w.A, "a");
+            Equal(w.B, 0);
+            Equal(new RecordWithBody { A = "x", B = 2 }.ToString(), "RecordWithBody { A = x, B = 2 }");
+            Equal(default(RecordStructPos).ToString(), "RecordStructPos { X = 0, Y = 0 }");
+            Equal(new RecordComputed("Ann").ToString(), "RecordComputed { Name = Ann, Greeting = Hi Ann }");
+
+            var tags = new[] { 1 };
+            IsTrue(new RecordWithArray(tags) == new RecordWithArray(tags));
+            IsFalse(new RecordWithArray(new[] { 1 }) == new RecordWithArray(new[] { 1 }));
+        }
     }
+
+    [JavaScript]
+    public record RecordWithBody { public string A { get; init; } public int B { get; init; } }
+
+    [JavaScript]
+    public record struct RecordStructPos(int X, int Y);
+
+    [JavaScript]
+    public record RecordComputed(string Name) { public string Greeting => $"Hi {Name}"; }
+
+    [JavaScript]
+    public record RecordWithArray(int[] Tags);
 
     [JavaScript]
     public record Person

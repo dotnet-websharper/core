@@ -366,9 +366,7 @@
     "status": "pass"
   },
   "record.tostring.body": {
-    "status": "mismatch",
-    "net": "WithBody { A = x, B = 2 }",
-    "js": "EXN Exception :: Cannot read properties of undefined (reading 'A')"
+    "status": "pass"
   },
   "record.equality": {
     "status": "pass"
@@ -383,17 +381,13 @@
     "status": "pass"
   },
   "record.equality.array.member": {
-    "status": "mismatch",
-    "net": "true,false",
-    "js": "true,true"
+    "status": "pass"
   },
   "record.hash.equal": {
     "status": "pass"
   },
   "record.with": {
-    "status": "mismatch",
-    "net": "Person { Name = Ann, Age = 31, Greeting = Hi Ann }",
-    "js": "Person { Name = Ann, Age = 31 }"
+    "status": "pass"
   },
   "record.with.derived": {
     "status": "pass"
@@ -432,22 +426,16 @@
     "status": "pass"
   },
   "record.struct.default": {
-    "status": "mismatch",
-    "net": "Vec { X = 0, Y = 0 }",
-    "js": "EXN Exception :: Cannot read properties of undefined (reading 'X')"
+    "status": "pass"
   },
   "record.equals.null": {
-    "status": "mismatch",
-    "net": "true,false",
-    "js": "EXN Exception :: Cannot read properties of null (reading 'Equals_1')"
+    "status": "pass"
   },
   "record.reference.equals": {
     "status": "pass"
   },
   "record.init.props": {
-    "status": "mismatch",
-    "net": "a,0",
-    "js": "EXN Exception :: Cannot read properties of undefined (reading 'A')"
+    "status": "pass"
   },
   "record.list.contains": {
     "status": "pass"
@@ -492,9 +480,7 @@
     "status": "pass"
   },
   "as.cast": {
-    "status": "mismatch",
-    "net": "x|null",
-    "js": "EXN Exception :: Cannot read properties of null (reading 'Equals_1')"
+    "status": "pass"
   },
   "cast.invalid": {
     "status": "mismatch",

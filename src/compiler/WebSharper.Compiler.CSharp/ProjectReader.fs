@@ -956,6 +956,36 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         | CodeReader.CSharpRecordField (fSymbol, _) ->
                                             yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
                                 }    
+                            // EqualityComparer<T>.Default compares arrays by reference
+                            let isArrayValue (t: ITypeSymbol) = not (isNull t) && t.TypeKind = TypeKind.Array
+                            let valueTypes =
+                                [
+                                    for (p, _) in ri.PositionalFields do
+                                        yield isArrayValue p.Symbol.Type
+                                    for p in ri.OtherFields do
+                                        match p with
+                                        | CodeReader.CSharpRecordProperty (pSymbol, _) -> yield isArrayValue pSymbol.Type
+                                        | CodeReader.CSharpRecordField (fSymbol, _) -> yield isArrayValue fSymbol.Type
+                                ]
+                            // .NET's PrintMembers: public instance fields and readable properties, base record first
+                            let printedMembers ofObj =
+                                let rec chain (t: INamedTypeSymbol) =
+                                    if isNull t || not t.IsRecord then [] else chain t.BaseType @ [ t ]
+                                [
+                                    for t in chain cls do
+                                        let tDef = sr.ReadNamedTypeDefinition t
+                                        for m in t.GetMembers() do
+                                            match m with
+                                            | :? IPropertySymbol as ps when
+                                                ps.DeclaredAccessibility = Accessibility.Public && not ps.IsStatic
+                                                && not ps.IsIndexer && not (isNull ps.GetMethod) && ps.Name <> "EqualityContract" ->
+                                                yield ps.Name, Call(Some ofObj, NonGeneric tDef, NonGeneric (sr.ReadMethod ps.GetMethod), [])
+                                            | :? IFieldSymbol as fs when
+                                                fs.DeclaredAccessibility = Accessibility.Public && not fs.IsStatic
+                                                && not fs.IsConst && not fs.IsImplicitlyDeclared ->
+                                                yield fs.Name, FieldGet(Some ofObj, NonGeneric tDef, fs.Name)
+                                            | _ -> ()
+                                ]
                             let eq x y =
                                 let eqM =
                                     Hashed {
@@ -965,6 +995,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         Generics = 0
                                     }
                                 Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
+                            // `(object)x == y || (x?.Equals(y) ?? false)`: a null record is only equal to null
+                            let opEq x y =
+                                if isStruct then eq x y else
+                                Binary(Binary(x, BinaryOperator.``===``, y), BinaryOperator.``||``,
+                                    Binary(Binary(x, BinaryOperator.``!=``, Value Null), BinaryOperator.``&&``, eq x y))
                             match meth.Name with
                             | "Deconstruct" ->
                                 let b =    
@@ -981,7 +1016,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             | "ToString" ->
                                 let b =
-                                    Value (String (cls.Name + " ")) ^+ JSRuntime.PrintObject (Var thisVar) |> Return
+                                    match printedMembers (Var thisVar) with
+                                    | [] -> Value (String (cls.Name + " { }")) |> Return
+                                    | members ->
+                                        let value v =
+                                            // StringBuilder.Append(object): null appends nothing
+                                            let i = Id.New(mut = false)
+                                            Let(i, v, Conditional(Var i ^== Value Null, Value (String ""), Var i))
+                                        members
+                                        |> List.mapi (fun i (name, v) ->
+                                            Value (String ((if i = 0 then cls.Name + " { " else ", ") + name + " = ")) ^+ value v)
+                                        |> List.reduce (^+)
+                                        |> fun e -> e ^+ Value (String " }")
+                                        |> Return
                                     //let vals =
                                     //    getAllValues This
                                     //    |> Seq.indexed
@@ -1010,7 +1057,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                    Unary(UnaryOperator.Not, opEq (Var x.ParameterId) (Var y.ParameterId)) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
@@ -1023,7 +1070,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    eq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                    opEq (Var x.ParameterId) (Var y.ParameterId) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
@@ -1051,10 +1098,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         let getPrototype e = 
                                             Appl(Global [ "Object"; "getPrototypeOf" ], [ e ], Purity.Pure, Some 1)
                                         seq {
+                                            Binary(o, BinaryOperator.``!=``, Value Null)
                                             isObject o
                                             getPrototype (Var thisVar) ^=== getPrototype o
-                                            for (_, v), (_, vo) in Seq.zip (getAllValues (Var thisVar)) (getAllValues o) do
+                                            for ((_, v), (_, vo)), isArray in Seq.zip (Seq.zip (getAllValues (Var thisVar)) (getAllValues o)) valueTypes do
                                                 // like EqualityComparer<T>.Default for each member
+                                                if isArray then v ^=== vo else
                                                 Call(None, NonGeneric uncheckedMdl, Generic uncheckedEquals [ NonGenericType Definitions.Obj ], [ v; vo ])
                                         } |> Seq.reduce (^&&)
                                         |> Return
@@ -1238,9 +1287,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             } : CodeReader.CSharpMethod
                         else
                         match recordInfo with
-                        | Some ri ->
+                        | Some ri when meth.Parameters.Length = 1 && SymbolEqualityComparer.Default.Equals(meth.Parameters[0].Type, cls) ->
                             recordCopyCtor ri
                         | _ ->
+                            // the parameterless constructor of a record without a parameter list, or of a record struct:
+                            // field initializers only, like a class
                             let b = 
                                 if meth.IsStatic then
                                     match staticInit with
@@ -1254,7 +1305,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         | Some bTyp ->
                                             ExprStatement <| ChainedCtor(true, bTyp, ConstructorInfo.Default(), [])
                                         | _ -> Empty
-                                    withFieldInits thisVar c
+                                    // `default` of a positional record struct: its properties are zero, not undefined
+                                    let positionalDefaults =
+                                        match recordInfo with
+                                        | Some ri when isStruct ->
+                                            ri.PositionalFields |> List.map (fun (p, getter) ->
+                                                let setter = CodeReader.setterOf (NonGeneric getter)
+                                                Call(Some (Var thisVar), NonGeneric def, setter, [ DefaultValueOf p.Type ]) |> ExprStatement
+                                            )
+                                        | _ -> []
+                                    withFieldInits thisVar (CombineStatements (c :: positionalDefaults))
 
                             {
                                 IsStatic = meth.IsStatic
