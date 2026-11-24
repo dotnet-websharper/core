@@ -161,20 +161,21 @@ let Filter f (s: string) =
 let ReplaceString (pattern: RegExp) (replace: 'obj) (text: string) = X<string>
 
 let SFormat (format: string) (args: obj[]) =
-    let pattern = RegExp("{(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?}", "g")
+    let pattern = RegExp("{{|}}|{(0|[1-9]\d*)(?:,(-?[1-9]\d*|0))?(?::(.*?))?}", "g")
     format
-    |> ReplaceString pattern (FuncWithArgs(fun (_, i, w) ->
-        let r = string args.[JS.Plus i]
-
-        if w <> JS.Undefined then
-            let w1 = JS.Plus w
-            let w2 = abs w1
-
-            if w2 > r.Length then
-                if w1 > 0 then r.PadLeft(w2)
-                else r.PadRight(w2)
+    |> ReplaceString pattern (FuncWithArgs(fun (m: string, i, w, f) ->
+        if m = "{{" then "{"
+        elif m = "}}" then "}"
+        else
+            let r = WebSharper.Formatting.FormatValue args.[JS.Plus i] (if f = JS.Undefined then "" else As<string> f)
+            if w <> JS.Undefined then
+                let w1 = JS.Plus w
+                let w2 = abs w1
+                if w2 > r.Length then
+                    if w1 > 0 then r.PadLeft(w2)
+                    else r.PadRight(w2)
+                else r
             else r
-        else r
     ))
 
 [<Proxy(typeof<string>)>]

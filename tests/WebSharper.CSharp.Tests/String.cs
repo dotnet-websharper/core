@@ -56,6 +56,12 @@ namespace WebSharper.CSharp.Tests
             Equal(String.Format("{0,-6} {1,-15}", "foo", 12), "foo    12             ");
             Equal(String.Format("{0} {1} {2}", "foo", 12, new A()), "foo 12 a object");
             Equal(String.Format("{0} {1} {2} {3}", "foo", 12, 12.35, (long)500), "foo 12 12.35 500");
+            Equal(String.Format("{{{0}}}", 5), "{5}");
+            Equal(String.Format("{0:F1}|{1:N2}|{2:E2}", 2.25, -1234.567, 12345.678), "2.2|-1,234.57|1.23E+004");
+            Equal(String.Format("{0}|{1}", true, 1e21), "True|1E+21");
+            Equal((1234567.891).ToString("N2"), "1,234,567.89");
+            Equal((0.256).ToString("P1"), "25.6 %");
+            Equal(255.ToString("x"), "ff");
 
             var fmt = "{0} {1}";
             Equal(String.Format(fmt, 1, 2), "1 2");
@@ -124,6 +130,23 @@ namespace WebSharper.CSharp.Tests
             Equal(String.Concat(new List<string> { "a", "b" }), "ab");
             Equal(String.Concat(new A(), new B(), new A(), new B(), new A()), "a objectb objecta objectb objecta object");
             Equal(String.Concat(new List<A> { new A(), new A() }), "a objecta object");
+        }
+
+        [Test("Interpolated string holes convert like .NET (#1643)")]
+        public void InterpolatedStringConversions()
+        {
+            int a = 1, b = 2;
+            Equal($"{a}{b}", "12");
+            Equal($"{a}{b}x", "12x");
+            IsTrue((object)$"{7}" is string);
+            string s = null;
+            object o = null;
+            int? n = null;
+            Equal($"[{s}][{o}][{n}]", "[][][]");
+            Equal($"{true}|{false}", "True|False");
+            Equal($"{3.14159:F2}|{0.5:P0}|{1234:N0}|{255:X4}|{42:D5}", "3.14|50 %|1,234|00FF|00042");
+            Equal($"{1234.5:0,0.00}|{0.5:#.##}", "1,234.50|.5");
+            Equal($"[{42,5}][{42,-5}][{3.5,6:F2}]", "[   42][42   ][  3.50]");
         }
     }
 }
