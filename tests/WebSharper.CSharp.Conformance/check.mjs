@@ -60,8 +60,20 @@ for (const [name, expected] of net) {
   results[name] = status === "pass" ? { status } : { status, net: expected, js: actual };
 }
 
+// Accepted differences (known.json: case name -> reason): the JavaScript result differs by design, so the case is
+// reported as "known" instead of "mismatch"/"unsupported". A known case that passes is reported as a stale entry.
+const knownPath = join(here, "known.json");
+const known = existsSync(knownPath) ? JSON.parse(readFileSync(knownPath, "utf8")) : {};
+const staleKnown = [];
+for (const [name, reason] of Object.entries(known)) {
+  const r = results[name];
+  if (!r) staleKnown.push(`${name}: not a case`);
+  else if (r.status === "pass") staleKnown.push(`${name}: passes, remove it from known.json`);
+  else results[name] = { status: "known", reason, net: r.net, js: r.js };
+}
+
 const count = s => Object.values(results).filter(r => r.status === s).length;
-console.log(`${net.size} cases: ${count("pass")} pass, ${count("unsupported")} unsupported (fenced), ${count("mismatch")} mismatch`);
+console.log(`${net.size} cases: ${count("pass")} pass, ${count("unsupported")} unsupported (fenced), ${count("mismatch")} mismatch, ${count("known")} known differences`);
 
 // The TypeScript declarations of the cases: dts-check.ts must type-check with `strict`, without skipLibCheck
 let dtsErrors = [];
@@ -92,14 +104,14 @@ if (update) {
 }
 
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")) : {};
-const rank = { pass: 2, mismatch: 1, unsupported: 0 };
+const rank = { pass: 2, known: 1, mismatch: 1, unsupported: 0 };
 const regressions = [], unknown = [], improved = [], changed = [];
 for (const [name, r] of Object.entries(results)) {
   const b = baseline[name];
   if (!b) unknown.push(name);
   else if (rank[r.status] < rank[b.status]) regressions.push(`${name}: ${b.status} -> ${r.status}\n    .NET: ${r.net}\n    JS:   ${r.js}`);
   else if (rank[r.status] > rank[b.status]) improved.push(`${name}: ${b.status} -> ${r.status}`);
-  else if (r.status === "mismatch" && r.js.split(" :: ")[0] !== b.js.split(" :: ")[0]) changed.push(`${name}: JS was ${b.js}, now ${r.js}`);
+  else if (r.status === b.status && r.status !== "pass" && r.js.split(" :: ")[0] !== b.js.split(" :: ")[0]) changed.push(`${name}: JS was ${b.js}, now ${r.js}`);
 }
 const removed = Object.keys(baseline).filter(n => !(n in results));
 
@@ -108,7 +120,8 @@ report("Improved — run `node check.mjs --update` and commit baseline.json", im
 report("Mismatch output changed", changed);
 report("Removed from the cases", removed);
 report("Not in baseline.json — run `node check.mjs --update`", unknown);
+report("Stale entries in known.json", staleKnown);
 report("REGRESSIONS", regressions);
 report("TypeScript declaration errors", dtsErrors);
 
-process.exit(regressions.length || unknown.length || dtsErrors.length ? 1 : 0);
+process.exit(regressions.length || unknown.length || staleKnown.length || dtsErrors.length ? 1 : 0);

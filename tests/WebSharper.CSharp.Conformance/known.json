@@ -1,0 +1,14 @@
+{
+  "string.equality.ref": "JavaScript strings are values: two equal strings are never different references. Compare strings with == or string.Equals.",
+  "boxing.equality": "Values are not boxed in JavaScript: two boxed equal numbers compare equal by reference too. Compare unboxed values instead of relying on reference identity.",
+  "float.precision": "`float` is a JavaScript number, so it keeps double precision instead of rounding to single. Use `double`, or a Float32Array from WebSharper.JavaScript when single-precision storage matters.",
+  "array.outofrange": "Array accesses are not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException. Check Length before indexing.",
+  "exception.null.deref": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException. Check for null (or use ?.) instead of catching NullReferenceException.",
+  "dict.insertion.order": "After a Remove, .NET reuses the freed slot for the next Add; that order is unspecified in .NET, and JavaScript keeps insertion order. Sort the keys, or use SortedDictionary, when order matters.",
+  "generic.default": "Generics are erased: default(T) inside generic code is null for value types too. Pass the default value in, or constrain T to a class.",
+  "enum.getvalues": "Enums are erased to numbers: a boxed or generic enum value formats as its number. Call ToString on the statically typed enum value.",
+  "list.capacity.tostring": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name. Override ToString, or use nameof.",
+  "object.tostring.default": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name. Override ToString, or use nameof.",
+  "gettype.name": "No reflection: GetType() is not available in JavaScript. Use nameof for names, pattern matching (`is`) for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
+  "span.sum": "Span<T> and stackalloc are not supported. Use arrays, or JavaScript typed arrays from WebSharper.JavaScript."
+}

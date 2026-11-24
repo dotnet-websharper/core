@@ -146,7 +146,8 @@
     "status": "pass"
   },
   "float.precision": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "`float` is a JavaScript number, so it keeps double precision instead of rounding to single.",
     "net": "0.1|0.10000000149011612",
     "js": "0.1|0.1"
   },
@@ -234,7 +235,8 @@
     "status": "pass"
   },
   "string.equality.ref": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "JavaScript strings are values: two equal strings are never different references.",
     "net": "true,false,true",
     "js": "true,true,true"
   },
@@ -447,7 +449,8 @@
     "status": "pass"
   },
   "enum.getvalues": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "Enums are erased to numbers: a boxed or generic enum value formats as its number.",
     "net": "[Red,Green,Blue]",
     "js": "[0,5,6]"
   },
@@ -484,7 +487,8 @@
     "status": "pass"
   },
   "array.outofrange": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "Array accesses are not bounds-checked: reading past the end gives undefined instead of throwing IndexOutOfRangeException.",
     "net": "EXN IndexOutOfRange",
     "js": "undefined"
   },
@@ -520,7 +524,8 @@
     "status": "pass"
   },
   "dict.insertion.order": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "After a Remove, .NET reuses the freed slot for the next Add; that order is unspecified in .NET, and JavaScript keeps insertion order.",
     "net": "[b,d,c]",
     "js": "[b,c,d]"
   },
@@ -585,7 +590,8 @@
     "status": "pass"
   },
   "span.sum": {
-    "status": "unsupported",
+    "status": "known",
+    "reason": "Span<T> and stackalloc are not supported.",
     "net": "6",
     "js": "WS-COMPILE-ERROR"
   },
@@ -595,7 +601,8 @@
     "js": "1"
   },
   "list.capacity.tostring": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name.",
     "net": "System.Collections.Generic.List`1[System.Int32]",
     "js": ""
   },
@@ -806,7 +813,8 @@
     "status": "pass"
   },
   "exception.null.deref": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "Dereferencing null throws a JavaScript TypeError, not a NullReferenceException.",
     "net": "EXN NullReference",
     "js": "EXN Exception :: Cannot read properties of null (reading 'length')"
   },
@@ -889,7 +897,8 @@
     "status": "pass"
   },
   "generic.default": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "Generics are erased: default(T) inside generic code is null for value types too.",
     "net": "0|null",
     "js": "null|null"
   },
@@ -920,12 +929,14 @@
     "status": "pass"
   },
   "object.tostring.default": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "No runtime type names: Object.ToString on a type that does not override it does not give the .NET type name.",
     "net": "Conformance.Plain",
     "js": "[object Object]"
   },
   "gettype.name": {
-    "status": "unsupported",
+    "status": "known",
+    "reason": "No reflection: GetType() is not available in JavaScript.",
     "net": "Dog",
     "js": "WS-COMPILE-ERROR"
   },
@@ -938,7 +949,8 @@
     "status": "pass"
   },
   "boxing.equality": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "Values are not boxed in JavaScript: two boxed equal numbers compare equal by reference too.",
     "net": "false,true,true",
     "js": "true,true,true"
   },
