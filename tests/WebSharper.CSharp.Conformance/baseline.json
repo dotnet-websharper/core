@@ -547,6 +547,12 @@
   "sorteddictionary.ops": {
     "status": "pass"
   },
+  "sorteddictionary.keys.live": {
+    "status": "known",
+    "reason": "SortedDictionary.Keys and .Values are snapshots, not live views: they don't see later changes. Read Keys/Values again after changing the dictionary.",
+    "net": "2",
+    "js": "1"
+  },
   "sortedset.ops": {
     "status": "pass"
   },
@@ -603,7 +609,7 @@
   },
   "readonly.wrapper": {
     "status": "known",
-    "reason": "AsReadOnly gives a read-only snapshot, not a live view of the list.",
+    "reason": "AsReadOnly returns a snapshot, not a live wrapper: it doesn't see later changes to the list. Call AsReadOnly again after changing the list, or pass the list as IReadOnlyList<T>.",
     "net": "2",
     "js": "1"
   },
