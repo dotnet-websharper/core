@@ -104,8 +104,8 @@ namespace WebSharper.CSharp.Tests
             Equal((1, 2).CompareTo((1, 3)), -1);
             NotEqual((1, 2).GetHashCode(), (1, 3).GetHashCode());
             NotEqual((1, 2).ToTuple().GetHashCode(), (1, 3).ToTuple().GetHashCode());
-            Equal((1, 2).ToString(), "1,2"); // not using custom ToString yet
-            Equal((1, 2).ToTuple().ToString(), "1,2");
+            Equal((1, 2).ToString(), "(1, 2)");
+            Equal((1, 2).ToTuple().ToString(), "(1, 2)");
         }
 
         [Test]

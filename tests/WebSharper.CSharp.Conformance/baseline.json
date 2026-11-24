@@ -179,9 +179,7 @@
     "js": "2147483648"
   },
   "double.equality.nan": {
-    "status": "mismatch",
-    "net": "false,true",
-    "js": "false,false"
+    "status": "pass"
   },
   "float.precision": {
     "status": "mismatch",
@@ -510,32 +508,24 @@
     "status": "pass"
   },
   "enum.tostring": {
-    "status": "mismatch",
-    "net": "Green|Blue|6|42",
-    "js": "5|6|6|42"
+    "status": "pass"
   },
   "enum.flags.tostring": {
-    "status": "mismatch",
-    "net": "Read, Write|None",
-    "js": "3|0"
+    "status": "pass"
   },
   "enum.hasflag": {
     "status": "pass"
   },
   "enum.parse": {
-    "status": "unsupported",
-    "net": "Blue|5",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "enum.tryparse": {
-    "status": "unsupported",
-    "net": "false,Red",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "enum.getvalues": {
-    "status": "unsupported",
+    "status": "mismatch",
     "net": "[Red,Green,Blue]",
-    "js": "WS-COMPILE-ERROR"
+    "js": "[0,5,6]"
   },
   "enum.switch": {
     "status": "pass"
@@ -633,9 +623,7 @@
     "js": "false,undefined,true"
   },
   "dict.kvp.tostring": {
-    "status": "mismatch",
-    "net": "[a, 1]",
-    "js": "[object Object]"
+    "status": "pass"
   },
   "dict.tryadd.getordefault": {
     "status": "unsupported",
@@ -698,9 +686,7 @@
     "js": ""
   },
   "tuple.tostring": {
-    "status": "mismatch",
-    "net": "(1, a, True)|(1, 2)",
-    "js": "1,a,true|1,2"
+    "status": "pass"
   },
   "tuple.equality": {
     "status": "pass"
@@ -943,9 +929,7 @@
     "status": "pass"
   },
   "using.declaration": {
-    "status": "mismatch",
-    "net": "[body,dispose a]",
-    "js": "[body]"
+    "status": "pass"
   },
   "events": {
     "status": "pass"
@@ -997,9 +981,7 @@
     "status": "pass"
   },
   "nameof": {
-    "status": "mismatch",
-    "net": "ValueLanguage",
-    "js": "Counter.ValueLanguage"
+    "status": "pass"
   },
   "checked.unchecked.block": {
     "status": "mismatch",
@@ -1098,9 +1080,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "datetime.arith": {
-    "status": "mismatch",
-    "net": "2024-02-29|2024-02-01|30",
-    "js": "2024-03-02|2024-02-01|30"
+    "status": "pass"
   },
   "datetime.format": {
     "status": "pass"
@@ -1114,9 +1094,7 @@
     "status": "pass"
   },
   "timespan": {
-    "status": "mismatch",
-    "net": "01:30:30|1.5083333333333333|1|30",
-    "js": "EXN Exception :: Cannot mix BigInt and other types, use explicit conversions"
+    "status": "pass"
   },
   "timespan.format": {
     "status": "unsupported",
@@ -1129,9 +1107,7 @@
     "js": "WS-COMPILE-ERROR"
   },
   "guid.parse.format": {
-    "status": "mismatch",
-    "net": "0f8fad5b-d9cb-469f-a165-70867728950e|0f8fad5bd9cb469fa16570867728950e|true",
-    "js": "0f8fad5b-d9cb-469f-a165-70867728950e|0f8fad5bd9cb469fa16570867728950e|false"
+    "status": "pass"
   },
   "guid.empty": {
     "status": "pass"
@@ -1150,9 +1126,7 @@
     "js": "EXN Exception :: Nullable object must have a value."
   },
   "convert.tostring.bool": {
-    "status": "mismatch",
-    "net": "True|True",
-    "js": "true|true"
+    "status": "pass"
   },
   "string.gethashcode.stable": {
     "status": "pass"

@@ -563,6 +563,13 @@ type NumericMacro() =
                     |> MacroOk
                 else MacroFallback
             | _ -> MacroError "numericMacro error"
+        | "Equals" when (name = "System.Double" || name = "System.Single") && c.Arguments.Length = 1 ->
+            // Double.Equals: NaN equals NaN (unlike ==), 0 equals -0
+            let a = Id.New(mut = false)
+            let b = Id.New(mut = false)
+            Let(a, c.This.Value, Let(b, c.Arguments.Head,
+                (Var a ^=== Var b) ^|| ((Var a ^!== Var a) ^&& (Var b ^!== Var b))))
+            |> MacroOk
         | "Equals" ->
             translateComparison c.Compilation (ConcreteType c.DefiningType) (c.This.Value :: c.Arguments) false false Comparison.``=``
         | "CompareTo" ->
@@ -1959,7 +1966,18 @@ type Tuple() =
         else
             let t = TupleType (c.DefiningType.Generics, false)
             match mname with
-            | "ToString" -> MacroOk <| Appl(Global ["String"], [c.This.Value], Pure, Some 1)
+            | "ToString" ->
+                // like .NET: "(1, a, True)"
+                let v = Id.New(mut = false)
+                let items =
+                    c.DefiningType.Generics |> List.mapi (fun i _ -> formatValue (ItemGet(Var v, cInt i, Pure)) "")
+                let body =
+                    match items with
+                    | [] -> cString "()"
+                    | _ ->
+                        let joined = items |> List.reduce (fun a b -> a ^+ cString ", " ^+ b)
+                        cString "(" ^+ joined ^+ cString ")"
+                MacroOk <| Let(v, c.This.Value, body)
             | "GetHashCode" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic hashMeth [ t ], [c.This.Value]) 
             | "Equals" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic equalsMeth [ t ], [c.This.Value; c.Arguments.Head]) 
             | "CompareTo" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic compareMeth [ t ], [c.This.Value; c.Arguments.Head]) 

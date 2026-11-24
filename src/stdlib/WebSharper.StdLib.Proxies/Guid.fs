@@ -29,7 +29,8 @@ open System.Runtime.InteropServices
 [<Type "string">]
 type internal GuidProxy =
     
-    [<Inline "$g">]
+    // GUIDs are lowercase strings, so that == compares them like .NET does
+    [<Inline "$g.toLowerCase()">]
     new (g: string) = {}
     
     [<Direct "return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

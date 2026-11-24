@@ -280,3 +280,89 @@ let FormatValue (x: obj) (format: string) : string =
         | "number" | "bigint" -> FormatNumber x format
         | "string" -> As<string> x
         | _ -> str x
+
+[<Inline "(() => { const r = []; for (let i = 0; i < $names.length; i += 2) r.push([$names[i], $names[i + 1]]); return r.sort((a, b) => Number(b[0]) - Number(a[0])); })()">]
+let private flagPairs (names: obj[]) = X<obj[][]>
+
+[<Inline "$parts.join(', ')">]
+let private joinParts (parts: string[]) = X<string>
+
+/// Enum.ToString: `names` is [| value0; name0; value1; name1; ... |] in declaration order.
+/// A defined value gives its name; a [Flags] combination of defined values gives "A, B"; otherwise the number.
+let FormatEnum (value: obj) (names: obj[]) (isFlags: bool) : string =
+    let mutable res : string = null
+    let mutable i = 0
+    while isNull (As<obj> res) && i < names.Length do
+        if JS.Inline("$0 == $1", names.[i], value) then res <- As<string> names.[i + 1]
+        i <- i + 2
+    if not (isNull (As<obj> res)) then res
+    elif not isFlags then str value
+    else
+        let v = toNumber value
+        if v = 0.0 then str value else
+        // greedy, from the largest defined flag, like .NET
+        let pairs = flagPairs names
+        let mutable rest = v
+        let mutable parts : string[] = [||]
+        for p in pairs do
+            let f = toNumber p.[0]
+            if f <> 0.0 && JS.Inline("($0 & $1) === $1", rest, f) then
+                rest <- JS.Inline("$0 & ~$1", rest, f)
+                parts <- JS.Inline("[$1].concat($0)", parts, p.[1])
+        if rest <> 0.0 || parts.Length = 0 then str value
+        else joinParts parts
+
+/// Enum.Parse / TryParse: a name, a number, or for [Flags] a comma separated list of names; null when not valid.
+let TryParseEnum (s: string) (names: obj[]) (ignoreCase: bool) : obj =
+    if isNull (As<obj> s) then null else
+    let find (n: string) : obj =
+        let n : string = JS.Inline("$0.trim()", n)
+        if JS.Inline("/^[+-]?\\d+$/.test($0)", n) then box (toNumber n)
+        else
+            let mutable res : obj = null
+            let mutable i = 0
+            while isNull res && i < names.Length do
+                let name = As<string> names.[i + 1]
+                if name = n || ignoreCase && lower name = lower n then res <- names.[i]
+                i <- i + 2
+            res
+    let parts : string[] = JS.Inline("$0.split(',')", s)
+    let mutable acc = 0.0
+    let mutable ok = parts.Length > 0
+    for p in parts do
+        let v = find p
+        if isNull v then ok <- false
+        else acc <- JS.Inline("$0 | $1", acc, toNumber v)
+    if ok then box acc else null
+
+/// Enum.Parse: like TryParseEnum, throws ArgumentException when the string is not valid.
+let ParseEnum (s: string) (names: obj[]) (ignoreCase: bool) : obj =
+    match TryParseEnum s names ignoreCase with
+    | null -> raise (System.ArgumentException("Requested value '" + s + "' was not found."))
+    | v -> v
+
+[<Inline "new Date($ms)">]
+let private date (ms: float) = X<Date>
+
+let private pad2 (x: float) = (if x < 10.0 then "0" else "") + str x
+
+/// TimeSpan.ToString() (a TimeSpan is milliseconds): .NET's constant format [-][d.]hh:mm:ss[.fffffff]
+let FormatTimeSpan (value: float) : string =
+    let neg = value < 0.0
+    let a = if neg then -value else value
+    let totalSeconds : float = JS.Inline("Math.floor($0 / 1000)", a)
+    let ticks : float = JS.Inline("Math.round(($0 - $1 * 1000) * 1E4)", a, totalSeconds)
+    let d : float = JS.Inline("Math.floor($0 / 86400)", totalSeconds)
+    let h : float = JS.Inline("Math.floor($0 / 3600) % 24", totalSeconds)
+    let m : float = JS.Inline("Math.floor($0 / 60) % 60", totalSeconds)
+    let s : float = JS.Inline("$0 % 60", totalSeconds)
+    (if neg then "-" else "")
+    + (if d > 0.0 then str d + "." else "")
+    + pad2 h + ":" + pad2 m + ":" + pad2 s
+    + (if ticks > 0.0 then "." + padStart (str ticks) 7 "0" else "")
+
+/// DateTime.ToString() (a DateTime is milliseconds): .NET's invariant culture "G" format, MM/dd/yyyy HH:mm:ss
+let FormatDateTime (value: float) : string =
+    let d = date value
+    pad2 (float (d.GetMonth() + 1)) + "/" + pad2 (float (d.GetDate())) + "/" + str (d.GetFullYear())
+    + " " + pad2 (float (d.GetHours())) + ":" + pad2 (float (d.GetMinutes())) + ":" + pad2 (float (d.GetSeconds()))

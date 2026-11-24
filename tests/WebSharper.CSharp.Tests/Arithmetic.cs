@@ -212,10 +212,10 @@ namespace WebSharper.CSharp.Tests
             IsTrue(true.GetHashCode() == true.GetHashCode());
             IsTrue(true.GetHashCode() != false.GetHashCode());
             Equal(true.CompareTo(false), 1);
-            Equal(bool.TrueString, "true");
-            Equal(bool.FalseString, "false");
-            Equal(true.ToString(), "true");
-            Equal(false.ToString(), "false");
+            Equal(bool.TrueString, "True");
+            Equal(bool.FalseString, "False");
+            Equal(true.ToString(), "True");
+            Equal(false.ToString(), "False");
             IsTrue(bool.Parse("true") && bool.Parse("True"));
             IsTrue(!bool.Parse("false") && !bool.Parse("False"));
         }
