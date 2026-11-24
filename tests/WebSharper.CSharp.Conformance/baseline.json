@@ -936,9 +936,7 @@
     "status": "pass"
   },
   "struct.copy.semantics": {
-    "status": "mismatch",
-    "net": "0,1,1,0",
-    "js": "1,1,1,1"
+    "status": "pass"
   },
   "struct.default.equality": {
     "status": "pass"

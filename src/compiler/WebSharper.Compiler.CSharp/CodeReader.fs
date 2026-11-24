@@ -2559,7 +2559,8 @@ type RoslynTransformer(env: Environment) =
             ) |> List.ofSeq |> Sequential
         | InitializerExpressionKind.ArrayInitializerExpression ->
             // TODO: 2-dimensional
-            x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> NewArray
+            // an array element is a copy of a mutable struct value, like a variable or a collection item
+            x.Expressions |> Seq.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node) |> List.ofSeq |> NewArray
         | InitializerExpressionKind.ComplexElementInitializerExpression -> 
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> ComplexElement
         |> withExprSourcePos x.Node
@@ -3914,7 +3915,7 @@ type RoslynTransformer(env: Environment) =
         Let(o, copy, Sequential [initializer; Var o])
 
     member this.TransformExpressionElement (x: ExpressionElementData) : _ =
-        let expression = x.Expression |> this.TransformExpression
+        let expression = x.Expression |> this.TransformExpression |> this.CopyIfMutableStruct x.Expression.Node
         expression, false
 
     member this.TransformSpreadElement (x: SpreadElementData) : _ =
