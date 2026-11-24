@@ -415,3 +415,8 @@ let FormatDateTime (value: float) : string =
     let d = date value
     pad2 (float (d.GetMonth() + 1)) + "/" + pad2 (float (d.GetDate())) + "/" + str (d.GetFullYear())
     + " " + pad2 (float (d.GetHours())) + ":" + pad2 (float (d.GetMinutes())) + ":" + pad2 (float (d.GetSeconds()))
+
+/// DateOnly.ToString() (a DateOnly is the milliseconds of local midnight): invariant culture, MM/dd/yyyy
+let FormatDateOnly (value: float) : string =
+    let d = date value
+    pad2 (float (d.GetMonth() + 1)) + "/" + pad2 (float (d.GetDate())) + "/" + str (d.GetFullYear())

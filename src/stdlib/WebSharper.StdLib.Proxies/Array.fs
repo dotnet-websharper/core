@@ -422,5 +422,22 @@ type private ArrayProxy =
     member this.Length
         with [<Inline>] get() = F.GetLength (As this)   
 
+    /// a T[,] is an array of row arrays with dims = 2 (like F#'s Array2D)
+    member this.Rank
+        with [<Inline "($this.dims || 1)">] get() = X<int>
+
+    [<Inline>]
+    member this.GetLength(dimension: int) : int =
+        if dimension = 0 then
+            (if JS.Inline("$0.dims", this) = 2 then F.GetArray2DLength1 (As this) else (As<obj[]> this).Length)
+        elif dimension = 1 && JS.Inline("$0.dims", this) = 2 then F.GetArray2DLength2 (As this)
+        else raise (System.IndexOutOfRangeException("Index was outside the bounds of the array."))
+
+    [<Inline>]
+    member this.GetUpperBound(dimension: int) : int = this.GetLength(dimension) - 1
+
+    [<Inline>]
+    member this.GetLowerBound(dimension: int) : int = 0
+
     [<Inline>]
     member this.GetEnumerator() = Enumerator.Get0 (As this)         

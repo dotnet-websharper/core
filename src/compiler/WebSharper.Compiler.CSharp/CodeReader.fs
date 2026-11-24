@@ -1216,6 +1216,8 @@ type RoslynTransformer(env: Environment) =
             Some (this.FormattingCall("FormatTimeSpan", [ NonGenericType Definitions.Float ], NonGenericType Definitions.String, [ e ]))
         | "System.DateTime" ->
             Some (this.FormattingCall("FormatDateTime", [ NonGenericType Definitions.Float ], NonGenericType Definitions.String, [ e ]))
+        | "System.DateOnly" ->
+            Some (this.FormattingCall("FormatDateOnly", [ NonGenericType Definitions.Float ], NonGenericType Definitions.String, [ e ]))
         | "System.Collections.Generic.KeyValuePair<TKey, TValue>" ->
             Some (withValue (fun v ->
                 Value (String "[") ^+ fmt (ItemGet(v, Value (String "K"), Pure)) ^+ Value (String ", ")
@@ -2730,9 +2732,18 @@ type RoslynTransformer(env: Environment) =
                 | _ -> Call(Some (Var env.Initializing.Value), cTyp, addM, [item])
             ) |> List.ofSeq |> Sequential
         | InitializerExpressionKind.ArrayInitializerExpression ->
-            // TODO: 2-dimensional
             // an array element is a copy of a mutable struct value, like a variable or a collection item
-            x.Expressions |> Seq.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node) |> List.ofSeq |> NewArray
+            let arr = x.Expressions |> Seq.map (fun e -> this.TransformExpression e |> this.CopyIfMutableStruct e.Node) |> List.ofSeq |> NewArray
+            // the outermost initializer of a T[,] (rows of arrays): marked with dims = 2, like F#'s Array2D
+            let arrayType =
+                match x.Node.Parent with
+                | :? InitializerExpressionSyntax -> null
+                | :? ArrayCreationExpressionSyntax | :? ImplicitArrayCreationExpressionSyntax -> env.SemanticModel.GetTypeInfo(x.Node.Parent).Type
+                | _ -> env.SemanticModel.GetTypeInfo(x.Node).ConvertedType
+            match arrayType with
+            | :? IArrayTypeSymbol as t when t.Rank = 2 ->
+                Appl(Global [ "Object"; "assign" ], [ arr; Object [ "dims", MemberKind.Simple, Value (Int 2) ] ], NonPure, Some 2)
+            | _ -> arr
         | InitializerExpressionKind.ComplexElementInitializerExpression -> 
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> ComplexElement
         |> withExprSourcePos x.Node
@@ -3379,6 +3390,26 @@ type RoslynTransformer(env: Environment) =
         |> withExprSourcePos node
 
     member this.TransformMemberAccessExpression (x: MemberAccessExpressionData) : _ =
+        // typeof(T).Name / .FullName / .Namespace on a known type: a compile-time constant
+        // (System.Type itself is not available in JavaScript)
+        let typeOfConstant =
+            match x.Expression with
+            | ExpressionData.TypeOfExpression t ->
+                match env.SemanticModel.GetTypeInfo(t.Node.Type).Type with
+                | :? INamedTypeSymbol as nt when nt.TypeKind <> TypeKind.Error ->
+                    let ns = if isNull nt.ContainingNamespace || nt.ContainingNamespace.IsGlobalNamespace then "" else nt.ContainingNamespace.ToDisplayString()
+                    let rec nested (t: INamedTypeSymbol) =
+                        if isNull t.ContainingType then t.MetadataName else nested t.ContainingType + "+" + t.MetadataName
+                    match x.Node.Name.Identifier.ValueText with
+                    | "Name" -> Some nt.MetadataName
+                    | "Namespace" when ns <> "" -> Some ns
+                    | "FullName" when not nt.IsGenericType -> Some ((if ns = "" then "" else ns + ".") + nested nt)
+                    | _ -> None
+                | _ -> None
+            | _ -> None
+        match typeOfConstant with
+        | Some name -> Value (String name)
+        | None ->
         this.TransformMemberAccess(x.Node, Some x.Expression, x.Name)
 
     member this.TransformConditionalAccessExpression (x: ConditionalAccessExpressionData) : _ =
@@ -3394,6 +3425,12 @@ type RoslynTransformer(env: Environment) =
         this.TransformElementAccess(x.Node, None, x.ArgumentList)
 
     member this.TransformArrayCreationExpression (x: ArrayCreationExpressionData) : _ =
+        // a T[,] is an array of row arrays marked with dims = 2, like F#'s Array2D
+        let markRank2 (e: Expression) =
+            match env.SemanticModel.GetTypeInfo(x.Node).Type with
+            | :? IArrayTypeSymbol as t when t.Rank = 2 ->
+                Appl(Global [ "Object"; "assign" ], [ e; Object [ "dims", MemberKind.Simple, Value (Int 2) ] ], NonPure, Some 2)
+            | _ -> e
         match x.Initializer with
         | Some i -> this.TransformInitializerExpression i
         | None ->
@@ -3411,6 +3448,23 @@ type RoslynTransformer(env: Environment) =
                         let arr = New(Global [ "Array" ], [], [ size ])
                         Appl(ItemGet(arr, Value (String "fill"), NonPure), [ def ], NonPure, Some 1)
                 | _ -> NewArray []
+            | :? IArrayTypeSymbol as t when t.Rank = 2 && x.Node.Type.RankSpecifiers.Count > 0 ->
+                // new T[n, m]: n rows of m default values
+                match List.ofSeq x.Node.Type.RankSpecifiers[0].Sizes with
+                | [ n; m ] when not (n :? OmittedArraySizeExpressionSyntax) ->
+                    let n = this.TransformExpression (ExpressionData.FromNode n)
+                    let m = this.TransformExpression (ExpressionData.FromNode m)
+                    let def = DefaultValueOf (sr.ReadType t.ElementType)
+                    let mv = Id.New(mut = false)
+                    let row =
+                        if isMutableStruct t.ElementType then
+                            Appl(Global [ "Array"; "from" ], [ Object [ "length", MemberKind.Simple, Var mv ]; Function([], None, None, Return def) ], NonPure, Some 2)
+                        else
+                            Appl(ItemGet(New(Global [ "Array" ], [], [ Var mv ]), Value (String "fill"), NonPure), [ def ], NonPure, Some 1)
+                    Let(mv, m,
+                        Appl(Global [ "Array"; "from" ], [ Object [ "length", MemberKind.Simple, n ]; Function([], None, None, Return row) ], NonPure, Some 2))
+                    |> markRank2
+                | _ -> NewArray [] |> markRank2
             | _ -> NewArray []
 
     member this.TransformImplicitArrayCreationExpression (x: ImplicitArrayCreationExpressionData) : _ =
@@ -4065,7 +4119,7 @@ type RoslynTransformer(env: Environment) =
             // types whose ToString(string) proxy implements .NET format strings
             let formatted =
                 match x.FormatClause, env.SemanticModel.GetTypeInfo(x.Expression.Node).Type with
-                | Some f, (:? INamedTypeSymbol as t) when t.ContainingNamespace.ToDisplayString() = "System" && (t.Name = "DateTime" || t.Name = "Guid") ->
+                | Some f, (:? INamedTypeSymbol as t) when t.ContainingNamespace.ToDisplayString() = "System" && (t.Name = "DateTime" || t.Name = "DateOnly" || t.Name = "TimeSpan" || t.Name = "Guid") ->
                     t.GetMembers("ToString") |> Seq.tryPick (function
                         | :? IMethodSymbol as m when not m.IsStatic && m.Parameters.Length = 1 && m.Parameters[0].Type.SpecialType = SpecialType.System_String ->
                             Some (call m (Some expr) [ Value (String f.Node.FormatStringToken.ValueText) ])

@@ -134,7 +134,7 @@ let SetArray2DSub<'T> (dst: 'T[,]) src1 src2 len1 len2 (src: 'T[,]) =
 [<Name "length"; Pure >]
 let GetLength<'T> (arr: System.Array) =
     match arr?dims with
-    | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength1 (As arr)
+    | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength2 (As arr)
     | _ -> Array.length (As arr)
 
 [<Name "checkThis">]
