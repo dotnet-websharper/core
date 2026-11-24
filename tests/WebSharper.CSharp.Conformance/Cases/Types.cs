@@ -114,11 +114,7 @@ namespace Conformance
             C("boxing.equality", () => { object a = 1, b = 1; return B(a == b) + "," + B(a.Equals(b)) + "," + B(Equals(a, b)); }),
             C("boxing.int.long", () => { object a = 1, b = 1L; return B(a.Equals(b)); }),
             C("anonymous.type", () => { var a = new { X = 1, Y = "y" }; var b = new { X = 1, Y = "y" }; return a.ToString() + "|" + B(a.Equals(b)); }),
-#if !JS
             C("datetime.basic", () => { var d = new DateTime(2024, 2, 29, 13, 5, 9); return $"{d.Year}-{d.Month}-{d.Day} {d.Hour}:{d.Minute}:{d.Second} {d.DayOfWeek} {d.DayOfYear}"; }),
-#else
-            C("datetime.basic", () => "WS-COMPILE-ERROR"),
-#endif
             C("datetime.arith", () => { var d = new DateTime(2024, 1, 31); return $"{d.AddMonths(1):yyyy-MM-dd}|{d.AddDays(1):yyyy-MM-dd}|{(new DateTime(2024, 3, 1) - d).TotalDays}"; }),
             C("datetime.format", () => new DateTime(2024, 7, 4, 9, 3, 0).ToString("yyyy-MM-dd HH:mm:ss") + "|" + new DateTime(2024, 7, 4).ToString("ddd, dd MMM yyyy")),
 #if !JS
@@ -140,11 +136,7 @@ namespace Conformance
 #endif
             C("guid.parse.format", () => { var g = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e"); return g.ToString() + "|" + g.ToString("N") + "|" + B(g == new Guid("0F8FAD5B-D9CB-469F-A165-70867728950E")); }),
             C("guid.empty", () => Guid.Empty.ToString()),
-#if !JS
             C("random.seeded.range", () => { var r = new Random(1); var x = r.Next(10); return B(x >= 0 && x < 10); }),
-#else
-            C("random.seeded.range", () => "WS-COMPILE-ERROR"),
-#endif
             C("nullable.struct.getvalueordefault", () => { int? a = null; return $"{a.GetValueOrDefault()},{a.GetValueOrDefault(4)}"; }),
             C("nullable.value.null", () => { int? a = null; return $"{a.Value}"; }),
             C("convert.tostring.bool", () => true.ToString() + "|" + bool.Parse("TRUE")),

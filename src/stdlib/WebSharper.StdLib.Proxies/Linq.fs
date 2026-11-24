@@ -1001,3 +1001,79 @@ type private LinqProxy =
     [<Inline>]
     static member Zip<'T, 'U, 'R>(this: seq<'T>, second: seq<'U>, resultSelector: Func<'T, 'U, 'R>) : seq<'R> =
         Seq.map2 (fun x y -> resultSelector.Invoke(x, y)) this second
+
+    /// Zip without a selector: (first, second) tuples, as long as the shorter sequence
+    [<Inline>]
+    static member Zip<'T, 'U>(this: seq<'T>, second: seq<'U>) : seq<struct ('T * 'U)> =
+        Seq.map2 (fun x y -> struct (x, y)) this second
+
+    [<Inline>]
+    static member Append<'T>(this: seq<'T>, element: 'T) : seq<'T> =
+        Seq.append this [| element |]
+
+    [<Inline>]
+    static member Prepend<'T>(this: seq<'T>, element: 'T) : seq<'T> =
+        Seq.append [| element |] this
+
+    [<Inline>]
+    static member ToHashSet<'T>(this: seq<'T>) : HashSet<'T> =
+        HashSet<'T>(this)
+
+    static member TakeLast<'T>(this: seq<'T>, count: int) : seq<'T> =
+        let a = Array.ofSeq this
+        if count <= 0 then Seq.empty
+        elif count >= a.Length then a :> _
+        else Array.sub a (a.Length - count) count :> _
+
+    static member SkipLast<'T>(this: seq<'T>, count: int) : seq<'T> =
+        let a = Array.ofSeq this
+        if count <= 0 then a :> _
+        elif count >= a.Length then Seq.empty
+        else Array.sub a 0 (a.Length - count) :> _
+
+    static member DistinctBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>) : seq<'T> =
+        seq {
+            let seen = HashSet<'K>()
+            for x in this do
+                if seen.Add(keySelector.Invoke x) then yield x
+        }
+
+    static member MinBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>) : 'T =
+        let a = Array.ofSeq this
+        if a.Length = 0 then raise (InvalidOperationException "Sequence contains no elements")
+        let mutable best = a.[0]
+        let mutable bestKey = keySelector.Invoke best
+        for i in 1 .. a.Length - 1 do
+            let k = keySelector.Invoke a.[i]
+            if Unchecked.compare (box k) (box bestKey) < 0 then
+                best <- a.[i]
+                bestKey <- k
+        best
+
+    static member MaxBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>) : 'T =
+        let a = Array.ofSeq this
+        if a.Length = 0 then raise (InvalidOperationException "Sequence contains no elements")
+        let mutable best = a.[0]
+        let mutable bestKey = keySelector.Invoke best
+        for i in 1 .. a.Length - 1 do
+            let k = keySelector.Invoke a.[i]
+            if Unchecked.compare (box k) (box bestKey) > 0 then
+                best <- a.[i]
+                bestKey <- k
+        best
+
+    [<Inline>]
+    static member Order<'T>(this: seq<'T>) : IOrderedEnumerable<'T> =
+        LinqProxy.OrderBy(this, Func<'T, 'T>(id), Comparer<'T>.Default)
+
+    [<Inline>]
+    static member OrderDescending<'T>(this: seq<'T>) : IOrderedEnumerable<'T> =
+        LinqProxy.OrderByDescending(this, Func<'T, 'T>(id), Comparer<'T>.Default)
+
+    [<Inline>]
+    static member FirstOrDefault<'T>(this: seq<'T>, defaultValue: 'T) : 'T =
+        LinqProxy.JSFirstOrDefault(this, defaultValue)
+
+    [<Inline>]
+    static member FirstOrDefault<'T>(this: seq<'T>, predicate: Func<'T, bool>, defaultValue: 'T) : 'T =
+        LinqProxy.JSFirstOrDefault(this, predicate, defaultValue)

@@ -109,6 +109,12 @@ module ArrayProxy =
 [<Type "Array">]
 type private ArrayProxy =
 
+    [<Inline "void $array.fill($value)">]
+    static member Fill<'T>(array: 'T[], value: 'T) = X<unit>
+
+    [<Inline "void $array.fill($value, $startIndex, $startIndex + $count)">]
+    static member Fill<'T>(array: 'T[], value: 'T, startIndex: int, count: int) = X<unit>
+
     [<Inline>]
     static member BinarySearch(haystack: System.Array, needle: obj) : int =
         binarySearch (As<obj[]> haystack) (objBinarySearchComparer needle) 0 haystack.Length

@@ -861,5 +861,49 @@ namespace WebSharper.CSharp.Tests
 
         private int Add5(int x) => x + 5; 
         #endregion
+
+        [Test("APIs added from the C# conformance sweep (#1652)")]
+        public void ConformanceApis()
+        {
+            // strings
+            Equal(string.Join("-", new[] { 1, 2, 3 }), "1-2-3");
+            IsTrue("Hello".Contains("hell", StringComparison.OrdinalIgnoreCase));
+            IsTrue("abc".Contains('b'));
+            IsTrue("Hello".EndsWith("LO", StringComparison.OrdinalIgnoreCase));
+            IsTrue(string.Equals("abc", "ABC", StringComparison.OrdinalIgnoreCase));
+            Equal(Math.Sign(string.CompareOrdinal("a", "B")), 1);
+            Equal("MiXeD".ToUpperInvariant() + "MiXeD".ToLowerInvariant(), "MIXEDmixed");
+            Equal("hello".Insert(2, "XX"), "heXXllo");
+            Equal(string.Join("|", "a::b::c".Split("::")), "a|b|c");
+            Equal(string.Join("|", "a,b,c,d".Split(',', 2)), "a|b,c,d");
+            // LINQ
+            Equal(string.Join(",", new[] { 3, 1, 2 }.Order()), "1,2,3");
+            Equal(new[] { 1, 2 }.FirstOrDefault(x => x > 5, -1), -1);
+            Equal(new[] { "bb", "a" }.MaxBy(s => s.Length) + new[] { "bb", "a" }.MinBy(s => s.Length), "bba");
+            Equal(string.Join(",", new[] { "a", "A", "b" }.DistinctBy(s => s.ToLower())), "a,b");
+            Equal(string.Join(",", new[] { 1, 2 }.Zip(new[] { 'x', 'y' }).Select(t => $"{t.First}{t.Second}")), "1x,2y");
+            Equal(string.Join(",", Enumerable.Range(1, 5).TakeLast(2)) + "|" + string.Join(",", Enumerable.Range(1, 5).SkipLast(3)), "4,5|1,2");
+            Equal(string.Join(",", new[] { "x" }.Append("y").Prepend("w")), "w,x,y");
+            Equal(new[] { 1, 1, 2 }.ToHashSet().Count, 2);
+            // Math, numbers
+            Equal(Math.Round(1.005, 2), 1.0);
+            Equal(Math.Round(2.345, 2), 2.35);
+            Equal(Math.Clamp(15, 0, 10), 10);
+            Equal(double.Parse("1.5e3", System.Globalization.CultureInfo.InvariantCulture), 1500.0);
+            char c = 'a'; c++;
+            Equal(c, 'b');
+            Equal(-16 >>> 2, 1073741820);
+            // collections, dates
+            var a = new int[3]; Array.Fill(a, 7);
+            Equal(string.Join(",", a), "7,7,7");
+            var d = new Dictionary<string, int>();
+            IsTrue(d.TryAdd("a", 1));
+            IsFalse(d.TryAdd("a", 2));
+            Equal(d.GetValueOrDefault("z", 9), 9);
+            Equal(new System.DateTime(2024, 2, 29).DayOfYear, 60);
+            Equal(new System.DateTime(2024, 7, 4, 9, 3, 0, DateTimeKind.Utc).Year, 2024);
+            var r = new Random(1).Next(10);
+            IsTrue(r >= 0 && r < 10);
+        }
     }
 }

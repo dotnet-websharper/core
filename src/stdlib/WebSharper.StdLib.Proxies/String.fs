@@ -161,6 +161,46 @@ let SplitStrings (s: string) (sep: string[]) (opts: System.StringSplitOptions) =
     let re = String.concat "|" (Array.map RegexEscape sep)
     Split s (MakeRegexp re) opts
 
+/// StringComparison values with an odd number ignore case (CurrentCultureIgnoreCase = 1, InvariantCultureIgnoreCase = 3,
+/// OrdinalIgnoreCase = 5); comparisons are ordinal otherwise
+[<Inline "$c % 2 === 1">]
+let IgnoresCase (c: System.StringComparison) = X<bool>
+
+let ContainsCmp (s: string) (sub: string) (c: System.StringComparison) =
+    if IgnoresCase c then s.ToLower().IndexOf(sub.ToLower()) <> -1 else s.IndexOf(sub) <> -1
+
+let StartsWithCmp (s: string) (t: string) (c: System.StringComparison) =
+    if IgnoresCase c then StartsWith (s.ToLower()) (t.ToLower()) else StartsWith s t
+
+let EndsWithCmp (s: string) (t: string) (c: System.StringComparison) =
+    if IgnoresCase c then EndsWith (s.ToLower()) (t.ToLower()) else EndsWith s t
+
+let EqualsCmp (a: string) (b: string) (c: System.StringComparison) =
+    if isNull a || isNull b then a ===. b
+    elif IgnoresCase c then a.ToLower() = b.ToLower()
+    else a = b
+
+/// String.Split with a count: at most `count` parts, the last one holds the rest of the string
+let SplitCount (s: string) (seps: string[]) (count: int) (opts: System.StringSplitOptions) =
+    let parts = SplitStrings s seps opts
+    if count <= 0 then [||]
+    elif parts.Length <= count then parts
+    else
+        // find the position after the (count - 1)th separator in s
+        let mutable pos = 0
+        let mutable i = 0
+        while i < count - 1 do
+            let mutable best = -1
+            let mutable bestLen = 0
+            for sep in seps do
+                let j = s.IndexOf(sep, pos)
+                if j <> -1 && (best = -1 || j < best) then
+                    best <- j
+                    bestLen <- sep.Length
+            pos <- best + bestLen
+            i <- i + 1
+        Array.append (Array.sub parts 0 (count - 1)) [| s.Substring(pos) |]
+
 let Filter f (s: string) =
     System.String.Concat(s |> Seq.choose (fun c -> if f c then Some (string c) else None) |> Array.ofSeq)
 
@@ -272,6 +312,37 @@ type private StringProxy =
     [<Inline "$this.indexOf($s) != -1">]
     member this.Contains(s: string) = X<bool>
 
+    [<Inline "$this.indexOf($c) != -1">]
+    member this.Contains(c: char) = X<bool>
+
+    [<Inline>]
+    member this.Contains(s: string, comparisonType: System.StringComparison) = ContainsCmp (As this) s comparisonType
+
+    [<Inline>]
+    member this.StartsWith(s: string, comparisonType: System.StringComparison) = StartsWithCmp (As this) s comparisonType
+
+    [<Inline>]
+    member this.EndsWith(s: string, comparisonType: System.StringComparison) = EndsWithCmp (As this) s comparisonType
+
+    [<Inline>]
+    member this.Equals(s: string, comparisonType: System.StringComparison) = EqualsCmp (As this) s comparisonType
+
+    [<Inline>]
+    static member Equals(a: string, b: string, comparisonType: System.StringComparison) = EqualsCmp a b comparisonType
+
+    /// ordinal (UTF-16 code unit) comparison, the sign of .NET's result
+    [<Inline "$a < $b ? -1 : $a > $b ? 1 : 0">]
+    static member CompareOrdinal(a: string, b: string) = X<int>
+
+    [<Inline "$this.slice(0, $startIndex) + $value + $this.slice($startIndex)">]
+    member this.Insert(startIndex: int, value: string) = X<string>
+
+    [<Inline "$this.toUpperCase()">]
+    member this.ToUpperInvariant() = X<string>
+
+    [<Inline "$this.toLowerCase()">]
+    member this.ToLowerInvariant() = X<string>
+
     [<Inline>]
     member this.CopyTo(s: int, d: char [], off: int, ct: int) =
         CopyTo (As this) s d off ct
@@ -321,6 +392,11 @@ type private StringProxy =
     [<Inline>]
     static member Join(sep: string, values: string seq) =
         Join sep (Array.ofSeq values)
+
+    /// String.Join<T>: each value's ToString, null as ""
+    [<Inline>]
+    static member Join<'T>(sep: string, values: seq<'T>) =
+        Join sep (values |> Seq.map (fun x -> if (box x) ===. null then "" else string x) |> Array.ofSeq)
 
     [<Inline>]
     static member Join(sep: string, [<System.ParamArray>] values: string[]) =
@@ -390,6 +466,22 @@ type private StringProxy =
     [<Inline>]
     member this.Split(sep: string[], opts: System.StringSplitOptions) =
         SplitStrings (As this) sep opts
+
+    [<Inline>]
+    member this.Split(sep: string, opts: System.StringSplitOptions) =
+        SplitStrings (As this) [| sep |] opts
+
+    [<Inline>]
+    member this.Split(sep: char, count: int, opts: System.StringSplitOptions) =
+        SplitCount (As this) [| string sep |] count opts
+
+    [<Inline>]
+    member this.Split(sep: char[], count: int) =
+        SplitCount (As this) (Array.map string sep) count System.StringSplitOptions.None
+
+    [<Inline>]
+    member this.Split(sep: string, count: int, opts: System.StringSplitOptions) =
+        SplitCount (As this) [| sep |] count opts
 
     [<Inline>]
     member this.StartsWith(s: string) =

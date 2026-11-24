@@ -33,6 +33,9 @@ module RandomHelpers =
 [<Name "Random">]
 [<Proxy(typeof<System.Random>)>]
 type internal RandomProxy() =
+    /// the seed is accepted, but the sequence is not .NET's: JavaScript has no seedable generator
+    new (seed: int) = RandomProxy()
+
     member this.Next() = Next()
 
     member this.Next maxValue =

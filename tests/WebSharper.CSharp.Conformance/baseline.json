@@ -48,9 +48,7 @@
     "status": "pass"
   },
   "math.round.digits": {
-    "status": "unsupported",
-    "net": "1,2.35",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "math.round.awayfromzero": {
     "status": "pass"
@@ -59,9 +57,7 @@
     "status": "pass"
   },
   "math.clamp.sign": {
-    "status": "unsupported",
-    "net": "10,-1,4",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "math.max.min.int": {
     "status": "pass"
@@ -109,9 +105,7 @@
     "status": "pass"
   },
   "parse.double": {
-    "status": "unsupported",
-    "net": "1500",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "tryparse.double": {
     "status": "pass"
@@ -125,17 +119,13 @@
     "js": "0"
   },
   "char.arith": {
-    "status": "unsupported",
-    "net": "b,65,B",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "char.isdigit.letter": {
     "status": "pass"
   },
   "bitwise.shift": {
-    "status": "unsupported",
-    "net": "2,-4,1073741820,1099511627776",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "bitwise.ops": {
     "status": "pass"
@@ -176,14 +166,10 @@
     "status": "pass"
   },
   "split.string": {
-    "status": "unsupported",
-    "net": "[a,b,c]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "split.count": {
-    "status": "unsupported",
-    "net": "[a,b,c,d]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "trim.chars": {
     "status": "pass"
@@ -204,42 +190,30 @@
     "status": "pass"
   },
   "contains.comparison": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "startswith.endswith": {
-    "status": "unsupported",
-    "net": "true,true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "equals.ignorecase": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "compare.ordinal": {
-    "status": "unsupported",
-    "net": "1,-1",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "upper.lower.invariant": {
-    "status": "unsupported",
-    "net": "MIXED|mixed",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "replace": {
     "status": "pass"
   },
   "insert.remove": {
-    "status": "unsupported",
-    "net": "heXXllo|hlo|hel",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "join.concat": {
-    "status": "unsupported",
+    "status": "mismatch",
     "net": "1-2-3|a1True",
-    "js": "WS-COMPILE-ERROR"
+    "js": "1-2-3|a1true"
   },
   "join.null": {
     "status": "pass"
@@ -319,9 +293,7 @@
     "status": "pass"
   },
   "string.contains.char": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "string.equals.null": {
     "status": "pass"
@@ -539,9 +511,7 @@
     "js": "true,true"
   },
   "array.fill.indexof": {
-    "status": "unsupported",
-    "net": "[7,7,7],0,-1",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "array.range.slice": {
     "status": "pass"
@@ -574,9 +544,7 @@
     "status": "pass"
   },
   "dict.tryadd.getordefault": {
-    "status": "unsupported",
-    "net": "false,1,9",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "dict.comparer.ignorecase": {
     "status": "unsupported",
@@ -659,9 +627,7 @@
     "status": "pass"
   },
   "linq.order": {
-    "status": "unsupported",
-    "net": "[1,2,3]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.groupby": {
     "status": "pass"
@@ -681,9 +647,7 @@
     "status": "pass"
   },
   "linq.firstordefault": {
-    "status": "unsupported",
-    "net": "0,null,-1",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.single.many": {
     "status": "pass"
@@ -706,30 +670,22 @@
     "js": "2147483648"
   },
   "linq.min.max": {
-    "status": "unsupported",
-    "net": "1,3,bb,a",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.min.empty": {
     "status": "pass"
   },
   "linq.distinctby.unionby": {
-    "status": "unsupported",
-    "net": "[a,b][1,2,3]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.except.intersect": {
     "status": "pass"
   },
   "linq.zip": {
-    "status": "unsupported",
-    "net": "[1,a,2,b][1,x,2,y]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.skip.take": {
-    "status": "unsupported",
-    "net": "[3,4,5][3,4][4,5][1,2]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.take.range": {
     "status": "unsupported",
@@ -755,9 +711,7 @@
     "status": "pass"
   },
   "linq.repeat.empty.concat": {
-    "status": "unsupported",
-    "net": "[w,x,x,x,y]",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.reverse.defaultifempty": {
     "status": "pass"
@@ -783,9 +737,7 @@
     "status": "pass"
   },
   "linq.toarray.tolist.tohashset": {
-    "status": "unsupported",
-    "net": "2,1",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "linq.range.negative": {
     "status": "pass"
@@ -999,9 +951,7 @@
     "js": "[object Object]|true"
   },
   "datetime.basic": {
-    "status": "unsupported",
-    "net": "2024-2-29 13:5:9 Thursday 60",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "datetime.arith": {
     "status": "pass"
@@ -1037,9 +987,7 @@
     "status": "pass"
   },
   "random.seeded.range": {
-    "status": "unsupported",
-    "net": "true",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "nullable.struct.getvalueordefault": {
     "status": "pass"

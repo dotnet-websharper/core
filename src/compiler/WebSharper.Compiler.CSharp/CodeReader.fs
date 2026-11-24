@@ -2866,7 +2866,13 @@ type RoslynTransformer(env: Environment) =
         | Some o -> o |> withExprSourcePos node
         | _ ->
         let convGet, convSet, callOp = 
-            if symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) && opT.TypeKind <> TypeKind.Enum then
+            if not (isNull opT) && opT.SpecialType = SpecialType.System_Char then
+                // c++ on a char (a one-character string): the next or previous UTF-16 code unit
+                let op = if meth.Entity.Value.MethodName = "op_Increment" then BinaryOperator.``+`` else BinaryOperator.``-``
+                id, id, (fun value ->
+                    Appl(Global [ "String"; "fromCharCode" ],
+                        [ Binary(Appl(ItemGet(value, Value (String "charCodeAt"), Pure), [], Pure, None), op, Value (Int 1)) ], Pure, Some 1))
+            elif symbol.IsImplicitlyDeclared && not (numericTypes.Contains opTyp.Entity.Value.FullName) && opT.TypeKind <> TypeKind.Enum then
                 // synthetic method, try to find conversions
                 let realOpType =
                     incrOrDecrAutoConvertTypes |> Seq.tryPick (fun t ->

@@ -127,6 +127,12 @@ type private DateTimeProxy =
     [<Inline; Pure>]
     static member CtorProxy (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = 
         DateTimeHelpers.Create(y, mo, d, h, m, s, ms)
+
+    /// DateTimeKind.Utc: the components are UTC; otherwise local, like the constructor without a kind
+    [<Inline; Pure>]
+    static member CtorProxy (y: int, mo: int, d: int, h: int, m: int, s: int, kind: System.DateTimeKind) = 
+        if kind = System.DateTimeKind.Utc then As<D> (JS.Inline("Date.UTC($0, $1 - 1, $2, $3, $4, $5)", y, mo, d, h, m, s))
+        else DateTimeHelpers.Create(y, mo, d, h, m, s, 0)
     
     static member Now
         with [<Inline "Date.now()">] get() = X<D>
@@ -172,6 +178,9 @@ type private DateTimeProxy =
     
     member this.DayOfWeek 
         with [<Inline; JavaScript>] get() = As<System.DayOfWeek>(Date(As<int> this).GetDay())
+
+    member this.DayOfYear
+        with [<Inline "(d => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 864e5) + 1)(new Date($this))">] get() = X<int>
 
     member this.Ticks
         with [<Inline "BigInt(Math.trunc($this)) * BigInt(1E4) + BigInt(($this - Math.trunc($this)) * 1E4)">] get() = X<int64>
