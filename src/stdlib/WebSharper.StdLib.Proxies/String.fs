@@ -275,7 +275,7 @@ type private StringProxy =
 
     [<Inline>]
     static member Concat<'T>(objs: 'T seq) : string =
-        Join "" (Array.ofSeq (objs |> Seq.map (fun o -> o.ToString())))
+        Join "" (Array.ofSeq (objs |> Seq.map (fun o -> WebSharper.Formatting.FormatValue (box o) "")))
 
     [<Inline>]
     static member Concat(s1: string, s2: string) = s1 + s2
@@ -287,13 +287,15 @@ type private StringProxy =
     static member Concat(s1: string, s2: string, s3: string, s4: string) = s1 + s2 + s3 + s4
 
     [<Inline>]
-    static member Concat(o1: obj) = string o1
+    static member Concat(o1: obj) = WebSharper.Formatting.FormatValue o1 ""
 
     [<Inline>]
-    static member Concat(o1: obj, o2: obj) = string o1 + string o2
+    static member Concat(o1: obj, o2: obj) =
+        WebSharper.Formatting.FormatValue o1 "" + WebSharper.Formatting.FormatValue o2 ""
 
     [<Inline>]
-    static member Concat(o1: obj, o2: obj, o3: obj) = string o1 + string o2 + string o3
+    static member Concat(o1: obj, o2: obj, o3: obj) =
+        WebSharper.Formatting.FormatValue o1 "" + WebSharper.Formatting.FormatValue o2 "" + WebSharper.Formatting.FormatValue o3 ""
 
     [<Inline "$strings.join('')">]
     static member Concat([<System.ParamArray>] strings: string[]) = X<string>
@@ -303,11 +305,11 @@ type private StringProxy =
 
     [<Inline>]
     static member Concat([<System.ParamArray>] objs: obj[]) =
-        Join "" (As<string[]> objs)
+        Join "" (objs |> Array.map (fun o -> WebSharper.Formatting.FormatValue o ""))
 
     [<Inline>]
     static member Concat([<System.ParamArray>] objs: ReadOnlySpanProxy<obj>) = 
-        Join "" (As<string[]> objs)
+        Join "" (As<obj[]> objs |> Array.map (fun o -> WebSharper.Formatting.FormatValue o ""))
 
     [<Inline "$this.indexOf($s) != -1">]
     member this.Contains(s: string) = X<bool>
@@ -396,7 +398,20 @@ type private StringProxy =
     /// String.Join<T>: each value's ToString, null as ""
     [<Inline>]
     static member Join<'T>(sep: string, values: seq<'T>) =
-        Join sep (values |> Seq.map (fun x -> if (box x) ===. null then "" else string x) |> Array.ofSeq)
+        Join sep (values |> Seq.map (fun x -> WebSharper.Formatting.FormatValue (box x) "") |> Array.ofSeq)
+
+    /// String.Join(string, params object[]): each value as .NET formats it, null as ""
+    [<Inline>]
+    static member Join(sep: string, [<System.ParamArray>] values: obj[]) =
+        Join sep (values |> Array.map (fun x -> WebSharper.Formatting.FormatValue x ""))
+
+    [<Inline>]
+    static member Join(sep: string, [<System.ParamArray>] values: ReadOnlySpanProxy<obj>) =
+        Join sep (As<obj[]> values |> Array.map (fun x -> WebSharper.Formatting.FormatValue x ""))
+
+    [<Inline>]
+    static member Join(sep: string, [<System.ParamArray>] values: ReadOnlySpanProxy<string>) =
+        Join sep (As<string[]> values)
 
     [<Inline>]
     static member Join(sep: string, [<System.ParamArray>] values: string[]) =

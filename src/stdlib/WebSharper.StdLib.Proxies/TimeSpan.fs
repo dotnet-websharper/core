@@ -44,6 +44,13 @@ type private TimeSpanProxy =
     [<Inline "$this + $t">]
     member this.Add(t: TS) = X<TS>
 
+    [<Inline>]
+    member this.ToString(format: string) : string = WebSharper.Formatting.FormatTimeSpanWith (As this) format
+
+    [<Inline>]
+    member this.ToString(format: string, provider: System.IFormatProvider) : string =
+        WebSharper.Formatting.FormatTimeSpanWith (As this) format
+
     [<Inline "$this - $t">]
     member this.Subtract(t: TS) = X<TS>
 

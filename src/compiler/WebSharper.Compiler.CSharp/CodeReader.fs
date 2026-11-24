@@ -1222,6 +1222,18 @@ type RoslynTransformer(env: Environment) =
                 ^+ fmt (ItemGet(v, Value (String "V"), Pure)) ^+ Value (String "]")))
         | _ ->
         match t with
+        | :? INamedTypeSymbol as nt when nt.IsAnonymousType ->
+            // { X = 1, Y = y }: the properties in declaration order, each as .NET formats it
+            let props = nt.GetMembers() |> Seq.choose (function :? IPropertySymbol as p -> Some p | _ -> None) |> List.ofSeq
+            Some (withValue (fun v ->
+                match props with
+                | [] -> Value (String "{ }")
+                | _ ->
+                    let items =
+                        props |> List.mapi (fun i p ->
+                            let value, _ = this.InterpolationHoleToString(ItemGet(v, Value (String p.Name), Pure), p.Type)
+                            Value (String ((if i = 0 then "{ " else ", ") + p.Name + " = ")) ^+ value)
+                    (items |> List.reduce (^+)) ^+ Value (String " }")))
         | :? INamedTypeSymbol as nt when
                 (nt.IsTupleType && nt.TupleElements.Length <= 7)
                 || (fullName.StartsWith "System.Tuple<" && nt.TypeArguments.Length <= 7) ->
