@@ -117,6 +117,8 @@ type WsConfig =
         /// Assemblies with agent tools for the booster (IAgentExtension), from --agentextension.
         AgentExtensions : string list
         TimingLog : string option
+        /// The log file the booster writes for this project, chosen by the client (--wsboosterlog).
+        BoosterLog : string option
         RuntimeMetadata : Metadata.MetadataOptions
         ArgWarnings : string list
         PreBundle : bool
@@ -213,6 +215,7 @@ type WsConfig =
             ParallelCompilation = true
             AgentExtensions = []
             TimingLog = None
+            BoosterLog = None
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []
             PreBundle = false
@@ -648,6 +651,8 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with MinJSOutputPath = Some f }
     | StartsWith "--wstimings:" f ->
         Some { wsArgs with TimingLog = Some f }
+    | StartsWith "--wsboosterlog:" f ->
+        Some { wsArgs with BoosterLog = Some f }
     | "--wstranslateonly" -> Some { wsArgs with TranslateOnly = true }
     | StartsWith "--implref:" r ->
         Some { wsArgs with ReferenceImplementations = Array.append wsArgs.ReferenceImplementations [| r |] }
