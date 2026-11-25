@@ -278,35 +278,40 @@
     "js": "anullb"
   },
   "string.of.null": {
-    "status": "mismatch",
-    "net": "[]",
-    "js": "[null]"
+    "status": "pass"
   },
   "string.of.option": {
-    "status": "mismatch",
-    "net": "Some(1)|",
-    "js": "[object Object]|null"
+    "status": "pass"
   },
   "string.of.unit": {
     "status": "pass"
   },
   "string.of.bool": {
-    "status": "mismatch",
-    "net": "True,False",
-    "js": "true,false"
+    "status": "pass"
   },
   "string.of.char": {
     "status": "pass"
   },
   "string.of.list": {
-    "status": "mismatch",
-    "net": "[1; 2; 3]",
-    "js": "[object Object]"
+    "status": "pass"
   },
   "string.of.tuple": {
-    "status": "mismatch",
-    "net": "(1, a)",
-    "js": "1,a"
+    "status": "pass"
+  },
+  "string.of.list.long": {
+    "status": "pass"
+  },
+  "string.of.list.nested": {
+    "status": "pass"
+  },
+  "string.of.option.nested": {
+    "status": "pass"
+  },
+  "string.of.tuple.nested": {
+    "status": "pass"
+  },
+  "string.of.obj": {
+    "status": "pass"
   },
   "string.split": {
     "status": "pass"
@@ -651,9 +656,7 @@
     "status": "pass"
   },
   "list.countby": {
-    "status": "mismatch",
-    "net": "[False:4,True:4]",
-    "js": "[false:4,true:4]"
+    "status": "pass"
   },
   "list.partition": {
     "status": "pass"
@@ -689,9 +692,7 @@
     "status": "pass"
   },
   "list.tryfind": {
-    "status": "mismatch",
-    "net": ",Some(4)",
-    "js": "null,[object Object]"
+    "status": "pass"
   },
   "list.pick": {
     "status": "pass"
@@ -715,9 +716,7 @@
     "status": "pass"
   },
   "list.last": {
-    "status": "mismatch",
-    "net": "6,",
-    "js": "6,null"
+    "status": "pass"
   },
   "list.rev": {
     "status": "pass"
@@ -726,9 +725,7 @@
     "status": "pass"
   },
   "list.mapi.indexed": {
-    "status": "mismatch",
-    "net": "[0=5,1=6][(0, a)]",
-    "js": "[0=5,1=6][0,a]"
+    "status": "pass"
   },
   "list.map2.map3": {
     "status": "pass"
@@ -767,9 +764,7 @@
     "status": "pass"
   },
   "list.exactlyone": {
-    "status": "mismatch",
-    "net": "4,",
-    "js": "4,null"
+    "status": "pass"
   },
   "list.randomless.permute": {
     "status": "pass"
@@ -1003,9 +998,7 @@
     "status": "pass"
   },
   "map.tryfind": {
-    "status": "mismatch",
-    "net": ",Some(a)",
-    "js": "null,[object Object]"
+    "status": "pass"
   },
   "map.add.replace": {
     "status": "pass"
@@ -1095,9 +1088,7 @@
     "status": "pass"
   },
   "dictionary.trygetvalue.missing": {
-    "status": "mismatch",
-    "net": "none:True",
-    "js": "none:true"
+    "status": "pass"
   },
   "dictionary.remove": {
     "status": "pass"
@@ -1240,9 +1231,7 @@
     "status": "pass"
   },
   "option.functions": {
-    "status": "mismatch",
-    "net": "Some(2),9,",
-    "js": "[object Object],9,null"
+    "status": "pass"
   },
   "option.value.none": {
     "status": "pass"
@@ -1263,9 +1252,7 @@
     "status": "pass"
   },
   "option.ofobj": {
-    "status": "mismatch",
-    "net": ",Some(x)",
-    "js": "null,[object Object]"
+    "status": "pass"
   },
   "voption": {
     "status": "pass"
@@ -1477,6 +1464,9 @@
     "net": "10000",
     "js": "EXN Exception :: Maximum call stack size exceeded"
   },
+  "string.of.generic": {
+    "status": "pass"
+  },
   "inline.srtp": {
     "status": "unsupported",
     "net": "6,abab,3",
@@ -1599,9 +1589,7 @@
     "status": "pass"
   },
   "computation.option": {
-    "status": "mismatch",
-    "net": "Some(3),",
-    "js": "[object Object],null"
+    "status": "pass"
   },
   "units.of.measure": {
     "status": "pass"
@@ -1752,9 +1740,7 @@
     "status": "pass"
   },
   "bool.parse": {
-    "status": "mismatch",
-    "net": "True,False",
-    "js": "true,false"
+    "status": "pass"
   },
   "nullable": {
     "status": "pass"

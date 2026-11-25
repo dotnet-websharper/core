@@ -162,6 +162,27 @@ let CheckedAbs (x: int) (minValue: int) =
     elif x < 0 then -x
     else x
 
+/// F# `string` of a value whose static type is not known to be a number: `null` and `undefined` give "",
+/// bools "True"/"False", as on .NET (see the String macro).
+[<Name "toStr">]
+let ToStr (x: obj) : string =
+    if x ==. null then ""
+    elif JS.TypeOf x ==. JS.Boolean then (if As<bool> x then "True" else "False")
+    else JS.Inline("String($0)", x)
+
+/// F# `string` of a list, as FSharpList.ToString: at most three elements, then "; ... ".
+[<Name "listToString">]
+let ListToString (p: obj -> string) (l: obj list) : string =
+    let mutable s = "["
+    let mutable r = l
+    let mutable i = 0
+    while i < 3 && not r.IsEmpty do
+        if i > 0 then s <- s + "; "
+        s <- s + p r.Head
+        r <- r.Tail
+        i <- i + 1
+    if r.IsEmpty then s + "]" else s + "; ... ]"
+
 [<Macro(typeof<M.Abs>)>]
 [<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>

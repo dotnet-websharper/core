@@ -28,3 +28,5 @@ module H =
     let J (xs: seq<string>) = "[" + String.concat "," xs + "]"
     let Ji (xs: seq<int>) = J (Seq.map string xs)
     let B (b: bool) = if b then "true" else "false"
+    /// `string` inside a generic, non-inline function: the type is only known at run time
+    let show (x: 'T) = string x

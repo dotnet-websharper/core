@@ -70,7 +70,7 @@ let printArray2D (p: obj -> string, o: obj[,]) =
 [<JavaScript>]
 let rec prettyPrint (o: obj) =
     let printObject (o: obj) =
-        let s = string o
+        let s : string = JS.Inline("String($0)", o)
         if s = "[object Object]" then
             "{" + (JS.GetFields o |> Array.map (fun (k, v) -> k + " = " + prettyPrint v) |> String.concat "; ") + "}"
         else s
@@ -82,7 +82,7 @@ let rec prettyPrint (o: obj) =
         if o :? System.Array then
             "[|" + (As o |> Array.map prettyPrint |> String.concat "; ") + "|]"
         else printObject o
-    else string o
+    else JS.Inline("String($0)", o)
 
 [<JavaScript>]
 let charRange (min: char) (max: char) : seq<char> =

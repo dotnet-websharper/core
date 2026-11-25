@@ -111,6 +111,7 @@ module Language =
         C "recursion" (fun () -> string (fact 10) + "," + B (even 11))
         C "tail.recursion.deep" (fun () -> string (loop 0 1000000))
         C "recursion.deep.nontail" (fun () -> let rec f n = if n = 0 then 0 else 1 + f (n - 1) in string (f 10000))
+        C "string.of.generic" (fun () -> show true + "|" + show (null: string) + "|" + show 4)
 #if !JS
         C "inline.srtp" (fun () -> string (twice 3) + "," + twice "ab" + "," + string (twice 1.5))
 #else

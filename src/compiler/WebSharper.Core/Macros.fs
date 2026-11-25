@@ -941,6 +941,25 @@ module Definitions =
             Generics = 0
         }
 
+    let toStrMeth =
+        Method {
+            MethodName = "ToStr"
+            Parameters = [ NonGenericType Definitions.Obj ]
+            ReturnType = NonGenericType Definitions.String
+            Generics = 0
+        }
+
+    let listToStringMeth =
+        Method {
+            MethodName = "ListToString"
+            Parameters = [
+                FSharpFuncType (NonGenericType Definitions.Obj, NonGenericType Definitions.String)
+                GenericType (TypeDefinition { Assembly = "FSharp.Core"; FullName = "Microsoft.FSharp.Collections.FSharpList`1" }) [ NonGenericType Definitions.Obj ]
+            ]
+            ReturnType = NonGenericType Definitions.String
+            Generics = 0
+        }
+
     let floatMaxMeth, floatMinMeth =
         let m name =
             Method {
@@ -1043,25 +1062,72 @@ type Sign() =
                 MacroError (sprintf "Sign macro error, type not supported: %O" t)
 
 [<Sealed>]
+/// F# `string x`, by the static type of `x`, following FSharp.Core and the .NET `ToString` overrides:
+/// `null` gives "", bools are "True"/"False", options "Some(1)", lists "[1; 2; 3; ... ]" (at most three
+/// elements), tuples "(1, a)", each element printed by its own type. Other values use `String`, or the `toStr`
+/// runtime helper when the type is not a number (`obj`, generic, classes), which also handles null and bools.
 type String() =
     inherit Macro()
     override this.TranslateCall(c) =
+        let comp = c.Compilation
+        let concat parts = parts |> List.reduce (fun a b -> Binary(a, BinaryOperator.``+``, b))
+        // inside an option or a list, .NET shows a null element as "null" (anyToStringShowingNull)
+        let rec stringOfElem (t: Type) (x: Expression) =
+            let showingNull () =
+                let v = Id.New "e"
+                Let(v, x, Conditional(Binary(Var v, BinaryOperator.``==``, Value Literal.Null), cString "null", stringOf t (Var v)))
+            match t with
+            | ConcreteType d ->
+                match d.Entity.Value.FullName with
+                | "System.Char" | "System.DateTime" | "System.Boolean" | "Microsoft.FSharp.Collections.FSharpList`1" -> stringOf t x
+                | "System.String" -> Binary(x, BinaryOperator.``??``, cString "null")
+                | "Microsoft.FSharp.Core.FSharpOption`1" -> optionStr "null" d.Generics.Head x
+                | n when scalarTypes.Contains n -> stringOf t x
+                | _ -> showingNull ()
+            | TupleType _ -> stringOf t x
+            | _ -> showingNull ()
+        and optionStr noneText (e: Type) (x: Expression) =
+            let v = Id.New "o"
+            Let(v, x,
+                Conditional(Binary(Var v, BinaryOperator.``==``, Value Literal.Null), cString noneText,
+                    concat [ cString "Some("; stringOfElem e (ItemGet(Var v, cString "$0", Pure)); cString ")" ]))
+        and stringOf (t: Type) (x: Expression) =
+            match t with
+            | ConcreteType d ->
+                match d.Entity.Value.FullName, d.Generics with
+                | "System.Char", _ ->
+                    x
+                | "System.DateTime", _ ->
+                    Appl(ItemGet(New(Global [ "Date" ], [], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
+                | "System.String", _ ->
+                    Binary(x, BinaryOperator.``??``, cString "")
+                | "System.Boolean", _ ->
+                    Conditional(x, cString "True", cString "False")
+                | "Microsoft.FSharp.Core.FSharpOption`1", [ e ] ->
+                    optionStr "" e x
+                | "Microsoft.FSharp.Collections.FSharpList`1", [ e ] ->
+                    let v = Id.New "x"
+                    Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.listToStringMeth, [ Lambda([ v ], None, stringOfElem e (Var v)); x ])
+                | n, _ when scalarTypes.Contains n ->
+                    Appl(Global ["String"], [x], Pure, Some 1)
+                | _ ->
+                    Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.toStrMeth, [ x ])
+            | TupleType (ts, _) ->
+                let v = Id.New "t"
+                let items = ts |> List.mapi (fun i e -> stringOf e (ItemGet(Var v, Value (Int i), Pure)))
+                let rec sep l =
+                    match l with
+                    | [] -> []
+                    | [ a ] -> [ a ]
+                    | a :: r -> a :: cString ", " :: sep r
+                Let(v, x, concat (cString "(" :: sep items @ [ cString ")" ]))
+            | _ ->
+                Call(None, NonGeneric Definitions.opModule, NonGeneric Definitions.toStrMeth, [ x ])
         match c.Arguments with
         | [x] ->
             match c.Method.Generics with
             | t :: _ ->
-                match t with
-                | ConcreteType d ->
-                    match d.Entity.Value.FullName with
-                    | "System.Char" ->
-                        x
-                    | "System.DateTime" ->
-                        Appl(ItemGet(New(Global [ "Date" ], [], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
-                    | _ ->
-                        Appl(Global ["String"], [x], Pure, Some 1)   
-                | _ -> 
-                    Appl(Global ["String"], [x], Pure, Some 1)   
-                |> MacroOk 
+                stringOf t x |> MacroOk
             | _ ->
                 MacroError "stringMacro error"
         | [] ->
