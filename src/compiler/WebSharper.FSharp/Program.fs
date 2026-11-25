@@ -61,9 +61,25 @@ let main(argv) =
     | HelpOrCommand r ->
         r
     | ParsedOptions (wsConfig, warnSettings) ->
-        let wsLogPath = Path.Combine(wsConfig.ProjectDir, "websharper.log")
-        if System.IO.File.Exists wsLogPath then
-            System.IO.File.Delete wsLogPath
+        // Start each build with a fresh log. If websharper.log can't be removed, another identity
+        // (e.g. a booster started by a sandboxed agent) owns it, possibly without granting us access,
+        // so this build logs to websharper.<user>.log instead of losing its diagnostics (#1616).
+        let tryRemove (path: string) =
+            try
+                if File.Exists path then File.Delete path
+                true
+            with _ -> false
+        let wsLogPath =
+            let defaultLog = Path.Combine(wsConfig.ProjectDir, "websharper.log")
+            if tryRemove defaultLog then defaultLog
+            else
+                let user =
+                    System.Environment.UserName
+                    |> String.map (fun c -> if Array.contains c (Path.GetInvalidFileNameChars()) then '_' else c)
+                let userLog = Path.Combine(wsConfig.ProjectDir, sprintf "websharper.%s.log" user)
+                tryRemove userLog |> ignore
+                logger.Out (sprintf "WebSharper: %s is not accessible, logging to %s" defaultLog userLog)
+                userLog
         if wsConfig.Standalone then
             let reason =
                 if System.Environment.GetEnvironmentVariables()
@@ -91,7 +107,7 @@ let main(argv) =
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
             try
-                let res = sendCompileCommand argv wsConfig.ProjectDir wsConfig.BuildServiceLogging logger
+                let res = sendCompileCommand (Array.append argv [| "--wsboosterlog:" + wsLogPath |]) wsLogPath wsConfig.BuildServiceLogging logger
                 res
             with
             | PipeException () ->
