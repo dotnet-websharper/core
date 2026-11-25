@@ -58,7 +58,7 @@ let retryErrorCode = -12212
 let startBooster (location: string) (logArgs: string list) =
     WebSharper.Compiler.BoosterProcess.start location "wsfscservice" logArgs
 
-let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
+let sendCompileCommand args (logPath: string) useLogs (cLogger: ConsoleLogger) =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     let pipeNameRaw = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
@@ -94,7 +94,7 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
         | None ->
             // start a detached booster. If another client started one meanwhile, the new one exits
             // (one booster per folder, guarded by a named mutex) and we connect to the other.
-            let logArgs = if useLogs then [ Path.Combine(projectDir, "websharper.log") ] else []
+            let logArgs = if useLogs then [ logPath ] else []
             try
                 startBooster location logArgs
             with e ->
@@ -103,7 +103,7 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
             match tryConnect 10000 with
             | Some pipe -> pipe
             | None ->
-                cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+                cLogger.Error (sprintf "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check %s for more information." logPath)
                 raise <| PipeException()
     let Write (ms: byte []) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
@@ -148,7 +148,7 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
                 Async.RunSynchronously(write)
             with
             | PipeException _ as ex ->
-                cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+                cLogger.Error (sprintf "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check %s for more information." logPath)
                 retryErrorCode
             | _ -> 
                 unexpectedFinishErrorCode
@@ -172,9 +172,9 @@ let sendCompileCommand args projectDir useLogs (cLogger: ConsoleLogger) =
             let returnCode = Write bytes
             returnCode
         else
-            cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+            cLogger.Error (sprintf "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check %s for more information." logPath)
             raise <| PipeException()
     with
     | _ ->
-        cLogger.Error "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check websharper.log for more information."
+        cLogger.Error (sprintf "WebSharperBooster warning WSB9002: There was an issue with WebSharper Booster. Retrying with Standalone build, check %s for more information." logPath)
         raise <| PipeException()
