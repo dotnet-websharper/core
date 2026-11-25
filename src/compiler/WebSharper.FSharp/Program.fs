@@ -62,8 +62,12 @@ let main(argv) =
         r
     | ParsedOptions (wsConfig, warnSettings) ->
         let wsLogPath = Path.Combine(wsConfig.ProjectDir, "websharper.log")
-        if System.IO.File.Exists wsLogPath then
-            System.IO.File.Delete wsLogPath
+        // best effort: a running booster may hold the log open, or another identity (e.g. a sandboxed
+        // agent that started the booster) may own it without granting us access (#1616)
+        try
+            if System.IO.File.Exists wsLogPath then
+                System.IO.File.Delete wsLogPath
+        with _ -> ()
         if wsConfig.Standalone then
             let reason =
                 if System.Environment.GetEnvironmentVariables()

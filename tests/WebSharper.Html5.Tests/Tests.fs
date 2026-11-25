@@ -516,7 +516,8 @@ let WebWorkerTests =
                     ok ("The worker replied: " + string e.Data)
                 worker.PostMessage [| 1; 2; 3 |]
             worker.Terminate()
-            equal res "The worker replied: true"
+            // F# `string` of a boxed bool is "True", as on .NET
+            equal res "The worker replied: True"
         }
 
         Test "Macro with import" {
@@ -579,7 +580,7 @@ let WebWorkerTests =
                     |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.OnMessage <- fun e -> ok (e.Data :?> string)
                 worker.PostMessage(null)
             worker.Terminate()
             equalMsg res "missing" "false doesn't include js exports"
@@ -593,7 +594,7 @@ let WebWorkerTests =
                     |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.OnMessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.OnMessage <- fun e -> ok (e.Data :?> string)
                 worker.PostMessage(null)
             worker.Terminate()
             equalMsg res "missing" "default doesn't include js exports"
