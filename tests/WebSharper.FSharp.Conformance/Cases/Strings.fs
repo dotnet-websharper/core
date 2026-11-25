@@ -68,11 +68,7 @@ module Strings =
         C "string.insert.remove" (fun () -> (s "abc").Insert(1, "XY") + "," + (s "abcdef").Remove(1, 2))
         C "string.equality" (fun () -> B (s "abc" = "a" + "bc") + "," + B (obj.ReferenceEquals(s "abc", "a" + s "bc")))
         C "string.module.concat" (fun () -> String.concat ", " [ "a"; "b" ])
-#if !JS
         C "string.module.map" (fun () -> String.map Char.ToUpper (s "abc"))
-#else
-        C "string.module.map" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "string.module.collect" (fun () -> String.collect (fun c -> string c + string c) (s "ab"))
         C "string.module.init" (fun () -> String.init 3 (fun i -> string i))
         C "string.module.replicate" (fun () -> String.replicate 3 (s "ab"))
@@ -82,6 +78,7 @@ module Strings =
         C "string.seq" (fun () -> J (s "abc" |> Seq.map string |> Seq.rev))
         C "string.toCharArray" (fun () -> string ((s "abc").ToCharArray().Length))
         C "char.tests" (fun () -> B (Char.IsDigit '5') + "," + B (Char.IsLetter 'é') + "," + B (Char.IsWhiteSpace '\t') + "," + B (Char.IsUpper 'A'))
+        C "char.case" (fun () -> string (Char.ToUpper 'a') + string (Char.ToLower 'Q') + string (Char.ToUpperInvariant 'é') + "," + B (Char.IsLower 'é') + B (Char.IsDigit '٣'))
 #if !JS
         C "char.unicode.upper" (fun () -> string (Char.ToUpper 'ß') + "," + (s "straße").ToUpper())
 #else
@@ -151,11 +148,7 @@ module Formatting =
         C "sprintf.A.map" (fun () -> sprintf "%A" (Map.ofList [ 1, "a" ]))
         C "sprintf.partial" (fun () -> let f = sprintf "%d-%s" in f 1 "a" + "," + f 2 "b")
         C "sprintf.int64" (fun () -> sprintf "%d" 9007199254740993L)
-#if !JS
         C "sprintf.u" (fun () -> sprintf "%u" 4294967295u)
-#else
-        C "sprintf.u" (fun () -> "WS-COMPILE-ERROR")
-#endif
 #if !JS
         C "sprintf.M" (fun () -> sprintf "%M" 1.50M)
 #else

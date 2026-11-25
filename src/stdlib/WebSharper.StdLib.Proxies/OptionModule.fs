@@ -87,8 +87,12 @@ let ForAll p x =
     | Some x -> p x
     | None   -> true
 
-[<Inline "$x.$0"; Pure>]
-let GetValue (x: option<'T>) = X<'T>
+/// Option.get None throws ArgumentException, as in FSharp.Core.
+[<Name "get">]
+let GetValue (x: option<'T>) =
+    match x with
+    | Some v -> v
+    | None -> raise (System.ArgumentException "The option value was None")
 
 [<Inline "$x==null">]
 let IsNone (x: option<'T>) = false

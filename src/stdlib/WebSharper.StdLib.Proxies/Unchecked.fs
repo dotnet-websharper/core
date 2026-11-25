@@ -75,7 +75,12 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             | JS.Undefined -> 0
             | _ -> -1
         | JS.Boolean | JS.Number | JS.BigInt | JS.String ->
-            if a <. b then -1 else 1
+            if a <. b then -1
+            elif a >. b then 1
+            // neither is less: a NaN is involved; NaN sorts before every number and equals NaN, as in .NET
+            elif a ===. a then 1
+            elif b ===. b then -1
+            else 0
         | JS.Object ->
             if a ===. null then -1
             elif b ===. null then 1

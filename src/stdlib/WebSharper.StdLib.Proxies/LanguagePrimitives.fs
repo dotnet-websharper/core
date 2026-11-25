@@ -65,5 +65,8 @@ let FastGenericComparer<'T>() =
 [<Inline>]
 let inline EnumOfValue (value : 'T) : 'Enum when 'Enum : enum<'T> = As<'Enum> value
 
+[<Inline "$a === $b">]
+let PhysicalEquality (a: 'T) (b: 'T) = X<bool>
+
 [<Inline>]
 let inline EnumToValue (enum : 'Enum) : 'T when 'Enum : enum<'T> = As<'T> enum 

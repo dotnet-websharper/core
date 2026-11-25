@@ -28,10 +28,10 @@ open WebSharper.CollectionInternals
 module M = WebSharper.Core.Macros
 
 let badLengths() =
-    failwith "The lists have different lengths."
+    raise (System.ArgumentException "The lists have different lengths.")
 
 let listEmpty() =
-    failwith "The input list was empty."
+    raise (System.ArgumentException "The input list was empty.")
 
 [<Inline "$l.$0">]
 let unsafeHead (l: list<'T>) = X<'T> 
@@ -663,7 +663,7 @@ let TryFindBack ok (l: list<_>) =
 let FindBack p (s: list<_>) =
     match TryFindBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Inline>]
 let TryFindIndexBack ok (l: list<_>) =
@@ -673,7 +673,7 @@ let TryFindIndexBack ok (l: list<_>) =
 let FindIndexBack p (s: list<_>) =
     match TryFindIndexBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "groupBy">]
 let GroupBy (f: 'T -> 'K when 'K : equality)
@@ -769,7 +769,7 @@ let ExactlyOne (list : 'T list) =
     | [ head ] ->
         head
     | _ ->
-        failwith "The input does not have precisely one element."
+        raise (System.ArgumentException "The input does not have precisely one element.")
 
 [<Name "tryExactlyOne">]
 let TryExactlyOne (list : 'T list) =

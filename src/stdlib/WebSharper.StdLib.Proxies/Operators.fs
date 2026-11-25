@@ -156,6 +156,12 @@ let BigIntAbs (x: int64) =
     | n when n < 0L -> -x
     | _             -> x
 
+[<Name "checkedAbs">]
+let CheckedAbs (x: int) (minValue: int) =
+    if x = minValue then raise (System.OverflowException "Negating the minimum value of a twos complement number is invalid.")
+    elif x < 0 then -x
+    else x
+
 [<Macro(typeof<M.Abs>)>]
 [<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>
@@ -260,7 +266,7 @@ let Infinity = Unchecked.defaultof<double>
 
 let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
-let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
+let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(msg, arg))
 
 [<Inline>]
 let Lock (o: 'TLock) (act: unit -> 'T) = act()
@@ -287,6 +293,16 @@ let toInt (x: float) : int =
     let u = toUInt x
     if u > 2147483647 then u - As<int> intRange else u
 
+/// `int "..."` and the other integer conversions from string accept what FSharp.Core's ParseInt32 accepts
+/// (surrounding whitespace, a sign, decimal digits or a 0x/0o/0b literal) and throw FormatException otherwise.
+let parseIntegral (s: string) : float =
+    let t = s.Trim()
+    if not (JS.Inline("/^[+-]?(\\d+|0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+)$/.test($0)", t)) then
+        raise (System.FormatException "The input string was not in a correct format.")
+    elif t.StartsWith "-" then -(JS.Inline("Number($0)", t.Substring 1))
+    elif t.StartsWith "+" then JS.Inline("Number($0)", t.Substring 1)
+    else JS.Inline("Number($0)", t)
+
 [<Inline "$x">]
 let ToEnum<'T> (x: int) = X<'T>
 
@@ -305,13 +321,23 @@ let ToUInt64 (x: 'T) = X<uint64>
 [<Inline "Math.log($x)">]
 let Log (x: 'T) = X<'T>
 
-[<Inline "Math.log($x)/Math.log(10)">]
+[<Inline "Math.log10($x)">]
 let Log10 (x: 'T) = X<'T>
 
+[<Name "floatMax">]
+let FloatMax (a: float) (b: float) =
+    if a < b || JS.Inline("$0 !== $0", b) then b else a
+
+[<Name "floatMin">]
+let FloatMin (a: float) (b: float) =
+    if a < b || JS.Inline("$0 !== $0", a) then a else b
+
+[<Macro(typeof<M.FloatMinMax>)>]
 [<Inline>]
 let Max<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a > b then a else b
 
+[<Macro(typeof<M.FloatMinMax>)>]
 [<Inline>]
 let Min<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a < b then a else b
@@ -334,8 +360,10 @@ let Raise (e: exn) = X<'T>
 [<Inline "[$x]">]
 let Ref (x: 'T) = X<ref<'T>>
 
-[<Inline "Math.round($x)">]
-let Round (x: 'T) = X<'T>
+/// `round` rounds halfway values to even, as in .NET (`round 2.5 = 2.0`); decimals use their own Round.
+[<Macro(typeof<M.Op>)>]
+[<Inline>]
+let Round (x: 'T) = As<'T> (System.Math.Round (As<float> x))
 
 [<Inline "$x">]
 let CreateSequence (x: seq<'T>) = X<seq<'T>>
@@ -392,6 +420,11 @@ let IsNull (x: 'T) = X<bool>
 [<Inline>]
 let Using t f =
     try f t finally (t :> System.IDisposable).Dispose()
+
+/// `Failure msg` matches exceptions created by `failwith`/`exn msg` (exactly System.Exception), as in FSharp.Core.
+[<Name "Failure">]
+let FailurePattern (e: exn) : string option =
+    if JS.Inline("$0 instanceof Error && $0.constructor === Error", e) then Some e.Message else None
 
 [<Name "KeyValue">]
 let KeyValuePattern (kvp: System.Collections.Generic.KeyValuePair<_,_>) =

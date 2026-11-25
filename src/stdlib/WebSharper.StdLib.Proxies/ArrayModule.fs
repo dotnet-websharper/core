@@ -31,7 +31,7 @@ module M = WebSharper.Core.Macros
 
 let checkLength (arr1: 'T1[]) (arr2: 'T2[]) =
     if Array.length arr1 <> Array.length arr2 then
-        failwith "The arrays have different lengths."
+        raise (System.ArgumentException "The arrays have different lengths.")
 
 [<Inline "$x.push($y)">]
 let push (x: obj) (y: obj) = ()
@@ -51,8 +51,8 @@ let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
 
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
-    F.checkRange arr1 start1 length
-    F.checkRange arr2 start2 length
+    if length < 0 || start1 < 0 || start2 < 0 || Array.length arr1 < start1 + length || Array.length arr2 < start2 + length then
+        raise (System.ArgumentException "The index is outside the legal range.")
     for i = 0 to length - 1 do
         arr2.JS.[start2 + i] <- arr1.JS.[start1 + i]
 
@@ -120,7 +120,8 @@ let Exists2 f (x1: _ []) (x2: _ []) =
 
 [<Name "fill">]
 let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
-    F.checkRange arr start length
+    if length < 0 || start < 0 || Array.length arr < start + length then
+        raise (System.IndexOutOfRangeException())
     for i = start to start + length - 1 do
         arr.JS.[i] <- value
 
@@ -136,13 +137,13 @@ let Filter<'T> f (arr: 'T []) : 'T [] =
 let Find f (arr: _ []) =
     match Array.tryFind f arr with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "findIndex">]
 let FindIndex f (arr: _ []) =
     match Array.tryFindIndex f arr with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "fold">]
 let Fold<'T,'S> (f: 'S -> 'T -> 'S) (zero: 'S) (arr: 'T []) : 'S =
@@ -212,7 +213,7 @@ let Item index (arr: _ []) =
 [<Name "init">]
 let Initialize (size: int) f =
     if size < 0 then
-        failwith "Negative size given."
+        raise (System.ArgumentException "The input must be non-negative.")
     let r = JavaScript.Array(size)
     for i = 0 to size - 1 do
         r.[i] <- f i
@@ -284,7 +285,7 @@ let MapFoldBack f arr zero = ArrayMapFoldBack f arr zero
 
 let private nonEmpty (arr: _ []) =
     if Array.length arr = 0 then
-        failwith "The input array was empty."
+        raise (System.ArgumentException "The input array was empty.")
 
 [<Name "max">]
 let Max arr =
@@ -393,7 +394,7 @@ let Permute f (arr: 'T []) =
 let Pick f (arr: _ []) =
     match Array.tryPick f arr with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "reduce">]
 let Reduce f (arr: _ []) =
@@ -666,13 +667,13 @@ let Except (itemsToExclude: seq<'T>) (a: 'T []) =
 let FindBack p (s: _ []) =
     match TryFindBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Name "findIndexBack">]
 let FindIndexBack p (s: _ []) =
     match TryFindIndexBack p s with
     | Some x -> x
-    | None   -> failwith "KeyNotFoundException"
+    | None   -> raise (System.Collections.Generic.KeyNotFoundException())
 
 [<Inline>]
 let GroupBy (f: 'T -> 'K when 'K : equality)
@@ -722,7 +723,7 @@ let Singleton<'T> (x: 'T) =
 [<Name "skip">]
 let Skip<'T> i (ar : 'T []) =
     if i < 0 then InputMustBeNonNegative() else
-    if i > Array.length ar then InsufficientElements() else
+    if i > Array.length ar then raise (System.ArgumentOutOfRangeException("count", "The input sequence has an insufficient number of elements.")) else
     ar.JS.Slice(i)
 
 [<Name "skipWhile">]
@@ -760,7 +761,7 @@ let ExactlyOne (ar : 'T []) =
     if Array.length ar = 1 then
         ar.JS.[0]
     else
-        failwith "The input does not have precisely one element."
+        raise (System.ArgumentException "The input does not have precisely one element.")
 
 [<Name "tryExactlyOne">]
 let TryExactlyOne (ar : 'T []) =

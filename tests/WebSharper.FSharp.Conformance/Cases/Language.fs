@@ -122,16 +122,10 @@ module Language =
         C "while.loop" (fun () -> let mutable i = 0 in (while i < 5 do i <- i + 2); string i)
         C "for.range.step" (fun () -> let mutable s = "" in (for i in 0 .. 5 .. 20 do s <- s + string i + " "); s)
         C "if.unit" (fun () -> let mutable x = 0 in (if n 1 > 0 then x <- 1); string x)
-#if !JS
         C "exception.failwith" (fun () -> try failwith "boom" with Failure m -> "failure:" + m)
-#else
-        C "exception.failwith" (fun () -> "WS-COMPILE-ERROR")
-#endif
-#if !JS
         C "exception.invalidarg" (fun () -> try invalidArg "x" "bad" with :? ArgumentException as e -> e.ParamName)
-#else
-        C "exception.invalidarg" (fun () -> "WS-COMPILE-ERROR")
-#endif
+        C "exception.argument.message" (fun () -> (ArgumentException("bad", "x")).Message + "|" + (try invalidArg "y" "worse" with e -> e.Message))
+        C "exception.failure.subclass" (fun () -> try raise (InvalidOperationException "op") with Failure m -> "failure:" + m | e -> "other")
         C "exception.invalidop" (fun () -> try invalidOp "nope" with :? InvalidOperationException as e -> e.Message)
         C "exception.custom" (fun () -> try raise (MyError ("m", 7)) with MyError (s, i) -> s + string i)
         C "exception.reraise" (fun () -> try (try failwith "inner" with _ -> reraise ()) with e -> e.Message)

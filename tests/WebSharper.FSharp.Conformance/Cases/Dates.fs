@@ -42,6 +42,7 @@ module Dates =
         C "datetime.parse" (fun () -> (DateTime.Parse "2024-01-15T10:00:00").ToString("yyyy-MM-dd HH:mm"))
         C "datetime.date" (fun () -> (d ()).Date.ToString("HH:mm"))
         C "datetime.invalid" (fun () -> string (DateTime(2023, 2, 29)).Day)
+        C "datetime.invalid.time" (fun () -> try string (DateTime(2024, 1, 1, 24, 0, 0)).Hour with :? ArgumentOutOfRangeException -> "range")
         C "datetime.minvalue" (fun () -> string DateTime.MinValue.Year + "," + string DateTime.MaxValue.Year)
         C "datetime.ticks" (fun () -> string (DateTime(2000, 1, 1)).Ticks)
 #if !JS
@@ -65,23 +66,14 @@ module Dates =
         C "math.functions" (fun () -> string (Math.Max(3, 7)) + "," + string (Math.Abs -2.5) + "," + string (Math.Floor -1.5) + "," + string (Math.Sign -3))
         C "math.constants" (fun () -> string (Math.Round(Math.PI, 4)) + "," + string (Math.Round(Math.E, 4)))
         C "math.clamp" (fun () -> string (Math.Clamp(15, 0, 10)))
-#if !JS
         C "math.divrem" (fun () -> let q, r = Math.DivRem(17, 5) in string q + string r)
-#else
-        C "math.divrem" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "math.truncate.log" (fun () -> string (Math.Truncate -2.9) + "," + string (Math.Log10 1000.0) + "," + string (Math.Log(8.0, 2.0)))
-#if !JS
         C "convert.tobase" (fun () -> Convert.ToString(10, 2) + "," + string (Convert.ToInt32("ff", 16)))
-#else
-        C "convert.tobase" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "convert.toint32.rounding" (fun () -> string (Convert.ToInt32 2.5) + "," + string (Convert.ToInt32 3.5))
-#if !JS
         C "convert.base64" (fun () -> Convert.ToBase64String [| 1uy; 2uy; 255uy |])
-#else
-        C "convert.base64" (fun () -> "WS-COMPILE-ERROR")
-#endif
+        C "convert.frombase64" (fun () -> Ji (Convert.FromBase64String "AQL/" |> Array.map int))
+        C "convert.todouble" (fun () -> string (Convert.ToDouble 2.5) + "," + string (Convert.ToSingle 1.5))
+        C "convert.toint32.base" (fun () -> string (Convert.ToInt32("-12", 10)) + "," + string (Convert.ToInt32("ffffffff", 16)) + "," + Convert.ToString(-1, 16))
 #if !JS
         C "bitconverter" (fun () -> string (BitConverter.GetBytes(1).Length))
 #else

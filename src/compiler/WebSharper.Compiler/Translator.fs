@@ -1382,6 +1382,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 None
         let trmv = meth.Entity.Value
         let mName = trmv.MethodName
+        // F# bitwise operators on an enum: the enum is its underlying number in JavaScript
+        let isEnum =
+            match typs with
+            | [ ConcreteType ct ] -> match comp.GetCustomType ct.Entity with M.EnumInfo _ -> true | _ -> false
+            | _ -> false
+        let enumOp =
+            if not isEnum || thisObj.IsSome then None else
+            match mName, args with
+            | "op_BitwiseOr", [ a; b ] -> Some (Binary(this.TransformExpression a, BinaryOperator.``|``, this.TransformExpression b))
+            | "op_BitwiseAnd", [ a; b ] -> Some (Binary(this.TransformExpression a, BinaryOperator.``&``, this.TransformExpression b))
+            | "op_ExclusiveOr", [ a; b ] -> Some (Binary(this.TransformExpression a, BinaryOperator.``^``, this.TransformExpression b))
+            | "op_LogicalNot", [ a ] -> Some (Unary(UnaryOperator.``~``, this.TransformExpression a))
+            | _ -> None
+        match enumOp with
+        | Some e -> e
+        | None ->
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with

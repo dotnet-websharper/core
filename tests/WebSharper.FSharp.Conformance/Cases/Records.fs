@@ -114,17 +114,9 @@ module Records =
         C "tuple.struct" (fun () -> let struct (a, b) = struct (1, "x") in string a + b)
         C "tuple.fst.snd" (fun () -> string (fst (1, 2)) + string (snd (1, 2)))
         C "enum.tostring" (fun () -> string Color.Green + "," + string (int Color.Blue))
-#if !JS
         C "enum.flags.tostring" (fun () -> string (Color.Red ||| Color.Blue))
-#else
-        C "enum.flags.tostring" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "enum.of.int" (fun () -> string (enum<Color> 2) + "," + string (enum<Color> 3))
-#if !JS
         C "enum.hasflag" (fun () -> B ((Color.Red ||| Color.Blue).HasFlag Color.Blue))
-#else
-        C "enum.hasflag" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "enum.compare" (fun () -> B (Color.Red < Color.Blue) + "," + string (compare Color.Blue Color.Green))
 #if !JS
         C "enum.parse" (fun () -> string (Enum.Parse(typeof<Color>, "Blue") :?> Color))
@@ -133,11 +125,7 @@ module Records =
 #endif
         C "unit.equality" (fun () -> B (() = ()))
         C "structural.nested" (fun () -> B ([ Some (p "a" 1, [| 1 |]) ] = [ Some (p "a" 1, [| 1 |]) ]))
-#if !JS
         C "physical.equality" (fun () -> let a = p "a" 1 in B (LanguagePrimitives.PhysicalEquality a a) + "," + B (LanguagePrimitives.PhysicalEquality a (p "a" 1)))
-#else
-        C "physical.equality" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "compare.mixed.strings" (fun () -> J (List.sort [ "a"; "B"; "_"; "1"; "é" ]))
         C "compare.floats.nan.sort" (fun () -> J (List.sort [ 2.0; nan; 1.0 ] |> List.map string))
         C "compare.char" (fun () -> string (compare 'a' 'B'))

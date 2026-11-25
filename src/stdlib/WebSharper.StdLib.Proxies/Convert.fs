@@ -182,12 +182,12 @@ type internal SystemConvertProxy =
     [<Inline>] static member ToSingle(b: byte) =  b |> float32
     [<Inline>] static member ToSingle(c: char) : single = raise <| System.InvalidCastException()
     [<Inline>] static member ToSingle(dt: DateTime) : single = raise <| System.InvalidCastException()
-    [<Inline>] static member ToSingle(d: double) = int d |> float32
+    [<Inline>] static member ToSingle(d: double) = float32 d
     [<Inline>] static member ToSingle(i: int16) = i |> float32
     [<Inline>] static member ToSingle(i: int32) = i |> float32
     [<Inline>] static member ToSingle(i: int64) = i |> float32
     [<Inline>] static member ToSingle(s: sbyte) = s |> float32
-    [<Inline>] static member ToSingle(s: single) = int s |> float32
+    [<Inline>] static member ToSingle(s: single) = s
     [<Inline>] static member ToSingle(s: string) = Single.Parse s
     [<Inline>] static member ToSingle(u: uint16) = u |> float32
     [<Inline>] static member ToSingle(u: uint32) = u |> float32
@@ -197,13 +197,53 @@ type internal SystemConvertProxy =
     [<Inline>] static member ToDouble(b: byte) =  b |> double
     [<Inline>] static member ToDouble(c: char) : double = raise <| System.InvalidCastException()
     [<Inline>] static member ToDouble(dt: DateTime) : double = raise <| System.InvalidCastException()
-    [<Inline>] static member ToDouble(d: double) = int d |> double
+    [<Inline>] static member ToDouble(d: double) = d
     [<Inline>] static member ToDouble(i: int16) = i |> double
     [<Inline>] static member ToDouble(i: int32) = i |> double
     [<Inline>] static member ToDouble(i: int64) = i |> double
     [<Inline>] static member ToDouble(s: sbyte) = s |> double
-    [<Inline>] static member ToDouble(s: single) = int s |> double
+    [<Inline>] static member ToDouble(s: single) = double s
     [<Inline>] static member ToDouble(s: string) = Double.Parse s
     [<Inline>] static member ToDouble(u: uint16) = u |> double
     [<Inline>] static member ToDouble(u: uint32) = u |> double
     [<Inline>] static member ToDouble(u: uint64) = u |> double
+
+    /// Convert.ToString(value, toBase): base 2, 8, 10 or 16; negative values in bases other than 10 are
+    /// written as their two's complement, as in .NET.
+    static member ToString(value: int, toBase: int) : string =
+        if toBase <> 2 && toBase <> 8 && toBase <> 10 && toBase <> 16 then raise (System.ArgumentException "Invalid Base.")
+        elif toBase = 10 then string value
+        else JS.Inline("($0 >>> 0).toString($1)", value, toBase)
+
+    static member ToString(value: int64, toBase: int) : string =
+        if toBase <> 2 && toBase <> 8 && toBase <> 10 && toBase <> 16 then raise (System.ArgumentException "Invalid Base.")
+        elif toBase = 10 then string value
+        else JS.Inline("BigInt.asUintN(64, $0).toString($1)", value, toBase)
+
+    static member ToInt32(value: string, fromBase: int) : int =
+        if fromBase <> 2 && fromBase <> 8 && fromBase <> 10 && fromBase <> 16 then raise (System.ArgumentException "Invalid Base.")
+        let digits = if fromBase = 16 && (value.StartsWith "0x" || value.StartsWith "0X") then value.Substring 2 else value
+        let valid =
+            match fromBase with
+            | 2 -> JS.Inline("/^[01]+$/.test($0)", digits)
+            | 8 -> JS.Inline("/^[0-7]+$/.test($0)", digits)
+            | 10 -> JS.Inline("/^[+-]?[0-9]+$/.test($0)", digits)
+            | _ -> JS.Inline("/^[0-9a-fA-F]+$/.test($0)", digits)
+        if not valid then raise (System.FormatException "Could not find any recognizable digits.")
+        let n : float = JS.Inline("parseInt($0, $1)", digits, fromBase)
+        if fromBase = 10 then
+            if n > 2147483647.0 || n < -2147483648.0 then raise (System.OverflowException "Value was either too large or too small for an Int32.")
+            As<int> n
+        elif n > 4294967295.0 then raise (System.OverflowException "Value was either too large or too small for an Int32.")
+        else JS.Inline("$0 | 0", n)
+
+    static member ToBase64String(bytes: byte[]) : string =
+        let mutable s = ""
+        for b in bytes do s <- s + JS.Inline("String.fromCharCode($0)", b)
+        JS.Inline("btoa($0)", s)
+
+    static member FromBase64String(s: string) : byte[] =
+        let bin : string =
+            try JS.Inline("atob($0)", s)
+            with _ -> raise (System.FormatException "The input is not a valid Base-64 string.")
+        Array.init bin.Length (fun i -> JS.Inline("$0.charCodeAt($1)", bin, i))

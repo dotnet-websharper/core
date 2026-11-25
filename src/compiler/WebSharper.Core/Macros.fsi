@@ -73,6 +73,12 @@ type Abs =
     new : unit -> Abs
     inherit Macro
 
+/// `max`/`min` on floats: NaN when either argument is NaN, as in .NET.
+[<Sealed>]
+type FloatMinMax =
+    new : unit -> FloatMinMax
+    inherit Macro
+
 [<Sealed>]
 type Sign =
     new : unit -> Sign

@@ -396,6 +396,14 @@ let private toUIntMeth =
         Generics = 0      
     } |> NonGeneric
 
+let private parseIntegralMeth =
+    Method {
+        MethodName = "parseIntegral"
+        Parameters = [ NonGenericType Definitions.String ]
+        ReturnType = NonGenericType Definitions.Float
+        Generics = 0      
+    } |> NonGeneric
+
 let MathTrunc expr =
     Appl(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
 
@@ -468,7 +476,9 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         -> toBigInt expr
     | DecimalType, BigIntegralType
         -> toBigInt (toString expr)
-    | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
+    | StringType, SmallIntegralType (neg, mask)
+        -> Call(None, opModule, parseIntegralMeth, [expr]) |> toIntegral neg mask
+    | (DecimalType | NonNumericType), SmallIntegralType (neg, mask)
         -> toNumber expr |> toIntegral neg mask
     | (SmallIntegralType _ | ScalarType), DecimalType
         -> toDecimal expr
