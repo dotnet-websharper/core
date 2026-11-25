@@ -68,6 +68,7 @@
     <Compile Include="../WebSharper.StdLib.Proxies/NullableOperators.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Tuple.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Operators.fs" />
+    <Compile Include="../WebSharper.StdLib.Proxies/OperatorsChecked.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/OperatorIntrinsics.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/Option.fs" />
     <Compile Include="../WebSharper.StdLib.Proxies/OptionModule.fs" />

@@ -36,6 +36,7 @@ namespace Conformance
         {
             C("int.overflow.wraps", () => $"{Big() + 1}"),
             C("int.multiply.wraps", () => $"{Big() * 2}"),
+            C("int.multiply.large", () => { int x = (1 << 28) + 1; uint u = uint.MaxValue; return $"{x * x},{u * u},{x * x * x}"; }),
             C("int.division.truncates", () => $"{-7 / 2},{7 / -2}"),
             C("int.remainder.sign", () => $"{-7 % 3},{7 % -3}"),
             C("int.divide.by.zero", () => $"{1 / Zero()}"),

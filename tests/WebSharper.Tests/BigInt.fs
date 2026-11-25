@@ -105,7 +105,8 @@ let Tests =
             let int64test1 = 255486129307I
             let int64test2 = BI(255486129307L)
             let fromstringtest1 = 10000000000000000000I
-            let fromstringtest2 = BI(5000000000000000000L + 5000000000000000000L)
+            // the sum overflows int64 (it wraps around, as on .NET): add as BigInteger
+            let fromstringtest2 = BI(5000000000000000000L) + BI(5000000000000000000L)
 
             equal zero1 zero2
             equal one1 one2

@@ -1,18 +1,12 @@
 {
   "int.overflow.wraps": {
-    "status": "mismatch",
-    "net": "-2147483648",
-    "js": "2147483648"
+    "status": "pass"
   },
   "int.multiply.wraps": {
-    "status": "mismatch",
-    "net": "-2",
-    "js": "4294967294"
+    "status": "pass"
   },
   "int.negate.min": {
-    "status": "mismatch",
-    "net": "-2147483648",
-    "js": "2147483648"
+    "status": "pass"
   },
   "int.division.truncates": {
     "status": "pass"
@@ -27,9 +21,7 @@
     "status": "pass"
   },
   "int64.overflow.wraps": {
-    "status": "mismatch",
-    "net": "-9223372036854775808",
-    "js": "9223372036854775808"
+    "status": "pass"
   },
   "int64.large": {
     "status": "pass"
@@ -41,37 +33,46 @@
     "status": "pass"
   },
   "uint32.wraps": {
-    "status": "mismatch",
-    "net": "4294967295",
-    "js": "-1"
+    "status": "pass"
   },
   "byte.wraps": {
-    "status": "mismatch",
-    "net": "0",
-    "js": "256"
+    "status": "pass"
   },
   "sbyte.wraps": {
-    "status": "mismatch",
-    "net": "-128",
-    "js": "128"
+    "status": "pass"
   },
   "int16.wraps": {
-    "status": "mismatch",
-    "net": "-32768",
-    "js": "32768"
+    "status": "pass"
+  },
+  "int.multiply.large": {
+    "status": "pass"
+  },
+  "int.wrap.chain": {
+    "status": "pass"
+  },
+  "uint32.divide": {
+    "status": "pass"
+  },
+  "narrow.bitwise": {
+    "status": "pass"
+  },
+  "shift.count.mask": {
+    "status": "pass"
+  },
+  "checked.ok": {
+    "status": "pass"
+  },
+  "checked.overflow.more": {
+    "status": "pass"
   },
   "uint64.max": {
     "status": "pass"
   },
   "checked.overflow": {
-    "status": "unsupported",
-    "net": "EXN Overflow",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "checked.int.conversion": {
-    "status": "unsupported",
-    "net": "EXN Overflow",
-    "js": "WS-COMPILE-ERROR"
+    "status": "pass"
   },
   "conversion.int.of.float": {
     "status": "pass"
