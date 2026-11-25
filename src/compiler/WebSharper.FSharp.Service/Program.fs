@@ -661,7 +661,7 @@ let main args =
             | [] -> []
         McpClient.run (extensions (List.ofArray args.[1..]))
     else
-    let initialLogLocation = if args.Length > 0 then Some (args[0]) else None
+    let initialLogLocation = if args.Length > 1 then Some (args[0]) else None
     let log (msg: string) =
         initialLogLocation |> Option.iter (fun loc -> try System.IO.File.AppendAllLines(loc, [msg]) with _ -> ())
     try
@@ -697,7 +697,7 @@ let main args =
         // killing the task from Task Manager on Windows 10 will dispose the Mutex
         with
         | ex ->
-            log (ex.ToString())
+            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
             try
                 mutex.ReleaseMutex()
             finally
@@ -707,5 +707,5 @@ let main args =
                     mutex.Dispose()
     with
         | ex ->
-            log (ex.ToString())
+            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
     0 // exit code
