@@ -136,6 +136,39 @@ let overflowChecked (fullName: string) (e: Expression) =
         Let(r, e, Conditional((Var r ^< min) ^|| (Var r ^> max), throwNew overflowTy, Var r))
     | None -> e
 
+/// .NET integer arithmetic is unchecked: an overflowing + - * or unary - wraps around to the size of the
+/// type (Int32.MaxValue + 1 = Int32.MinValue). JavaScript numbers do not, so the result is cut to the type.
+/// Shared by the C# reader and the F# operators.
+/// - 32-bit `*` uses Math.imul: a plain `*` loses the low bits once the product passes 2^53.
+/// - In a chain of `+`/`-` only the outermost operation wraps: the operands are integers of at most 33
+///   bits, so the inner sums stay exact in a double and wrapping once gives the same result.
+let wrapIntegral (fullName: string) (e: Expression) =
+    let i n = Value (Int n)
+    let isAddSub op = op = BinaryOperator.``+`` || op = BinaryOperator.``-``
+    // the inner wrap of a + or - of the same type, which the outer wrap makes unnecessary
+    let unwrap (x: Expression) =
+        match fullName, IgnoreExprSourcePos x with
+        | "System.Int32", Binary(Binary(_, op, _) as inner, BinaryOperator.``|``, Value (Int 0))
+        | "System.UInt32", Binary(Binary(_, op, _) as inner, BinaryOperator.``>>>``, Value (Int 0)) when isAddSub op -> inner
+        | _ -> x
+    let e =
+        match IgnoreExprSourcePos e with
+        | Binary(a, op, b) when isAddSub op -> Binary(unwrap a, op, unwrap b)
+        | _ -> e
+    match fullName, IgnoreExprSourcePos e with
+    | ("System.Int32" | "System.UInt32"), Binary(a, BinaryOperator.``*``, b) ->
+        let m = Appl(ItemGet(Global [ "Math" ], Value (Literal.String "imul"), Pure), [ a; b ], Pure, Some 2)
+        if fullName = "System.Int32" then m else m ^>>> i 0
+    | "System.Int32", _ -> e ^| i 0
+    | "System.UInt32", _ -> e ^>>> i 0
+    | "System.Int16", _ -> (e ^<< i 16) ^>> i 16
+    | "System.UInt16", _ -> e ^& i 65535
+    | "System.SByte", _ -> (e ^<< i 24) ^>> i 24
+    | "System.Byte", _ -> e ^& i 255
+    | "System.Int64", _ -> Appl(Global [ "BigInt"; "asIntN" ], [ i 64; e ], Pure, Some 2)
+    | "System.UInt64", _ -> Appl(Global [ "BigInt"; "asUintN" ], [ i 64; e ], Pure, Some 2)
+    | _ -> e
+
 let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
     match args with
     | [x; y] ->
@@ -150,8 +183,15 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
             if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) && isIn bigIntegralTypes t then
                 Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
             elif op = BinaryOperator.``/`` then
-                if isIn smallIntegralTypes t
-                then zeroChecked (Value (Int 0)) b a (fun a b -> (a ^/ b) ^>> !~(Int 0)) |> MacroOk
+                if isIn smallIntegralTypes t then
+                    let name = match t with ConcreteType ct -> ct.Entity.Value.FullName | _ -> ""
+                    let trunc a b =
+                        match name with
+                        | "System.UInt32" -> (a ^/ b) ^>>> !~(Int 0)
+                        // MinValue / -1 wraps around, as on .NET
+                        | "System.Int16" | "System.SByte" -> wrapIntegral name ((a ^/ b) ^>> !~(Int 0))
+                        | _ -> (a ^/ b) ^>> !~(Int 0)
+                    zeroChecked (Value (Int 0)) b a trunc |> MacroOk
                 elif isIn bigIntegralTypes t
                 then zeroChecked (Value (JSNumber "0n")) b a (fun a b -> a ^/ b) |> MacroOk
                 elif isIn scalarTypes t
@@ -189,7 +229,14 @@ type Arith() =
                     if op = UnaryOperator.``+`` then
                         a |> MacroOk
                     else
-                        Unary(op, a) |> MacroOk 
+                        let name = match t with ConcreteType ct -> ct.Entity.Value.FullName | _ -> ""
+                        match op, name with
+                        // -Int32.MinValue is Int32.MinValue, as on .NET
+                        | UnaryOperator.``-``, _ -> wrapIntegral name (Unary(op, a)) |> MacroOk
+                        // ~~~ on an unsigned type stays unsigned (JavaScript's ~ gives a signed 32-bit result)
+                        | UnaryOperator.``~``, ("System.Byte" | "System.UInt16" | "System.UInt32" | "System.UInt64") ->
+                            wrapIntegral name (Unary(op, a)) |> MacroOk
+                        | _ -> Unary(op, a) |> MacroOk 
                 else traitCallOp c c.Arguments
             | _ -> MacroError "Arith macro: expecting a type parameter"
         | [ a; b ] ->
@@ -207,7 +254,13 @@ type Arith() =
             match c.Method.Generics with
             | t1 :: t2 :: _ ->
                 if t1 = t2 then
-                    translateOperation c t1 c.Arguments leftNble rightNble op
+                    match translateOperation c t1 c.Arguments leftNble rightNble op with
+                    // F# integer + - * wrap around like .NET's unchecked arithmetic (Checked.(+) etc. throw instead)
+                    | MacroOk e when not leftNble && not rightNble
+                                     && (op = BinaryOperator.``+`` || op = BinaryOperator.``-`` || op = BinaryOperator.``*``) ->
+                        let name = match t1 with ConcreteType ct -> ct.Entity.Value.FullName | _ -> ""
+                        MacroOk (wrapIntegral name e)
+                    | r -> r
                 else
                     traitCallOp c c.Arguments
             | t :: _ ->
@@ -219,8 +272,21 @@ type Arith() =
                         | _ -> false
                     | _ -> false
                 let isUInt32 = match t with ConcreteType { Entity = td } -> td.Value.FullName = "System.UInt32" | _ -> false
-                if (op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``) && isIn bigIntegralTypes t then
-                    Binary(a, op, Appl(Global ["BigInt"], [b], Pure, Some 1)) |> MacroOk  
+                let name = match t with ConcreteType ct -> ct.Entity.Value.FullName | _ -> ""
+                let isShift = op = BinaryOperator.``<<`` || op = BinaryOperator.``>>``
+                // .NET masks the shift count to the size of the type (x <<< 33 is x <<< 1 on an int)
+                let maskCount n =
+                    match IgnoreExprSourcePos b with
+                    | Value (Int k) -> Value (Int (k &&& n))
+                    | _ -> b ^& Value (Int n)
+                if isShift && isIn bigIntegralTypes t then
+                    let shifted = Binary(a, op, Appl(Global ["BigInt"], [maskCount 63], Pure, Some 1))
+                    (if op = BinaryOperator.``<<`` then wrapIntegral name shifted else shifted) |> MacroOk
+                // 8 and 16-bit types: the count is masked to 7 or 15 bits, and <<< is cut to the type
+                elif isShift && (name = "System.Byte" || name = "System.SByte" || name = "System.Int16" || name = "System.UInt16") then
+                    let bits = if name = "System.Byte" || name = "System.SByte" then 7 else 15
+                    let shifted = Binary(a, op, maskCount bits)
+                    (if op = BinaryOperator.``<<`` then wrapIntegral name shifted else shifted) |> MacroOk
                 // JavaScript bitwise operators work on signed 32-bit values: keep uint32 results unsigned
                 elif isUInt32 && op = BinaryOperator.``>>`` then
                     Binary(a, BinaryOperator.``>>>``, b) |> MacroOk
@@ -233,6 +299,61 @@ type Arith() =
                     traitCallOp c c.Arguments
             | _ -> MacroError "Arith macro: expecting a type parameters"
         | _ -> MacroError "Arith macro: expecting one or two arguments"
+
+/// F# Checked.(+), (-), (*) and (~-): a result outside the type's range throws OverflowException
+[<Sealed>]
+type CheckedArith() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let name t = match t with ConcreteType ct -> ct.Entity.Value.FullName | _ -> ""
+        let opName = c.Method.Entity.Value.MethodName
+        match c.Method.Generics, c.Arguments with
+        | t :: _, [ x ] when opName = "op_UnaryNegation" ->
+            if t.IsParameter then MacroNeedsResolvedTypeArg t
+            elif isIn scalarTypes t then MacroOk (overflowChecked (name t) (Unary(UnaryOperator.``-``, x)))
+            else traitCallOp c c.Arguments
+        | t1 :: t2 :: _, [ _; _ ] ->
+            if t1.IsParameter then MacroNeedsResolvedTypeArg t1
+            elif t1 <> t2 then traitCallOp c c.Arguments
+            else
+                let op =
+                    match opName with
+                    | "op_Addition" -> BinaryOperator.``+``
+                    | "op_Subtraction" -> BinaryOperator.``-``
+                    | _ -> BinaryOperator.``*``
+                match translateOperation c t1 c.Arguments false false op with
+                | MacroOk e -> MacroOk (overflowChecked (name t1) e)
+                | r -> r
+        | _ -> MacroError "CheckedArith macro: expecting one or two arguments"
+
+/// F# Checked.int, Checked.byte, ...: a value outside the target type's range (or NaN) throws OverflowException
+/// instead of wrapping; a float is truncated first. Other conversions (to char, from string or decimal)
+/// are the unchecked ones.
+[<Sealed>]
+type CheckedConversion() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Arguments, c.Method.Generics, c.Method.Entity.Value.ReturnType with
+        | [ x ], [ ConcreteType ft ], ConcreteType tt ->
+            let fromName = ft.Entity.Value.FullName
+            let toName = tt.Entity.Value.FullName
+            let isFloat = fromName = "System.Double" || fromName = "System.Single"
+            let fromBig = fromName = "System.Int64" || fromName = "System.UInt64"
+            let toBig = toName = "System.Int64" || toName = "System.UInt64"
+            match integralRange toName with
+            | Some (min, max) when isFloat || fromBig || smallIntegralTypes.Contains fromName ->
+                let r = Id.New(mut = false)
+                let value = if isFloat then MathTrunc x else x
+                // NaN fails both comparisons
+                let inRange = (Var r ^>= min) ^&& (Var r ^<= max)
+                let result =
+                    if toBig && not fromBig then Appl(Global [ "BigInt" ], [ Var r ], Pure, Some 1)
+                    elif fromBig && not toBig then Appl(Global [ "Number" ], [ Var r ], Pure, Some 1)
+                    else Var r
+                Let(r, value, Conditional(inRange, result, throwNew overflowTy)) |> MacroOk
+            | _ -> NumericConversion ft.Entity tt.Entity x |> MacroOk
+        | [ _ ], t :: _, _ when t.IsParameter -> MacroNeedsResolvedTypeArg t
+        | _ -> MacroError "CheckedConversion macro error"
 
 type Comparison =
     | ``<``  = 0

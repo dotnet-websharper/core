@@ -32,17 +32,18 @@ module M = WebSharper.Core.Macros
 [<Name "range">]
 [<Macro(typeof<M.Range>)>]
 let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
-    let count = 1 + As max - As min
-    if count <= 0 then Seq.empty
-    else Seq.init count (fun x -> As (x + As min))
+    // the values are numbers of any type: compute with floats, which do not wrap around like int arithmetic
+    let count = 1.0 + As<float> max - As<float> min
+    if count <= 0.0 then Seq.empty
+    else Seq.init (As<int> count) (fun x -> As (float x + As<float> min))
 
 [<JavaScript>]
 [<Name "step">]
 [<Macro(typeof<M.Step>)>]
 let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
-    let s = sign (As<int> step)
-    Seq.initInfinite (fun k -> As<int> min + k * As<int> step)
-    |> Seq.takeWhile (fun k -> s * (As<int> max - As<int> k) >= 0)
+    let s = float (sign (As<float> step))
+    Seq.initInfinite (fun k -> As<float> min + float k * As<float> step)
+    |> Seq.takeWhile (fun k -> s * (As<float> max - k) >= 0.0)
     |> As
 
 [<Inline "$r[0]">]

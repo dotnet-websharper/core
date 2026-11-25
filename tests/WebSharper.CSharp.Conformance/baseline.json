@@ -5,6 +5,9 @@
   "int.multiply.wraps": {
     "status": "pass"
   },
+  "int.multiply.large": {
+    "status": "pass"
+  },
   "int.division.truncates": {
     "status": "pass"
   },

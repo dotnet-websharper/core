@@ -47,17 +47,16 @@ module Numbers =
         C "byte.wraps" (fun () -> string (255uy + byte (n 1)))
         C "sbyte.wraps" (fun () -> string (127y + sbyte (n 1)))
         C "int16.wraps" (fun () -> string (32767s + int16 (n 1)))
+        C "int.multiply.large" (fun () -> let x = (1 <<< 28) + n 1 in string (x * x) + "," + string (uint32 (n -1) * uint32 (n -1)))
+        C "int.wrap.chain" (fun () -> string (big () + big () + big ()) + "," + string (big () * 3 + n 7) + "," + B (big () + 1 > 0))
+        C "uint32.divide" (fun () -> string (uint32 (n -6) / 1u) + "," + string (int16 (n -32768) / -1s) + "," + string (sbyte (n -128) / -1y))
+        C "narrow.bitwise" (fun () -> string (~~~ (byte (n 250))) + "," + string (byte (n 250) <<< 1) + "," + string (1uy <<< n 9) + "," + string (120y <<< n 1) + "," + string (~~~ (uint16 (n 0))))
+        C "shift.count.mask" (fun () -> string (1L <<< n 65) + "," + string (-8L >>> n -1) + "," + string (n 1 <<< n 33) + "," + string (~~~ (uint64 (n 0))))
+        C "checked.ok" (fun () -> string (Checked.(+) 1 (n 2)) + "," + string (Checked.int64 (n 5)) + "," + string (Checked.byte 2.7) + "," + string (Checked.(~-) (n 4)))
+        C "checked.overflow.more" (fun () -> let t f = (try string (f ()) with :? OverflowException -> "overflow") in t (fun () -> Checked.(*) (big ()) 2) + "," + t (fun () -> Checked.byte (n 300)) + "," + t (fun () -> Checked.(-) Int32.MinValue (n 1)) + "," + t (fun () -> Checked.int nan))
         C "uint64.max" (fun () -> string (UInt64.MaxValue - uint64 (n 0)))
-#if !JS
         C "checked.overflow" (fun () -> string (Checked.(+) (big ()) 1))
-#else
-        C "checked.overflow" (fun () -> "WS-COMPILE-ERROR")
-#endif
-#if !JS
         C "checked.int.conversion" (fun () -> string (Checked.int 3000000000.0))
-#else
-        C "checked.int.conversion" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "conversion.int.of.float" (fun () -> string (int 3.99) + "," + string (int -3.99))
         C "conversion.byte.of.int" (fun () -> string (byte (n 300)))
         C "conversion.int.of.string" (fun () -> string (int "42"))

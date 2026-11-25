@@ -189,19 +189,21 @@ let numericTypes =
 
 /// C# integer arithmetic is unchecked by default: an overflowing result wraps around to the type's size
 /// (int.MaxValue + 1 == int.MinValue). JavaScript numbers don't, so results are cut to the type here.
+/// The cutting is shared with the F# operators (WebSharper.Core.Macros.wrapIntegral).
 let wrapIntegral (t: ITypeSymbol) (e: Expression) =
     if isNull t then e else
-    let i n = Value (Int n)
-    match t.SpecialType with
-    | SpecialType.System_Int32 -> e ^| i 0
-    | SpecialType.System_UInt32 -> e ^>>> i 0
-    | SpecialType.System_Int16 -> (e ^<< i 16) ^>> i 16
-    | SpecialType.System_UInt16 -> e ^& i 65535
-    | SpecialType.System_SByte -> (e ^<< i 24) ^>> i 24
-    | SpecialType.System_Byte -> e ^& i 255
-    | SpecialType.System_Int64 -> Appl(Global [ "BigInt"; "asIntN" ], [ i 64; e ], Pure, Some 2)
-    | SpecialType.System_UInt64 -> Appl(Global [ "BigInt"; "asUintN" ], [ i 64; e ], Pure, Some 2)
-    | _ -> e
+    let name =
+        match t.SpecialType with
+        | SpecialType.System_Int32 -> "System.Int32"
+        | SpecialType.System_UInt32 -> "System.UInt32"
+        | SpecialType.System_Int16 -> "System.Int16"
+        | SpecialType.System_UInt16 -> "System.UInt16"
+        | SpecialType.System_SByte -> "System.SByte"
+        | SpecialType.System_Byte -> "System.Byte"
+        | SpecialType.System_Int64 -> "System.Int64"
+        | SpecialType.System_UInt64 -> "System.UInt64"
+        | _ -> ""
+    WebSharper.Core.Macros.wrapIntegral name e
 
 /// Whether `x++`/`x--` on the type needs the wrapping above: int and long keep JavaScript's ++/--,
 /// overflowing them by one step is not practical
@@ -2425,12 +2427,22 @@ type RoslynTransformer(env: Environment) =
                 else
                     Call(None, typ, meth, [left; right])
                 |> fun e ->
+                    let resT = env.SemanticModel.GetTypeInfo(x.Node).Type
+                    let is32 = not (isNull resT) && (resT.SpecialType = SpecialType.System_Int32 || resT.SpecialType = SpecialType.System_UInt32)
+                    // checked(...) operators (op_CheckedAddition, ...) throw instead of wrapping: keep their call
+                    let isChecked = symbol.Name.StartsWith "op_Checked"
+                    let arith op =
+                        if isChecked then e
+                        elif is32 then wrapIntegral resT (Binary(left, op, right))
+                        else wrapIntegral resT e
                     match x.Kind with
-                    | BinaryExpressionKind.AddExpression
-                    | BinaryExpressionKind.SubtractExpression
-                    | BinaryExpressionKind.MultiplyExpression
+                    // 32-bit + - * are plain JavaScript operators (what the numeric macro gives): building them here
+                    // lets wrapIntegral use Math.imul for * and wrap a chain of + and - once
+                    | BinaryExpressionKind.AddExpression when symbol.MethodKind = MethodKind.BuiltinOperator -> arith BinaryOperator.``+``
+                    | BinaryExpressionKind.SubtractExpression when symbol.MethodKind = MethodKind.BuiltinOperator -> arith BinaryOperator.``-``
+                    | BinaryExpressionKind.MultiplyExpression when symbol.MethodKind = MethodKind.BuiltinOperator -> arith BinaryOperator.``*``
                     | BinaryExpressionKind.LeftShiftExpression when symbol.MethodKind = MethodKind.BuiltinOperator ->
-                        wrapIntegral (env.SemanticModel.GetTypeInfo(x.Node).Type) e
+                        wrapIntegral resT e
                     | _ -> e
         |> withExprSourcePos x.Node
 

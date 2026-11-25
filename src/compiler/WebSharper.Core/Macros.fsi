@@ -73,6 +73,18 @@ type Abs =
     new : unit -> Abs
     inherit Macro
 
+/// F# Checked.(+), (-), (*), (~-): throw OverflowException outside the type's range
+[<Sealed>]
+type CheckedArith =
+    new : unit -> CheckedArith
+    inherit Macro
+
+/// F# Checked conversions (Checked.int, ...): throw OverflowException outside the target type's range
+[<Sealed>]
+type CheckedConversion =
+    new : unit -> CheckedConversion
+    inherit Macro
+
 /// `max`/`min` on floats: NaN when either argument is NaN, as in .NET.
 [<Sealed>]
 type FloatMinMax =
@@ -217,6 +229,10 @@ type TupleExtensions =
 type WebWorker =
     new : unit -> WebWorker
     inherit Macro
+
+/// Cuts the result of integer arithmetic to the size of the type (by its full name), as .NET's unchecked
+/// arithmetic wraps around; 32-bit multiplication uses Math.imul
+val wrapIntegral : fullName: string -> AST.Expression -> AST.Expression
 
 val UncheckedEquals : AST.Expression -> AST.Expression -> AST.Expression
 
