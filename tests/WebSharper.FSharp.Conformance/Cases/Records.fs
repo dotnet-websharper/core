@@ -60,6 +60,9 @@ type Anon = { Inner: {| A: int; B: string |} }
 [<JavaScript>]
 type Color = Red = 1 | Green = 2 | Blue = 4
 
+[<JavaScript; System.Flags>]
+type Perm = None = 0 | Read = 1 | Write = 2 | Exec = 4
+
 [<JavaScript>]
 type Wrapper = Wrapper of int
 
@@ -116,6 +119,8 @@ module Records =
         C "enum.tostring" (fun () -> string Color.Green + "," + string (int Color.Blue))
         C "enum.flags.tostring" (fun () -> string (Color.Red ||| Color.Blue))
         C "enum.of.int" (fun () -> string (enum<Color> 2) + "," + string (enum<Color> 3))
+        C "enum.tostring.method" (fun () -> Color.Blue.ToString() + "|" + string (enum<Color> 42) + "|" + string DayOfWeek.Sunday)
+        C "enum.flags.names" (fun () -> string (Perm.Read ||| Perm.Write) + "|" + string Perm.None + "|" + (Perm.Exec).ToString() + "|" + string (enum<Perm> 8))
         C "enum.hasflag" (fun () -> B ((Color.Red ||| Color.Blue).HasFlag Color.Blue))
         C "enum.compare" (fun () -> B (Color.Red < Color.Blue) + "," + string (compare Color.Blue Color.Green))
 #if !JS
