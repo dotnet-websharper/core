@@ -86,7 +86,28 @@ module Bundling =
 
         let sourceMap = o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
-        
+        let asmName = Path.GetFileNameWithoutExtension o.Config.AssemblyFile
+
+        // The code of the current project still carries its source file names as the compiler
+        // saw them: absolute paths from C#, project-relative ones from F#. Map them to the
+        // "<assembly>/<file>" names its sources are written under (next to those of the
+        // referenced assemblies), so the project's own files resolve from the source map.
+        let o, ownSources =
+            if sourceMap then
+                let tr = CompilationHelpers.TransformSourcePositions(asmName)
+                let currentMeta = CompilationHelpers.transformSourcePositionsInMetadata tr o.CurrentMeta
+                let entryPoint = o.EntryPoint |> Option.map tr.TransformStatement
+                let projectDir = Path.GetDirectoryName o.Config.ProjectFile
+                let ownSources =
+                    tr.FileMap |> Array.choose (fun (fileName, key) ->
+                        let path =
+                            if Path.IsPathRooted fileName || isNull projectDir then fileName
+                            else Path.Combine(projectDir, fileName)
+                        if File.Exists path then Some (key, File.ReadAllText path) else None
+                    )
+                { o with CurrentMeta = currentMeta; EntryPoint = entryPoint }, ownSources
+            else o, [||]
+
         let graph =
             o.RefMetas |> Seq.map (fun m -> m.Dependencies)
             |> Seq.append (Seq.singleton o.CurrentMeta.Dependencies)
@@ -98,7 +119,8 @@ module Bundling =
                     a.GetSources() |> Seq.map (fun s -> s.EmbeddedFileName.Replace(EMBEDDED_SOURCES, ""), s.Content)
                 )  
                 |> Seq.append o.Sources
-                |> Array.ofSeq 
+                |> Seq.append ownSources
+                |> Array.ofSeq
             else [||]
 
         let mutable map = None

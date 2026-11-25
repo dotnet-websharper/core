@@ -1364,13 +1364,8 @@ type TransformSourcePositions(asmName) =
 //    | StaticField a -> StaticField <| exposeAddress asmName a
 //    | _ -> f
 
-let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
-    let tr, sp = 
-        if isRemove then
-            RemoveSourcePositions() :> Transformer, None 
-        else
-            let tr = TransformSourcePositions(asmName)
-            tr :> _, Some tr
+/// Applies a source position transformer to the code of all classes in the metadata.
+let transformSourcePositionsInMetadata (tr: Transformer) (meta: Info) =
     { meta with 
         Classes = 
             meta.Classes |> Dict.map (fun (a, ct, c) ->
@@ -1384,7 +1379,16 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                     }
                 )
             )
-    },
+    }
+
+let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
+    let tr, sp = 
+        if isRemove then
+            RemoveSourcePositions() :> Transformer, None 
+        else
+            let tr = TransformSourcePositions(asmName)
+            tr :> _, Some tr
+    transformSourcePositionsInMetadata tr meta,
     match sp with
     | None -> [||]
     | Some t -> t.FileMap
