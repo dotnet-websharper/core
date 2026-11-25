@@ -208,7 +208,10 @@ let startListening() =
                 logger.StageObserver <- Action<string, TimeSpan>(fun stage elapsed -> Stats.ms ("compile.stage." + Stats.stageName stage + "_ms") elapsed)
 
                 let processCompileMessage (projectOption: string option) (wsConfig: WsConfig) warnSettings args = async {
-                    let nLogger = nLogger.WithProperty("wsdir", wsConfig.ProjectDir)
+                    let nLogger =
+                        nLogger
+                            .WithProperty("wsdir", wsConfig.ProjectDir)
+                            .WithProperty("wslog", defaultArg wsConfig.BoosterLog (Path.Combine(wsConfig.ProjectDir, "websharper.log")))
                     nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
                     nLogger.Debug(sprintf "pipename is: %s (server side)" pipeName)
                     nLogger.Debug(sprintf "Compiling %s" (defaultArg projectOption wsConfig.ProjectFile))
@@ -661,7 +664,7 @@ let main args =
             | [] -> []
         McpClient.run (extensions (List.ofArray args.[1..]))
     else
-    let initialLogLocation = if args.Length > 1 then Some (args[0]) else None
+    let initialLogLocation = if args.Length > 0 then Some (args[0]) else None
     let log (msg: string) =
         initialLogLocation |> Option.iter (fun loc -> try System.IO.File.AppendAllLines(loc, [msg]) with _ -> ())
     try
@@ -697,7 +700,7 @@ let main args =
         // killing the task from Task Manager on Windows 10 will dispose the Mutex
         with
         | ex ->
-            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
+            log (ex.ToString())
             try
                 mutex.ReleaseMutex()
             finally
@@ -707,5 +710,5 @@ let main args =
                     mutex.Dispose()
     with
         | ex ->
-            initialLogLocation |> Option.iter (fun loc -> System.IO.File.AppendAllLines(loc, [ex.ToString()]))
+            log (ex.ToString())
     0 // exit code
