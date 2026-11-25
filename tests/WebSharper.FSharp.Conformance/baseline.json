@@ -273,7 +273,8 @@
     "status": "pass"
   },
   "string.concat.null": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "`+` on strings is JavaScript string concatenation, which writes a null string as \"null\"; treating null as \"\" would add a check to every concatenation. Pass a string that may be null through `string s`, which gives \"\" for null.",
     "net": "ab",
     "js": "anullb"
   },
@@ -419,9 +420,10 @@
     "status": "pass"
   },
   "char.unicode.upper": {
-    "status": "unsupported",
+    "status": "known",
+    "reason": "JavaScript upper-cases strings with full Unicode case mapping, so String.ToUpper turns \"ß\" into \"SS\" where .NET keeps \"ß\". Upper-case per character with `String.map Char.ToUpper`, which keeps characters that have no single-character upper case.",
     "net": "ß,STRAßE",
-    "js": "WS-COMPILE-ERROR"
+    "js": "ß,STRASSE"
   },
   "char.surrogate.length": {
     "status": "pass"
@@ -1258,7 +1260,8 @@
     "status": "pass"
   },
   "result": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "No runtime type names: `string` of a Result or Choice value is the .NET type name, which JavaScript does not have. Match on the cases and format the value inside.",
     "net": "Microsoft.FSharp.Core.FSharpResult`2[System.Int32,System.String],Microsoft.FSharp.Core.FSharpResult`2[System.Int32,System.String]",
     "js": "[object Object],[object Object]"
   },
@@ -1278,17 +1281,19 @@
     "status": "pass"
   },
   "enum.tostring": {
-    "status": "mismatch",
-    "net": "Green,4",
-    "js": "2,4"
+    "status": "pass"
   },
   "enum.flags.tostring": {
     "status": "pass"
   },
   "enum.of.int": {
-    "status": "mismatch",
-    "net": "Green,3",
-    "js": "2,3"
+    "status": "pass"
+  },
+  "enum.tostring.method": {
+    "status": "pass"
+  },
+  "enum.flags.names": {
+    "status": "pass"
   },
   "enum.hasflag": {
     "status": "pass"
@@ -1643,9 +1648,7 @@
     "status": "pass"
   },
   "datetime.dayofweek": {
-    "status": "mismatch",
-    "net": "Thursday,60",
-    "js": "4,60"
+    "status": "pass"
   },
   "datetime.adddays": {
     "status": "pass"
@@ -1666,7 +1669,8 @@
     "js": "2024-02-29T13:45:30.0000000+00:00"
   },
   "datetime.tostring": {
-    "status": "mismatch",
+    "status": "known",
+    "reason": "DateTime.ToString() uses the browser's locale (toLocaleString), as .NET uses the current culture, so the text depends on where it runs (the check runs .NET with the invariant culture). Pass a format, such as ToString(\"yyyy-MM-dd HH:mm:ss\"), for a fixed text.",
     "net": "02/29/2024 13:45:30",
     "js": "2/29/2024, 1:45:30 PM"
   },

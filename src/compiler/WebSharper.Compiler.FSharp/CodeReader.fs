@@ -908,7 +908,46 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         | Undefined | Value Null -> [], None
                         | _ -> [], Some a     
                     | _ -> args, None
+                // `string e` and `e.ToString()` on an enum: the member name, "A, B" for [<Flags>] combinations,
+                // otherwise the number, as on .NET (the same table as the C# reader's EnumToString)
+                let enumToString =
+                    let enumOf (t: FSharpType) =
+                        let t = if t.IsAbbreviation then t.AbbreviatedType else t
+                        if t.HasTypeDefinition && t.TypeDefinition.IsEnum then Some t.TypeDefinition else None
+                    let format (ent: FSharpEntity) (e: Expression) =
+                        let table =
+                            NewArray [
+                                for f in ent.FSharpFields do
+                                    match f.LiteralValue with
+                                    | Some v when f.IsLiteral ->
+                                        yield Value (ReadLiteral v)
+                                        yield Value (String f.Name)
+                                    | _ -> ()
+                            ]
+                        let isFlags = ent.Attributes |> Seq.exists (fun a -> a.AttributeType.FullName = "System.FlagsAttribute")
+                        let formattingTy = TypeDefinition { Assembly = "WebSharper.StdLib"; FullName = "WebSharper.Formatting" }
+                        let objT = NonGenericType Definitions.Obj
+                        let fm =
+                            Method {
+                                MethodName = "FormatEnum"
+                                Parameters = [ objT; ArrayType(objT, 1); NonGenericType Definitions.Bool ]
+                                ReturnType = NonGenericType Definitions.String
+                                Generics = 0
+                            }
+                        Call(None, NonGeneric formattingTy, NonGeneric fm, [ e; table; Value (Bool isFlags) ])
+                    if meth.CompiledName <> "ToString" then None
+                    elif td.Value.FullName = "Microsoft.FSharp.Core.Operators" then
+                        match methodGenerics, args with
+                        | [ g ], [ a ] -> enumOf g |> Option.map (fun ent -> format ent a)
+                        | _ -> None
+                    else
+                        match this, arguments with
+                        | Some th, [] -> enumOf th.Type |> Option.map (fun ent -> format ent (tr th))
+                        | _ -> None
                 let call =
+                    match enumToString with
+                    | Some e -> e
+                    | None ->
                     match sr.ReadMember meth with
                     | Member.Method (isInstance, m) -> 
                         if td = Definitions.IntrinsicFunctions && m = Definitions.CheckThis then

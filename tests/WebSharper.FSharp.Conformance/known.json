@@ -16,5 +16,9 @@
   "typeof.name": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
   "typeof.int.name": "No reflection: System.Type is not available in JavaScript, and a partial typeof<T>.Name would suggest otherwise. Use `nameof` for names, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
   "gettype.name": "No reflection: GetType() is not available in JavaScript. Use `nameof` for names, `:?` patterns for type tests, or WebSharper.JavaScript.Object.GetPrototypeOf for the JavaScript prototype.",
-  "enum.parse": "No reflection: Enum.Parse takes a System.Type, which is not available in JavaScript. Match the string against the enum's cases instead."
+  "enum.parse": "No reflection: Enum.Parse takes a System.Type, which is not available in JavaScript. Match the string against the enum's cases instead.",
+  "char.unicode.upper": "JavaScript upper-cases strings with full Unicode case mapping, so String.ToUpper turns \"ß\" into \"SS\" where .NET keeps \"ß\". Upper-case per character with `String.map Char.ToUpper`, which keeps characters that have no single-character upper case.",
+  "string.concat.null": "`+` on strings is JavaScript string concatenation, which writes a null string as \"null\"; treating null as \"\" would add a check to every concatenation. Pass a string that may be null through `string s`, which gives \"\" for null.",
+  "result": "No runtime type names: `string` of a Result or Choice value is the .NET type name, which JavaScript does not have. Match on the cases and format the value inside.",
+  "datetime.tostring": "DateTime.ToString() uses the browser's locale (toLocaleString), as .NET uses the current culture, so the text depends on where it runs (the check runs .NET with the invariant culture). Pass a format, such as ToString(\"yyyy-MM-dd HH:mm:ss\"), for a fixed text."
 }

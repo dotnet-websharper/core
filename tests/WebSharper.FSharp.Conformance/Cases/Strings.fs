@@ -84,11 +84,7 @@ module Strings =
         C "string.toCharArray" (fun () -> string ((s "abc").ToCharArray().Length))
         C "char.tests" (fun () -> B (Char.IsDigit '5') + "," + B (Char.IsLetter 'é') + "," + B (Char.IsWhiteSpace '\t') + "," + B (Char.IsUpper 'A'))
         C "char.case" (fun () -> string (Char.ToUpper 'a') + string (Char.ToLower 'Q') + string (Char.ToUpperInvariant 'é') + "," + B (Char.IsLower 'é') + B (Char.IsDigit '٣'))
-#if !JS
         C "char.unicode.upper" (fun () -> string (Char.ToUpper 'ß') + "," + (s "straße").ToUpper())
-#else
-        C "char.unicode.upper" (fun () -> "WS-COMPILE-ERROR")
-#endif
         C "char.surrogate.length" (fun () -> string (s "😀").Length)
         C "stringbuilder" (fun () -> let sb = StringBuilder() in sb.Append("a").Append(1).Append('c') |> ignore; sb.ToString())
         C "stringbuilder.appendline" (fun () -> let sb = StringBuilder() in sb.AppendLine("a") |> ignore; string sb.Length)
