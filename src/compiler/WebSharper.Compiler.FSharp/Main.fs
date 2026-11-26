@@ -55,7 +55,9 @@ type WebSharperFSharpCompiler(?checker) =
     /// wrapTranslation runs around the WebSharper translation only, not the F# type check:
     /// type providers must not be loaded while an AssemblyResolver is installed, otherwise
     /// their dependencies can be loaded a second time into its collectible context.
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase, ?wrapTranslation: (unit -> WebSharper.Compiler.Compilation) -> WebSharper.Compiler.Compilation) =
+    /// afterCheck runs when the F# type check is done (or could not start), before the translation.
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase, ?wrapTranslation: (unit -> WebSharper.Compiler.Compilation) -> WebSharper.Compiler.Compilation, ?afterCheck: unit -> unit) =
+        let afterCheck = defaultArg afterCheck ignore
         let path = config.ProjectFile
         let logger = logger |> Option.defaultWith (fun () -> upcast EmptyLogger())
         
@@ -78,13 +80,18 @@ type WebSharperFSharpCompiler(?checker) =
                 None
 
         match projectOptionsOpt with
-        | None -> None
+        | None ->
+            afterCheck ()
+            None
         | Some projectOptions ->
 
         let checkProjectResults = 
-            projectOptions
-            |> checker.ParseAndCheckProject 
-            |> Async.RunSynchronously
+            try
+                projectOptions
+                |> checker.ParseAndCheckProject 
+                |> Async.RunSynchronously
+            finally
+                afterCheck ()
 
         logger.TimedStage "Checking project"
 

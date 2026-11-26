@@ -286,6 +286,12 @@ let private runFSharpSourceGeneration (aR: Lazy<AssemblyResolver>) (logger: Logg
     else
         config
 
+let private isTypeProviderAssembly (path: string) =
+    try
+        PEMetadata.PEAssembly.ReadFileMetadata(path).Attributes
+        |> Seq.exists (fun a -> a.TypeName = "Microsoft.FSharp.Core.CompilerServices.TypeProviderAssemblyAttribute")
+    with _ -> false
+
 /// The F# compiler loads the design-time assembly of a type provider from the folder of its
 /// runtime assembly, so a type provider referenced by its reference assembly (ref/refint
 /// folder) is passed by its implementation assembly in the output folder of its project
@@ -304,13 +310,26 @@ let private typeProviderImplementationArg (implementations: string[]) (arg: stri
             implementations
             |> Array.tryFind (fun i -> String.Equals(Path.GetFileName i, name, StringComparison.OrdinalIgnoreCase))
             |> Option.defaultValue path
-        let isTypeProvider() =
-            try
-                PEMetadata.PEAssembly.ReadFileMetadata(impl).Attributes
-                |> Seq.exists (fun a -> a.TypeName = "Microsoft.FSharp.Core.CompilerServices.TypeProviderAssemblyAttribute")
-            with _ -> false
-        if impl <> path && isTypeProvider() then prefix + impl else arg
+        if impl <> path && isTypeProviderAssembly impl then prefix + impl else arg
     | None -> arg
+
+/// The type providers among the references of the F# compiler arguments. Framework reference
+/// packs never contain type providers, they are not read.
+let private referencedTypeProviders (compilerArgs: string[]) =
+    compilerArgs |> Array.choose (fun arg ->
+        let path =
+            if arg.StartsWith "-r:" then Some (arg.Substring 3)
+            elif arg.StartsWith "--reference:" then Some (arg.Substring 12)
+            else None
+        match path with
+        | Some path ->
+            let path = path.Trim('"')
+            let isRefPack =
+                path.Replace('\\', '/').Contains("/packs/")
+                && (path.Contains ".App.Ref" || path.Contains "NETStandard.Library.Ref")
+            if not isRefPack && isTypeProviderAssembly path then Some path else None
+        | None -> None
+    )
 
 /// Runs the F# source generators for non-F# source files, returns the updated config and the
 /// files of the assemblies loaded for them.
@@ -464,14 +483,39 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
             (if Option.isNone exnOpt then 0 else 1), report
 
+    // IL emission type checks the project again, in this process, while WebSharper type checks it:
+    // type providers are instantiated by both, and many of them share what they provide through
+    // caches that are not thread-safe (static caches of the FSharp.Data helpers and the
+    // ProvidedTypes SDK's member lists, for example in Zanaptak.TypedCssClasses), which the
+    // concurrent calls corrupt (#1687). With type providers, IL emission starts only after the
+    // WebSharper type check, overlapping with translation only.
+    let delayIlEmit =
+        useParallel && (
+            let typeProviders = referencedTypeProviders emitArgs
+            if typeProviders.Length > 0 then
+                logger.DebugWrite (sprintf "Type providers referenced, F# compilation starts after the WebSharper type check: %s" (String.concat ", " (Array.map Path.GetFileName typeProviders)))
+            typeProviders.Length > 0
+        )
+
     // Not parallel: runs IL emission right here, as before.
     let ilEmitTask : System.Threading.Tasks.Task<int * (unit -> unit)> =
-        if useParallel then
+        if delayIlEmit then
+            new System.Threading.Tasks.Task<_>(fun () -> runIlEmit ())
+        elif useParallel then
             System.Threading.Tasks.Task.Run(runIlEmit)
         else
             System.Threading.Tasks.Task.FromResult(runIlEmit())
 
+    // Starts a delayed IL emission, called after the WebSharper type check and before any wait on it.
+    let startIlEmit () =
+        if delayIlEmit then
+            lock ilEmitTask (fun () ->
+                if ilEmitTask.Status = System.Threading.Tasks.TaskStatus.Created then
+                    ilEmitTask.Start(System.Threading.Tasks.TaskScheduler.Default)
+            )
+
     let waitIlEmit () =
+        startIlEmit ()
         releaseRuntimeMeta () |> ignore
         try ilEmitTask.Wait() with _ -> ()
 
@@ -612,7 +656,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let comp =
         try
-            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, fun translate -> aR.Wrap translate)
+            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, (fun translate -> aR.Wrap translate), startIlEmit)
         with _ ->
             // F# output may explain the failure, but must not replace its exception
             try joinIlEmit () with _ -> ()
@@ -633,6 +677,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         // Join point: translation never needed the assembly up to here.
         // GetResult rethrows the IL emission exception preserving its stack trace
         let join () =
+            startIlEmit ()
             releaseRuntimeMeta () |> ignore
             let ilExitCode = fst (ilEmitTask.GetAwaiter().GetResult())
             joinIlEmit ()
