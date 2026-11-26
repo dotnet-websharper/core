@@ -1246,18 +1246,21 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
                         clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
                     | _ -> ()
 
+        // Static fields (e.g. the backing field of a `static member val`) are not part of the record shape, see #1689
+        let instanceFields = cls.FSharpFields |> Seq.filter (fun f -> not f.IsStatic) |> List.ofSeq
+
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             if annot.IsJavaScript || hasWSPrototype then
                 let cdef =
                     Hashed {
                         CtorParameters =
-                            cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
+                            instanceFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
                     }
                 let body =
                     let vars =
-                        cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
+                        instanceFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
                     let fields =
-                        cls.FSharpFields |> Seq.map (fun f -> 
+                        instanceFields |> Seq.map (fun f -> 
                             let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     
                             match fAnnot.Name with Some n -> n | _ -> f.Name
@@ -1288,7 +1291,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
 
                 // properties
 
-                for f in cls.FSharpFields do
+                for f in instanceFields do
                     let fTyp = sr.ReadType clsTparams f.FieldType
             
                     let getDef =
@@ -1318,7 +1321,7 @@ let rec private transformClass (sc: Lazy<StartupCode>) (comp: Compilation) (ac: 
 
         if cls.IsFSharpRecord then
             let i = 
-                cls.FSharpFields |> Seq.choose (fun f ->
+                instanceFields |> Seq.choose (fun f ->
                     let fTyp = sr.ReadType clsTparams f.FieldType
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
                     
@@ -1629,7 +1632,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 CustomTypeInfo.EnumInfo underlyingType
             else if entity.IsFSharpRecord then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes, false) 
-                entity.FSharpFields |> Seq.choose (fun f ->
+                entity.FSharpFields |> Seq.filter (fun f -> not f.IsStatic) |> Seq.choose (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     match fAnnot.Kind with
                     | Some (A.MemberKind.Remote _) -> None
