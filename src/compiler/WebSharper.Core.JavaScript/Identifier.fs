@@ -124,10 +124,13 @@ let MakeValid x =
     elif IsReserved x then x + "_1"
     else x
 
+// The formatter keeps no state between calls: the JavaScript and TypeScript
+// writers share one instance across compilations, which run concurrently in
+// the booster service (and in any host compiling on several threads).
 let MakeFormatter () =
-    let b = System.Text.StringBuilder()
     let c = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"
     fun (x: int) ->
+        let b = System.Text.StringBuilder()
         let rec loop k =
             if k < 64 then
                 b.Append c.[k] |> ignore
@@ -136,6 +139,4 @@ let MakeFormatter () =
                 loop d
                 b.Append c.[r] |> ignore
         loop x
-        let r = b.ToString()
-        b.Remove(0, r.Length) |> ignore
-        MakeValid r
+        MakeValid (b.ToString())
