@@ -51,6 +51,11 @@ module ClientSideJson =
 
     type TestType = { foo: string option }
 
+    // #1689: the backing field of a `static member val` must not become a JSON field
+    type RecordWithStaticVal =
+        { sa: int; sb: string }
+        static member val Zero = { sa = 0; sb = "zero" }
+
     module Bug735 =
         type test_class_i = 
             | Test_class_i of Test_class_i:string
@@ -212,6 +217,16 @@ module ClientSideJson =
                 let t2 : Dictionary<string,TestType> = 
                     WebSharper.Json.Encode t1 |> WebSharper.Json.Decode
                 equal (Array.ofSeq t1) (Array.ofSeq t2)
+            }
+
+            Test "#1689 serialize record with static member val" {
+                equal (Json.Serialize { sa = 1; sb = "x" }) """{"sa":1,"sb":"x"}"""
+                equal (Json.Serialize RecordWithStaticVal.Zero) """{"sa":0,"sb":"zero"}"""
+            }
+
+            Test "#1689 deserialize record with static member val" {
+                equal (Json.Deserialize<RecordWithStaticVal> """{"sa":1,"sb":"x"}""") { sa = 1; sb = "x" }
+                equal (Json.Deserialize<RecordWithStaticVal> (Json.Serialize RecordWithStaticVal.Zero)) RecordWithStaticVal.Zero
             }
 
             Test "serialize simple record" {
