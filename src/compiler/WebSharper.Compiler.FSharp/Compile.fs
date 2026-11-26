@@ -257,6 +257,30 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     else
         config
 
+/// The type providers among the references of the F# compiler arguments. Framework reference
+/// packs never contain type providers, they are not read.
+let private referencedTypeProviders (compilerArgs: string[]) =
+    let isTypeProviderAssembly (path: string) =
+        try
+            use asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(path)
+            asm.CustomAttributes
+            |> Seq.exists (fun a -> a.AttributeType.FullName = "Microsoft.FSharp.Core.CompilerServices.TypeProviderAssemblyAttribute")
+        with _ -> false
+    compilerArgs |> Array.choose (fun arg ->
+        let path =
+            if arg.StartsWith "-r:" then Some (arg.Substring 3)
+            elif arg.StartsWith "--reference:" then Some (arg.Substring 12)
+            else None
+        match path with
+        | Some path ->
+            let path = path.Trim('"')
+            let isRefPack =
+                path.Replace('\\', '/').Contains("/packs/")
+                && (path.Contains ".App.Ref" || path.Contains "NETStandard.Library.Ref")
+            if not isRefPack && isTypeProviderAssembly path then Some path else None
+        | None -> None
+    )
+
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     logger.ProjectFile <- config.ProjectFile
     logger.TimingLogPath <- defaultArg config.TimingLog ""
@@ -360,14 +384,39 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
             (if Option.isNone exnOpt then 0 else 1), report
 
+    // IL emission type checks the project again, in this process, while WebSharper type checks it:
+    // type providers are instantiated by both, and many of them share what they provide through
+    // caches that are not thread-safe (static caches of the FSharp.Data helpers and the
+    // ProvidedTypes SDK's member lists, for example in Zanaptak.TypedCssClasses), which the
+    // concurrent calls corrupt (#1687). With type providers, IL emission starts only after the
+    // WebSharper type check, overlapping with translation only.
+    let delayIlEmit =
+        useParallel && (
+            let typeProviders = referencedTypeProviders config.CompilerArgs
+            if typeProviders.Length > 0 then
+                logger.DebugWrite (sprintf "Type providers referenced, F# compilation starts after the WebSharper type check: %s" (String.concat ", " (Array.map Path.GetFileName typeProviders)))
+            typeProviders.Length > 0
+        )
+
     // Not parallel: runs IL emission right here, as before.
     let ilEmitTask : System.Threading.Tasks.Task<int * (unit -> unit)> =
-        if useParallel then
+        if delayIlEmit then
+            new System.Threading.Tasks.Task<_>(fun () -> runIlEmit ())
+        elif useParallel then
             System.Threading.Tasks.Task.Run(runIlEmit)
         else
             System.Threading.Tasks.Task.FromResult(runIlEmit())
 
+    // Starts a delayed IL emission, called after the WebSharper type check and before any wait on it.
+    let startIlEmit () =
+        if delayIlEmit then
+            lock ilEmitTask (fun () ->
+                if ilEmitTask.Status = System.Threading.Tasks.TaskStatus.Created then
+                    ilEmitTask.Start(System.Threading.Tasks.TaskScheduler.Default)
+            )
+
     let waitIlEmit () =
+        startIlEmit ()
         try ilEmitTask.Wait() with _ -> ()
 
     // Never return with IL emission still running: in the booster it would keep writing the
@@ -485,7 +534,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
     let comp =
         try
-            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, fun translate -> aR.Wrap translate)
+            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger, (fun translate -> aR.Wrap translate), startIlEmit)
         with _ ->
             // F# output may explain the failure, but must not replace its exception
             try joinIlEmit () with _ -> ()
@@ -503,6 +552,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
         // Join point: translation never needed the assembly up to here.
         // GetResult rethrows the IL emission exception preserving its stack trace
+        startIlEmit ()
         let ilExitCode = fst (ilEmitTask.GetAwaiter().GetResult())
         joinIlEmit ()
         if useParallel then
