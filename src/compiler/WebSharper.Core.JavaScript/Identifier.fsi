@@ -33,6 +33,8 @@ val IsValid : string -> bool
 /// Replaces bad characters by underscore to make an identifier valid.
 val MakeValid : string -> string
 
-/// Constructs a compact numeric identifier formatter. The formatter is
-/// stateless, so one instance can be shared across threads.
+/// Constructs a compact numeric identifier formatter: it writes a non-negative
+/// number in base 64 (`a`-`z`, `A`-`Z`, `0`-`9`, `_`, `$`), so 0 is `a`, 63 is
+/// `$` and 64 is `ba`, then makes the result a valid, non-reserved identifier.
+/// The formatter is stateless, so one instance can be shared across threads.
 val MakeFormatter : unit -> (int -> string)

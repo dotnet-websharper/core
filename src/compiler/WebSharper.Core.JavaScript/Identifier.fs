@@ -124,19 +124,27 @@ let MakeValid x =
     elif IsReserved x then x + "_1"
     else x
 
+// Names are the argument written in base 64, digits taken from `digits`: 0-63
+// give `a`-`$`, 64 gives `ba`, and so on. 64^5 = 2^30 < Int32.MaxValue < 64^6,
+// so a name never has more than 6 digits.
+//
 // The formatter keeps no state between calls: the JavaScript and TypeScript
 // writers share one instance across compilations, which run concurrently in
-// the booster service (and in any host compiling on several threads).
+// the booster service (and in any host compiling on several threads). Each call
+// builds its name in its own 6-char buffer; one-digit names are precomputed.
 let MakeFormatter () =
-    let c = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"
+    let digits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"
+    let single = Array.init 64 (fun i -> MakeValid (string digits.[i]))
     fun (x: int) ->
-        let b = System.Text.StringBuilder()
-        let rec loop k =
-            if k < 64 then
-                b.Append c.[k] |> ignore
-            else
-                let (d, r) = System.Math.DivRem(k, 64)
-                loop d
-                b.Append c.[r] |> ignore
-        loop x
-        MakeValid (b.ToString())
+        if x < 64 then single.[x]
+        else
+            let buf = Array.zeroCreate<char> 6
+            let mutable i = 6
+            let mutable k = x
+            while k >= 64 do
+                i <- i - 1
+                buf.[i] <- digits.[k % 64]
+                k <- k / 64
+            i <- i - 1
+            buf.[i] <- digits.[k]
+            MakeValid (System.String(buf, i, 6 - i))
