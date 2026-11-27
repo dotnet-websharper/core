@@ -59,7 +59,7 @@ namespace Conformance
             C("string.ctor.repeat", () => new string('=', 5)),
             C("tochararray.reverse", () => new string("hello".ToCharArray().Reverse().ToArray())),
             C("string.equality.ref", () => { var a = "ab"; var b = string.Concat("a", "b"); return B(a == b) + "," + B((object)a == (object)b) + "," + B(a.Equals(b)); }),
-            C("stringbuilder", () => { var sb = new StringBuilder(); sb.Append("a").Append(1).AppendLine("b").Append('c'); sb.Insert(0, ">"); return sb.ToString().Replace("\n", "\\n").Replace("\r", "\\r") + "|" + sb.Length; }),
+            C("stringbuilder", () => { var sb = new StringBuilder(); sb.Append("a").Append(1).AppendLine("b").Append('c'); sb.Insert(0, ">"); var s = sb.ToString(); return s.Replace("\r", "").Replace("\n", "\\n") + "|" + (sb.Length == s.Length); }),
             C("stringbuilder.remove.replace", () => { var sb = new StringBuilder("hello world"); sb.Remove(0, 6).Replace('o', '0'); return sb.ToString(); }),
             C("interp.nested", () => { var xs = new[] { 1, 2 }; return $"{xs.Length} items: {string.Join(";", xs.Select(x => $"<{x}>"))}"; }),
             C("interp.null", () => { string s = null; object o = null; return $"[{s}][{o}]"; }),

@@ -31,6 +31,9 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// dates are compared in UTC on both sides
+process.env.TZ = "UTC";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const update = process.argv.includes("--update");
 
@@ -45,7 +48,7 @@ function parse(text) {
 
 const netDll = join(here, "Net", "bin", "Release", "WebSharper.CSharp.Conformance.Net.dll");
 if (!existsSync(netDll)) throw new Error(`${netDll} not found: build Net/ in Release first`);
-const net = parse(execFileSync("dotnet", [netDll], { encoding: "utf8" }));
+const net = parse(execFileSync("dotnet", [netDll], { encoding: "utf8", env: { ...process.env, TZ: "UTC" } }));
 
 const { Run } = await import("./Js/build/Scripts/WebSharper/Conformance/Conformance.Runner.js");
 const js = parse(Run().join("\n"));

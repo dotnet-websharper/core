@@ -12,6 +12,8 @@ node check.mjs            # compare with baseline.json
 node check.mjs --update   # after a fix: rewrite baseline.json, commit it with the fix
 ```
 
+Both sides run with `TZ=UTC`, so date cases don't depend on the machine's time zone.
+
 `check.mjs` also type-checks `dts-check.ts` with `strict` and without `skipLibCheck`, against the `.d.ts` files
 WebSharper writes for the cases (needs `npm install` in the repository root for `typescript`).
 
