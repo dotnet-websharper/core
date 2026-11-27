@@ -407,6 +407,16 @@ type WildcardAttribute() =
 type FSharpSourceGeneratorAttribute(fileExtension: string, generatorType: Type) =
     inherit A()
 
+/// Marks a type provider assembly (the one with TypeProviderAssemblyAttribute) whose type
+/// provider instances share no provided types or other mutable state, so the two type checks
+/// of a WebSharper F# compilation can run it at the same time: the assembly is then emitted in
+/// parallel with the WebSharper type check. The compiler recognizes the attribute by its full
+/// name, so a type provider can declare its own WebSharper.ThreadSafeTypeProviderAttribute
+/// instead of referencing WebSharper.
+[<Sealed; U(T.Assembly)>]
+type ThreadSafeTypeProviderAttribute() =
+    inherit A()
+
 /// Marks a feature that can add exported methods to page bundles.
 [<Sealed; U(T.Method, AllowMultiple = true)>]
 type RequireFeatureAttribute private () =
