@@ -86,6 +86,9 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperStandalone { get; set; } = "";
         public string WebSharperTransparentCompiler { get; set; } = "";
         public string WebSharperParallelCompilation { get; set; } = "";
+        /// Type provider assemblies to treat as thread-safe, separated by semicolons.
+        public string WebSharperThreadSafeTypeProviders { get; set; } = "";
+        public string WebSharperSerializeTypeProviders { get; set; } = "";
 
         /// Assemblies with agent tools for the booster, separated by semicolons (set by agent extension packages).
         public string WebSharperAgentExtensions { get; set; } = "";
@@ -163,6 +166,13 @@ namespace WebSharper.MSBuild.FSharp
 
             if (bool.TryParse(WebSharperParallelCompilation, out bool parallelCompilation))
                 w.WriteLine("--parallelcompilation" + (parallelCompilation ? "+" : "-"));
+
+            foreach (var typeProvider in (WebSharperThreadSafeTypeProviders ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                if (!string.IsNullOrWhiteSpace(typeProvider))
+                    w.WriteLine("--threadsafetypeprovider:" + typeProvider.Trim());
+
+            if (bool.TryParse(WebSharperSerializeTypeProviders, out bool serializeTypeProviders))
+                w.WriteLine("--serializetypeproviders" + (serializeTypeProviders ? "+" : "-"));
 
             foreach (var extension in (WebSharperAgentExtensions ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                 if (!string.IsNullOrWhiteSpace(extension))

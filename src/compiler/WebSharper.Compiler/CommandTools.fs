@@ -114,6 +114,11 @@ type WsConfig =
         BuildServiceLogging : bool
         TransparentCompiler : bool
         ParallelCompilation : bool
+        /// Type providers (assembly names) treated as thread-safe, like those marked with
+        /// WebSharper.ThreadSafeTypeProviderAttribute: they don't delay IL emission.
+        ThreadSafeTypeProviders : string list
+        /// Delay IL emission whenever a type provider is referenced, thread-safe ones too.
+        SerializeTypeProviders : bool
         /// Assemblies with agent tools for the booster (IAgentExtension), from --agentextension.
         AgentExtensions : string list
         TimingLog : string option
@@ -213,6 +218,8 @@ type WsConfig =
                     | true, v -> v
                     | _ -> true
             ParallelCompilation = true
+            ThreadSafeTypeProviders = []
+            SerializeTypeProviders = false
             AgentExtensions = []
             TimingLog = None
             BoosterLog = None
@@ -365,6 +372,17 @@ type WsConfig =
                 res <- { res with TransparentCompiler = getBool k v }
             | "parallelcompilation" ->
                 res <- { res with ParallelCompilation = getBool k v }
+            | "threadsafetypeproviders" ->
+                let invalid () = argError (sprintf "Invalid value in %s for %s, expecting a string or an array of strings." fileName k)
+                let names =
+                    match v with
+                    | Json.String s -> s.Split(';') |> List.ofArray
+                    | Json.Array a -> a |> List.ofSeq |> List.map (function Json.String s -> s | _ -> invalid ())
+                    | _ -> invalid ()
+                    |> List.map (fun n -> n.Trim()) |> List.filter (fun n -> n <> "")
+                res <- { res with ThreadSafeTypeProviders = res.ThreadSafeTypeProviders @ names }
+            | "serializetypeproviders" ->
+                res <- { res with SerializeTypeProviders = getBool k v }
             | "buildservicelogging" ->
                 res <- { res with BuildServiceLogging = not (getBool k v) }
             | "runtimemetadata" ->
@@ -598,7 +616,12 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
                           environment variable is false
   --parallelcompilation[+|-]  F#: emit the assembly in parallel with WebSharper
                           translation (not for WIG and bundle-only projects)
-                          default: true"""
+                          default: true
+  --threadsafetypeprovider:<name>  F#: treat the type provider assembly as thread-safe,
+                          so it does not delay emitting the assembly
+  --serializetypeproviders[+|-]  F#: emit the assembly after the WebSharper type check
+                          whenever a type provider is referenced, thread-safe ones too
+                          default: false"""
             |> logger.Out
         | UnpackHelp ->
             sprintf "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
@@ -675,6 +698,8 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--transparentcompiler" v -> Some { wsArgs with TransparentCompiler = v }
     | StartsWith "--agentextension:" p -> Some { wsArgs with AgentExtensions = wsArgs.AgentExtensions @ [ p ] }
     | Flag "--parallelcompilation" v -> Some { wsArgs with ParallelCompilation = v }
+    | StartsWith "--threadsafetypeprovider:" p -> Some { wsArgs with ThreadSafeTypeProviders = wsArgs.ThreadSafeTypeProviders @ [ p.Trim() ] }
+    | Flag "--serializetypeproviders" v -> Some { wsArgs with SerializeTypeProviders = v }
     | Flag "--prebundle" v -> Some { wsArgs with PreBundle = wsArgs.PreBundle || v }
     | _ -> 
         None

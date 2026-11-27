@@ -110,6 +110,8 @@ $end{copyright}
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperThreadSafeTypeProviders="$(WebSharperThreadSafeTypeProviders)"
+      WebSharperSerializeTypeProviders="$(WebSharperSerializeTypeProviders)"
       WebSharperAgentExtensions="$(WebSharperAgentExtensions)"
       RefAssembly="@(IntermediateRefAssembly)"
       ReferenceImplementations="@(ReferencePath)"
