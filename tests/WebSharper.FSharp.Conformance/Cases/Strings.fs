@@ -87,7 +87,7 @@ module Strings =
         C "char.unicode.upper" (fun () -> string (Char.ToUpper 'ß') + "," + (s "straße").ToUpper())
         C "char.surrogate.length" (fun () -> string (s "😀").Length)
         C "stringbuilder" (fun () -> let sb = StringBuilder() in sb.Append("a").Append(1).Append('c') |> ignore; sb.ToString())
-        C "stringbuilder.appendline" (fun () -> let sb = StringBuilder() in sb.AppendLine("a") |> ignore; string sb.Length)
+        C "stringbuilder.appendline" (fun () -> let sb = StringBuilder() in sb.AppendLine("a") |> ignore; sb.ToString())
         C "interp.basic" (fun () -> let x = n 3 in $"x={x}")
         C "interp.adjacent" (fun () -> let a, b = n 1, n 2 in $"{a}{b}")
 #if !JS
