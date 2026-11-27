@@ -1008,7 +1008,7 @@
     "status": "known",
     "reason": "A DateTime has no Kind in JavaScript: the \"o\" format writes local time with its offset, never \"Z\". Use DateTimeOffset, or Date.toISOString from WebSharper.JavaScript for a UTC timestamp.",
     "net": "2024-07-04T09:03:00.0000000Z",
-    "js": "2024-07-04T11:03:00.0000000+02:00"
+    "js": "2024-07-04T09:03:00.0000000+00:00"
   },
   "datetime.parse": {
     "status": "pass"
