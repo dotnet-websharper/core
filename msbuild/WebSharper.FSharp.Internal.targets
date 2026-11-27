@@ -103,6 +103,8 @@
       WebSharperStandalone="$(WebSharperStandalone)"
       WebSharperTransparentCompiler="$(WebSharperTransparentCompiler)"
       WebSharperParallelCompilation="$(WebSharperParallelCompilation)"
+      WebSharperThreadSafeTypeProviders="$(WebSharperThreadSafeTypeProviders)"
+      WebSharperSerializeTypeProviders="$(WebSharperSerializeTypeProviders)"
     />
   </Target>
 </Project>
