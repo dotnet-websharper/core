@@ -257,6 +257,16 @@ let RunFSharpSourceGeneration (logger: LoggerBase) (config : WsConfig) =
     else
         config
 
+/// A type provider whose instances share no provided types or other mutable state, so the two type
+/// checks of a compilation can run it at the same time (#1697). Recognized by full name: a type
+/// provider can declare its own copy of the attribute instead of referencing WebSharper.
+let private isThreadSafeTypeProvider (path: string) =
+    try
+        use asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(path)
+        asm.CustomAttributes
+        |> Seq.exists (fun a -> a.AttributeType.FullName = "WebSharper.ThreadSafeTypeProviderAttribute")
+    with _ -> false
+
 /// The type providers among the references of the F# compiler arguments. Framework reference
 /// packs never contain type providers, they are not read.
 let private referencedTypeProviders (compilerArgs: string[]) =
@@ -389,13 +399,29 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     // caches that are not thread-safe (static caches of the FSharp.Data helpers and the
     // ProvidedTypes SDK's member lists, for example in Zanaptak.TypedCssClasses), which the
     // concurrent calls corrupt (#1687). With type providers, IL emission starts only after the
-    // WebSharper type check, overlapping with translation only.
+    // WebSharper type check, overlapping with translation only. Type providers marked with
+    // WebSharper.ThreadSafeTypeProviderAttribute or listed in ThreadSafeTypeProviders don't delay
+    // it, unless SerializeTypeProviders is set (#1697).
     let delayIlEmit =
         useParallel && (
             let typeProviders = referencedTypeProviders config.CompilerArgs
-            if typeProviders.Length > 0 then
-                logger.DebugWrite (sprintf "Type providers referenced, F# compilation starts after the WebSharper type check: %s" (String.concat ", " (Array.map Path.GetFileName typeProviders)))
-            typeProviders.Length > 0
+            let names (paths: string[]) = String.concat ", " (Array.map Path.GetFileName paths)
+            let trusted =
+                config.ThreadSafeTypeProviders
+                |> List.map (fun n -> (if n.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) then n.Substring(0, n.Length - 4) else n).ToLowerInvariant())
+                |> Set.ofList
+            let unsafeTypeProviders =
+                if config.SerializeTypeProviders then typeProviders else
+                typeProviders |> Array.filter (fun p ->
+                    not (trusted.Contains (Path.GetFileNameWithoutExtension(p).ToLowerInvariant()))
+                    && not (isThreadSafeTypeProvider p))
+            if config.SerializeTypeProviders && typeProviders.Length > 0 then
+                logger.Out (sprintf "F# compilation starts after the WebSharper type check (SerializeTypeProviders), type providers: %s" (names typeProviders))
+            elif unsafeTypeProviders.Length > 0 then
+                logger.Out (sprintf "F# compilation starts after the WebSharper type check, type providers not marked thread-safe: %s (see WebSharperThreadSafeTypeProviders)" (names unsafeTypeProviders))
+            elif typeProviders.Length > 0 then
+                logger.DebugWrite (sprintf "Thread-safe type providers referenced, F# compilation runs in parallel: %s" (names typeProviders))
+            unsafeTypeProviders.Length > 0
         )
 
     // Not parallel: runs IL emission right here, as before.

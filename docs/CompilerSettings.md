@@ -62,6 +62,28 @@ If the value is `false`, the F# type check needed for WebSharper translation use
 
 Can also be set with the `WebSharperTransparentCompiler` MSBuild property or the `--transparentcompiler[+|-]` compiler flag. The `wsfscservice` booster inherits the environment of the build that started it, so after changing the environment variable, stop it with `dotnet ws stop` for the change to apply.
 
+<a name="threadSafeTypeProviders"></a>
+## "threadSafeTypeProviders"
+
+**Type**: string (assembly names separated by `;`) or array of strings (default is none)
+
+The WebSharper F# compiler emits the .NET assembly in parallel with its own type check of the project. Both type checks run the referenced type providers, and many type providers share provided types between their instances, which is not safe when they run at the same time (see [#1687](https://github.com/dotnet-websharper/core/issues/1687)). So when a type provider is referenced, the assembly is emitted only after the WebSharper type check, unless the type provider is thread-safe: its assembly (the one with `TypeProviderAssemblyAttribute`) is marked with `WebSharper.ThreadSafeTypeProviderAttribute`, or it is listed in this setting. The WebSharper.UI templating type provider is marked.
+
+List a type provider here only if its instances share no provided types or other mutable state. The names are assembly names, with or without `.dll`, compared ignoring case: for example `"threadSafeTypeProviders": ["MyCompany.TypeProviders"]`. A type provider can also be marked by its author: the compiler recognizes the attribute by its full name, so a type provider can declare its own `WebSharper.ThreadSafeTypeProviderAttribute` (an assembly attribute) instead of referencing WebSharper.
+
+With detailed build output (`-v:d`), the compiler names the type providers that made it wait.
+
+Can also be set with the `WebSharperThreadSafeTypeProviders` MSBuild property (separated by `;`) or the `--threadsafetypeprovider:<name>` compiler flag (once per type provider).
+
+<a name="serializeTypeProviders"></a>
+## "serializeTypeProviders"
+
+**Type**: bool (default is `false`)
+
+If the value is `true`, the .NET assembly is emitted after the WebSharper type check whenever a type provider is referenced, even a thread-safe one (see [threadSafeTypeProviders](#threadSafeTypeProviders)). Use it if a type provider marked thread-safe fails intermittently with errors like `FS0039` for a provided member that exists, `FS3021` or `FS3033`.
+
+Can also be set with the `WebSharperSerializeTypeProviders` MSBuild property or the `--serializetypeproviders[+|-]` compiler flag.
+
 <a name="configurationName"></a>
 ## Configuration name (usually `"Debug"` or `"Release"`)
 
